@@ -1,0 +1,65 @@
+# FoxDesk — Apache Configuration
+# Security headers are set via PHP (includes/security-helpers.php).
+
+# ── Disable directory listing ────────────────────────────────────────────────
+Options -Indexes
+
+# ── Pass Authorization header to PHP (API Bearer token auth) ─────────────────
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTP:Authorization} .+
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+
+# Fallback for CGI/FastCGI setups
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+
+# ── Block direct access to sensitive files ───────────────────────────────────
+<FilesMatch "^(config\.php|config\.example\.php|docker-setup\.php|version\.json|\.maintenance)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# ── Block direct access to internal directories ─────────────────────────────
+<IfModule mod_rewrite.c>
+  # Block includes/, bin/, backups/ from direct web access
+  RewriteRule ^(includes|bin|backups)/ - [F,L]
+</IfModule>
+
+# ── Block SQL and log files ──────────────────────────────────────────────────
+<FilesMatch "\.(sql|log|sh|env)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# ── Browser caching for static assets ────────────────────────────────────────
+# CSS/JS use ?v=VERSION for cache busting, so long expiry is safe.
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType font/woff "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/x-icon "access plus 1 year"
+</IfModule>
+
+# ── Gzip compression ─────────────────────────────────────────────────────────
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css
+  AddOutputFilterByType DEFLATE application/javascript application/json
+  AddOutputFilterByType DEFLATE image/svg+xml application/xml text/xml
+</IfModule>

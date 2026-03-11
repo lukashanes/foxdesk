@@ -1,0 +1,15 @@
+{
+    "version": "0.3.75",
+    "date": "2026-03-11",
+    "min_php": "8.1",
+    "changelog": [
+        "Notifications: cross-view read state sync between header, dashboard, and notification page",
+        "Notifications: consistent avatar colors across all views",
+        "Activity tracking: new admin section with page view analytics and user activity logs",
+        "Documentation: complete rewrite of README, INSTALL, and MANUAL for v0.3.75"
+    ],
+    "delete_files": [
+        "includes\/ticket-import-functions.php",
+        "pages\/ticket-export.php"
+    ]
+}
