@@ -66,7 +66,14 @@ function create_notifications_for_users(array $user_ids, string $type, ?int $tic
     $now = date('Y-m-d H:i:s');
     $json = json_encode($data, JSON_UNESCAPED_UNICODE);
 
+    $notified_user_ids = [];
+
     foreach ($users as $u) {
+        // Check per-type notification preference
+        if (function_exists('user_wants_notification') && !user_wants_notification((int) $u['id'], $type)) {
+            continue;
+        }
+
         try {
             db_insert('notifications', [
                 'user_id'    => (int) $u['id'],
@@ -77,10 +84,108 @@ function create_notifications_for_users(array $user_ids, string $type, ?int $tic
                 'is_read'    => 0,
                 'created_at' => $now,
             ]);
+            $notified_user_ids[] = (int) $u['id'];
         } catch (Throwable $e) {
             // Silently skip — don't break the main flow
         }
     }
+
+    // Dispatch browser push notifications (N9)
+    if (!empty($notified_user_ids)) {
+        try {
+            if (file_exists(BASE_PATH . '/includes/web-push.php')) {
+                require_once BASE_PATH . '/includes/web-push.php';
+                if (function_exists('dispatch_push_notifications')) {
+                    dispatch_push_notifications($notified_user_ids);
+                }
+            }
+        } catch (Throwable $e) {
+            // Push failures should never break in-app notifications
+        }
+    }
+}
+
+// ── Per-type Notification Preferences ────────────────────────────────────────
+
+/**
+ * Ensure notification_preferences column exists on users table.
+ */
+function ensure_notification_preferences_column(): void
+{
+    static $done = false;
+    if ($done) return;
+    $done = true;
+
+    try {
+        $cols = db_fetch_all("SHOW COLUMNS FROM users LIKE 'notification_preferences'");
+        if (empty($cols)) {
+            db_query("ALTER TABLE users ADD COLUMN notification_preferences TEXT NULL");
+        }
+    } catch (Throwable $e) { /* ignore */ }
+}
+
+/**
+ * Get notification type labels for UI display.
+ */
+function get_notification_type_labels(): array
+{
+    return [
+        'new_ticket'        => t('New ticket created'),
+        'new_comment'       => t('New comment'),
+        'status_changed'    => t('Status changed'),
+        'assigned_to_you'   => t('Assigned to you'),
+        'priority_changed'  => t('Priority changed'),
+        'mentioned'         => t('Mentioned'),
+        'due_date_reminder' => t('Due date reminder'),
+    ];
+}
+
+/**
+ * Get user's notification preferences (per-type).
+ * Returns associative array: ['new_ticket' => true, 'new_comment' => false, ...]
+ * All types default to enabled.
+ */
+function get_notification_preferences(int $user_id): array
+{
+    ensure_notification_preferences_column();
+    $defaults = array_fill_keys(array_keys(get_notification_type_labels()), true);
+
+    try {
+        $row = db_fetch_one("SELECT notification_preferences FROM users WHERE id = ?", [$user_id]);
+        if (!empty($row['notification_preferences'])) {
+            $prefs = json_decode($row['notification_preferences'], true);
+            if (is_array($prefs)) {
+                return array_merge($defaults, $prefs);
+            }
+        }
+    } catch (Throwable $e) { /* ignore */ }
+
+    return $defaults;
+}
+
+/**
+ * Save user's notification preferences.
+ */
+function save_notification_preferences(int $user_id, array $prefs): bool
+{
+    ensure_notification_preferences_column();
+    try {
+        db_update('users', [
+            'notification_preferences' => json_encode($prefs)
+        ], 'id = ?', [$user_id]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Check if a user wants notifications of a given type.
+ */
+function user_wants_notification(int $user_id, string $type): bool
+{
+    $prefs = get_notification_preferences($user_id);
+    return $prefs[$type] ?? true;
 }
 
 // ── Read ─────────────────────────────────────────────────────────────────────
@@ -157,6 +262,20 @@ function mark_notification_read(int $notification_id, int $user_id): bool
     if (!notifications_table_exists()) return false;
 
     db_update('notifications', ['is_read' => 1], 'id = ? AND user_id = ?', [$notification_id, $user_id]);
+    return true;
+}
+
+/**
+ * Mark all notifications for a specific ticket as read.
+ */
+function mark_ticket_notifications_read(int $ticket_id, int $user_id): bool
+{
+    if (!notifications_table_exists()) return false;
+
+    db_execute(
+        "UPDATE notifications SET is_read = 1 WHERE ticket_id = ? AND user_id = ? AND is_read = 0",
+        [$ticket_id, $user_id]
+    );
     return true;
 }
 
@@ -476,10 +595,64 @@ function format_notification_text(array $notification): string
 
         case 'due_date_reminder':
             $due = $data['due_date'] ?? '';
+            if (!empty($data['is_overdue'])) {
+                return t('Ticket {subject} is overdue (was due {date})', ['subject' => $subject, 'date' => $due]);
+            }
             return t('Ticket {subject} is due {date}', ['subject' => $subject, 'date' => $due]);
+
+        case 'system':
+            return $data['message'] ?? t('System notification');
 
         default:
             return t('New notification');
+    }
+}
+
+/**
+ * Format notification action text (without ticket subject) for ticket-first layout.
+ */
+function format_notification_action(array $notification): string
+{
+    $data = $notification['data'] ?? [];
+    $actor = $data['actor_name'] ?? t('Someone');
+
+    switch ($notification['type'] ?? '') {
+        case 'new_ticket':
+            return t('New ticket by {actor}', ['actor' => $actor]);
+
+        case 'new_comment':
+            return t('Comment by {actor}', ['actor' => $actor]);
+
+        case 'status_changed':
+            $new_status = $data['new_status'] ?? '';
+            return t('Status → {status} • {actor}', ['status' => $new_status, 'actor' => $actor]);
+
+        case 'assigned_to_you':
+            return t('Assigned to you by {actor}', ['actor' => $actor]);
+
+        case 'priority_changed':
+            $new_priority = $data['new_priority'] ?? '';
+            return t('Priority → {priority} • {actor}', ['priority' => $new_priority, 'actor' => $actor]);
+
+        case 'ticket_updated':
+            $field = $data['field'] ?? '';
+            $detail = $data['detail'] ?? '';
+            $field_labels = [
+                'due_date' => t('due date'),
+                'type'     => t('type'),
+                'company'  => t('company'),
+            ];
+            $fl = $field_labels[$field] ?? $field;
+            if ($detail) {
+                return t('{field} → {value} • {actor}', ['field' => ucfirst($fl), 'value' => $detail, 'actor' => $actor]);
+            }
+            return t('{field} updated • {actor}', ['field' => ucfirst($fl), 'actor' => $actor]);
+
+        case 'due_date_reminder':
+            return t('Due {date}', ['date' => $data['due_date'] ?? '']);
+
+        default:
+            return '';
     }
 }
 
@@ -602,4 +775,105 @@ function cleanup_old_notifications(int $days = 90): int
     } catch (Throwable $e) {
         return 0;
     }
+}
+
+// ── Due Date Reminder Processing ────────────────────────────────────────────
+
+/**
+ * Process due date reminders for tickets approaching or past their due date.
+ *
+ * Called from cron every hour. Sends in-app notifications (and optionally email)
+ * for tickets due within the next 24 hours or already overdue.
+ * Deduplicates by checking existing notifications to avoid spamming.
+ *
+ * @return array Summary of processed tickets
+ */
+function process_due_date_notifications(): array
+{
+    $result = ['due_soon' => 0, 'overdue' => 0, 'skipped' => 0];
+
+    // Get closed status IDs to exclude
+    $closed_statuses = db_fetch_all("SELECT id FROM statuses WHERE is_closed = 1");
+    $closed_ids = array_map('intval', array_column($closed_statuses, 'id'));
+
+    if (empty($closed_ids)) {
+        $closed_placeholder = '0';
+        $params = [];
+    } else {
+        $closed_placeholder = implode(',', array_fill(0, count($closed_ids), '?'));
+        $params = $closed_ids;
+    }
+
+    // Find tickets that are:
+    // 1. Due within the next 24 hours (due_soon)
+    // 2. Already overdue (past due_date)
+    // Exclude closed/archived tickets
+    $tickets = db_fetch_all("
+        SELECT t.id, t.title, t.due_date, t.assignee_id, t.hash
+        FROM tickets t
+        WHERE t.due_date IS NOT NULL
+          AND t.due_date <= DATE_ADD(NOW(), INTERVAL 24 HOUR)
+          AND (t.is_archived IS NULL OR t.is_archived = 0)
+          AND t.status_id NOT IN ({$closed_placeholder})
+        ORDER BY t.due_date ASC
+        LIMIT 100
+    ", $params);
+
+    if (empty($tickets)) {
+        return $result;
+    }
+
+    // Check which tickets already had a due_date_reminder notification in the last 20 hours
+    // (prevents sending duplicates on each cron run)
+    $ticket_ids = array_map(fn($t) => (int) $t['id'], $tickets);
+    $id_placeholders = implode(',', array_fill(0, count($ticket_ids), '?'));
+    $cutoff_time = date('Y-m-d H:i:s', strtotime('-20 hours'));
+
+    $already_notified = db_fetch_all("
+        SELECT DISTINCT ticket_id
+        FROM notifications
+        WHERE type = 'due_date_reminder'
+          AND ticket_id IN ({$id_placeholders})
+          AND created_at >= ?
+    ", array_merge($ticket_ids, [$cutoff_time]));
+
+    $notified_ticket_ids = array_flip(array_map(fn($r) => (int) $r['ticket_id'], $already_notified));
+
+    foreach ($tickets as $ticket) {
+        $tid = (int) $ticket['id'];
+
+        // Skip if already notified recently
+        if (isset($notified_ticket_ids[$tid])) {
+            $result['skipped']++;
+            continue;
+        }
+
+        $is_overdue = strtotime($ticket['due_date']) < time();
+        $due_formatted = function_exists('format_date') ? format_date($ticket['due_date'], 'd.m.Y H:i') : $ticket['due_date'];
+
+        // Dispatch in-app notification
+        if (function_exists('dispatch_ticket_notifications')) {
+            dispatch_ticket_notifications('due_date_reminder', $tid, 0, [
+                'due_date' => $due_formatted,
+                'is_overdue' => $is_overdue,
+            ]);
+        }
+
+        // Send email reminder if mailer is available
+        if (function_exists('send_due_date_reminder')) {
+            try {
+                send_due_date_reminder($ticket, $is_overdue);
+            } catch (Throwable $e) {
+                // Email failure should not stop processing
+            }
+        }
+
+        if ($is_overdue) {
+            $result['overdue']++;
+        } else {
+            $result['due_soon']++;
+        }
+    }
+
+    return $result;
 }

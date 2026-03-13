@@ -31,6 +31,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             flash(t('Failed to archive report.'), 'error');
         }
+    } elseif ($action === 'duplicate' && $report_id > 0) {
+        $source = get_report_template($report_id);
+        if ($source) {
+            // Calculate date increment: shift period forward by its own length
+            $from_dt = new DateTime($source['date_from']);
+            $to_dt = new DateTime($source['date_to']);
+            $interval = $from_dt->diff($to_dt);
+            $new_from = clone $to_dt;
+            $new_from->modify('+1 day');
+            $new_to = clone $new_from;
+            $new_to->add($interval);
+
+            $dup_data = [
+                'organization_id' => $source['organization_id'],
+                'created_by_user_id' => $current_user['id'],
+                'title' => $source['title'],
+                'report_language' => $source['report_language'],
+                'date_from' => $new_from->format('Y-m-d'),
+                'date_to' => $new_to->format('Y-m-d'),
+                'executive_summary' => $source['executive_summary'] ?? '',
+                'show_financials' => $source['show_financials'] ?? 1,
+                'show_team_attribution' => $source['show_team_attribution'] ?? 1,
+                'show_cost_breakdown' => $source['show_cost_breakdown'] ?? 0,
+                'group_by' => $source['group_by'] ?? 'none',
+                'rounding_minutes' => $source['rounding_minutes'] ?? 15,
+                'theme_color' => $source['theme_color'] ?? null,
+                'hide_branding' => $source['hide_branding'] ?? 0,
+                'is_draft' => 1,
+            ];
+
+            $new_id = create_report_template($dup_data);
+            if ($new_id) {
+                flash(t('Report duplicated as draft with next period dates.'), 'success');
+            } else {
+                flash(t('Failed to duplicate report.'), 'error');
+            }
+        }
     } elseif ($action === 'publish' && $report_id > 0) {
         if (update_report_template($report_id, ['is_draft' => 0])) {
             $template = get_report_template($report_id);
@@ -247,6 +284,25 @@ include BASE_PATH . '/includes/header.php';
                                             </button>
                                         </form>
                                     <?php endif; ?>
+
+                                    <!-- Edit -->
+                                    <a href="<?php echo url('admin', ['section' => 'report-builder', 'edit' => $report['id']]); ?>"
+                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center">
+                                        <?php echo get_icon('edit', 'w-3.5 h-3.5 mr-1 inline-block'); ?>
+                                        <?php echo e(t('Edit')); ?>
+                                    </a>
+
+                                    <!-- Duplicate (next period) -->
+                                    <form method="POST" class="inline">
+                                        <?php echo csrf_field(); ?>
+                                        <input type="hidden" name="action" value="duplicate">
+                                        <input type="hidden" name="report_id" value="<?php echo $report['id']; ?>">
+                                        <button type="submit" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                                            title="<?php echo e(t('Duplicate with next period dates')); ?>">
+                                            <?php echo get_icon('copy', 'w-3.5 h-3.5 mr-1 inline-block'); ?>
+                                            <?php echo e(t('Duplicate')); ?>
+                                        </button>
+                                    </form>
 
                                     <!-- Delete -->
                                     <form method="POST" class="inline"

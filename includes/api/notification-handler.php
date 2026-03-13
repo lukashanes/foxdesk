@@ -125,6 +125,32 @@ function api_mark_notification_read()
 }
 
 /**
+ * POST: Mark all notifications for a specific ticket as read.
+ */
+function api_mark_ticket_notifications_read()
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        api_error('Method not allowed', 405);
+    }
+
+    require_csrf_token(true);
+
+    $user = current_user();
+    if (!$user) {
+        api_error('Unauthorized', 401);
+    }
+
+    $ticket_id = (int) ($_POST['ticket_id'] ?? 0);
+    if ($ticket_id <= 0) {
+        api_error('Missing ticket_id', 422);
+    }
+
+    mark_ticket_notifications_read($ticket_id, (int) $user['id']);
+
+    api_success(['ok' => true]);
+}
+
+/**
  * POST: Mark all notifications as read.
  */
 function api_mark_all_notifications_read()

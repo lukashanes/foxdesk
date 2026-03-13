@@ -425,13 +425,17 @@ if ($time_tracking_available && $tab !== 'shared') {
         if (!isset($by_week[$week_key])) {
             $week_start = new DateTime($entry['started_at']);
             $week_start->setISODate((int) $week_start->format('o'), (int) $week_start->format('W'));
+            $week_end = clone $week_start;
+            $week_end->modify('+6 days');
             $by_week[$week_key] = [
                 'label' => $week_start->format('Y-m-d'),
+                'label_formatted' => $week_start->format('M j') . ' – ' . $week_end->format('M j, Y'),
                 'minutes' => 0,
                 'billable_minutes' => 0,
                 'billable_amount' => 0.0,
                 'cost_amount' => 0.0,
-                'profit' => 0.0
+                'profit' => 0.0,
+                'agents' => [],
             ];
         }
         $by_week[$week_key]['minutes'] += $actual_minutes;
@@ -439,6 +443,19 @@ if ($time_tracking_available && $tab !== 'shared') {
         $by_week[$week_key]['billable_amount'] += $billable_amount;
         $by_week[$week_key]['cost_amount'] += $cost_amount;
         $by_week[$week_key]['profit'] += $profit;
+        // Per-agent breakdown within week
+        $wa_key = (string) $entry['user_id'];
+        if (!isset($by_week[$week_key]['agents'][$wa_key])) {
+            $by_week[$week_key]['agents'][$wa_key] = [
+                'name' => trim($entry['first_name'] . ' ' . $entry['last_name']),
+                'minutes' => 0,
+                'billable_minutes' => 0,
+                'billable_amount' => 0.0,
+            ];
+        }
+        $by_week[$week_key]['agents'][$wa_key]['minutes'] += $actual_minutes;
+        $by_week[$week_key]['agents'][$wa_key]['billable_minutes'] += $billable_minutes;
+        $by_week[$week_key]['agents'][$wa_key]['billable_amount'] += $billable_amount;
 
         // Aggregate by source
         if (!isset($by_source[$source])) {
@@ -464,6 +481,85 @@ if ($time_tracking_available && $tab !== 'shared') {
     unset($entry);
 }
 
+// Check if any cost data exists — if all cost_amount is 0, hide cost/profit columns
+$has_cost_data = abs($totals['cost_amount']) > 0.001;
+
+// ── CSV Export ──────────────────────────────────────────────────────────────
+if (isset($_GET['export']) && $_GET['export'] === 'csv' && in_array($tab, ['detailed', 'worklog', 'summary'], true)) {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="report-' . $tab . '-' . date('Y-m-d') . '.csv"');
+    $csv = fopen('php://output', 'w');
+    // BOM for Excel UTF-8 compatibility
+    fwrite($csv, "\xEF\xBB\xBF");
+
+    if ($tab === 'detailed') {
+        $h = [t('Ticket'), t('Company')];
+        if ($tags_supported) $h[] = t('Tags');
+        $h = array_merge($h, [t('Duration'), t('Duration (min)'), t('Billable'), t('Agent'), t('Source'), t('Start time'), t('End time')]);
+        if ($show_money) $h[] = t('Amount');
+        if ($show_money && $has_cost_data) $h = array_merge($h, [t('Cost'), t('Profit')]);
+        fputcsv($csv, $h);
+
+        foreach ($entries as $e) {
+            $r = [$e['ticket_title'], $e['organization_name'] ?: ''];
+            if ($tags_supported) $r[] = $e['ticket_tags'] ?? '';
+            $r[] = format_duration_minutes($e['actual_minutes']);
+            $r[] = $e['actual_minutes'];
+            $r[] = !empty($e['is_billable']) ? t('Yes') : t('No');
+            $r[] = trim($e['first_name'] . ' ' . $e['last_name']);
+            $r[] = $e['_source'] ?? '';
+            $r[] = $e['started_at'];
+            $r[] = $e['ended_at'] ?: '';
+            if ($show_money) {
+                $r[] = number_format($e['billable_amount'], 2, '.', '');
+            }
+            if ($show_money && $has_cost_data) {
+                $r[] = number_format($e['cost_amount'], 2, '.', '');
+                $r[] = number_format($e['profit'], 2, '.', '');
+            }
+            fputcsv($csv, $r);
+        }
+    } elseif ($tab === 'worklog') {
+        fputcsv($csv, [t('Date'), t('Ticket'), t('Subject'), t('Company'), t('User'), t('Billable'), t('Start'), t('End'), t('Duration'), t('Duration (min)')]);
+        foreach ($entries as $e) {
+            fputcsv($csv, [
+                date('Y-m-d', strtotime($e['started_at'])),
+                function_exists('get_ticket_code') ? get_ticket_code($e['ticket_id']) : $e['ticket_id'],
+                $e['ticket_title'],
+                $e['organization_name'] ?: '',
+                trim($e['first_name'] . ' ' . $e['last_name']),
+                !empty($e['is_billable']) ? t('Yes') : t('No'),
+                date('H:i', strtotime($e['started_at'])),
+                $e['ended_at'] ? date('H:i', strtotime($e['ended_at'])) : '',
+                format_duration_minutes($e['actual_minutes']),
+                $e['actual_minutes'],
+            ]);
+        }
+    } elseif ($tab === 'summary') {
+        $sh = [t('Company'), t('Time'), t('Time (min)'), t('Billable time'), t('Billable (min)'), t('Amount')];
+        if ($has_cost_data) $sh = array_merge($sh, [t('Cost'), t('Profit')]);
+        fputcsv($csv, $sh);
+        foreach ($by_org as $org) {
+            $sr = [
+                $org['name'],
+                format_duration_minutes($org['minutes']),
+                $org['minutes'],
+                format_duration_minutes($org['billable_minutes']),
+                $org['billable_minutes'],
+                number_format($org['billable_amount'], 2, '.', ''),
+            ];
+            if ($has_cost_data) {
+                $sr[] = number_format($org['cost_amount'], 2, '.', '');
+                $sr[] = number_format($org['profit'], 2, '.', '');
+            }
+            fputcsv($csv, $sr);
+        }
+    }
+
+    fclose($csv);
+    exit;
+}
+
 $base_params = $_GET;
 $base_params['page'] = 'admin';
 $base_params['section'] = 'reports';
@@ -479,29 +575,26 @@ include BASE_PATH . '/includes/components/page-header.php';
 <div class="space-y-3">
     <!-- Client Reports Module Access (admin only) -->
     <?php if (is_admin()): ?>
-    <div class="card card-body rounded-2xl mb-2" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark, #1d4ed8) 100%);">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-                <h3 class="text-xl font-semibold text-white">
-                    <?php echo get_icon('file-invoice', 'mr-2 inline-block'); ?><?php echo e(t('Client Reports')); ?>
-                </h3>
-            </div>
-            <div class="flex flex-wrap gap-3">
-                <a href="<?php echo url('admin', ['section' => 'reports-list']); ?>"
-                    class="btn btn-secondary px-5 py-2.5 rounded-lg font-medium shadow-sm">
-                    <?php echo get_icon('list', 'mr-2 inline-block'); ?><?php echo e(t('View Reports')); ?>
-                </a>
-                <a href="<?php echo url('admin', ['section' => 'report-builder']); ?>"
-                    class="btn btn-primary px-5 py-2.5 rounded-lg font-medium shadow-sm" style="background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3);">
-                    <?php echo get_icon('plus', 'mr-2 inline-block'); ?><?php echo e(t('Create New Report')); ?>
-                </a>
-            </div>
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem; padding: 0;">
+        <span style="font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.375rem;">
+            <?php echo get_icon('file-text', 'w-3.5 h-3.5'); ?>
+            <?php echo e(t('Client Reports')); ?>
+        </span>
+        <div style="display: flex; gap: 0.5rem;">
+            <a href="<?php echo url('admin', ['section' => 'reports-list']); ?>"
+                class="btn btn-ghost btn-sm" style="font-size: 0.75rem; padding: 4px 10px;">
+                <?php echo get_icon('list', 'w-3.5 h-3.5 mr-1 inline-block'); ?><?php echo e(t('View Reports')); ?>
+            </a>
+            <a href="<?php echo url('admin', ['section' => 'report-builder']); ?>"
+                class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 4px 10px;">
+                <?php echo get_icon('plus', 'w-3.5 h-3.5 mr-1 inline-block'); ?><?php echo e(t('Create New Report')); ?>
+            </a>
         </div>
     </div>
     <?php endif; ?>
 
-    <div class="flex flex-wrap items-center gap-4 mb-4">
-        <div class="flex items-center gap-2">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; gap: 2px; background: var(--surface-secondary); border-radius: 8px; padding: 3px; width: fit-content;">
             <?php
             $tab_labels = [
                 'summary' => t('Summary'),
@@ -518,14 +611,75 @@ include BASE_PATH . '/includes/components/page-header.php';
                 $tab_url = 'index.php?' . http_build_query($params);
                 ?>
                 <a href="<?php echo e($tab_url); ?>"
-                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                    style="<?php echo $tab === $tab_key
-                        ? 'background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.1);'
-                        : 'color: var(--text-primary); background: transparent;'; ?>">
+                    style="padding: 4px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; text-decoration: none; transition: all 0.15s;
+                           <?php echo $tab === $tab_key
+                               ? 'background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.1);'
+                               : 'color: var(--text-secondary); background: transparent;'; ?>">
                     <?php echo e($label); ?>
                 </a>
             <?php endforeach; ?>
         </div>
+
+        <?php if (in_array($tab, ['detailed', 'worklog', 'summary'], true) && !empty($entries)): ?>
+        <div style="display: flex; align-items: center; gap: 0.375rem;">
+            <?php if ($tab === 'detailed'): ?>
+            <!-- Column Picker -->
+            <div class="relative" id="col-picker-wrap">
+                <button type="button" onclick="document.getElementById('col-picker-dropdown').classList.toggle('hidden')"
+                    style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; font-size: 0.6875rem; border-radius: 6px; border: 1px solid var(--border-light); background: var(--surface-secondary); color: var(--text-secondary); cursor: pointer;"
+                    title="<?php echo e(t('Columns')); ?>">
+                    <?php echo get_icon('columns', 'w-3 h-3 inline-block'); ?><?php echo e(t('Columns')); ?>
+                </button>
+                <div id="col-picker-dropdown" class="hidden absolute right-0 mt-1 w-44 rounded-lg shadow-lg border z-50 p-1.5"
+                     style="background: var(--bg-primary); border-color: var(--border-light);">
+                    <?php
+                    $col_defs = [
+                        'ticket' => t('Ticket'),
+                        'company' => t('Company'),
+                    ];
+                    if ($tags_supported) $col_defs['tags'] = t('Tags');
+                    $col_defs += [
+                        'duration' => t('Duration'),
+                        'billable' => t('Billable'),
+                        'agent' => t('Agent'),
+                        'source' => t('Source'),
+                        'start' => t('Start time'),
+                        'end' => t('End time'),
+                    ];
+                    if ($show_money) {
+                        $col_defs['amount'] = t('Amount');
+                        $col_defs['cost'] = t('Cost');
+                        $col_defs['profit'] = t('Profit');
+                    }
+                    foreach ($col_defs as $col_key => $col_label): ?>
+                    <label class="flex items-center gap-2 px-2 py-1 text-xs rounded cursor-pointer" style="color: var(--text-primary);">
+                        <input type="checkbox" class="rounded col-toggle" data-col="<?php echo e($col_key); ?>" checked>
+                        <?php echo e($col_label); ?>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Export CSV -->
+            <?php
+            $export_params = $base_params;
+            $export_params['export'] = 'csv';
+            ?>
+            <a href="index.php?<?php echo http_build_query($export_params); ?>"
+                style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; font-size: 0.6875rem; border-radius: 6px; border: 1px solid var(--border-light); background: var(--surface-secondary); color: var(--text-secondary); text-decoration: none;"
+                title="<?php echo e(t('Export CSV')); ?>">
+                <?php echo get_icon('download', 'w-3 h-3 inline-block'); ?><?php echo e(t('Export CSV')); ?>
+            </a>
+
+            <!-- Print -->
+            <button type="button" onclick="window.print()"
+                style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; font-size: 0.6875rem; border-radius: 6px; border: 1px solid var(--border-light); background: var(--surface-secondary); color: var(--text-secondary); cursor: pointer;"
+                title="<?php echo e(t('Print')); ?>">
+                <?php echo get_icon('print', 'w-3 h-3 inline-block'); ?><?php echo e(t('Print')); ?>
+            </button>
+        </div>
+        <?php endif; ?>
     </div>
 
     <?php if (!$time_tracking_available): ?>
@@ -534,43 +688,137 @@ include BASE_PATH . '/includes/components/page-header.php';
         </div>
     <?php else: ?>
         <?php if ($tab !== 'shared'): ?>
-            <div class="card card-body mb-2">
-                <form method="get" class="flex flex-wrap items-end gap-4">
+            <?php
+            // Compute active filters for pills display
+            $active_filters = [];
+            $time_range_labels = [
+                'today' => t('Today'), 'yesterday' => t('Yesterday'),
+                'last_7_days' => t('Last 7 days'), 'last_30_days' => t('Last 30 days'),
+                'this_week' => t('This week'), 'last_week' => t('Last week'),
+                'this_month' => t('This month'), 'last_month' => t('Last month'),
+                'this_quarter' => t('This quarter'), 'last_quarter' => t('Last quarter'),
+                'this_year' => t('This year'), 'last_year' => t('Last year'),
+                'custom' => ($from_date && $to_date) ? $from_date . ' – ' . $to_date : t('Custom range'),
+            ];
+            if ($time_range !== 'all' && $time_range !== 'this_month') {
+                $active_filters[] = ['type' => 'time_range', 'label' => $time_range_labels[$time_range] ?? $time_range, 'param' => 'time_range'];
+            }
+            foreach ($selected_orgs as $oid) {
+                foreach ($organizations as $o) {
+                    if ((int) $o['id'] === $oid) {
+                        $active_filters[] = ['type' => 'org', 'label' => $o['name'], 'id' => $oid];
+                        break;
+                    }
+                }
+            }
+            foreach ($selected_agents as $aid) {
+                foreach ($agents as $a) {
+                    if ((int) $a['id'] === $aid) {
+                        $active_filters[] = ['type' => 'agent', 'label' => trim($a['first_name'] . ' ' . $a['last_name']), 'id' => $aid];
+                        break;
+                    }
+                }
+            }
+            foreach ($selected_tags as $stag) {
+                $active_filters[] = ['type' => 'tag', 'label' => '#' . $stag, 'value' => $stag];
+            }
+            $has_active_filters = !empty($active_filters);
+            $filter_collapsed = $has_active_filters; // Start collapsed when filters are applied
+            ?>
+            <?php
+            // Build filter summary text for collapsed header
+            $filter_summary_parts = [];
+            $filter_summary_parts[] = $time_range_labels[$time_range] ?? $time_range;
+            if (!empty($selected_orgs)) $filter_summary_parts[] = count($selected_orgs) . ' ' . t('clients');
+            if (!empty($selected_agents)) $filter_summary_parts[] = count($selected_agents) . ' ' . t('agents');
+            if (!empty($selected_tags)) $filter_summary_parts[] = count($selected_tags) . ' ' . t('tags');
+            $filter_summary_text = implode(' · ', $filter_summary_parts);
+            ?>
+            <?php if ($has_active_filters): ?>
+            <div class="flex flex-wrap items-center gap-2 mb-1" id="report-filter-pills">
+                <span style="font-size: 0.6875rem; font-weight: 500; color: var(--text-muted);"><?php echo e(t('Filters')); ?>:</span>
+                <?php foreach ($active_filters as $af): ?>
+                    <?php
+                    $remove_params = $_GET;
+                    if ($af['type'] === 'time_range') {
+                        $remove_params['time_range'] = 'this_month';
+                        unset($remove_params['from_date'], $remove_params['to_date']);
+                    } elseif ($af['type'] === 'org') {
+                        $remove_params['organizations'] = array_values(array_diff($selected_orgs, [$af['id']]));
+                        if (empty($remove_params['organizations'])) unset($remove_params['organizations']);
+                    } elseif ($af['type'] === 'agent') {
+                        $remove_params['agents'] = array_values(array_diff($selected_agents, [$af['id']]));
+                        if (empty($remove_params['agents'])) unset($remove_params['agents']);
+                    } elseif ($af['type'] === 'tag') {
+                        $remaining_tags = array_filter($selected_tags, fn($t) => $t !== $af['value']);
+                        if (!empty($remaining_tags)) {
+                            $remove_params['tags'] = implode(', ', $remaining_tags);
+                        } else {
+                            unset($remove_params['tags']);
+                        }
+                    }
+                    $remove_url = 'index.php?' . http_build_query($remove_params);
+                    ?>
+                    <a href="<?php echo e($remove_url); ?>"
+                       style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px; font-size: 0.6875rem; border-radius: 9999px; background: var(--primary-light, rgba(59,130,246,0.1)); color: var(--primary); text-decoration: none;"
+                       title="<?php echo e(t('Remove filter')); ?>">
+                        <?php echo e($af['label']); ?>
+                        <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+            <details class="card mb-2" id="report-filters" <?php echo !$filter_collapsed ? 'open' : ''; ?>>
+                <summary class="card-header" style="cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; user-select: none;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <?php echo get_icon('sliders-horizontal', 'w-3.5 h-3.5'); ?>
+                        <span style="font-size: 0.8125rem; font-weight: 600;"><?php echo e(t('Filters')); ?></span>
+                        <span style="font-size: 0.6875rem; color: var(--text-muted);"><?php echo e($filter_summary_text); ?></span>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); transition: transform 0.2s;" class="rpt-chevron"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </summary>
+                <div style="padding: 0.5rem 0.75rem 0.75rem;">
+                <form method="get">
                     <input type="hidden" name="page" value="admin">
                     <input type="hidden" name="section" value="reports">
                     <input type="hidden" name="tab" value="<?php echo e($tab); ?>">
 
-                    <div class="min-w-[220px]">
-                        <label class="block text-xs mb-1 font-medium" style="color: var(--text-secondary);"><?php echo e(t('Clients')); ?></label>
-                        <div class="chip-select" id="cs-orgs">
-                            <div class="chip-select__wrap" id="cs-orgs-wrap">
-                                <div class="chip-select__chips" id="cs-orgs-chips"></div>
-                                <input type="text" class="chip-select__input" id="cs-orgs-input"
-                                       placeholder="<?php echo e(t('Type to filter...')); ?>" autocomplete="off">
+                    <!-- Row 1: All filter fields on one horizontal line -->
+                    <div style="display: flex; align-items: flex-end; gap: 0.75rem; flex-wrap: nowrap;">
+                        <div style="flex: 1; min-width: 0;">
+                            <label class="block text-xs mb-1 font-medium" style="color: var(--text-secondary);"><?php echo e(t('Clients')); ?></label>
+                            <div class="chip-select" id="cs-orgs">
+                                <div class="chip-select__wrap" id="cs-orgs-wrap">
+                                    <div class="chip-select__chips" id="cs-orgs-chips"></div>
+                                    <input type="text" class="chip-select__input" id="cs-orgs-input"
+                                           placeholder="<?php echo e(t('Type to filter...')); ?>" autocomplete="off">
+                                </div>
+                                <div class="chip-select__dropdown hidden" id="cs-orgs-dropdown"></div>
+                                <div id="cs-orgs-hidden"></div>
                             </div>
-                            <div class="chip-select__dropdown hidden" id="cs-orgs-dropdown"></div>
-                            <div id="cs-orgs-hidden"></div>
                         </div>
-                    </div>
 
-                    <?php if (is_admin()): ?>
-                    <div class="min-w-[220px]">
-                        <label class="block text-xs mb-1 font-medium" style="color: var(--text-secondary);"><?php echo e(t('Agents')); ?></label>
-                        <div class="chip-select" id="cs-agents">
-                            <div class="chip-select__wrap" id="cs-agents-wrap">
-                                <div class="chip-select__chips" id="cs-agents-chips"></div>
-                                <input type="text" class="chip-select__input" id="cs-agents-input"
-                                       placeholder="<?php echo e(t('Type to filter...')); ?>" autocomplete="off">
+                        <?php if (is_admin()): ?>
+                        <div style="flex: 1; min-width: 0;">
+                            <label class="block text-xs mb-1 font-medium" style="color: var(--text-secondary);"><?php echo e(t('Agents')); ?></label>
+                            <div class="chip-select" id="cs-agents">
+                                <div class="chip-select__wrap" id="cs-agents-wrap">
+                                    <div class="chip-select__chips" id="cs-agents-chips"></div>
+                                    <input type="text" class="chip-select__input" id="cs-agents-input"
+                                           placeholder="<?php echo e(t('Type to filter...')); ?>" autocomplete="off">
+                                </div>
+                                <div class="chip-select__dropdown hidden" id="cs-agents-dropdown"></div>
+                                <div id="cs-agents-hidden"></div>
                             </div>
-                            <div class="chip-select__dropdown hidden" id="cs-agents-dropdown"></div>
-                            <div id="cs-agents-hidden"></div>
                         </div>
-                    </div>
-                    <?php endif; ?>
+                        <?php endif; ?>
 
-                    <?php if ($tags_supported): ?>
-                        <div class="min-w-[220px]">
-                            <label class="block text-xs mb-1 font-medium" style="color: var(--text-secondary);"><?php echo e(t('Tags')); ?></label>
+                        <?php if ($tags_supported): ?>
+                        <div style="flex: 1; min-width: 0;">
+                            <label class="block text-xs mb-1 font-medium" style="color: var(--text-secondary);">
+                                <?php echo e(t('Tags')); ?>
+                                <span style="font-weight: 400; color: var(--text-muted); font-size: 0.625rem; margin-left: 4px;"><?php echo e(t('OR matching')); ?></span>
+                            </label>
                             <input type="hidden" name="tags" id="rpt-tags-value" value="<?php echo e($selected_tags_csv); ?>">
                             <div class="chip-select" id="cs-tags">
                                 <div class="chip-select__wrap" id="cs-tags-wrap">
@@ -581,36 +829,90 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 <div class="chip-select__dropdown hidden" id="cs-tags-dropdown"></div>
                                 <div id="cs-tags-hidden"></div>
                             </div>
-                            <p class="text-xs mt-1" style="color: var(--text-muted);"><?php echo e(t('Multiple tags use OR matching.')); ?></p>
                         </div>
-                    <?php endif; ?>
+                        <?php endif; ?>
 
-                    <div>
-                        <label class="block text-xs mb-1 font-medium" style="color: var(--text-secondary);"><?php echo e(t('Time range')); ?></label>
-                        <select name="time_range" id="report-time-range" class="form-select">
-                            <option value="all" <?php echo $time_range === 'all' ? 'selected' : ''; ?>>
-                                <?php echo e(t('All time')); ?></option>
-                            <option value="yesterday" <?php echo $time_range === 'yesterday' ? 'selected' : ''; ?>>
-                                <?php echo e(t('Yesterday')); ?></option>
-                            <option value="this_week" <?php echo $time_range === 'this_week' ? 'selected' : ''; ?>>
-                                <?php echo e(t('This week')); ?></option>
-                            <option value="last_week" <?php echo $time_range === 'last_week' ? 'selected' : ''; ?>>
-                                <?php echo e(t('Last week')); ?></option>
-                            <option value="this_month" <?php echo $time_range === 'this_month' ? 'selected' : ''; ?>>
-                                <?php echo e(t('This month')); ?></option>
-                            <option value="last_month" <?php echo $time_range === 'last_month' ? 'selected' : ''; ?>>
-                                <?php echo e(t('Last month')); ?></option>
-                            <option value="this_year" <?php echo $time_range === 'this_year' ? 'selected' : ''; ?>>
-                                <?php echo e(t('This year')); ?></option>
-                            <option value="last_year" <?php echo $time_range === 'last_year' ? 'selected' : ''; ?>>
-                                <?php echo e(t('Last year')); ?></option>
-                            <option value="custom" <?php echo $time_range === 'custom' ? 'selected' : ''; ?>>
-                                <?php echo e(t('Custom range')); ?></option>
-                        </select>
+                        <div style="flex: 1; min-width: 0;">
+                            <label class="block text-xs mb-1 font-medium" style="color: var(--text-secondary);"><?php echo e(t('Time range')); ?></label>
+                            <select name="time_range" id="report-time-range" class="form-select" style="width: 100%;">
+                                <option value="all" <?php echo $time_range === 'all' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('All time')); ?></option>
+                                <option value="today" <?php echo $time_range === 'today' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('Today')); ?></option>
+                                <option value="yesterday" <?php echo $time_range === 'yesterday' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('Yesterday')); ?></option>
+                                <option value="last_7_days" <?php echo $time_range === 'last_7_days' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('Last 7 days')); ?></option>
+                                <option value="last_30_days" <?php echo $time_range === 'last_30_days' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('Last 30 days')); ?></option>
+                                <option value="this_week" <?php echo $time_range === 'this_week' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('This week')); ?></option>
+                                <option value="last_week" <?php echo $time_range === 'last_week' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('Last week')); ?></option>
+                                <option value="this_month" <?php echo $time_range === 'this_month' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('This month')); ?></option>
+                                <option value="last_month" <?php echo $time_range === 'last_month' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('Last month')); ?></option>
+                                <option value="this_quarter" <?php echo $time_range === 'this_quarter' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('This quarter')); ?></option>
+                                <option value="last_quarter" <?php echo $time_range === 'last_quarter' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('Last quarter')); ?></option>
+                                <option value="this_year" <?php echo $time_range === 'this_year' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('This year')); ?></option>
+                                <option value="last_year" <?php echo $time_range === 'last_year' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('Last year')); ?></option>
+                                <option value="custom" <?php echo $time_range === 'custom' ? 'selected' : ''; ?>>
+                                    <?php echo e(t('Custom range')); ?></option>
+                            </select>
+                        </div>
                     </div>
 
+                    <!-- Row 2: Date hint, presets, show amounts, apply -->
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                        <?php if ($range_start && $range_end && $time_range !== 'custom' && $time_range !== 'all'): ?>
+                        <span id="report-range-hint" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.6875rem; color: var(--text-muted);">
+                            <?php echo get_icon('calendar', 'w-3 h-3 inline-block'); ?>
+                            <?php echo date('M j', strtotime($range_start)); ?> – <?php echo date('M j, Y', strtotime($range_end)); ?>
+                        </span>
+                        <?php endif; ?>
+
+                        <?php if (is_admin()): ?>
+                        <label style="display: inline-flex; align-items: center; font-size: 0.75rem; color: var(--text-secondary); gap: 4px;">
+                            <input type="checkbox" name="show_money" value="1" class="rounded" <?php echo $show_money ? 'checked' : ''; ?>>
+                            <?php echo e(t('Show amounts')); ?>
+                        </label>
+                        <?php endif; ?>
+
+                        <!-- Quick range presets -->
+                        <div style="display: flex; gap: 3px; margin-left: auto;">
+                            <?php
+                            $quick_presets = [
+                                'today' => t('Today'),
+                                'this_week' => t('This week'),
+                                'this_month' => t('This month'),
+                                'last_month' => t('Last month'),
+                                'this_quarter' => t('Q' . ceil(date('n') / 3)),
+                            ];
+                            foreach ($quick_presets as $preset_val => $preset_label): ?>
+                            <button type="button"
+                                class="range-preset-btn"
+                                data-range="<?php echo e($preset_val); ?>"
+                                style="padding: 2px 8px; font-size: 0.6875rem; border-radius: 9999px; border: none; cursor: pointer; transition: all 0.15s;
+                                       <?php echo $time_range === $preset_val
+                                           ? 'background: var(--primary); color: #fff;'
+                                           : 'background: var(--surface-secondary); color: var(--text-muted);'; ?>"
+                                onclick="setTimeRange('<?php echo e($preset_val); ?>')">
+                                <?php echo e($preset_label); ?>
+                            </button>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <button type="button" id="report-apply-btn" class="btn btn-primary btn-sm"><?php echo e(t('Apply')); ?></button>
+                    </div>
+
+                    <!-- Custom date range (shown only when "Custom range" selected) -->
                     <div id="report-custom-range"
-                        class="flex items-end gap-3 <?php echo $time_range === 'custom' ? '' : 'hidden'; ?>">
+                        style="display: flex; align-items: flex-end; gap: 0.75rem; margin-top: 0.5rem; <?php echo $time_range === 'custom' ? '' : 'display: none;'; ?>">
                         <div>
                             <label class="block text-xs mb-1 font-medium" style="color: var(--text-secondary);"><?php echo e(t('From date')); ?></label>
                             <input type="date" name="from_date" value="<?php echo e($from_date); ?>" class="form-input">
@@ -620,17 +922,6 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <input type="date" name="to_date" value="<?php echo e($to_date); ?>" class="form-input">
                         </div>
                     </div>
-
-                    <?php if (is_admin()): ?>
-                    <div class="flex items-center mt-3">
-                        <label class="flex items-center text-sm" style="color: var(--text-secondary);">
-                            <input type="checkbox" name="show_money" value="1" class="mr-2 rounded" <?php echo $show_money ? 'checked' : ''; ?>>
-                            <?php echo e(t('Show amounts')); ?>
-                        </label>
-                    </div>
-                    <?php endif; ?>
-
-                    <button type="button" id="report-apply-btn" class="btn btn-primary btn-sm ml-auto"><?php echo e(t('Apply')); ?></button>
 
                     <!-- Confirmation overlay (hidden) -->
                     <div id="report-confirm" class="report-confirm hidden" style="flex-basis: 100%;">
@@ -643,32 +934,35 @@ include BASE_PATH . '/includes/components/page-header.php';
                         </div>
                     </div>
                 </form>
-            </div>
+                </div>
+            </details>
         <?php endif; ?>
 
         <?php if ($tab === 'summary'): ?>
-            <div class="grid grid-cols-1 md:grid-cols-<?php echo $show_money ? '3' : '2'; ?> lg:grid-cols-<?php echo $show_money ? '5' : '2'; ?> gap-4 mb-2">
-                <div class="card card-body">
-                    <div class="text-xs uppercase tracking-wider mb-1" style="color: var(--text-secondary);"><?php echo e(t('Total time')); ?></div>
-                    <div class="text-xl font-bold" style="color: var(--text-primary);"><?php echo e(format_duration_minutes($totals['minutes'])); ?></div>
+            <div style="display: flex; border: 1px solid var(--border-light); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; background: var(--surface-primary);">
+                <div style="flex: 1; padding: 8px 14px;">
+                    <div style="font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 2px;"><?php echo e(t('Total time')); ?></div>
+                    <div style="font-size: 1.125rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;"><?php echo e(format_duration_minutes($totals['minutes'])); ?></div>
                 </div>
-                <div class="card card-body">
-                    <div class="text-xs uppercase tracking-wider mb-1" style="color: var(--text-secondary);"><?php echo e(t('Billable time')); ?></div>
-                    <div class="text-xl font-bold" style="color: var(--text-primary);"><?php echo e(format_duration_minutes($totals['billable_minutes'])); ?></div>
+                <div style="flex: 1; padding: 8px 14px; border-left: 1px solid var(--border-light);">
+                    <div style="font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 2px;"><?php echo e(t('Billable time')); ?></div>
+                    <div style="font-size: 1.125rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;"><?php echo e(format_duration_minutes($totals['billable_minutes'])); ?></div>
                 </div>
                 <?php if ($show_money): ?>
-                <div class="card card-body">
-                    <div class="text-xs uppercase tracking-wider mb-1" style="color: var(--text-secondary);"><?php echo e(t('Billable amount')); ?></div>
-                    <div class="text-xl font-bold" style="color: var(--text-primary);"><?php echo e(format_money($totals['billable_amount'])); ?></div>
+                <div style="flex: 1; padding: 8px 14px; border-left: 1px solid var(--border-light);">
+                    <div style="font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 2px;"><?php echo e(t('Billable amount')); ?></div>
+                    <div style="font-size: 1.125rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;"><?php echo e(format_money($totals['billable_amount'])); ?></div>
                 </div>
-                <div class="card card-body">
-                    <div class="text-xs uppercase tracking-wider mb-1" style="color: var(--text-secondary);"><?php echo e(t('Cost')); ?></div>
-                    <div class="text-xl font-bold" style="color: var(--text-primary);"><?php echo e(format_money($totals['cost_amount'])); ?></div>
+                <?php if ($has_cost_data): ?>
+                <div style="flex: 1; padding: 8px 14px; border-left: 1px solid var(--border-light);">
+                    <div style="font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 2px;"><?php echo e(t('Cost')); ?></div>
+                    <div style="font-size: 1.125rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;"><?php echo e(format_money($totals['cost_amount'])); ?></div>
                 </div>
-                <div class="card card-body">
-                    <div class="text-xs uppercase tracking-wider mb-1" style="color: var(--text-secondary);"><?php echo e(t('Profit')); ?></div>
-                    <div class="text-xl font-bold" style="color: var(--text-primary);"><?php echo e(format_money($totals['profit'])); ?></div>
+                <div style="flex: 1; padding: 8px 14px; border-left: 1px solid var(--border-light);">
+                    <div style="font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 2px;"><?php echo e(t('Profit')); ?></div>
+                    <div style="font-size: 1.125rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;"><?php echo e(format_money($totals['profit'])); ?></div>
                 </div>
+                <?php endif; ?>
                 <?php endif; ?>
             </div>
 
@@ -677,30 +971,34 @@ include BASE_PATH . '/includes/components/page-header.php';
             $ai_min = $totals['ai_minutes'] ?? 0;
             if ($human_min > 0 && $ai_min > 0):
             ?>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
-                <div class="card card-body border-l-4 border-blue-400">
-                    <div class="flex items-center gap-2 text-xs uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
-                        <?php echo get_icon('user', 'w-4 h-4'); ?>
-                        <?php echo e(t('Human time')); ?>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+                <div style="flex: 1; padding: 6px 12px; border-left: 3px solid #60a5fa; border-radius: 6px; background: var(--surface-secondary);">
+                    <div style="font-size: 0.6875rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+                        <?php echo get_icon('user', 'w-3 h-3'); ?>
+                        <?php echo e(t('Human')); ?>
                     </div>
-                    <div class="text-xl font-bold" style="color: var(--text-primary);"><?php echo e(format_duration_minutes($human_min)); ?></div>
+                    <div style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);"><?php echo e(format_duration_minutes($human_min)); ?></div>
                     <?php if ($show_money): ?>
-                        <div class="text-xs mt-1" style="color: var(--text-muted);">
+                        <div style="font-size: 0.625rem; color: var(--text-muted); margin-top: 1px;">
                             <?php echo e(t('Billable')); ?>: <?php echo e(format_money($totals['human_billable'] ?? 0)); ?>
+                            <?php if ($has_cost_data): ?>
                             · <?php echo e(t('Cost')); ?>: <?php echo e(format_money($totals['human_cost'] ?? 0)); ?>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
                 </div>
-                <div class="card card-body border-l-4 border-purple-400">
-                    <div class="flex items-center gap-2 text-xs uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
-                        <?php echo get_icon('bot', 'w-4 h-4'); ?>
-                        <?php echo e(t('AI time')); ?>
+                <div style="flex: 1; padding: 6px 12px; border-left: 3px solid #a78bfa; border-radius: 6px; background: var(--surface-secondary);">
+                    <div style="font-size: 0.6875rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+                        <?php echo get_icon('bot', 'w-3 h-3'); ?>
+                        <?php echo e(t('AI')); ?>
                     </div>
-                    <div class="text-xl font-bold" style="color: var(--text-primary);"><?php echo e(format_duration_minutes($ai_min)); ?></div>
+                    <div style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);"><?php echo e(format_duration_minutes($ai_min)); ?></div>
                     <?php if ($show_money): ?>
-                        <div class="text-xs mt-1" style="color: var(--text-muted);">
+                        <div style="font-size: 0.625rem; color: var(--text-muted); margin-top: 1px;">
                             <?php echo e(t('Billable')); ?>: <?php echo e(format_money($totals['ai_billable'] ?? 0)); ?>
+                            <?php if ($has_cost_data): ?>
                             · <?php echo e(t('Cost')); ?>: <?php echo e(format_money($totals['ai_cost'] ?? 0)); ?>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -715,10 +1013,10 @@ include BASE_PATH . '/includes/components/page-header.php';
                 </div>
             <?php else: ?>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
                 <div class="card overflow-hidden">
-                    <div class="card-header" style="border-color: var(--border-light);">
-                        <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Company')); ?></h3>
+                    <div class="card-header" style="border-color: var(--border-light); padding: 0.5rem 0.75rem;">
+                        <h3 style="font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);"><?php echo e(t('Company')); ?></h3>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full data-table">
@@ -730,23 +1028,36 @@ include BASE_PATH . '/includes/components/page-header.php';
                                     <?php if ($show_money): ?>
                                         <th><?php echo e(t('Billable rate')); ?></th>
                                         <th><?php echo e(t('Amount')); ?></th>
+                                    <?php endif; ?>
+                                    <?php if ($show_money && $has_cost_data): ?>
                                         <th><?php echo e(t('Profit')); ?></th>
                                     <?php endif; ?>
                                 </tr>
                             </thead>
                             <tbody class="divide-y">
-                                <?php foreach ($by_org as $org): ?>
+                                <?php foreach ($by_org as $org):
+                                    $org_pct = $totals['minutes'] > 0 ? round(($org['minutes'] / $totals['minutes']) * 100) : 0;
+                                ?>
                                     <tr>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-primary);"><?php echo e($org['name']); ?></td>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
-                                            <?php echo e(format_duration_minutes($org['minutes'])); ?></td>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-primary);"><?php echo e($org['name']); ?></td>
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
+                                            <?php echo e(format_duration_minutes($org['minutes'])); ?>
+                                            <div class="flex items-center gap-1.5 mt-1">
+                                                <div style="width: 50px; height: 4px; background: var(--border-light); border-radius: 2px; flex-shrink: 0;">
+                                                    <div style="width: <?php echo $org_pct; ?>%; height: 100%; background: var(--primary); border-radius: 2px;"></div>
+                                                </div>
+                                                <span class="text-xs" style="color: var(--text-muted);"><?php echo $org_pct; ?>%</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
                                             <?php echo e(format_duration_minutes($org['billable_minutes'])); ?></td>
                                         <?php if ($show_money): ?>
-                                            <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);"><?php echo e(format_money($org['rate'])); ?></td>
-                                            <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                            <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);"><?php echo e(format_money($org['rate'])); ?></td>
+                                            <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
                                                 <?php echo e(format_money($org['billable_amount'])); ?></td>
-                                            <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);"><?php echo e(format_money($org['profit'])); ?>
+                                        <?php endif; ?>
+                                        <?php if ($show_money && $has_cost_data): ?>
+                                            <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);"><?php echo e(format_money($org['profit'])); ?>
                                             </td>
                                         <?php endif; ?>
                                     </tr>
@@ -757,39 +1068,52 @@ include BASE_PATH . '/includes/components/page-header.php';
                 </div>
 
                 <div class="card overflow-hidden">
-                    <div class="card-header">
-                        <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Agents')); ?></h3>
+                    <div class="card-header" style="padding: 0.5rem 0.75rem;">
+                        <h3 style="font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);"><?php echo e(t('Agents')); ?></h3>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full">
                             <thead style="background: var(--surface-secondary);">
                                 <tr>
-                                    <th class="px-6 py-3 text-left th-label">
+                                    <th class="px-3 py-2 text-left th-label">
                                         <?php echo e(t('Agent')); ?></th>
-                                    <th class="px-6 py-3 text-left th-label">
+                                    <th class="px-3 py-2 text-left th-label">
                                         <?php echo e(t('Time')); ?></th>
-                                    <th class="px-6 py-3 text-left th-label">
+                                    <th class="px-3 py-2 text-left th-label">
                                         <?php echo e(t('Billable time')); ?></th>
                                     <?php if ($show_money): ?>
-                                        <th class="px-6 py-3 text-left th-label">
+                                        <th class="px-3 py-2 text-left th-label">
                                             <?php echo e(t('Amount')); ?></th>
-                                        <th class="px-6 py-3 text-left th-label">
+                                    <?php endif; ?>
+                                    <?php if ($show_money && $has_cost_data): ?>
+                                        <th class="px-3 py-2 text-left th-label">
                                             <?php echo e(t('Profit')); ?></th>
                                     <?php endif; ?>
                                 </tr>
                             </thead>
                             <tbody class="divide-y">
-                                <?php foreach ($by_agent as $agent): ?>
+                                <?php foreach ($by_agent as $agent):
+                                    $agent_pct = $totals['minutes'] > 0 ? round(($agent['minutes'] / $totals['minutes']) * 100) : 0;
+                                ?>
                                     <tr>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-primary);"><?php echo e($agent['name']); ?></td>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
-                                            <?php echo e(format_duration_minutes($agent['minutes'])); ?></td>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-primary);"><?php echo e($agent['name']); ?></td>
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
+                                            <?php echo e(format_duration_minutes($agent['minutes'])); ?>
+                                            <div class="flex items-center gap-1.5 mt-1">
+                                                <div style="width: 50px; height: 4px; background: var(--border-light); border-radius: 2px; flex-shrink: 0;">
+                                                    <div style="width: <?php echo $agent_pct; ?>%; height: 100%; background: #8b5cf6; border-radius: 2px;"></div>
+                                                </div>
+                                                <span class="text-xs" style="color: var(--text-muted);"><?php echo $agent_pct; ?>%</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
                                             <?php echo e(format_duration_minutes($agent['billable_minutes'])); ?></td>
                                         <?php if ($show_money): ?>
-                                            <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                            <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
                                                 <?php echo e(format_money($agent['billable_amount'])); ?></td>
-                                            <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);"><?php echo e(format_money($agent['profit'])); ?>
+                                        <?php endif; ?>
+                                        <?php if ($show_money && $has_cost_data): ?>
+                                            <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);"><?php echo e(format_money($agent['profit'])); ?>
                                             </td>
                                         <?php endif; ?>
                                     </tr>
@@ -815,20 +1139,34 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 <th><?php echo e(t('Billable time')); ?></th>
                                 <?php if ($show_money): ?>
                                     <th><?php echo e(t('Amount')); ?></th>
+                                <?php endif; ?>
+                                <?php if ($show_money && $has_cost_data): ?>
                                     <th><?php echo e(t('Profit')); ?></th>
                                 <?php endif; ?>
                             </tr>
                         </thead>
                         <tbody class="divide-y">
-                            <?php foreach ($by_source as $src): ?>
+                            <?php foreach ($by_source as $src):
+                                $src_pct = $totals['minutes'] > 0 ? round(($src['minutes'] / $totals['minutes']) * 100) : 0;
+                            ?>
                                 <tr>
-                                    <td class="px-6 py-3 text-sm"><?php echo function_exists('render_source_badge') ? render_source_badge($src['source']) : e($src['label']); ?></td>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);"><?php echo (int) $src['count']; ?></td>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);"><?php echo e(format_duration_minutes($src['minutes'])); ?></td>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);"><?php echo e(format_duration_minutes($src['billable_minutes'])); ?></td>
+                                    <td class="px-3 py-1.5 text-xs"><?php echo function_exists('render_source_badge') ? render_source_badge($src['source']) : e($src['label']); ?></td>
+                                    <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);"><?php echo (int) $src['count']; ?></td>
+                                    <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
+                                        <?php echo e(format_duration_minutes($src['minutes'])); ?>
+                                        <div class="flex items-center gap-1.5 mt-1">
+                                            <div style="width: 50px; height: 4px; background: var(--border-light); border-radius: 2px; flex-shrink: 0;">
+                                                <div style="width: <?php echo $src_pct; ?>%; height: 100%; background: #10b981; border-radius: 2px;"></div>
+                                            </div>
+                                            <span class="text-xs" style="color: var(--text-muted);"><?php echo $src_pct; ?>%</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);"><?php echo e(format_duration_minutes($src['billable_minutes'])); ?></td>
                                     <?php if ($show_money): ?>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);"><?php echo e(format_money($src['billable_amount'])); ?></td>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);"><?php echo e(format_money($src['profit'])); ?></td>
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);"><?php echo e(format_money($src['billable_amount'])); ?></td>
+                                    <?php endif; ?>
+                                    <?php if ($show_money && $has_cost_data): ?>
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);"><?php echo e(format_money($src['profit'])); ?></td>
                                     <?php endif; ?>
                                 </tr>
                             <?php endforeach; ?>
@@ -851,20 +1189,22 @@ include BASE_PATH . '/includes/components/page-header.php';
                     <table class="w-full">
                         <thead style="background: var(--surface-secondary);">
                             <tr>
-                                <th class="px-6 py-3 text-left th-label">
+                                <th class="px-3 py-2 text-left th-label">
                                     <?php echo e(t('Ticket')); ?></th>
-                                <th class="px-6 py-3 text-left th-label">
+                                <th class="px-3 py-2 text-left th-label">
                                     <?php echo e(t('Company')); ?></th>
                                 <?php if ($tags_supported): ?>
-                                    <th class="px-6 py-3 text-left th-label">
+                                    <th class="px-3 py-2 text-left th-label">
                                         <?php echo e(t('Tags')); ?></th>
                                 <?php endif; ?>
-                                <th class="px-6 py-3 text-left th-label">
+                                <th class="px-3 py-2 text-left th-label">
                                     <?php echo e(t('Time')); ?></th>
                                 <?php if ($show_money): ?>
-                                    <th class="px-6 py-3 text-left th-label">
+                                    <th class="px-3 py-2 text-left th-label">
                                         <?php echo e(t('Amount')); ?></th>
-                                    <th class="px-6 py-3 text-left th-label">
+                                <?php endif; ?>
+                                <?php if ($show_money && $has_cost_data): ?>
+                                    <th class="px-3 py-2 text-left th-label">
                                         <?php echo e(t('Profit')); ?></th>
                                 <?php endif; ?>
                             </tr>
@@ -872,11 +1212,11 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <tbody class="divide-y">
                             <?php foreach ($open_tickets as $tid => $ticket): ?>
                                 <tr>
-                                    <td class="px-6 py-3 text-sm"><a href="<?php echo url('ticket', ['id' => $tid]); ?>" class="text-blue-600 hover:text-blue-800 hover:underline"><?php echo e($ticket['title']); ?></a></td>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                    <td class="px-3 py-1.5 text-xs"><a href="<?php echo url('ticket', ['id' => $tid]); ?>" class="text-blue-600 hover:text-blue-800 hover:underline"><?php echo e($ticket['title']); ?></a></td>
+                                    <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
                                         <?php echo e($ticket['organization_name'] ?: t('-- No organization --')); ?></td>
                                     <?php if ($tags_supported): ?>
-                                        <td class="px-6 py-3 text-sm">
+                                        <td class="px-3 py-1.5 text-xs">
                                             <?php $row_tags = function_exists('get_ticket_tags_array') ? get_ticket_tags_array($ticket['tags'] ?? '') : []; ?>
                                             <?php if (!empty($row_tags)): ?>
                                                 <div class="flex flex-wrap gap-1">
@@ -889,12 +1229,14 @@ include BASE_PATH . '/includes/components/page-header.php';
                                             <?php endif; ?>
                                         </td>
                                     <?php endif; ?>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                    <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
                                         <?php echo e(format_duration_minutes($ticket['minutes'])); ?></td>
                                     <?php if ($show_money): ?>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
                                             <?php echo e(format_money($ticket['billable_amount'])); ?></td>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);"><?php echo e(format_money($ticket['profit'])); ?>
+                                    <?php endif; ?>
+                                    <?php if ($show_money && $has_cost_data): ?>
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);"><?php echo e(format_money($ticket['profit'])); ?>
                                         </td>
                                     <?php endif; ?>
                                 </tr>
@@ -903,7 +1245,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <?php if (!empty($closed_tickets_report)): ?>
                         <tbody class="border-t-2" style="border-top-color: var(--border-light);">
                             <tr class="cursor-pointer" style="background: var(--surface-secondary);" onclick="document.getElementById('closed-tickets-report').classList.toggle('hidden')">
-                                <?php $report_colspan = 3 + ($tags_supported ? 1 : 0) + ($show_money ? 2 : 0); ?>
+                                <?php $report_colspan = 3 + ($tags_supported ? 1 : 0) + ($show_money ? 1 : 0) + ($show_money && $has_cost_data ? 1 : 0); ?>
                                 <td colspan="<?php echo $report_colspan; ?>" class="px-6 py-2 font-medium text-xs text-center text-gray-500 hover:text-gray-700">
                                     <?php echo e(t('Closed')); ?> (<?php echo count($closed_tickets_report); ?>)
                                 </td>
@@ -912,11 +1254,11 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <tbody id="closed-tickets-report" class="hidden divide-y">
                             <?php foreach ($closed_tickets_report as $tid => $ticket): ?>
                                 <tr style="opacity: 0.7;">
-                                    <td class="px-6 py-3 text-sm"><a href="<?php echo url('ticket', ['id' => $tid]); ?>" class="text-blue-600 hover:text-blue-800 hover:underline"><?php echo e($ticket['title']); ?></a></td>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                    <td class="px-3 py-1.5 text-xs"><a href="<?php echo url('ticket', ['id' => $tid]); ?>" class="text-blue-600 hover:text-blue-800 hover:underline"><?php echo e($ticket['title']); ?></a></td>
+                                    <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
                                         <?php echo e($ticket['organization_name'] ?: t('-- No organization --')); ?></td>
                                     <?php if ($tags_supported): ?>
-                                        <td class="px-6 py-3 text-sm">
+                                        <td class="px-3 py-1.5 text-xs">
                                             <?php $row_tags = function_exists('get_ticket_tags_array') ? get_ticket_tags_array($ticket['tags'] ?? '') : []; ?>
                                             <?php if (!empty($row_tags)): ?>
                                                 <div class="flex flex-wrap gap-1">
@@ -929,12 +1271,14 @@ include BASE_PATH . '/includes/components/page-header.php';
                                             <?php endif; ?>
                                         </td>
                                     <?php endif; ?>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                    <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
                                         <?php echo e(format_duration_minutes($ticket['minutes'])); ?></td>
                                     <?php if ($show_money): ?>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
                                             <?php echo e(format_money($ticket['billable_amount'])); ?></td>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);"><?php echo e(format_money($ticket['profit'])); ?>
+                                    <?php endif; ?>
+                                    <?php if ($show_money && $has_cost_data): ?>
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);"><?php echo e(format_money($ticket['profit'])); ?>
                                         </td>
                                     <?php endif; ?>
                                 </tr>
@@ -953,42 +1297,127 @@ include BASE_PATH . '/includes/components/page-header.php';
                     <div class="text-sm" style="color: var(--text-muted);"><?php echo e(t('Try adjusting the time range or filters above.')); ?></div>
                 </div>
             <?php else: ?>
+            <?php
+            // Compute max minutes across all weeks for bar scaling
+            $weekly_max_minutes = 0;
+            foreach ($by_week as $w) {
+                if ($w['minutes'] > $weekly_max_minutes) $weekly_max_minutes = $w['minutes'];
+            }
+            // Assign consistent agent colors
+            $weekly_agent_colors = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4','#84cc16'];
+            $weekly_agent_ids = [];
+            foreach ($by_week as $w) {
+                foreach (array_keys($w['agents']) as $aid) {
+                    if (!in_array($aid, $weekly_agent_ids)) $weekly_agent_ids[] = $aid;
+                }
+            }
+            $weekly_agent_color_map = [];
+            foreach ($weekly_agent_ids as $ci => $aid) {
+                $weekly_agent_color_map[$aid] = $weekly_agent_colors[$ci % count($weekly_agent_colors)];
+            }
+            $weekly_col_count = 3 + ($show_money ? 1 : 0) + ($show_money && $has_cost_data ? 1 : 0);
+            ?>
             <div class="card overflow-hidden">
-                <div class="card-header">
+                <div class="card-header flex items-center justify-between">
                     <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Weekly')); ?></h3>
+                    <?php if (count($weekly_agent_ids) > 1): ?>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <?php foreach ($weekly_agent_ids as $aid): ?>
+                            <?php $aname = ''; foreach ($by_week as $w) { if (isset($w['agents'][$aid])) { $aname = $w['agents'][$aid]['name']; break; } } ?>
+                            <div class="flex items-center gap-1.5 text-xs" style="color: var(--text-secondary);">
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:<?php echo $weekly_agent_color_map[$aid]; ?>;"></span>
+                                <?php echo e($aname); ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead style="background: var(--surface-secondary);">
                             <tr>
-                                <th class="px-6 py-3 text-left th-label">
-                                    <?php echo e(t('From date')); ?></th>
-                                <th class="px-6 py-3 text-left th-label">
+                                <th class="px-3 py-2 text-left th-label">
+                                    <?php echo e(t('Week')); ?></th>
+                                <th class="px-3 py-2 text-left th-label" style="min-width:180px;">
                                     <?php echo e(t('Time')); ?></th>
-                                <th class="px-6 py-3 text-left th-label">
+                                <th class="px-3 py-2 text-left th-label">
                                     <?php echo e(t('Billable time')); ?></th>
                                 <?php if ($show_money): ?>
-                                    <th class="px-6 py-3 text-left th-label">
+                                    <th class="px-3 py-2 text-left th-label">
                                         <?php echo e(t('Amount')); ?></th>
-                                    <th class="px-6 py-3 text-left th-label">
+                                <?php endif; ?>
+                                <?php if ($show_money && $has_cost_data): ?>
+                                    <th class="px-3 py-2 text-left th-label">
                                         <?php echo e(t('Profit')); ?></th>
                                 <?php endif; ?>
                             </tr>
                         </thead>
                         <tbody class="divide-y">
-                            <?php foreach ($by_week as $week): ?>
-                                <tr>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-primary);"><?php echo e($week['label']); ?></td>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
-                                        <?php echo e(format_duration_minutes($week['minutes'])); ?></td>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                            <?php $wi = 0; foreach ($by_week as $wk => $week): $wi++; ?>
+                                <tr class="cursor-pointer hover:bg-opacity-50" style="transition:background .15s;" onclick="toggleWeekAgents('week-agents-<?php echo $wi; ?>')">
+                                    <td class="px-6 py-3">
+                                        <div class="text-sm font-medium" style="color: var(--text-primary);"><?php echo e($week['label_formatted']); ?></div>
+                                    </td>
+                                    <td class="px-6 py-3">
+                                        <div class="text-sm" style="color: var(--text-secondary);">
+                                            <?php echo e(format_duration_minutes($week['minutes'])); ?>
+                                        </div>
+                                        <?php if ($weekly_max_minutes > 0): ?>
+                                        <div style="display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--border-light);margin-top:4px;width:100%;max-width:160px;" title="<?php
+                                            $parts = [];
+                                            // Sort agents by minutes desc for this week
+                                            $wa_sorted = $week['agents'];
+                                            uasort($wa_sorted, fn($a, $b) => $b['minutes'] <=> $a['minutes']);
+                                            foreach ($wa_sorted as $aid => $ag) {
+                                                $parts[] = e($ag['name']) . ': ' . format_duration_minutes($ag['minutes']);
+                                            }
+                                            echo implode(' | ', $parts);
+                                        ?>">
+                                            <?php foreach ($wa_sorted as $aid => $ag):
+                                                $seg_pct = $weekly_max_minutes > 0 ? ($ag['minutes'] / $weekly_max_minutes) * 100 : 0;
+                                            ?>
+                                            <div style="width:<?php echo round($seg_pct, 1); ?>%;background:<?php echo $weekly_agent_color_map[$aid] ?? '#94a3b8'; ?>;"></div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
                                         <?php echo e(format_duration_minutes($week['billable_minutes'])); ?></td>
                                     <?php if ($show_money): ?>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);">
                                             <?php echo e(format_money($week['billable_amount'])); ?></td>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);"><?php echo e(format_money($week['profit'])); ?></td>
+                                    <?php endif; ?>
+                                    <?php if ($show_money && $has_cost_data): ?>
+                                        <td class="px-3 py-1.5 text-xs" style="color: var(--text-secondary);"><?php echo e(format_money($week['profit'])); ?></td>
                                     <?php endif; ?>
                                 </tr>
+                                <?php if (count($week['agents']) > 0): ?>
+                                <tr id="week-agents-<?php echo $wi; ?>" class="hidden">
+                                    <td colspan="<?php echo $weekly_col_count; ?>" class="px-0 py-0">
+                                        <div class="px-6 py-3" style="background: var(--surface-secondary);">
+                                            <div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));">
+                                                <?php
+                                                $wa_sorted2 = $week['agents'];
+                                                uasort($wa_sorted2, fn($a, $b) => $b['minutes'] <=> $a['minutes']);
+                                                foreach ($wa_sorted2 as $aid => $ag):
+                                                    $ag_pct = $week['minutes'] > 0 ? round(($ag['minutes'] / $week['minutes']) * 100) : 0;
+                                                ?>
+                                                <div class="flex items-center gap-2 px-3 py-2 rounded-lg" style="background: var(--surface-primary);">
+                                                    <span style="display:inline-block;width:8px;height:8px;border-radius:2px;flex-shrink:0;background:<?php echo $weekly_agent_color_map[$aid] ?? '#94a3b8'; ?>;"></span>
+                                                    <div class="min-w-0 flex-1">
+                                                        <div class="text-xs font-medium truncate" style="color: var(--text-primary);"><?php echo e($ag['name']); ?></div>
+                                                        <div class="text-xs" style="color: var(--text-muted);">
+                                                            <?php echo e(format_duration_minutes($ag['minutes'])); ?>
+                                                            <span class="ml-1">(<?php echo $ag_pct; ?>%)</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php endif; ?>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
@@ -1011,32 +1440,34 @@ include BASE_PATH . '/includes/components/page-header.php';
                     <table class="w-full">
                         <thead style="background: var(--surface-secondary);">
                             <tr>
-                                <th class="px-6 py-3 text-left th-label">
+                                <th class="px-3 py-2 text-left th-label" data-col="ticket">
                                     <?php echo e(t('Ticket')); ?></th>
-                                <th class="px-6 py-3 text-left th-label">
+                                <th class="px-3 py-2 text-left th-label" data-col="company">
                                     <?php echo e(t('Company')); ?></th>
                                 <?php if ($tags_supported): ?>
-                                    <th class="px-6 py-3 text-left th-label">
+                                    <th class="px-3 py-2 text-left th-label" data-col="tags">
                                         <?php echo e(t('Tags')); ?></th>
                                 <?php endif; ?>
-                                <th class="px-6 py-3 text-left th-label">
+                                <th class="px-3 py-2 text-left th-label" data-col="duration">
                                     <?php echo e(t('Duration')); ?></th>
-                                <th class="px-6 py-3 text-left th-label">
+                                <th class="px-3 py-2 text-left th-label" data-col="billable">
                                     <?php echo e(t('Billable')); ?></th>
-                                <th class="px-6 py-3 text-left th-label">
+                                <th class="px-3 py-2 text-left th-label" data-col="agent">
                                     <?php echo e(t('Agent')); ?></th>
-                                <th class="px-6 py-3 text-left th-label">
+                                <th class="px-3 py-2 text-left th-label" data-col="source">
                                     <?php echo e(t('Source')); ?></th>
-                                <th class="px-6 py-3 text-left th-label">
+                                <th class="px-3 py-2 text-left th-label" data-col="start">
                                     <?php echo e(t('Start time')); ?></th>
-                                <th class="px-6 py-3 text-left th-label">
+                                <th class="px-3 py-2 text-left th-label" data-col="end">
                                     <?php echo e(t('End time')); ?></th>
                                 <?php if ($show_money): ?>
-                                    <th class="px-6 py-3 text-left th-label">
+                                    <th class="px-3 py-2 text-left th-label" data-col="amount">
                                         <?php echo e(t('Amount')); ?></th>
-                                    <th class="px-6 py-3 text-left th-label">
+                                <?php endif; ?>
+                                <?php if ($show_money && $has_cost_data): ?>
+                                    <th class="px-3 py-2 text-left th-label" data-col="cost">
                                         <?php echo e(t('Cost')); ?></th>
-                                    <th class="px-6 py-3 text-left th-label">
+                                    <th class="px-3 py-2 text-left th-label" data-col="profit">
                                         <?php echo e(t('Profit')); ?></th>
                                 <?php endif; ?>
                                 <?php if (is_admin()): ?>
@@ -1048,11 +1479,11 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <tbody class="divide-y">
                             <?php foreach ($entries as $entry): ?>
                                 <tr>
-                                    <td class="px-6 py-3 text-sm"><a href="<?php echo url('ticket', ['id' => $entry['ticket_id']]); ?>" class="text-blue-600 hover:text-blue-800 hover:underline"><?php echo e($entry['ticket_title']); ?></a></td>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                    <td class="px-3 py-1.5 text-xs" data-col="ticket"><a href="<?php echo url('ticket', ['id' => $entry['ticket_id']]); ?>" class="text-blue-600 hover:text-blue-800 hover:underline"><?php echo e($entry['ticket_title']); ?></a></td>
+                                    <td class="px-3 py-1.5 text-xs" data-col="company" style="color: var(--text-secondary);">
                                         <?php echo e($entry['organization_name'] ?: t('-- No organization --')); ?></td>
                                     <?php if ($tags_supported): ?>
-                                        <td class="px-6 py-3 text-sm">
+                                        <td class="px-3 py-1.5 text-xs" data-col="tags">
                                             <?php $entry_tags = function_exists('get_ticket_tags_array') ? get_ticket_tags_array($entry['ticket_tags'] ?? '') : []; ?>
                                             <?php if (!empty($entry_tags)): ?>
                                                 <div class="flex flex-wrap gap-1">
@@ -1065,9 +1496,9 @@ include BASE_PATH . '/includes/components/page-header.php';
                                             <?php endif; ?>
                                         </td>
                                     <?php endif; ?>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                    <td class="px-3 py-1.5 text-xs" data-col="duration" style="color: var(--text-secondary);">
                                         <?php echo e(format_duration_minutes($entry['actual_minutes'])); ?></td>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                    <td class="px-3 py-1.5 text-xs" data-col="billable" style="color: var(--text-secondary);">
                                         <?php if (is_admin()): ?>
                                         <form method="post">
                                             <?php echo csrf_field(); ?>
@@ -1084,20 +1515,22 @@ include BASE_PATH . '/includes/components/page-header.php';
                                             <span class="text-xs"><?php echo e(!empty($entry['is_billable']) ? t('Billable') : t('Non-billable')); ?></span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                    <td class="px-3 py-1.5 text-xs" data-col="agent" style="color: var(--text-secondary);">
                                         <?php echo e(trim($entry['first_name'] . ' ' . $entry['last_name'])); ?></td>
-                                    <td class="px-6 py-3 text-sm">
+                                    <td class="px-3 py-1.5 text-xs" data-col="source">
                                         <?php echo function_exists('render_source_badge') ? render_source_badge($entry['_source'] ?? get_time_entry_source($entry)) : ''; ?></td>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);"><?php echo e(format_date($entry['started_at'])); ?>
+                                    <td class="px-3 py-1.5 text-xs" data-col="start" style="color: var(--text-secondary);"><?php echo e(format_date($entry['started_at'])); ?>
                                     </td>
-                                    <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                    <td class="px-3 py-1.5 text-xs" data-col="end" style="color: var(--text-secondary);">
                                         <?php echo e($entry['ended_at'] ? format_date($entry['ended_at']) : '-'); ?></td>
                                     <?php if ($show_money): ?>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                        <td class="px-3 py-1.5 text-xs" data-col="amount" style="color: var(--text-secondary);">
                                             <?php echo e(format_money($entry['billable_amount'])); ?></td>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);">
+                                    <?php endif; ?>
+                                    <?php if ($show_money && $has_cost_data): ?>
+                                        <td class="px-3 py-1.5 text-xs" data-col="cost" style="color: var(--text-secondary);">
                                             <?php echo e(format_money($entry['cost_amount'])); ?></td>
-                                        <td class="px-6 py-3 text-sm" style="color: var(--text-secondary);"><?php echo e(format_money($entry['profit'])); ?>
+                                        <td class="px-3 py-1.5 text-xs" data-col="profit" style="color: var(--text-secondary);"><?php echo e(format_money($entry['profit'])); ?>
                                         </td>
                                     <?php endif; ?>
                                     <?php if (is_admin()): ?>
@@ -1470,7 +1903,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                 durationCell.style.background = 'rgba(34,197,94,.15)';
                 setTimeout(function () { durationCell.style.background = ''; }, 800);
             } else if (!data.success) {
-                alert(data.error || 'Failed to save');
+                alert(data.error || <?php echo json_encode(t('Failed to save')); ?>);
                 if (durationCell) durationCell.style.opacity = '1';
             }
         })
@@ -1485,10 +1918,47 @@ include BASE_PATH . '/includes/components/page-header.php';
     if (reportRangeSelect && reportCustomRange) {
         const toggleRange = () => {
             reportCustomRange.classList.toggle('hidden', reportRangeSelect.value !== 'custom');
+            // Update preset button highlights
+            document.querySelectorAll('.range-preset-btn').forEach(function(btn) {
+                if (btn.dataset.range === reportRangeSelect.value) {
+                    btn.style.background = 'var(--primary)';
+                    btn.style.color = '#fff';
+                } else {
+                    btn.style.background = 'var(--surface-secondary)';
+                    btn.style.color = 'var(--text-muted)';
+                }
+            });
         };
         reportRangeSelect.addEventListener('change', toggleRange);
         toggleRange();
     }
+
+    /* ── Quick range preset click handler ── */
+    window.setTimeRange = function(range) {
+        var sel = document.getElementById('report-time-range');
+        if (sel) {
+            sel.value = range;
+            sel.dispatchEvent(new Event('change'));
+        }
+    };
+
+    /* ── Collapsible filter panel toggle (RP5) ── */
+    window.toggleReportFilters = function() {
+        var panel = document.getElementById('report-filter-panel');
+        var label = document.getElementById('filter-toggle-label');
+        if (!panel) return;
+        var isHidden = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden');
+        if (label) {
+            label.textContent = isHidden ? <?php echo json_encode(t('Hide filters')); ?> : <?php echo json_encode(t('Edit filters')); ?>;
+        }
+    };
+
+    /* ── Weekly tab: toggle per-agent breakdown (RP6) ── */
+    window.toggleWeekAgents = function(id) {
+        var row = document.getElementById(id);
+        if (row) row.classList.toggle('hidden');
+    };
 
     function openEntryModal(entry) {
         document.getElementById('edit_entry_id').value = entry.id;
@@ -1643,6 +2113,232 @@ include BASE_PATH . '/includes/components/page-header.php';
                 '</div>';
         }
     })();
+
+    /* ── Column picker (Detailed tab) ── */
+    (function () {
+        var toggles = document.querySelectorAll('.col-toggle');
+        if (!toggles.length) return;
+        var STORAGE_KEY = 'foxdesk_report_cols';
+
+        // Restore saved state
+        try {
+            var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            toggles.forEach(function (cb) {
+                var col = cb.dataset.col;
+                if (saved[col] === false) {
+                    cb.checked = false;
+                    applyCol(col, false);
+                }
+            });
+        } catch (e) {}
+
+        toggles.forEach(function (cb) {
+            cb.addEventListener('change', function () {
+                applyCol(cb.dataset.col, cb.checked);
+                saveState();
+            });
+        });
+
+        function applyCol(col, visible) {
+            var cells = document.querySelectorAll('[data-col="' + col + '"]');
+            cells.forEach(function (cell) {
+                cell.style.display = visible ? '' : 'none';
+            });
+        }
+
+        function saveState() {
+            var state = {};
+            toggles.forEach(function (cb) {
+                state[cb.dataset.col] = cb.checked;
+            });
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+        }
+
+        // Close dropdown on outside click
+        document.addEventListener('click', function (e) {
+            var wrap = document.getElementById('col-picker-wrap');
+            var dd = document.getElementById('col-picker-dropdown');
+            if (wrap && dd && !wrap.contains(e.target)) {
+                dd.classList.add('hidden');
+            }
+        });
+    })();
+
+    /* ── Filter persistence (localStorage) ── */
+    (function () {
+        var FILTER_KEY = 'foxdesk_report_filters';
+        var form = document.querySelector('form[method="get"]');
+        if (!form) return;
+        var rangeSelect = document.getElementById('report-time-range');
+
+        // On form submit (via Apply), save current filter state
+        form.addEventListener('submit', function () {
+            saveFilters();
+        });
+
+        // Also save when Apply button triggers confirmation
+        var applyBtn = document.getElementById('report-apply-btn');
+        if (applyBtn) {
+            var origClick = applyBtn.onclick;
+            applyBtn.addEventListener('click', function () {
+                saveFilters();
+            });
+        }
+
+        // Restore filters only on clean visit (no query params besides page/section)
+        var urlParams = new URLSearchParams(window.location.search);
+        var hasFilters = urlParams.has('time_range') || urlParams.has('organizations') || urlParams.has('agents');
+        if (!hasFilters && rangeSelect) {
+            try {
+                var saved = JSON.parse(localStorage.getItem(FILTER_KEY) || '{}');
+                if (saved.time_range && saved.time_range !== 'this_month') {
+                    rangeSelect.value = saved.time_range;
+                    if (saved.time_range === 'custom') {
+                        var fd = document.querySelector('[name="from_date"]');
+                        var td = document.querySelector('[name="to_date"]');
+                        if (fd && saved.from_date) fd.value = saved.from_date;
+                        if (td && saved.to_date) td.value = saved.to_date;
+                        var customRange = document.getElementById('report-custom-range');
+                        if (customRange) customRange.classList.remove('hidden');
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function saveFilters() {
+            try {
+                var state = {};
+                if (rangeSelect) state.time_range = rangeSelect.value;
+                var fd = document.querySelector('[name="from_date"]');
+                var td = document.querySelector('[name="to_date"]');
+                if (fd) state.from_date = fd.value;
+                if (td) state.to_date = td.value;
+                localStorage.setItem(FILTER_KEY, JSON.stringify(state));
+            } catch (e) {}
+        }
+    })();
 </script>
 
-<?php require_once BASE_PATH . '/includes/footer.php'; 
+<!-- Print-friendly styles -->
+<style>
+@media print {
+    /* Hide non-essential UI elements */
+    aside, .sidebar,
+    .mobile-header,
+    header,
+    .toast-stack,
+    #notification-panel,
+    .foxdesk-update-bar,
+    #app-toast-stack,
+    .flash-inline-wrapper,
+    #col-picker-wrap,
+    .report-confirm,
+    #report-apply-btn,
+    form[method="get"],
+    .range-preset-btn,
+    #report-range-hint,
+    .btn-primary, .btn-secondary, .btn-sm,
+    [onclick*="print"],
+    [href*="export=csv"],
+    .chip-select,
+    #entryModal,
+    footer,
+    .help-panel {
+        display: none !important;
+    }
+
+    /* Reset page layout */
+    body {
+        background: #fff !important;
+        color: #000 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+    }
+
+    .space-y-3 > * {
+        break-inside: avoid;
+    }
+
+    /* Card styling for print */
+    .card {
+        border: 1px solid #e5e7eb !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+    }
+
+    .card-body {
+        padding: 12px !important;
+    }
+
+    /* Table print styles */
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 11px !important;
+    }
+
+    th, td {
+        padding: 6px 8px !important;
+        border-bottom: 1px solid #e5e7eb !important;
+    }
+
+    th {
+        background: #f9fafb !important;
+        font-weight: 600 !important;
+    }
+
+    /* KPI cards grid - force horizontal layout */
+    .grid {
+        display: grid !important;
+    }
+
+    /* Summary card values */
+    .text-xl {
+        font-size: 16px !important;
+    }
+
+    /* Tab bar: show active tab name only */
+    .flex.items-center.gap-2 a:not([style*="background: var(--primary)"]) {
+        display: none !important;
+    }
+
+    /* Client Reports banner */
+    [style*="linear-gradient"] {
+        display: none !important;
+    }
+
+    /* Page header */
+    .page-header {
+        margin-bottom: 8px !important;
+    }
+
+    /* Add report title for print */
+    .space-y-3::before {
+        content: "Time Report";
+        display: block;
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: #000;
+    }
+
+    /* Remove links styling */
+    a {
+        color: #000 !important;
+        text-decoration: none !important;
+    }
+
+    /* Page margins */
+    @page {
+        margin: 1.5cm;
+        size: A4 landscape;
+    }
+}
+</style>
+
+<?php require_once BASE_PATH . '/includes/footer.php';

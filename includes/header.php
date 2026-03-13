@@ -60,10 +60,11 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 if (data.url) window.location.href = data.url;
                 else if (data.error) alert(data.error);
             })
-            .catch(function() { alert('Error'); });
+            .catch(function() { alert(<?php echo json_encode(t('Error')); ?>); });
         }
         function sidebarToggleTimer(ticketId, isPaused) {
             var action = isPaused ? 'resume-timer' : 'pause-timer';
+            var errLabel = <?php echo json_encode(t('Error')); ?>;
             fetch('index.php?page=api&action=' + action, {
                 method: 'POST',
                 headers: {'X-CSRF-TOKEN': window.csrfToken, 'Content-Type': 'application/x-www-form-urlencoded'},
@@ -74,13 +75,13 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 if (data.success) {
                     document.dispatchEvent(new Event('timerStateChanged'));
                 } else {
-                    if (typeof showAppToast === 'function') showAppToast(data.error || 'Error', 'error');
-                    else alert(data.error || 'Error');
+                    if (typeof showAppToast === 'function') showAppToast(data.error || errLabel, 'error');
+                    else alert(data.error || errLabel);
                 }
             })
             .catch(function() {
-                if (typeof showAppToast === 'function') showAppToast('Error', 'error');
-                else alert('Error');
+                if (typeof showAppToast === 'function') showAppToast(errLabel, 'error');
+                else alert(errLabel);
             });
         }
     </script>
@@ -244,18 +245,23 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 </a>
 
                 <?php $is_new_ticket = ($page ?? '') === 'new-ticket' && !isset($_GET['auto_timer']); ?>
+                <?php $has_quick_start = (is_admin() || is_agent()) && function_exists('ticket_time_table_exists') && ticket_time_table_exists(); ?>
+                <?php if ($has_quick_start): ?><div class="nav-item-group"><?php endif; ?>
                 <a href="<?php echo url('new-ticket'); ?>"
-                    class="nav-item <?php echo $is_new_ticket ? 'active' : ''; ?>"
+                    class="nav-item nav-item--cta <?php echo $is_new_ticket ? 'active' : ''; ?>"
                     <?php echo $is_new_ticket ? 'aria-current="page"' : ''; ?>>
                     <?php echo get_icon('plus', 'nav-item__icon'); ?>
                     <span><?php echo e(t('New ticket')); ?></span>
                 </a>
-
-                <?php if ((is_admin() || is_agent()) && function_exists('ticket_time_table_exists') && ticket_time_table_exists()): ?>
-                    <a href="#" onclick="quickStart(event)" class="nav-item">
+                <?php if ($has_quick_start): ?>
+                <div class="nav-item-flyout">
+                    <a href="#" onclick="quickStart(event)" class="nav-item-flyout__item">
                         <?php echo get_icon('play', 'nav-item__icon'); ?>
                         <span><?php echo e(t('Quick start')); ?></span>
+                        <span class="nav-item-flyout__hint"><?php echo e(t('Ticket + timer')); ?></span>
                     </a>
+                </div>
+                </div>
                 <?php endif; ?>
             </nav>
 
@@ -386,6 +392,15 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                     <?php echo get_icon('chart-bar', 'w-4 h-4'); ?>
                     <span><?php echo e(t('Time report')); ?></span>
                 </a>
+
+                <?php if (is_admin()): ?>
+                <a href="<?php echo url('admin', ['section' => 'reports-list']); ?>" role="menuitem"
+                    class="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors sidebar-hover"
+                    style="color: var(--text-secondary);">
+                    <?php echo get_icon('file-invoice', 'w-4 h-4'); ?>
+                    <span><?php echo e(t('Client Reports')); ?></span>
+                </a>
+                <?php endif; ?>
 
                 <?php if (is_admin()): ?>
                 <a href="<?php echo url('admin', ['section' => 'users']); ?>" role="menuitem"
@@ -561,10 +576,24 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
             <!-- Header -->
             <div class="flex items-center justify-between px-4 py-3 border-b" style="border-color: var(--border-light);">
                 <h3 class="font-semibold text-sm" style="color: var(--text-primary);"><?php echo e(t('Notifications')); ?></h3>
-                <button onclick="markAllNotificationsRead()" id="notif-mark-all-btn"
-                    class="text-xs font-medium hover:underline" style="color: var(--accent-primary);">
-                    <?php echo e(t('Mark all as read')); ?>
-                </button>
+                <div class="flex items-center gap-3">
+                    <button onclick="togglePushNotifications()" id="push-toggle-btn"
+                        class="p-1 rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+                        title="<?php echo e(t('Push notifications')); ?>" style="color: var(--text-muted); display: none;">
+                        <span class="push-icon-on" style="display:none"><?php echo get_icon('bell', 'w-4 h-4'); ?></span>
+                        <span class="push-icon-off"><?php echo get_icon('bell-slash', 'w-4 h-4'); ?></span>
+                    </button>
+                    <button onclick="toggleNotifSound()" id="notif-sound-toggle"
+                        class="p-1 rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+                        title="<?php echo e(t('Toggle sound')); ?>" style="color: var(--text-muted);">
+                        <?php echo get_icon('volume-up', 'w-4 h-4 notif-sound-on'); ?>
+                        <span class="notif-sound-off hidden" style="display:none"><?php echo get_icon('volume-mute', 'w-4 h-4'); ?></span>
+                    </button>
+                    <button onclick="markAllNotificationsRead()" id="notif-mark-all-btn"
+                        class="text-xs font-medium hover:underline" style="color: var(--accent-primary);">
+                        <?php echo e(t('Mark all as read')); ?>
+                    </button>
+                </div>
             </div>
             <!-- Content -->
             <div id="notification-list" class="overflow-y-auto" style="max-height: 420px;">
@@ -572,8 +601,9 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                     <div class="w-5 h-5 border-2 rounded-full animate-spin" style="border-color: var(--border-light); border-top-color: var(--accent-primary);"></div>
                 </div>
                 <div id="notif-empty" class="hidden text-center py-8 px-4">
-                    <div style="color: var(--text-muted);" class="mb-2"><?php echo get_icon('bell', 'w-8 h-8 mx-auto opacity-30'); ?></div>
-                    <p class="text-sm" style="color: var(--text-muted);"><?php echo e(t('No notifications yet')); ?></p>
+                    <div style="color: var(--text-muted);" class="mb-3"><?php echo get_icon('bell', 'w-10 h-10 mx-auto opacity-20'); ?></div>
+                    <p class="text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('All caught up!')); ?></p>
+                    <p class="text-xs" style="color: var(--text-muted);"><?php echo e(t('No new notifications. Check back later.')); ?></p>
                 </div>
                 <div id="notif-items"></div>
             </div>
@@ -636,6 +666,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
             }
             .notif-badge.pulse {
                 animation: notif-pulse 2s ease-in-out infinite;
+                box-shadow: 0 0 0 2px var(--bg-primary, #fff);
             }
             .notif-sidebar-badge {
                 margin-left: auto;
@@ -668,6 +699,10 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
             }
             .notif-item.unread {
                 border-left-color: var(--accent-primary, #3b82f6);
+                background: rgba(59, 130, 246, 0.04);
+            }
+            [data-theme="dark"] .notif-item.unread {
+                background: rgba(59, 130, 246, 0.08);
             }
             .notif-item .notif-avatar {
                 width: 32px; height: 32px;
@@ -697,6 +732,39 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 font-size: 11px;
                 color: var(--text-muted);
                 margin-top: 2px;
+            }
+            .notif-item .notif-mark-read {
+                flex-shrink: 0;
+                width: 24px; height: 24px;
+                border-radius: 4px;
+                display: none;
+                align-items: center; justify-content: center;
+                cursor: pointer;
+                color: var(--text-muted);
+                background: transparent;
+                border: none;
+                padding: 0;
+                transition: color 0.15s, background 0.15s;
+                margin-top: 4px;
+            }
+            .notif-item .notif-mark-read:hover {
+                color: var(--accent-primary, #3b82f6);
+                background: rgba(59, 130, 246, 0.1);
+            }
+            .notif-item.unread .notif-mark-read { display: flex; }
+            .notif-item.unread:hover .notif-mark-read { display: flex; }
+            @media (max-width: 768px) {
+                .notif-item.unread .notif-mark-read { display: flex; }
+            }
+            .notif-item.unread .notif-time::before {
+                content: '';
+                display: inline-block;
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: var(--accent-primary, #3b82f6);
+                margin-right: 4px;
+                vertical-align: middle;
             }
             .notif-group-header {
                 padding: 0.5rem 1rem 0.25rem;
@@ -755,12 +823,15 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
             function renderItem(n) {
                 var cls = 'notif-item' + (n.is_read ? '' : ' unread');
                 var ticketUrl = n.ticket_id ? ('index.php?page=ticket&id=' + n.ticket_id) : '#';
+                var markBtn = n.is_read ? '' : '<button class="notif-mark-read" onclick="markOneRead(event,' + n.id + ')" title="' + esc(<?php echo json_encode(t('Mark as read')); ?>) + '">&#10003;</button>';
                 return '<div class="' + cls + '" data-id="' + n.id + '" onclick="notifItemClick(event,' + n.id + ',' + (n.ticket_id||0) + ')">'
                     + avatarHtml(n)
                     + '<div class="notif-body">'
                     + '<div class="notif-text">' + esc(n.text) + '</div>'
                     + '<div class="notif-time">' + esc(n.time_ago) + '</div>'
-                    + '</div></div>';
+                    + '</div>'
+                    + markBtn
+                    + '</div>';
             }
 
             function renderGroup(label, items) {
@@ -769,6 +840,19 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 for (var i = 0; i < items.length; i++) {
                     var tg = items[i];
                     if (tg.primary) {
+                        // Show "mark group read" if 2+ unread items for same ticket
+                        var unreadCount = (tg.primary && !tg.primary.is_read ? 1 : 0);
+                        if (tg.others) {
+                            for (var k = 0; k < tg.others.length; k++) {
+                                if (!tg.others[k].is_read) unreadCount++;
+                            }
+                        }
+                        if (unreadCount >= 2 && tg.ticket_id) {
+                            html += '<div class="flex items-center justify-end px-3 py-1" style="margin-top: -2px;">'
+                                + '<button class="text-xs font-medium hover:underline" style="color: var(--accent-primary);" onclick="markTicketRead(event,' + tg.ticket_id + ')">'
+                                + esc(<?php echo json_encode(t('Mark all for this ticket as read')); ?>)
+                                + '</button></div>';
+                        }
                         html += renderItem(tg.primary);
                         if (tg.others) {
                             for (var j = 0; j < tg.others.length; j++) html += renderItem(tg.others[j]);
@@ -802,6 +886,8 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
             };
 
             window.notifItemClick = function(event, id, ticketId) {
+                // Don't navigate if clicking the mark-read button
+                if (event.target.closest('.notif-mark-read')) return;
                 // Mark as read
                 var el = event.currentTarget;
                 if (el && el.classList.contains('unread')) {
@@ -819,6 +905,56 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 if (ticketId) {
                     window.location.href = 'index.php?page=ticket&id=' + ticketId + '&nid=' + id;
                 }
+            };
+
+            window.markOneRead = function(event, id) {
+                event.stopPropagation();
+                var item = event.target.closest('.notif-item');
+                if (item) {
+                    item.classList.remove('unread');
+                    // Hide the button itself
+                    var btn = item.querySelector('.notif-mark-read');
+                    if (btn) btn.style.display = 'none';
+                }
+                fetch('index.php?page=api&action=mark-notification-read', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': window.csrfToken},
+                    body: 'notification_id=' + id + '&csrf_token=' + encodeURIComponent(window.csrfToken)
+                }).then(function() {
+                    // Decrement badge
+                    if (_lastCount > 0) updateBadge(_lastCount - 1);
+                }).catch(function(){});
+                // Sync dashboard widget
+                var dbEl = document.getElementById('dbnotif-' + id);
+                if (dbEl) dbEl.classList.remove('unread');
+            };
+
+            window.markTicketRead = function(event, ticketId) {
+                event.stopPropagation();
+                // Find all unread items in the panel and mark them read visually
+                var items = document.querySelectorAll('#notif-items .notif-item.unread');
+                var count = 0;
+                items.forEach(function(el) {
+                    var onclick = el.getAttribute('onclick') || '';
+                    // Match items that belong to this ticket
+                    if (onclick.indexOf(',' + ticketId + ')') !== -1) {
+                        el.classList.remove('unread');
+                        var btn = el.querySelector('.notif-mark-read');
+                        if (btn) btn.style.display = 'none';
+                        count++;
+                    }
+                });
+                // Hide the "mark all for this ticket" button
+                var btn = event.target.closest('div');
+                if (btn) btn.style.display = 'none';
+                // API call
+                fetch('index.php?page=api&action=mark-ticket-notifications-read', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': window.csrfToken},
+                    body: 'ticket_id=' + ticketId + '&csrf_token=' + encodeURIComponent(window.csrfToken)
+                }).then(function() {
+                    if (_lastCount > 0) updateBadge(Math.max(0, _lastCount - count));
+                }).catch(function(){});
             };
 
             window.markAllNotificationsRead = function() {
@@ -851,22 +987,39 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 if (empty) empty.classList.add('hidden');
                 if (items) items.innerHTML = '';
 
-                fetch('index.php?page=api&action=get-notifications')
+                fetch('index.php?page=api&action=get-notifications&limit=20')
                     .then(function(r) { return r.json(); })
                     .then(function(res) {
                         if (loading) loading.classList.add('hidden');
                         if (!res.success || !res.groups) { if (empty) empty.classList.remove('hidden'); return; }
 
                         var g = res.groups || {};
-                        var html = '';
-                        html += renderGroup(<?php echo json_encode(t('Today')); ?>, g.today);
-                        html += renderGroup(<?php echo json_encode(t('Yesterday')); ?>, g.yesterday);
-                        html += renderGroup(<?php echo json_encode(t('Earlier')); ?>, g.earlier);
+                        var groupHtml = '';
+                        groupHtml += renderGroup(<?php echo json_encode(t('Today')); ?>, g.today);
+                        groupHtml += renderGroup(<?php echo json_encode(t('Yesterday')); ?>, g.yesterday);
+                        groupHtml += renderGroup(<?php echo json_encode(t('Earlier')); ?>, g.earlier);
 
-                        if (!html) {
+                        if (!groupHtml) {
                             if (empty) empty.classList.remove('hidden');
                         } else {
-                            if (items) items.innerHTML = html;
+                            if (items) {
+                                items.textContent = '';
+                                // Insert notification groups
+                                var wrapper = document.createElement('div');
+                                wrapper.innerHTML = groupHtml;
+                                while (wrapper.firstChild) items.appendChild(wrapper.firstChild);
+                                // "View all" link
+                                var footer = document.createElement('div');
+                                footer.className = 'text-center py-3 border-t';
+                                footer.style.borderColor = 'var(--border-light)';
+                                var link = document.createElement('a');
+                                link.href = 'index.php?page=notifications';
+                                link.className = 'text-xs font-medium hover:underline';
+                                link.style.color = 'var(--accent-primary)';
+                                link.textContent = <?php echo json_encode(t('View all notifications')); ?>;
+                                footer.appendChild(link);
+                                items.appendChild(footer);
+                            }
                         }
 
                         updateBadge(res.unread_count || 0);
@@ -929,6 +1082,40 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                     osc.stop(ctx.currentTime + 0.3);
                 } catch(e) {}
             }
+
+            // Sound toggle
+            window.toggleNotifSound = function() {
+                var prefs = window.appNotificationPrefs || {};
+                prefs.soundEnabled = !prefs.soundEnabled;
+                window.appNotificationPrefs = prefs;
+                try { localStorage.setItem('foxdesk_notif_sound', prefs.soundEnabled ? '1' : '0'); } catch(e) {}
+                updateSoundIcon(prefs.soundEnabled);
+            };
+
+            function updateSoundIcon(enabled) {
+                var btn = document.getElementById('notif-sound-toggle');
+                if (!btn) return;
+                var onIcon = btn.querySelector('.notif-sound-on');
+                var offIcon = btn.querySelector('.notif-sound-off');
+                if (onIcon) onIcon.style.display = enabled ? '' : 'none';
+                if (offIcon) offIcon.style.display = enabled ? 'none' : '';
+                btn.style.color = enabled ? 'var(--accent-primary, #3b82f6)' : 'var(--text-muted)';
+            }
+
+            // Restore sound preference from localStorage
+            (function() {
+                var stored = '0';
+                try { stored = localStorage.getItem('foxdesk_notif_sound'); } catch(e) {}
+                var enabled = stored === '1';
+                window.appNotificationPrefs = window.appNotificationPrefs || {};
+                window.appNotificationPrefs.soundEnabled = enabled;
+                // Defer icon update until DOM is ready
+                if (document.readyState !== 'loading') {
+                    updateSoundIcon(enabled);
+                } else {
+                    document.addEventListener('DOMContentLoaded', function() { updateSoundIcon(enabled); });
+                }
+            })();
 
             // Close panel on outside click
             document.addEventListener('click', function(e) {

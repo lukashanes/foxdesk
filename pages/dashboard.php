@@ -34,6 +34,9 @@ if (!empty($_GET['tags'])) {
 $dashboard_data = get_dashboard_data($user, $dashboard_tags);
 extract($dashboard_data);
 
+// Max items displayed per widget list (default 5). "View all" shown when exceeded.
+$db_list_limit = 5;
+
 require_once BASE_PATH . '/includes/header.php';
 ?>
 
@@ -93,6 +96,23 @@ require_once BASE_PATH . '/includes/header.php';
 
     .db-widget > .card {
         flex: 1;
+    }
+
+    /* "View all" footer for truncated lists */
+    .db-widget-viewall {
+        text-align: center;
+        padding: 0.5rem 0 0;
+        margin-top: 0.5rem;
+        border-top: 1px solid var(--border-light, #e2e8f0);
+    }
+    .db-widget-viewall a {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--primary);
+        text-decoration: none;
+    }
+    .db-widget-viewall a:hover {
+        text-decoration: underline;
     }
 
     .db-widget[draggable="true"] {
@@ -441,13 +461,13 @@ require_once BASE_PATH . '/includes/header.php';
     }
 
     [data-theme="dark"] .db-role-badge--admin {
-        background: rgba(79, 70, 229, 0.15);
-        color: #818cf8;
+        background: rgba(99, 102, 241, 0.25);
+        color: #a5b4fc;
     }
 
     [data-theme="dark"] .db-role-badge--agent {
-        background: rgba(5, 150, 105, 0.15);
-        color: #34d399;
+        background: rgba(16, 185, 129, 0.25);
+        color: #6ee7b7;
     }
 
     .db-avatar {
@@ -936,8 +956,8 @@ require_once BASE_PATH . '/includes/header.php';
 
                 <!-- Filter tabs -->
                 <div class="dbnotif-filter-tabs">
-                    <button type="button" class="dbnotif-filter-tab active" data-dbnotif-filter="all"><?php echo e(t('All')); ?></button>
-                    <button type="button" class="dbnotif-filter-tab" data-dbnotif-filter="action"><?php echo e(t('Action required')); ?></button>
+                    <button type="button" class="dbnotif-filter-tab" data-dbnotif-filter="all"><?php echo e(t('All')); ?></button>
+                    <button type="button" class="dbnotif-filter-tab active" data-dbnotif-filter="action"><?php echo e(t('Action required')); ?></button>
                     <button type="button" class="dbnotif-filter-tab" data-dbnotif-filter="info"><?php echo e(t('Informational')); ?></button>
                 </div>
 
@@ -1244,7 +1264,14 @@ require_once BASE_PATH . '/includes/header.php';
                     $sh_link_url = $link_reports;
                     $sh_link_label = t('Report');
                     include BASE_PATH . '/includes/components/section-header.php'; ?>
-                    <?php if (!empty($team_members_time)): ?>
+                    <?php
+                    // Pre-filter to only members with any time logged
+                    $active_team = array_filter($team_members_time, function($m) {
+                        return ((int)($m['today_mins'] ?? 0)) + ((int)($m['week_mins'] ?? 0)) + ((int)($m['month_mins'] ?? 0)) > 0;
+                    });
+                    $team_total = count($active_team);
+                    ?>
+                    <?php if (!empty($active_team)): ?>
                         <div class="overflow-x-auto">
                             <table class="db-team-table">
                                 <thead>
@@ -1256,7 +1283,7 @@ require_once BASE_PATH . '/includes/header.php';
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($team_members_time as $member):
+                                    <?php foreach (array_slice(array_values($active_team), 0, $db_list_limit) as $member):
                                         $initials = mb_substr($member['first_name'], 0, 1) . mb_substr($member['last_name'] ?? '', 0, 1);
                                         $m_today = (int) ($member['today_mins'] ?? 0);
                                         $m_week = (int) ($member['week_mins'] ?? 0);
@@ -1294,6 +1321,11 @@ require_once BASE_PATH . '/includes/header.php';
                                 </tfoot>
                             </table>
                         </div>
+                        <?php if ($team_total > $db_list_limit): ?>
+                            <div class="db-widget-viewall">
+                                <a href="<?php echo $link_reports; ?>"><?php echo e(t('View all')); ?> (<?php echo $team_total; ?>)</a>
+                            </div>
+                        <?php endif; ?>
                     <?php else: ?>
                         <div>
                             <?php
@@ -1368,11 +1400,12 @@ require_once BASE_PATH . '/includes/header.php';
                     $sh_link_url = url('tickets', array_merge($scope_link_params, ['due_date' => 'week']));
                     $sh_link_label = t('View all');
                     include BASE_PATH . '/includes/components/section-header.php'; ?>
+                    <?php $due_total = count($due_week_tickets); ?>
                     <?php if (empty($due_week_tickets)): ?>
                         <div class="text-sm theme-text-muted"><?php echo e(t('No tickets due this week')); ?></div>
                     <?php else: ?>
                         <div class="space-y-2">
-                            <?php foreach ($due_week_tickets as $ticket):
+                            <?php foreach (array_slice($due_week_tickets, 0, $db_list_limit) as $ticket):
                                 $priority_color = $ticket['priority_color'] ?? '#6b7280';
                                 $due_label = '';
                                 $due_class = 'bg-gray-100 text-gray-700';
@@ -1416,6 +1449,11 @@ require_once BASE_PATH . '/includes/header.php';
                                 </a>
                             <?php endforeach; ?>
                         </div>
+                        <?php if ($due_total > $db_list_limit): ?>
+                            <div class="db-widget-viewall">
+                                <a href="<?php echo url('tickets', array_merge($scope_link_params, ['due_date' => 'week'])); ?>"><?php echo e(t('View all')); ?> (<?php echo $due_total; ?>)</a>
+                            </div>
+                        <?php endif; ?>
                     <?php endif; ?>
                     <?php include BASE_PATH . '/includes/components/widget-wrap-close.php'; ?>
                 <?php endif; ?>
@@ -1482,11 +1520,12 @@ require_once BASE_PATH . '/includes/header.php';
                     $sh_link_url = url('tickets', $scope_link_params);
                     $sh_link_label = t('View all');
                     include BASE_PATH . '/includes/components/section-header.php'; ?>
+                    <?php $recent_total = count($recent_tickets); ?>
                     <?php if (empty($recent_tickets)): ?>
                         <div class="text-sm theme-text-muted"><?php echo e(t('No tickets yet')); ?></div>
                     <?php else: ?>
                         <div class="space-y-2">
-                            <?php foreach (array_slice($recent_tickets, 0, 6) as $ticket):
+                            <?php foreach (array_slice($recent_tickets, 0, $db_list_limit) as $ticket):
                                 $priority_color = $ticket['priority_color'] ?? '#6b7280';
                                 $due_label = '';
                                 $due_class = 'bg-gray-100 text-gray-700';
@@ -1534,6 +1573,11 @@ require_once BASE_PATH . '/includes/header.php';
                                 </a>
                             <?php endforeach; ?>
                         </div>
+                        <?php if ($recent_total > $db_list_limit): ?>
+                            <div class="db-widget-viewall">
+                                <a href="<?php echo url('tickets', $scope_link_params); ?>"><?php echo e(t('View all')); ?> (<?php echo $recent_total; ?>)</a>
+                            </div>
+                        <?php endif; ?>
                     <?php endif; ?>
                     <?php include BASE_PATH . '/includes/components/widget-wrap-close.php'; ?>
                 <?php else: ?>
@@ -1546,11 +1590,12 @@ require_once BASE_PATH . '/includes/header.php';
                     $sh_link_url = '';
                     $sh_link_label = '';
                     include BASE_PATH . '/includes/components/section-header.php'; ?>
+                    <?php $focus_total = count($focus_tickets); ?>
                     <?php if (empty($focus_tickets)): ?>
                         <div class="text-sm theme-text-muted"><?php echo e(t('No tickets yet')); ?></div>
                     <?php else: ?>
                         <div class="space-y-2">
-                            <?php foreach ($focus_tickets as $focus_item):
+                            <?php foreach (array_slice($focus_tickets, 0, $db_list_limit) as $focus_item):
                                 $ticket = $focus_item['ticket'];
                                 $priority_color = $ticket['priority_color'] ?? '#6b7280';
                                 $due_label = '';
@@ -1595,6 +1640,11 @@ require_once BASE_PATH . '/includes/header.php';
                                 </a>
                             <?php endforeach; ?>
                         </div>
+                        <?php if ($focus_total > $db_list_limit): ?>
+                            <div class="db-widget-viewall">
+                                <a href="<?php echo url('tickets', $scope_link_params); ?>"><?php echo e(t('View all')); ?> (<?php echo $focus_total; ?>)</a>
+                            </div>
+                        <?php endif; ?>
                     <?php endif; ?>
                     <?php include BASE_PATH . '/includes/components/widget-wrap-close.php'; ?>
                 <?php endif; ?>
@@ -1620,8 +1670,9 @@ require_once BASE_PATH . '/includes/header.php';
                                         class="btn btn-primary mt-4"><?php echo e(t('Create your first ticket')); ?></a>
                                 </div>
                             <?php else: ?>
+                                <?php $nonstaff_total = count($recent_tickets); ?>
                                 <div class="divide-y theme-border">
-                                    <?php foreach ($recent_tickets as $ticket):
+                                    <?php foreach (array_slice($recent_tickets, 0, $db_list_limit) as $ticket):
                                         $priority_color = $ticket['priority_color'] ?? '#6b7280';
                                         $due_label = '';
                                         $due_class = 'bg-gray-100 text-gray-700';
@@ -1673,6 +1724,11 @@ require_once BASE_PATH . '/includes/header.php';
                                         </a>
                                     <?php endforeach; ?>
                                 </div>
+                                <?php if ($nonstaff_total > $db_list_limit): ?>
+                                    <div class="db-widget-viewall" style="padding: 0.75rem 1rem;">
+                                        <a href="<?php echo url('tickets', $scope_link_params); ?>"><?php echo e(t('View all')); ?> (<?php echo $nonstaff_total; ?>)</a>
+                                    </div>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -1693,21 +1749,18 @@ require_once BASE_PATH . '/includes/header.php';
                             <?php echo get_icon('check-circle', 'w-4 h-4'); ?>
                             <?php echo e(t('Completed tickets')); ?>
                         </h3>
-                        <select id="completed-filter" onchange="filterCompletedTickets(this.value)"
-                            class="text-xs rounded-md px-2 py-1 border theme-border"
-                            style="background: var(--surface-primary); color: var(--text-primary);">
-                            <option value="today"><?php echo e(t('Today')); ?></option>
-                            <option value="yesterday"><?php echo e(t('Yesterday')); ?></option>
-                            <option value="week" selected><?php echo e(t('This week')); ?></option>
-                            <option value="month"><?php echo e(t('This month')); ?></option>
-                        </select>
+                        <div class="dbnotif-filter-tabs" style="margin-bottom: 0;">
+                            <button type="button" class="dbnotif-filter-tab" onclick="filterCompletedTickets('today', this)"><?php echo e(t('Today')); ?></button>
+                            <button type="button" class="dbnotif-filter-tab active" onclick="filterCompletedTickets('week', this)"><?php echo e(t('Week')); ?></button>
+                            <button type="button" class="dbnotif-filter-tab" onclick="filterCompletedTickets('month', this)"><?php echo e(t('Month')); ?></button>
+                        </div>
                     </div>
                     <?php if (empty($completed_tickets)): ?>
                         <div class="text-sm theme-text-muted" id="completed-tickets-list">
                             <div class="completed-empty"><?php echo e(t('No completed tickets')); ?></div>
                         </div>
                     <?php else: ?>
-                        <div class="space-y-2" id="completed-tickets-list">
+                        <div class="space-y-2" id="completed-tickets-list" data-limit="<?php echo $db_list_limit; ?>">
                             <?php foreach ($completed_tickets as $ticket):
                                 $completed_date = date('Y-m-d', strtotime($ticket['updated_at']));
                                 ?>
@@ -1732,6 +1785,9 @@ require_once BASE_PATH . '/includes/header.php';
                                 </a>
                             <?php endforeach; ?>
                         </div>
+                        <div class="db-widget-viewall" id="completed-viewall" style="display:none;">
+                            <a href="<?php echo url('tickets', ['status' => 'closed']); ?>"><?php echo e(t('View all')); ?> (<span id="completed-viewall-count">0</span>)</a>
+                        </div>
                     <?php endif; ?>
                     <?php include BASE_PATH . '/includes/components/widget-wrap-close.php'; ?>
                 <?php endif; ?>
@@ -1744,7 +1800,13 @@ require_once BASE_PATH . '/includes/header.php';
 
 <script>
     /* ─── Completed Tickets Filter ─── */
-    function filterCompletedTickets(range) {
+    function filterCompletedTickets(range, btn) {
+        // Toggle active tab
+        if (btn && btn.closest) {
+            var tabs = btn.closest('.dbnotif-filter-tabs');
+            if (tabs) tabs.querySelectorAll('.dbnotif-filter-tab').forEach(function(t) { t.classList.remove('active'); });
+            btn.classList.add('active');
+        }
         var list = document.getElementById('completed-tickets-list');
         if (!list) return;
         var items = list.querySelectorAll('[data-completed-date]');
@@ -1756,20 +1818,27 @@ require_once BASE_PATH . '/includes/header.php';
         var weekStart = new Date(today);
         weekStart.setDate(today.getDate() - ((day === 0 ? 7 : day) - 1)); // Monday
         var monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        var limit = parseInt(list.getAttribute('data-limit')) || 5;
         var visible = 0;
+        var shown = 0;
         items.forEach(function(el) {
             var parts = el.getAttribute('data-completed-date').split('-');
             var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-            var show = false;
+            var match = false;
             switch(range) {
-                case 'today': show = d >= today; break;
-                case 'yesterday': show = d >= yesterday && d < today; break;
-                case 'week': show = d >= weekStart; break;
-                case 'month': show = d >= monthStart; break;
-                default: show = true;
+                case 'today': match = d >= today; break;
+                case 'yesterday': match = d >= yesterday && d < today; break;
+                case 'week': match = d >= weekStart; break;
+                case 'month': match = d >= monthStart; break;
+                default: match = true;
             }
-            el.style.display = show ? '' : 'none';
-            if (show) visible++;
+            if (match) {
+                visible++;
+                el.style.display = (shown < limit) ? '' : 'none';
+                shown++;
+            } else {
+                el.style.display = 'none';
+            }
         });
         var empty = list.querySelector('.completed-empty');
         if (!empty) {
@@ -1779,6 +1848,13 @@ require_once BASE_PATH . '/includes/header.php';
             list.appendChild(empty);
         }
         empty.style.display = visible === 0 ? '' : 'none';
+        // "View all" footer
+        var va = document.getElementById('completed-viewall');
+        var vc = document.getElementById('completed-viewall-count');
+        if (va) {
+            va.style.display = visible > limit ? '' : 'none';
+            if (vc) vc.textContent = visible;
+        }
     }
     document.addEventListener('DOMContentLoaded', function() { filterCompletedTickets('week'); });
 
@@ -2068,6 +2144,18 @@ require_once BASE_PATH . '/includes/header.php';
     });
 
     /* Filter tabs — client-side show/hide */
+    function applyFilter(f) {
+        document.querySelectorAll('.dbnotif-card').forEach(function(card) {
+            var isAction = card.getAttribute('data-action') === '1';
+            if (f === 'all') { card.style.display = ''; }
+            else if (f === 'action') { card.style.display = isAction ? '' : 'none'; }
+            else { card.style.display = isAction ? 'none' : ''; }
+        });
+        document.querySelectorAll('.dbnotif-ticket-group').forEach(function(g) {
+            var primary = g.querySelector('.dbnotif-card');
+            g.style.display = (primary && primary.style.display !== 'none') ? '' : 'none';
+        });
+    }
     (function() {
         var tabs = document.querySelectorAll('[data-dbnotif-filter]');
         tabs.forEach(function(tab) {
@@ -2075,19 +2163,12 @@ require_once BASE_PATH . '/includes/header.php';
                 var f = this.getAttribute('data-dbnotif-filter');
                 tabs.forEach(function(t) { t.classList.remove('active'); });
                 this.classList.add('active');
-                document.querySelectorAll('.dbnotif-card').forEach(function(card) {
-                    var isAction = card.getAttribute('data-action') === '1';
-                    if (f === 'all') { card.style.display = ''; }
-                    else if (f === 'action') { card.style.display = isAction ? '' : 'none'; }
-                    else { card.style.display = isAction ? 'none' : ''; }
-                });
-                // Hide/show ticket group wrappers based on whether their primary card is visible
-                document.querySelectorAll('.dbnotif-ticket-group').forEach(function(g) {
-                    var primary = g.querySelector('.dbnotif-card');
-                    g.style.display = (primary && primary.style.display !== 'none') ? '' : 'none';
-                });
+                applyFilter(f);
             });
         });
+        // Apply default filter on page load (action required)
+        var activeTab = document.querySelector('.dbnotif-filter-tab.active');
+        if (activeTab) applyFilter(activeTab.getAttribute('data-dbnotif-filter'));
     })();
 </script>
 

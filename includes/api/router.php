@@ -18,6 +18,7 @@ require_once __DIR__ . '/agent-handler.php';
 require_once __DIR__ . '/update-api.php';
 require_once __DIR__ . '/notification-handler.php';
 require_once __DIR__ . '/allowed-senders-handler.php';
+require_once __DIR__ . '/push-handler.php';
 
 /**
  * Route API requests to appropriate handlers
@@ -123,6 +124,7 @@ function route_api_request($action) {
         'get-notifications' => 'api_get_notifications',
         'get-notification-count' => 'api_get_notification_count',
         'mark-notification-read' => 'api_mark_notification_read',
+        'mark-ticket-notifications-read' => 'api_mark_ticket_notifications_read',
         'mark-all-notifications-read' => 'api_mark_all_notifications_read',
 
         // --- Update check endpoints (admin only) ---
@@ -135,6 +137,12 @@ function route_api_request($action) {
         'allowed-senders-add' => 'api_allowed_senders_add',
         'allowed-senders-delete' => 'api_allowed_senders_delete',
         'allowed-senders-toggle' => 'api_allowed_senders_toggle',
+
+        // --- Push notification endpoints ---
+        'push-subscribe' => 'api_push_subscribe',
+        'push-unsubscribe' => 'api_push_unsubscribe',
+        'push-vapid-key' => 'api_push_vapid_key',
+        'push-notifications' => 'api_push_notifications',
     ];
 
     if (isset($routes[$action])) {

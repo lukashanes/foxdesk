@@ -26,6 +26,20 @@ $settings_audit = function ($event_type, $context = [], $level = 'info') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf_token();
 
+    // Save 2FA security settings
+    if (isset($_POST['save_2fa_settings'])) {
+        save_setting('2fa_required_user', !empty($_POST['2fa_required_user']) ? '1' : '0');
+        save_setting('2fa_required_agent', !empty($_POST['2fa_required_agent']) ? '1' : '0');
+        save_setting('2fa_required_admin', !empty($_POST['2fa_required_admin']) ? '1' : '0');
+        $settings_audit('2fa_settings_changed', [
+            'user' => !empty($_POST['2fa_required_user']) ? '1' : '0',
+            'agent' => !empty($_POST['2fa_required_agent']) ? '1' : '0',
+            'admin' => !empty($_POST['2fa_required_admin']) ? '1' : '0',
+        ]);
+        flash(t('Security settings saved.'), 'success');
+        redirect('admin', ['section' => 'settings', 'tab' => 'security']);
+    }
+
     if (isset($_POST['clear_logs'])) {
         db_query("TRUNCATE TABLE debug_log");
         $settings_audit('debug_logs_cleared', [], 'warning');
@@ -155,13 +169,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $redirect_url = url('admin', ['section' => 'settings', 'tab' => 'system']);
             echo '<!DOCTYPE html><html><head><meta charset="utf-8">';
             echo '<meta http-equiv="refresh" content="2;url=' . htmlspecialchars($redirect_url) . '">';
-            echo '<title>Updating...</title>';
+            echo '<title>' . e(t('Updating...')) . '</title>';
             echo '<style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;font-family:system-ui,sans-serif;background:#f8fafc;color:#334155}';
             echo '.box{text-align:center;padding:2rem}.spinner{width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 1rem}';
             echo '@keyframes spin{to{transform:rotate(360deg)}}</style></head>';
             echo '<body><div class="box"><div class="spinner"></div>';
-            echo '<div style="font-weight:600;font-size:1.1rem">Update complete</div>';
-            echo '<div style="color:#64748b;margin-top:.5rem;font-size:.875rem">Redirecting...</div>';
+            echo '<div style="font-weight:600;font-size:1.1rem">' . e(t('Update complete')) . '</div>';
+            echo '<div style="color:#64748b;margin-top:.5rem;font-size:.875rem">' . e(t('Redirecting...')) . '</div>';
             echo '</div></body></html>';
             exit;
         } else {
@@ -325,13 +339,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $redirect_url = url('admin', ['section' => 'settings', 'tab' => 'system']);
                 echo '<!DOCTYPE html><html><head><meta charset="utf-8">';
                 echo '<meta http-equiv="refresh" content="2;url=' . htmlspecialchars($redirect_url) . '">';
-                echo '<title>Updating...</title>';
+                echo '<title>' . e(t('Updating...')) . '</title>';
                 echo '<style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;font-family:system-ui,sans-serif;background:#f8fafc;color:#334155}';
                 echo '.box{text-align:center;padding:2rem}.spinner{width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 1rem}';
                 echo '@keyframes spin{to{transform:rotate(360deg)}}</style></head>';
                 echo '<body><div class="box"><div class="spinner"></div>';
-                echo '<div style="font-weight:600;font-size:1.1rem">Update complete</div>';
-                echo '<div style="color:#64748b;margin-top:.5rem;font-size:.875rem">Redirecting...</div>';
+                echo '<div style="font-weight:600;font-size:1.1rem">' . e(t('Update complete')) . '</div>';
+                echo '<div style="color:#64748b;margin-top:.5rem;font-size:.875rem">' . e(t('Redirecting...')) . '</div>';
                 echo '</div></body></html>';
                 exit;
             } else {
@@ -857,6 +871,11 @@ include BASE_PATH . '/includes/components/page-header.php';
             style="<?php echo $tab === 'logs' ? 'background: var(--bg-primary);' : 'color: var(--text-secondary);'; ?>">
             <?php echo e(t('Logs')); ?>
         </a>
+        <a href="<?php echo url('admin', ['section' => 'settings', 'tab' => 'security']); ?>"
+            class="px-3 py-1.5 rounded-md text-xs font-medium <?php echo $tab === 'security' ? 'shadow text-blue-600' : ''; ?>"
+            style="<?php echo $tab === 'security' ? 'background: var(--bg-primary);' : 'color: var(--text-secondary);'; ?>">
+            <?php echo e(t('Security')); ?>
+        </a>
     </div>
 
     <?php if ($tab === 'general'): ?>
@@ -884,7 +903,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <input type="text" name="ticket_prefix" value="<?php echo e($settings['ticket_prefix'] ?? 'TK'); ?>"
                             maxlength="5" placeholder="TK" class="form-input">
                         <p class="text-xs mt-1" style="color: var(--text-muted);">
-                            <?php echo e(t('Example: TK-10001, REQ-10001 (letters only).')); ?></p>
+                            <?php echo e(t('Example: TK-10001, REQ-10001 (letters only). Only affects new tickets — existing tickets keep their current prefix.')); ?></p>
                     </div>
                 </div>
 
@@ -920,7 +939,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         </option>
                     </select>
                     <p class="text-xs mt-1" style="color: var(--text-muted);">
-                        <?php echo e(t('Default interface language.')); ?>
+                        <?php echo e(t('Default interface language for all users. Users can override this in their profile.')); ?>
                     </p>
                 </div>
 
@@ -962,7 +981,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <?php endforeach; ?>
                         </select>
                         <p class="text-xs mt-1" style="color: var(--text-muted);">
-                            <?php echo e(t('Applies to billable time in reports.')); ?>
+                            <?php echo e(t('Rounds billable time up to the nearest interval in reports. Changing this affects all future reports but not saved time logs.')); ?>
                         </p>
                     </div>
                 </div>
@@ -1206,6 +1225,9 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 <span class="font-medium"
                                     style="color: var(--text-primary);"><?php echo e(t('Enable incoming email processing')); ?></span>
                             </label>
+                            <p class="text-xs ml-8 mt-1" style="color: var(--text-muted);">
+                                <?php echo e(t('When enabled, the system will automatically create tickets from incoming emails. Requires a cron job or background tasks to be active.')); ?>
+                            </p>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1321,6 +1343,9 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 <span
                                     style="color: var(--text-secondary);"><?php echo e(t('Allow unknown senders (without allowlist)')); ?></span>
                             </label>
+                            <p class="text-xs ml-7 mt-0.5" style="color: var(--warning-color, #d97706);">
+                                <?php echo e(t('When enabled, anyone can create tickets by sending an email — not just addresses in the allowlist below.')); ?>
+                            </p>
                         </div>
 
                         <p class="text-xs" style="color: var(--text-muted);">
@@ -1343,7 +1368,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <div>
                             <label class="block text-xs mb-1" style="color: var(--text-secondary);"><?php echo e(t('Type')); ?></label>
                             <select id="as-type" class="input-field text-sm" style="width: auto; min-width: 120px;">
-                                <option value="email">Email</option>
+                                <option value="email"><?php echo e(t('Email')); ?></option>
                                 <option value="domain"><?php echo e(t('Domain')); ?></option>
                             </select>
                         </div>
@@ -1435,6 +1460,15 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <p class="text-sm ml-8" style="color: var(--text-muted);">
                                 <?php echo e(t('Master switch for all email notifications.')); ?>
                             </p>
+                            <?php if (($settings['email_notifications_enabled'] ?? '0') === '1'): ?>
+                                <p class="text-xs ml-8 mt-1" style="color: var(--warning-color, #d97706);">
+                                    <?php echo e(t('Turning this off will stop all email notifications for all users — including ticket updates, status changes, and new ticket alerts.')); ?>
+                                </p>
+                            <?php else: ?>
+                                <p class="text-xs ml-8 mt-1" style="color: var(--text-muted);">
+                                    <?php echo e(t('Currently off. No email notifications are being sent. Turn on to enable notifications for ticket updates, comments, and new tickets.')); ?>
+                                </p>
+                            <?php endif; ?>
                         </div>
 
                         <hr class="my-4">
@@ -2165,6 +2199,15 @@ include BASE_PATH . '/includes/components/page-header.php';
                     <input type="hidden" name="save_pseudo_cron_settings" value="1">
                 </form>
             </div>
+            <?php if (get_setting('pseudo_cron_enabled')): ?>
+                <p class="text-[11px] mb-1" style="color: var(--text-muted);">
+                    <?php echo e(t('Disabling this will stop automatic email ingestion, recurring task creation, and maintenance cleanup. You would need a server cron job instead.')); ?>
+                </p>
+            <?php else: ?>
+                <p class="text-[11px] mb-1" style="color: var(--warning-color, #d97706);">
+                    <?php echo e(t('Background tasks are off. Email ingestion, recurring tasks, and maintenance are not running automatically.')); ?>
+                </p>
+            <?php endif; ?>
 
             <?php if (get_setting('pseudo_cron_enabled')): ?>
                 <div class="space-y-0 divide-y text-[11px]" style="border-color: var(--border-light); color: var(--text-muted);">
@@ -2854,6 +2897,131 @@ include BASE_PATH . '/includes/components/page-header.php';
             </div>
         </div>
 
+    <?php elseif ($tab === 'security'): ?>
+        <!-- Security Settings -->
+        <?php
+        require_once BASE_PATH . '/includes/totp.php';
+        $settings = get_settings();
+        $tfa_admin = ($settings['2fa_required_admin'] ?? '0') === '1';
+        $tfa_agent = ($settings['2fa_required_agent'] ?? '0') === '1';
+        $tfa_user = ($settings['2fa_required_user'] ?? '0') === '1';
+
+        // Count users per role and their 2FA status
+        $tfa_counts = [];
+        foreach (['admin', 'agent', 'user'] as $_r) {
+            $total = (int) (db_fetch_one("SELECT COUNT(*) as c FROM users WHERE role = ? AND (deleted_at IS NULL OR deleted_at = '')", [$_r])['c'] ?? 0);
+            $enabled = (int) (db_fetch_one("SELECT COUNT(*) as c FROM users WHERE role = ? AND totp_enabled = 1 AND (deleted_at IS NULL OR deleted_at = '')", [$_r])['c'] ?? 0);
+            $tfa_counts[$_r] = ['total' => $total, 'enabled' => $enabled, 'without' => $total - $enabled];
+        }
+        ?>
+        <div class="card card-body">
+            <h3 class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: var(--text-muted);">
+                <?php echo e(t('Two-factor authentication')); ?>
+            </h3>
+
+            <p class="text-sm mb-4" style="color: var(--text-secondary);">
+                <?php echo e(t('Require users to set up an authenticator app (Google Authenticator, Authy, 1Password) before accessing the system.')); ?>
+            </p>
+
+            <form method="post" class="space-y-4" id="tfa-settings-form">
+                <?php echo csrf_field(); ?>
+
+                <div class="space-y-3">
+                    <?php foreach (['admin' => t('Admins'), 'agent' => t('Agents'), 'user' => t('Users (clients)')] as $role_key => $role_label): ?>
+                    <?php
+                        $is_checked = ${'tfa_' . $role_key};
+                        $cnt = $tfa_counts[$role_key];
+                        $without = $cnt['without'];
+                        $total = $cnt['total'];
+                        $enabled = $cnt['enabled'];
+                    ?>
+                    <div class="rounded-lg p-3 transition-colors" style="border: 1px solid var(--border-light);" data-tfa-role="<?php echo $role_key; ?>">
+                        <label class="flex items-center gap-3 text-sm cursor-pointer" style="color: var(--text-primary);">
+                            <input type="checkbox" name="2fa_required_<?php echo $role_key; ?>" class="rounded tfa-checkbox"
+                                data-role="<?php echo e($role_key); ?>"
+                                data-without="<?php echo $without; ?>"
+                                data-total="<?php echo $total; ?>"
+                                <?php echo $is_checked ? 'checked' : ''; ?>>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium"><?php echo e(t('Require 2FA for')); ?> <?php echo e($role_label); ?></span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full" style="background: var(--surface-secondary); color: var(--text-muted);">
+                                        <?php echo $enabled; ?>/<?php echo $total; ?> <?php echo e(t('enabled')); ?>
+                                    </span>
+                                </div>
+                            </div>
+                        </label>
+
+                        <?php if ($is_checked && $without > 0): ?>
+                        <!-- Currently enforced but some users don't have it -->
+                        <div class="mt-2 rounded p-2 text-xs flex items-start gap-1.5"
+                            style="background: var(--warning-bg, #fef3c7); color: var(--warning-text, #92400e); border: 1px solid var(--warning-border, #fde68a);">
+                            <?php echo get_icon('exclamation-triangle', 'w-3.5 h-3.5 flex-shrink-0 mt-0.5'); ?>
+                            <span><?php echo $without; ?> <?php echo e($without === 1 ? t('user is') : t('users are')); ?> <?php echo e(t('being forced to set up 2FA before they can use the system.')); ?></span>
+                        </div>
+                        <?php endif; ?>
+
+                        <!-- JS-driven impact warning (hidden by default, shown when toggling ON) -->
+                        <div class="tfa-impact-warning mt-2 rounded p-2 text-xs items-start gap-1.5"
+                            style="display: none; background: var(--warning-bg, #fef3c7); color: var(--warning-text, #92400e); border: 1px solid var(--warning-border, #fde68a);">
+                            <?php echo get_icon('exclamation-triangle', 'w-3.5 h-3.5 flex-shrink-0 mt-0.5'); ?>
+                            <span class="tfa-impact-text"></span>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+
+                <!-- What happens info box -->
+                <div class="rounded-lg p-3 text-xs space-y-1.5" style="background: var(--surface-secondary); color: var(--text-muted);">
+                    <div class="font-medium mb-1" style="color: var(--text-secondary);"><?php echo get_icon('info-circle', 'w-3.5 h-3.5 inline mr-1'); ?><?php echo e(t('How this works')); ?></div>
+                    <div><?php echo e(t('• Users who haven\'t set up 2FA will be redirected to set it up on their next page load. They can\'t access any other page until setup is complete.')); ?></div>
+                    <div><?php echo e(t('• Users need an authenticator app (Google Authenticator, Authy, 1Password) to scan a QR code.')); ?></div>
+                    <div><?php echo e(t('• 8 one-time backup codes are provided in case the user loses their device.')); ?></div>
+                    <div><?php echo e(t('• Remember-me logins and API tokens skip 2FA (trusted device).')); ?></div>
+                    <div><?php echo e(t('• If you disable the requirement later, users who already set up 2FA keep it — only the forced setup is removed.')); ?></div>
+                </div>
+
+                <button type="submit" name="save_2fa_settings" class="btn btn-primary btn-sm">
+                    <?php echo e(t('Save')); ?>
+                </button>
+            </form>
+        </div>
+
+        <script>
+        (function() {
+            var checkboxes = document.querySelectorAll('.tfa-checkbox');
+            checkboxes.forEach(function(cb) {
+                var initialState = cb.checked;
+                cb.addEventListener('change', function() {
+                    var container = cb.closest('[data-tfa-role]');
+                    var warning = container.querySelector('.tfa-impact-warning');
+                    var text = container.querySelector('.tfa-impact-text');
+                    var without = parseInt(cb.dataset.without, 10);
+                    var total = parseInt(cb.dataset.total, 10);
+
+                    if (cb.checked && !initialState) {
+                        // Turning ON — show what will happen
+                        if (without > 0) {
+                            text.textContent = without + ' of ' + total + (without === 1
+                                ? <?php echo json_encode(' ' . t('user will be immediately forced to set up 2FA. They won\'t be able to use the system until they scan a QR code with their authenticator app.')); ?>
+                                : <?php echo json_encode(' ' . t('users will be immediately forced to set up 2FA. They won\'t be able to use the system until they scan a QR code with their authenticator app.')); ?>);
+                        } else {
+                            text.textContent = <?php echo json_encode(t('All users in this role already have 2FA enabled. New users will be required to set it up on first login.')); ?>;
+                        }
+                        warning.style.display = 'flex';
+                    } else if (!cb.checked && initialState) {
+                        // Turning OFF — show what will happen
+                        text.textContent = <?php echo json_encode(t('The forced setup requirement will be removed. Users who already have 2FA will keep it — it won\'t be disabled.')); ?>;
+                        warning.style.display = 'flex';
+                    } else {
+                        // Back to initial state
+                        warning.style.display = 'none';
+                    }
+                });
+            });
+        })();
+        </script>
+
     <?php endif; ?>
 </div>
 
@@ -2874,12 +3042,12 @@ include BASE_PATH . '/includes/components/page-header.php';
             .then(r => r.json())
             .then(data => {
                 if (data.success === false) {
-                    alert(data.error || 'Error');
+                    alert(data.error || <?php echo json_encode(t('Error')); ?>);
                     return;
                 }
                 location.reload();
             })
-            .catch(() => alert('Error'));
+            .catch(() => alert(<?php echo json_encode(t('Error')); ?>));
         }
 
         function deleteAllowedSender(id) {
@@ -2893,13 +3061,13 @@ include BASE_PATH . '/includes/components/page-header.php';
             .then(r => r.json())
             .then(data => {
                 if (data.success === false) {
-                    alert(data.error || 'Error');
+                    alert(data.error || <?php echo json_encode(t('Error')); ?>);
                     return;
                 }
                 const row = document.getElementById('as-row-' + id);
                 if (row) row.remove();
             })
-            .catch(() => alert('Error'));
+            .catch(() => alert(<?php echo json_encode(t('Error')); ?>));
         }
 
         function toggleAllowedSender(id) {
@@ -2911,12 +3079,12 @@ include BASE_PATH . '/includes/components/page-header.php';
             .then(r => r.json())
             .then(data => {
                 if (data.success === false) {
-                    alert(data.error || 'Error');
+                    alert(data.error || <?php echo json_encode(t('Error')); ?>);
                     return;
                 }
                 location.reload();
             })
-            .catch(() => alert('Error'));
+            .catch(() => alert(<?php echo json_encode(t('Error')); ?>));
         }
     </script>
 <?php endif; ?>

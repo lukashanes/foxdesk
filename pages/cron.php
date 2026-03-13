@@ -74,7 +74,41 @@ if ($now - $last_recurring >= 3600) {
 }
 
 // -----------------------------------------------------------------
-// 3. Maintenance — notification cleanup, update check (every 24 hours)
+// 3. Due date reminders (every 60 minutes)
+// -----------------------------------------------------------------
+$last_due_check = (int) get_setting('pseudo_cron_last_due_check', '0');
+if ($now - $last_due_check >= 3600) {
+    save_setting('pseudo_cron_last_due_check', (string) $now);
+    try {
+        require_once BASE_PATH . '/includes/notification-functions.php';
+        if (function_exists('process_due_date_notifications')) {
+            process_due_date_notifications();
+        }
+    } catch (Throwable $e) {
+        $errors[] = 'due_date_check: ' . $e->getMessage();
+        error_log('[pseudo-cron] due date check error: ' . $e->getMessage());
+    }
+}
+
+// -----------------------------------------------------------------
+// 4. Scheduled reports (every 6 hours)
+// -----------------------------------------------------------------
+$last_reports = (int) get_setting('pseudo_cron_last_reports', '0');
+if ($now - $last_reports >= 21600) {
+    save_setting('pseudo_cron_last_reports', (string) $now);
+    try {
+        require_once BASE_PATH . '/includes/report-functions.php';
+        if (function_exists('process_scheduled_reports')) {
+            process_scheduled_reports();
+        }
+    } catch (Throwable $e) {
+        $errors[] = 'scheduled_reports: ' . $e->getMessage();
+        error_log('[pseudo-cron] scheduled reports error: ' . $e->getMessage());
+    }
+}
+
+// -----------------------------------------------------------------
+// 5. Maintenance — notification cleanup, update check (every 24 hours)
 // -----------------------------------------------------------------
 $last_maintenance = (int) get_setting('pseudo_cron_last_maintenance', '0');
 if ($now - $last_maintenance >= 86400) {

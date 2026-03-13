@@ -1161,7 +1161,7 @@ function email_ingest_resolve_requester_user_id($email, $allowed_sender)
     $local = preg_replace('/[^a-z0-9._-]+/i', ' ', $local);
     $local = trim($local);
     if ($local === '') {
-        $local = 'Email';
+        $local = t('Email');
     }
     $first_name = ucfirst(substr($local, 0, 60));
     $password = bin2hex(random_bytes(16));
@@ -1286,8 +1286,8 @@ function email_ingest_send_requester_notifications($ticket_id, $ticket_created, 
 
     $template = function_exists('get_email_template') ? get_email_template('ticket_confirmation', $lang) : null;
     if (!$template) {
-        $subject = 'Ticket received #{ticket_code}: {ticket_title}';
-        $body = "Hello,\n\nYour ticket #{ticket_code} \"{ticket_title}\" was received successfully.\nWe will keep you updated on its progress.\n\nView ticket: {ticket_url}\n\nRegards,\n{app_name}";
+        $subject = t('Ticket received') . ' #{ticket_code}: {ticket_title}';
+        $body = t('Hello,') . "\n\n" . t('Your ticket #{ticket_code} "{ticket_title}" was received successfully.') . "\n" . t('We will keep you updated on its progress.') . "\n\n" . t('View ticket') . ": {ticket_url}\n\n" . t('Regards,') . "\n{app_name}";
     } else {
         $subject = $template['subject'];
         $body = $template['body'];

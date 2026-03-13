@@ -378,15 +378,13 @@ function get_dashboard_data($user, $tags = [])
     } catch (Exception $e) {
     }
 
-    // New widget IDs  –  3-column layout:
-    //   Row 1: my_time | new_tickets | deadlines
-    //   Row 2: team_time | due_week | recent (or focus)
-    //   Row 3: status_chart (full width)
-    //   Row 4: timers
+    // Clean default layout: essential widgets first, secondary available via Customize
+    //   Visible: overview → focus → my_time → due_week
+    //   Hidden (toggle via Customize): notifications, new_tickets, deadlines, team_time, completed, status_chart, timers
     if ($is_admin) {
-        $default_order = ['overview', 'notifications', 'my_time', 'new_tickets', 'deadlines', 'team_time', 'due_week', 'focus', 'completed', 'status_chart', 'timers'];
+        $default_order = ['overview', 'focus', 'my_time', 'due_week', 'notifications', 'new_tickets', 'deadlines', 'team_time', 'completed', 'status_chart', 'timers'];
     } elseif ($is_agent) {
-        $default_order = ['overview', 'notifications', 'my_time', 'new_tickets', 'deadlines', 'focus', 'due_week', 'completed', 'timers'];
+        $default_order = ['overview', 'focus', 'my_time', 'due_week', 'notifications', 'new_tickets', 'deadlines', 'completed', 'timers'];
     } else {
         $default_order = ['overview', 'notifications', 'recent'];
     }
@@ -399,12 +397,12 @@ function get_dashboard_data($user, $tags = [])
         'deadlines'    => 'half',
         'team_time'    => 'half',
         'due_week'     => 'half',
-        'focus'        => 'half',
-        'status_chart' => 'full',
+        'focus'        => 'full',
+        'status_chart' => 'half',
         'completed'    => 'half',
         'timers'       => 'full',
         'recent'       => 'full',
-        'notifications' => 'full',
+        'notifications' => 'half',
     ];
 
     $hidden_sections = [];
@@ -420,6 +418,11 @@ function get_dashboard_data($user, $tags = [])
         $section_order = $dashboard_layout;
     } else {
         $section_order = $default_order;
+        // Clean default: hide secondary widgets for first-time users
+        // They see only: Overview → Focus (assigned tickets) → My Time → Due this week
+        if ($is_staff) {
+            $hidden_sections = ['notifications', 'new_tickets', 'deadlines', 'team_time', 'completed', 'status_chart', 'timers'];
+        }
     }
 
     // ─── Migrate old layout

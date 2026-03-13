@@ -102,7 +102,7 @@ $priority_icons = [
                 <label class="block text-xs mb-1" style="color: var(--text-secondary);">
                     <?php echo e(t('Name')); ?> *
                 </label>
-                <input type="text" name="name" required class="form-input w-full text-xs" placeholder="High, Medium, Low...">
+                <input type="text" name="name" required class="form-input w-full text-xs" placeholder="<?php echo e(t('High, Medium, Low...')); ?>">
             </div>
             <div>
                 <label class="block text-xs mb-1" style="color: var(--text-secondary);">

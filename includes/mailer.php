@@ -271,8 +271,8 @@ function send_password_reset_email($to, $name, $reset_link)
     $template = get_email_template('password_reset', $lang);
 
     if (!$template) {
-        $subject = 'Password reset';
-        $body = "Hello,\n\nYou requested a password reset. Click the link below:\n{$reset_link}\n\nThis link is valid for 1 hour.\n\nIf you did not request a password reset, please ignore this email.";
+        $subject = t('Password reset');
+        $body = t('Hello,') . "\n\n" . t('You requested a password reset. Click the link below:') . "\n{$reset_link}\n\n" . t('This link is valid for 1 hour.') . "\n\n" . t('If you did not request a password reset, please ignore this email.');
     } else {
         $subject = $template['subject'];
         $body = $template['body'];
@@ -326,16 +326,16 @@ function send_status_change_notification($ticket, $old_status, $new_status, $com
     }
 
     if (!$template) {
-        $subject = 'Status changed for ticket #{ticket_id}: {ticket_title}';
-        $body = "Hello,\n\nThe status of your ticket \"{ticket_title}\" has changed.\n\n";
-        $body .= "Previous status: {old_status}\n";
-        $body .= "New status: {new_status}\n";
+        $subject = t('Status changed for ticket') . ' #{ticket_id}: {ticket_title}';
+        $body = t('Hello,') . "\n\n" . t('The status of your ticket "{ticket_title}" has changed.') . "\n\n";
+        $body .= t('Previous status') . ": {old_status}\n";
+        $body .= t('New status') . ": {new_status}\n";
         if ($time_spent_text)
-            $body .= "Time spent: {time_spent}\n";
+            $body .= t('Time spent') . ": {time_spent}\n";
         if ($comment_text)
-            $body .= "\nComment:\n---\n{comment_text}\n---\n";
-        $body .= "\nView ticket: {ticket_url}\n\n";
-        $body .= "Regards,\n{app_name}";
+            $body .= "\n" . t('Comment') . ":\n---\n{comment_text}\n---\n";
+        $body .= "\n" . t('View ticket') . ": {ticket_url}\n\n";
+        $body .= t('Regards,') . "\n{app_name}";
     } else {
         $subject = $template['subject'];
         $body = $template['body'];
@@ -394,7 +394,7 @@ function send_new_comment_notification($ticket, $comment, $commenter, $comment_i
     $comment_text = $comment['content'] ?? '';
     $commenter_name = trim(($commenter['first_name'] ?? '') . ' ' . ($commenter['last_name'] ?? ''));
     if ($commenter_name === '') {
-        $commenter_name = $commenter['email'] ?? 'System';
+        $commenter_name = $commenter['email'] ?? t('System');
     }
 
     $time_spent = '';
@@ -452,18 +452,18 @@ function send_new_comment_notification($ticket, $comment, $commenter, $comment_i
         }
 
         if (!$template) {
-            $subject = 'New comment on ticket #{ticket_id}: {ticket_title}';
-            $body = "Hello,\n\nA new comment was added to your ticket \"{ticket_title}\".\n\n";
-            $body .= "From: {commenter_name}\n";
+            $subject = t('New comment on ticket') . ' #{ticket_id}: {ticket_title}';
+            $body = t('Hello,') . "\n\n" . t('A new comment was added to your ticket "{ticket_title}".') . "\n\n";
+            $body .= t('From') . ": {commenter_name}\n";
             if ($time_spent) {
-                $body .= "Time spent: {time_spent}\n";
+                $body .= t('Time spent') . ": {time_spent}\n";
             }
             if ($attachments_text) {
-                $body .= "Attachments: {attachments}\n";
+                $body .= t('Attachments') . ": {attachments}\n";
             }
             $body .= "\n---\n{comment_text}\n---\n\n";
-            $body .= "View comment: {comment_url}\n\n";
-            $body .= "Regards,\n{app_name}";
+            $body .= t('View comment') . ": {comment_url}\n\n";
+            $body .= t('Regards,') . "\n{app_name}";
         } else {
             $subject = $template['subject'];
             $body = $template['body'];
@@ -527,11 +527,11 @@ function send_new_ticket_notification($ticket)
     $type_label = get_type_label($ticket['type'] ?? 'general');
 
     // Get priority info
-    $priority_name = $ticket['priority_name'] ?? 'Medium';
+    $priority_name = $ticket['priority_name'] ?? t('Medium');
 
     // Get user info
     $user = get_user($ticket['user_id']);
-    $user_name = $user ? ($user['first_name'] . ' ' . $user['last_name']) : 'Unknown';
+    $user_name = $user ? ($user['first_name'] . ' ' . $user['last_name']) : t('Unknown');
     $user_email = $user ? $user['email'] : '';
 
     // Get all admins
@@ -545,16 +545,16 @@ function send_new_ticket_notification($ticket)
         $lang = $admin['language'] ?? 'en';
         $template = get_email_template('new_ticket', $lang);
         if (!$template) {
-            $subject = 'New ticket #{ticket_id}: {ticket_title}';
-            $body = "Hello,\n\nA new ticket has been created.\n\n";
-            $body .= "Subject: {ticket_title}\n";
-            $body .= "Type: {ticket_type}\n";
-            $body .= "Priority: {priority}\n";
-            $body .= "From: {user_name} ({user_email})\n";
+            $subject = t('New ticket') . ' #{ticket_id}: {ticket_title}';
+            $body = t('Hello,') . "\n\n" . t('A new ticket has been created.') . "\n\n";
+            $body .= t('Subject') . ": {ticket_title}\n";
+            $body .= t('Type') . ": {ticket_type}\n";
+            $body .= t('Priority') . ": {priority}\n";
+            $body .= t('From') . ": {user_name} ({user_email})\n";
             if (!empty($ticket['description']))
-                $body .= "\nDescription:\n---\n{description}\n---\n";
-            $body .= "\nView ticket: {ticket_url}\n\n";
-            $body .= "Regards,\n{app_name}";
+                $body .= "\n" . t('Description') . ":\n---\n{description}\n---\n";
+            $body .= "\n" . t('View ticket') . ": {ticket_url}\n\n";
+            $body .= t('Regards,') . "\n{app_name}";
         } else {
             $subject = $template['subject'];
             $body = $template['body'];
@@ -1019,8 +1019,8 @@ function send_ticket_confirmation_to_user($ticket)
 
     if (!$template) {
         // Fallback
-        $subject = 'Ticket Received: {ticket_title}';
-        $body = "Dear {recipient_name},\n\nWe have received your ticket.\n\nID: #{ticket_code}\nSubject: {ticket_title}\n\nYou can track the progress here: {ticket_url}\n\nRegards,\n{app_name}";
+        $subject = t('Ticket received') . ': {ticket_title}';
+        $body = t('Hello,') . "\n\n" . t('We have received your ticket.') . "\n\n" . t('ID') . ": #{ticket_code}\n" . t('Subject') . ": {ticket_title}\n\n" . t('You can track the progress here') . ": {ticket_url}\n\n" . t('Regards,') . "\n{app_name}";
     } else {
         $subject = $template['subject'];
         $body = $template['body'];

@@ -347,10 +347,10 @@ function get_priorities()
     } catch (Exception $e) {
         // Fallback for old installations
         return [
-            ['id' => 1, 'name' => 'Low', 'slug' => 'low', 'color' => '#10b981'],
-            ['id' => 2, 'name' => 'Medium', 'slug' => 'medium', 'color' => '#3b82f6'],
-            ['id' => 3, 'name' => 'High', 'slug' => 'high', 'color' => '#f59e0b'],
-            ['id' => 4, 'name' => 'Urgent', 'slug' => 'urgent', 'color' => '#ef4444']
+            ['id' => 1, 'name' => t('Low'), 'slug' => 'low', 'color' => '#10b981'],
+            ['id' => 2, 'name' => t('Medium'), 'slug' => 'medium', 'color' => '#3b82f6'],
+            ['id' => 3, 'name' => t('High'), 'slug' => 'high', 'color' => '#f59e0b'],
+            ['id' => 4, 'name' => t('Urgent'), 'slug' => 'urgent', 'color' => '#ef4444']
         ];
     }
 }
@@ -379,15 +379,15 @@ function get_priority_label($priority)
     // Check if it's an ID
     if (is_numeric($priority)) {
         $p = get_priority($priority);
-        return $p ? $p['name'] : 'Medium';
+        return $p ? $p['name'] : t('Medium');
     }
 
     // Legacy slug mapping
     $priorities = [
-        'low' => 'Low',
-        'medium' => 'Medium',
-        'high' => 'High',
-        'urgent' => 'Urgent'
+        'low' => t('Low'),
+        'medium' => t('Medium'),
+        'high' => t('High'),
+        'urgent' => t('Urgent')
     ];
     return $priorities[$priority] ?? $priority;
 }
@@ -432,10 +432,10 @@ function get_ticket_types($include_inactive = false)
     } catch (Exception $e) {
         // Fallback for old installations
         return [
-            ['id' => 1, 'name' => 'General', 'slug' => 'general', 'icon' => 'fa-file-alt', 'color' => '#3b82f6', 'is_default' => 1],
-            ['id' => 2, 'name' => 'Quote request', 'slug' => 'quote', 'icon' => 'fa-coins', 'color' => '#f59e0b', 'is_default' => 0],
-            ['id' => 3, 'name' => 'Inquiry', 'slug' => 'inquiry', 'icon' => 'fa-question-circle', 'color' => '#8b5cf6', 'is_default' => 0],
-            ['id' => 4, 'name' => 'Bug report', 'slug' => 'bug', 'icon' => 'fa-bug', 'color' => '#ef4444', 'is_default' => 0]
+            ['id' => 1, 'name' => t('General'), 'slug' => 'general', 'icon' => 'fa-file-alt', 'color' => '#3b82f6', 'is_default' => 1],
+            ['id' => 2, 'name' => t('Quote request'), 'slug' => 'quote', 'icon' => 'fa-coins', 'color' => '#f59e0b', 'is_default' => 0],
+            ['id' => 3, 'name' => t('Inquiry'), 'slug' => 'inquiry', 'icon' => 'fa-question-circle', 'color' => '#8b5cf6', 'is_default' => 0],
+            ['id' => 4, 'name' => t('Bug report'), 'slug' => 'bug', 'icon' => 'fa-bug', 'color' => '#ef4444', 'is_default' => 0]
         ];
     }
 }
@@ -622,12 +622,16 @@ function format_money($amount)
  */
 function get_time_range_bounds($range, $from_date = '', $to_date = '')
 {
-    $allowed = ['all', 'yesterday', 'this_week', 'last_week', 'this_month', 'last_month', 'this_year', 'last_year', 'custom'];
+    $allowed = ['all', 'today', 'yesterday', 'last_7_days', 'last_30_days', 'this_week', 'last_week', 'this_month', 'last_month', 'this_quarter', 'last_quarter', 'this_year', 'last_year', 'custom'];
     $range = in_array($range, $allowed, true) ? $range : 'all';
     $start = null;
     $end = null;
 
-    if ($range === 'yesterday') {
+    if ($range === 'today') {
+        $start = new DateTime('today');
+        $start->setTime(0, 0, 0);
+        $end = new DateTime('now');
+    } elseif ($range === 'yesterday') {
         $start = new DateTime('yesterday');
         $start->setTime(0, 0, 0);
         $end = new DateTime('yesterday');
@@ -650,6 +654,30 @@ function get_time_range_bounds($range, $from_date = '', $to_date = '')
         $start->setTime(0, 0, 0);
         $end = new DateTime('last day of last month');
         $end->setTime(23, 59, 59);
+    } elseif ($range === 'last_30_days') {
+        $start = new DateTime('-30 days');
+        $start->setTime(0, 0, 0);
+        $end = new DateTime('now');
+    } elseif ($range === 'last_7_days') {
+        $start = new DateTime('-7 days');
+        $start->setTime(0, 0, 0);
+        $end = new DateTime('now');
+    } elseif ($range === 'this_quarter') {
+        $month = (int) date('n');
+        $quarter_start_month = (int) (floor(($month - 1) / 3) * 3 + 1);
+        $start = new DateTime(date('Y') . '-' . str_pad((string)$quarter_start_month, 2, '0', STR_PAD_LEFT) . '-01');
+        $start->setTime(0, 0, 0);
+        $end = new DateTime('now');
+    } elseif ($range === 'last_quarter') {
+        $month = (int) date('n');
+        $quarter_start_month = (int) (floor(($month - 1) / 3) * 3 + 1);
+        $last_q_end = new DateTime(date('Y') . '-' . str_pad((string)$quarter_start_month, 2, '0', STR_PAD_LEFT) . '-01');
+        $last_q_end->modify('-1 day');
+        $last_q_end->setTime(23, 59, 59);
+        $last_q_start_month = (int) (floor(((int)$last_q_end->format('n') - 1) / 3) * 3 + 1);
+        $start = new DateTime($last_q_end->format('Y') . '-' . str_pad((string)$last_q_start_month, 2, '0', STR_PAD_LEFT) . '-01');
+        $start->setTime(0, 0, 0);
+        $end = $last_q_end;
     } elseif ($range === 'this_year') {
         $start = new DateTime('first day of January this year');
         $start->setTime(0, 0, 0);

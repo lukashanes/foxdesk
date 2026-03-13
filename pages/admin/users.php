@@ -994,7 +994,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <div>
                             <label class="block text-sm font-medium mb-1"
                                 style="color: var(--text-secondary);"><?php echo e(t('Name')); ?> *</label>
-                            <input type="text" name="agent_name" required class="form-input" placeholder="Claude Sonnet">
+                            <input type="text" name="agent_name" required class="form-input" placeholder="<?php echo e(t('e.g. Claude Sonnet')); ?>">
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1"

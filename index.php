@@ -31,7 +31,7 @@ header('Content-Type: text/html; charset=UTF-8');
 
 // Define base path
 define('BASE_PATH', __DIR__);
-define('APP_VERSION', '0.3.75');
+define('APP_VERSION', '0.3.82');
 
 // Maintenance mode – shown during update/rollback operations.
 // The .maintenance file is created by apply_update()/rollback_update()
@@ -157,6 +157,36 @@ if (!in_array($page, $public_pages)) {
         logout();
         header('Location: index.php?page=login');
         exit;
+    }
+}
+
+// Live 2FA enforcement: check on every page load whether user's role requires 2FA
+// Handles both: (a) flag already set from login, (b) admin enabling requirement while user is logged in
+// Also clears the flag if admin removes the requirement or user completes setup
+if (!empty($_SESSION['user_id']) && $page !== 'login' && $page !== 'logout' && $page !== 'api' && $page !== 'cron' && $page !== 'health') {
+    require_once BASE_PATH . '/includes/totp.php';
+    ensure_totp_columns();
+    $role = $_SESSION['user_role'] ?? '';
+    $role_requires = ($role !== '' && is_2fa_required_for_role($role));
+
+    if ($role_requires) {
+        $u = db_fetch_one("SELECT totp_enabled FROM users WHERE id = ?", [$_SESSION['user_id']]);
+        if ($u && empty($u['totp_enabled'])) {
+            // 2FA required but not set up — lock user to profile page
+            $_SESSION['2fa_setup_required'] = true;
+            if ($page !== 'profile') {
+                header('Location: index.php?page=profile&setup2fa=1');
+                exit;
+            }
+        } else {
+            // User has completed 2FA setup — clear the flag
+            unset($_SESSION['2fa_setup_required']);
+        }
+    } else {
+        // Requirement was removed by admin — clear the flag
+        if (!empty($_SESSION['2fa_setup_required'])) {
+            unset($_SESSION['2fa_setup_required']);
+        }
     }
 }
 

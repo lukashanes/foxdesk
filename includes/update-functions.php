@@ -1068,7 +1068,7 @@ function apply_update($zip_path, $backup_id = null, bool $dry_run = false): arra
         $redir = function_exists('url') ? url('admin', ['section' => 'settings', 'tab' => 'system']) : '?page=admin&section=settings&tab=system';
         echo '<!DOCTYPE html><html><head><meta charset="utf-8">';
         echo '<meta http-equiv="refresh" content="2;url=' . htmlspecialchars($redir) . '">';
-        echo '<title>Updating...</title>';
+        echo '<title>' . t('Updating...') . '</title>';
         echo '<style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;font-family:system-ui,sans-serif;background:#f8fafc;color:#334155}';
         echo '.box{text-align:center;padding:2rem}.spinner{width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 1rem}';
         echo '@keyframes spin{to{transform:rotate(360deg)}}</style></head>';
@@ -1252,7 +1252,7 @@ function rollback_update($backup_id, $restore_database = false): array
         $redir = function_exists('url') ? url('admin', ['section' => 'settings', 'tab' => 'system']) : '?page=admin&section=settings&tab=system';
         echo '<!DOCTYPE html><html><head><meta charset="utf-8">';
         echo '<meta http-equiv="refresh" content="2;url=' . htmlspecialchars($redir) . '">';
-        echo '<title>Rolling back...</title>';
+        echo '<title>' . t('Rolling back...') . '</title>';
         echo '<style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;font-family:system-ui,sans-serif;background:#f8fafc;color:#334155}';
         echo '.box{text-align:center;padding:2rem}.spinner{width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#f59e0b;border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 1rem}';
         echo '@keyframes spin{to{transform:rotate(360deg)}}</style></head>';

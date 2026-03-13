@@ -1618,7 +1618,7 @@ include BASE_PATH . '/includes/components/page-header.php';
             if (!tickets.length) {
                 const hint = document.createElement('div');
                 hint.className = 'ticket-suggest-hint';
-                hint.textContent = '<?php echo e(t('No tickets found')); ?> — Enter <?php echo e(t('to filter list')); ?>';
+                hint.textContent = '<?php echo e(t('No tickets found')); ?> — <?php echo e(t('Enter to filter list')); ?>';
                 suggestBox.appendChild(hint);
                 suggestBox.classList.add('active');
                 items = [];
@@ -1630,7 +1630,7 @@ include BASE_PATH . '/includes/components/page-header.php';
             });
             const hint = document.createElement('div');
             hint.className = 'ticket-suggest-hint';
-            hint.textContent = 'Enter <?php echo e(t('to filter list')); ?>';
+            hint.textContent = '<?php echo e(t('Enter to filter list')); ?>';
             suggestBox.appendChild(hint);
             suggestBox.classList.add('active');
             items = Array.from(suggestBox.querySelectorAll('.ticket-suggest-item'));

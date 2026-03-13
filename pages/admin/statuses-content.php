@@ -117,7 +117,7 @@ $edit_status = $edit_status_id ? get_status($edit_status_id) : null;
                 <label class="block text-xs mb-1" style="color: var(--text-secondary);">
                     <?php echo e(t('Name')); ?> *
                 </label>
-                <input type="text" name="name" required class="form-input w-full text-xs" placeholder="Open, In Progress, Done...">
+                <input type="text" name="name" required class="form-input w-full text-xs" placeholder="<?php echo e(t('Open, In Progress, Done...')); ?>">
             </div>
             <div>
                 <label class="block text-xs mb-1" style="color: var(--text-secondary);">

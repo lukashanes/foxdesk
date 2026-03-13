@@ -15,6 +15,7 @@
 define('PSEUDO_CRON_TASKS', [
     'pseudo_cron_last_email'       => 300,   // 5 minutes
     'pseudo_cron_last_recurring'   => 3600,  // 1 hour
+    'pseudo_cron_last_reports'     => 21600, // 6 hours
     'pseudo_cron_last_maintenance' => 86400, // 24 hours
 ]);
 

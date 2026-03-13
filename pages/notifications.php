@@ -52,13 +52,20 @@ require_once BASE_PATH . '/includes/header.php';
 function render_notif_card(array $notif, int $group_count = 1): void
 {
     $n_is_read = (bool) $notif['is_read'];
-    $n_text = format_notification_text($notif);
     $n_time = notification_time_ago($notif['created_at']);
     $n_ticket_id = $notif['ticket_id'] ? (int) $notif['ticket_id'] : null;
     $n_data = $notif['data'] ?? [];
     $n_comment_id = $n_data['comment_id'] ?? null;
     $n_snippet = get_notification_snippet($notif);
     $n_is_action = is_action_required_notification($notif['type'], $n_data);
+
+    // Ticket subject (primary line)
+    $n_subject = $n_data['ticket_subject'] ?? '';
+    if (mb_strlen($n_subject) > 60) {
+        $n_subject = mb_substr($n_subject, 0, 57) . '...';
+    }
+    // Action text (secondary line — no ticket subject)
+    $n_action = format_notification_action($notif);
 
     // Deep link URL
     $n_href = '#';
@@ -101,9 +108,12 @@ function render_notif_card(array $notif, int $group_count = 1): void
                 <?php echo e($n_initials); ?>
             <?php endif; ?>
         </a>
-        <!-- Content -->
+        <!-- Content — ticket subject first, action second -->
         <a href="<?php echo $n_href; ?>" class="notif-card-content" style="text-decoration: none;">
-            <div class="notif-card-text"><?php echo e($n_text); ?></div>
+            <?php if ($n_subject): ?>
+                <div class="notif-card-subject"><?php echo e($n_subject); ?></div>
+            <?php endif; ?>
+            <div class="notif-card-action"><?php echo e($n_action); ?></div>
             <?php if ($n_snippet): ?>
                 <div class="notif-card-snippet"><?php echo e($n_snippet); ?></div>
             <?php endif; ?>
@@ -124,6 +134,13 @@ function render_notif_card(array $notif, int $group_count = 1): void
                     <span class="notif-group-count">+<?php echo $group_count - 1; ?></span>
                 </button>
             <?php endif; ?>
+            <?php if ($n_ticket_id && $group_count > 1 && !$n_is_read): ?>
+                <button type="button" class="notif-mark-read-btn"
+                        onclick="event.stopPropagation(); markTicketNotifsRead(<?php echo $n_ticket_id; ?>)"
+                        title="<?php echo e(t('Mark all for this ticket as read')); ?>">
+                    <?php echo get_icon('check-circle', 'w-4 h-4'); ?>
+                </button>
+            <?php endif; ?>
             <?php if (!$n_is_read): ?>
                 <button type="button" class="notif-mark-read-btn"
                         onclick="event.stopPropagation(); markNotifRead(<?php echo (int)$notif['id']; ?>)"
@@ -142,11 +159,12 @@ function render_notif_card(array $notif, int $group_count = 1): void
 
 /**
  * Helper: render a compact child notification card.
+ * Shows action text only (ticket subject is in the parent card).
  */
 function render_child_card(array $notif): void
 {
     $n_is_read = (bool) $notif['is_read'];
-    $n_text = format_notification_text($notif);
+    $n_action = format_notification_action($notif);
     $n_time = notification_time_ago($notif['created_at']);
     $n_ticket_id = $notif['ticket_id'] ? (int) $notif['ticket_id'] : null;
     $n_data = $notif['data'] ?? [];
@@ -176,7 +194,7 @@ function render_child_card(array $notif): void
         <span class="notif-type-icon" style="color: <?php echo e($type_color); ?>;">
             <?php echo get_icon($type_icon, 'w-3.5 h-3.5'); ?>
         </span>
-        <span class="notif-child-text"><?php echo e($n_text); ?></span>
+        <span class="notif-child-text"><?php echo e($n_action); ?></span>
         <span class="notif-child-time"><?php echo e($n_time); ?></span>
         <?php if ($n_is_action): ?>
             <span class="notif-action-badge"><?php echo e(t('Action required')); ?></span>
@@ -298,13 +316,20 @@ function render_child_card(array $notif): void
         flex: 1;
         min-width: 0;
     }
-    .notif-card-text {
+    .notif-card-subject {
         font-size: 0.875rem;
+        font-weight: 600;
         line-height: 1.4;
         color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
-    .notif-card.unread .notif-card-text {
-        font-weight: 600;
+    .notif-card-action {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        margin-top: 2px;
+        line-height: 1.4;
     }
     .notif-card-snippet {
         font-size: 0.8125rem;
@@ -358,6 +383,10 @@ function render_child_card(array $notif): void
     }
     .notif-card:hover .notif-card-actions {
         opacity: 1;
+    }
+    /* N5: Always show mark-as-read on mobile */
+    @media (max-width: 640px) {
+        .notif-card-actions { opacity: 1; }
     }
     /* Always show group count badge */
     .notif-group-toggle {
@@ -533,9 +562,44 @@ function render_child_card(array $notif): void
             border-left-color: var(--border-light, #e2e8f0);
         }
     }
+
+    /* ── Compact mode ───────────────────────────────────────────────────── */
+    .notif-view-toggle {
+        display: inline-flex;
+        gap: 2px;
+        padding: 3px;
+        border-radius: 8px;
+        background: var(--surface-secondary, #f1f5f9);
+    }
+    .notif-view-btn {
+        padding: 5px 8px;
+        border: none;
+        background: none;
+        border-radius: 6px;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+    }
+    .notif-view-btn:hover {
+        color: var(--text-primary);
+    }
+    .notif-view-btn.active {
+        background: var(--surface-primary, #fff);
+        color: var(--primary, #3b82f6);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .notif-page-wrap.compact .notif-avatar { display: none; }
+    .notif-page-wrap.compact .notif-card { padding: 8px 14px; gap: 8px; }
+    .notif-page-wrap.compact .notif-card-snippet { display: none; }
+    .notif-page-wrap.compact .notif-card-subject { font-size: 0.8125rem; }
+    .notif-page-wrap.compact .notif-card-action { font-size: 0.75rem; margin-top: 1px; }
+    .notif-page-wrap.compact .notif-card-meta { margin-top: 2px; }
 </style>
 
-<div class="notif-page-wrap">
+<div class="notif-page-wrap" id="notifPageWrap">
     <!-- Header -->
     <div class="notif-page-header">
         <div class="notif-page-title">
@@ -551,6 +615,16 @@ function render_child_card(array $notif): void
                 <?php echo get_icon('check', 'w-4 h-4 inline-block'); ?>
                 <?php echo e(t('Mark all as read')); ?>
             </button>
+            <div class="notif-view-toggle">
+                <button type="button" class="notif-view-btn active" data-view="normal"
+                        onclick="setNotifView('normal')" title="<?php echo e(t('Normal')); ?>">
+                    <?php echo get_icon('grid', 'w-4 h-4'); ?>
+                </button>
+                <button type="button" class="notif-view-btn" data-view="compact"
+                        onclick="setNotifView('compact')" title="<?php echo e(t('Compact')); ?>">
+                    <?php echo get_icon('list', 'w-4 h-4'); ?>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -658,6 +732,40 @@ function render_child_card(array $notif): void
                 var badge = document.querySelector('.notif-page-badge');
                 if (badge) {
                     var c = parseInt(badge.textContent) - 1;
+                    if (c <= 0) badge.remove();
+                    else badge.textContent = c > 99 ? '99+' : c;
+                }
+                if (typeof updateBadge === 'function') updateBadge();
+            }
+        });
+    };
+
+    // ── Mark all for a ticket as read (group dismiss) ──────────────────
+    window.markTicketNotifsRead = function(ticketId) {
+        fetch('index.php?page=api&action=mark-ticket-notifications-read', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: 'ticket_id=' + ticketId + '&csrf_token=' + encodeURIComponent(window.csrfToken)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                // Find the ticket group and mark all items read
+                var count = res.marked_count || 0;
+                document.querySelectorAll('.notif-card[data-id], .notif-child-card[data-id]').forEach(function(el) {
+                    // Check if this notification's link contains the ticket ID
+                    var link = el.querySelector('a[href*="id=' + ticketId + '"]') || el;
+                    var href = link.getAttribute('href') || '';
+                    if (href.indexOf('id=' + ticketId + '&') !== -1 || href.indexOf('id=' + ticketId + '#') !== -1) {
+                        el.classList.remove('unread');
+                        var btn = el.querySelector('button.notif-mark-read-btn');
+                        if (btn) btn.remove();
+                    }
+                });
+                // Update badge
+                var badge = document.querySelector('.notif-page-badge');
+                if (badge && count > 0) {
+                    var c = parseInt(badge.textContent) - count;
                     if (c <= 0) badge.remove();
                     else badge.textContent = c > 99 ? '99+' : c;
                 }
@@ -867,6 +975,31 @@ function render_child_card(array $notif): void
         return html;
     }
 })();
+
+    // ── Compact / Normal view toggle ─────────────────────────────────────
+    var savedView = localStorage.getItem('notif_view') || 'normal';
+    var wrap = document.getElementById('notifPageWrap');
+    if (savedView === 'compact' && wrap) {
+        wrap.classList.add('compact');
+        var btns = document.querySelectorAll('.notif-view-btn');
+        btns.forEach(function(b) {
+            b.classList.toggle('active', b.getAttribute('data-view') === 'compact');
+        });
+    }
+
+    window.setNotifView = function(view) {
+        var w = document.getElementById('notifPageWrap');
+        if (!w) return;
+        if (view === 'compact') {
+            w.classList.add('compact');
+        } else {
+            w.classList.remove('compact');
+        }
+        localStorage.setItem('notif_view', view);
+        document.querySelectorAll('.notif-view-btn').forEach(function(b) {
+            b.classList.toggle('active', b.getAttribute('data-view') === view);
+        });
+    };
 </script>
 
 <?php require_once BASE_PATH . '/includes/footer.php'; ?>

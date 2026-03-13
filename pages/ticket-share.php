@@ -56,7 +56,7 @@ $comments = array_values(array_filter($comments, function ($comment) {
 }));
 
 mark_ticket_share_accessed($share['id']);
-$expires_label = !empty($share['expires_at']) ? format_date($share['expires_at']) : 'Never';
+$expires_label = !empty($share['expires_at']) ? format_date($share['expires_at']) : t('Never');
 ?>
 <!DOCTYPE html>
 <html lang="<?php echo e(get_app_language()); ?>">

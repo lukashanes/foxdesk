@@ -3279,7 +3279,7 @@ function openTicketTimeline(ticketId) {
         content.innerHTML = html;
     })
     .catch(function() {
-        content.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text-muted);">Error loading timeline</div>';
+        content.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text-muted);"><?php echo e(t('Error loading timeline')); ?></div>';
     });
 }
 

@@ -9,6 +9,13 @@ $user = current_user();
 $error = '';
 $success = '';
 
+// Load 2FA functions
+require_once BASE_PATH . '/includes/totp.php';
+ensure_totp_columns();
+
+// Refresh user to get TOTP columns
+$user = current_user(true);
+
 $users_has_column = function ($column) {
     $safe_column = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $column);
     if ($safe_column === '') {
@@ -122,6 +129,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('profile');
     }
 
+    // Per-type notification preferences
+    if (isset($_POST['update_notification_types'])) {
+        require_once BASE_PATH . '/includes/notification-functions.php';
+        $type_labels = get_notification_type_labels();
+        $prefs = [];
+        foreach (array_keys($type_labels) as $type_key) {
+            $prefs[$type_key] = isset($_POST['notif_type_' . $type_key]);
+        }
+        save_notification_preferences((int) $user['id'], $prefs);
+        flash(t('Notification preferences saved.'), 'success');
+        redirect('profile');
+    }
+
     // Upload avatar
     if (isset($_POST['upload_avatar']) && isset($_FILES['avatar'])) {
         if ($_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
@@ -174,6 +194,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         refresh_user_session();
         flash(t('Avatar removed.'), 'success');
         redirect('profile');
+    }
+
+    // ─── 2FA: Start setup ────────────────────────────────────────────────
+    if (isset($_POST['start_2fa_setup'])) {
+        $secret = totp_generate_secret();
+        $_SESSION['2fa_setup_secret'] = $secret;
+        redirect('profile', ['setup2fa' => '1']);
+    }
+
+    // ─── 2FA: Verify & enable ────────────────────────────────────────────
+    if (isset($_POST['verify_2fa_setup'])) {
+        $secret = $_SESSION['2fa_setup_secret'] ?? '';
+        $code = trim($_POST['setup_code'] ?? '');
+
+        if (empty($secret)) {
+            flash(t('Setup session expired. Please start again.'), 'error');
+            redirect('profile');
+        } elseif (totp_verify($secret, $code)) {
+            // Generate backup codes
+            $backup_codes = generate_backup_codes(8);
+            $hashed_codes = array_map(fn($c) => hash('sha256', $c), $backup_codes);
+
+            // Store secret + hashed backup codes in DB
+            db_update('users', [
+                'totp_secret' => $secret,
+                'totp_enabled' => 1,
+                'totp_backup_codes' => json_encode($hashed_codes)
+            ], 'id = ?', [$user['id']]);
+
+            // Show backup codes once
+            $_SESSION['2fa_backup_codes_show'] = $backup_codes;
+            unset($_SESSION['2fa_setup_secret']);
+
+            // Clear forced setup flag if set
+            if (!empty($_SESSION['2fa_setup_required'])) {
+                unset($_SESSION['2fa_setup_required']);
+            }
+
+            if (function_exists('log_security_event')) {
+                log_security_event('2fa_enabled', $user['id']);
+            }
+
+            flash(t('Two-factor authentication enabled.'), 'success');
+            redirect('profile', ['2fa' => 'enabled']);
+        } else {
+            flash(t('Invalid code. Please try again.'), 'error');
+            redirect('profile', ['setup2fa' => '1']);
+        }
+    }
+
+    // ─── 2FA: Disable ────────────────────────────────────────────────────
+    if (isset($_POST['disable_2fa'])) {
+        $password = $_POST['disable_2fa_password'] ?? '';
+        if (password_verify($password, $user['password'])) {
+            db_update('users', [
+                'totp_secret' => null,
+                'totp_enabled' => 0,
+                'totp_backup_codes' => null
+            ], 'id = ?', [$user['id']]);
+
+            if (function_exists('log_security_event')) {
+                log_security_event('2fa_disabled', $user['id']);
+            }
+
+            flash(t('Two-factor authentication disabled.'), 'success');
+        } else {
+            flash(t('Incorrect password.'), 'error');
+        }
+        redirect('profile');
+    }
+
+    // ─── 2FA: Regenerate backup codes ────────────────────────────────────
+    if (isset($_POST['regenerate_backup_codes'])) {
+        $password = $_POST['regen_password'] ?? '';
+        if (password_verify($password, $user['password'])) {
+            $backup_codes = generate_backup_codes(8);
+            $hashed_codes = array_map(fn($c) => hash('sha256', $c), $backup_codes);
+
+            db_update('users', [
+                'totp_backup_codes' => json_encode($hashed_codes)
+            ], 'id = ?', [$user['id']]);
+
+            $_SESSION['2fa_backup_codes_show'] = $backup_codes;
+
+            if (function_exists('log_security_event')) {
+                log_security_event('2fa_backup_regenerated', $user['id']);
+            }
+
+            flash(t('Backup codes regenerated.'), 'success');
+            redirect('profile', ['2fa' => 'enabled']);
+        } else {
+            flash(t('Incorrect password.'), 'error');
+            redirect('profile');
+        }
     }
 }
 
@@ -282,6 +396,38 @@ include BASE_PATH . '/includes/components/page-header.php';
                 </button>
             </form>
         </div>
+
+        <!-- Per-type Notification Preferences -->
+        <?php
+        if (file_exists(BASE_PATH . '/includes/notification-functions.php')) {
+            require_once BASE_PATH . '/includes/notification-functions.php';
+        }
+        if (function_exists('get_notification_type_labels')):
+            $notif_type_labels = get_notification_type_labels();
+            $notif_prefs = function_exists('get_notification_preferences')
+                ? get_notification_preferences((int) $user['id'])
+                : array_fill_keys(array_keys($notif_type_labels), true);
+        ?>
+        <div class="card card-body">
+            <h3 class="text-sm font-semibold uppercase tracking-wider mb-4" style="color: var(--text-muted);"><?php echo e(t('Notification types')); ?></h3>
+            <p class="text-xs mb-3" style="color: var(--text-muted);"><?php echo e(t('Choose which notification types you want to receive.')); ?></p>
+
+            <form method="post" class="space-y-2">
+                <?php echo csrf_field(); ?>
+                <?php foreach ($notif_type_labels as $type_key => $type_label): ?>
+                <label class="flex items-center gap-2 text-sm cursor-pointer" style="color: var(--text-secondary);">
+                    <input type="checkbox" name="notif_type_<?php echo e($type_key); ?>" class="rounded"
+                        <?php echo !empty($notif_prefs[$type_key]) ? 'checked' : ''; ?>>
+                    <?php echo e($type_label); ?>
+                </label>
+                <?php endforeach; ?>
+
+                <button type="submit" name="update_notification_types" class="btn btn-ghost btn-sm w-full mt-2">
+                    <?php echo e(t('Save')); ?>
+                </button>
+            </form>
+        </div>
+        <?php endif; ?>
         <?php endif; ?>
     </div>
 
@@ -406,6 +552,231 @@ include BASE_PATH . '/includes/components/page-header.php';
                 </button>
             </form>
         </div>
+
+        <!-- Two-Factor Authentication -->
+        <?php
+        $totp_enabled = is_2fa_enabled($user);
+        $show_setup = isset($_GET['setup2fa']) && !$totp_enabled;
+        $show_backup_codes = isset($_SESSION['2fa_backup_codes_show']);
+        $setup_secret = $_SESSION['2fa_setup_secret'] ?? '';
+        $forced_setup = !empty($_SESSION['2fa_setup_required']);
+        ?>
+        <div class="card card-body" id="two-factor-section">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold uppercase tracking-wider" style="color: var(--text-muted);"><?php echo e(t('Two-factor authentication')); ?></h3>
+                <?php if ($totp_enabled): ?>
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                        <?php echo e(t('Enabled')); ?>
+                    </span>
+                <?php endif; ?>
+            </div>
+
+            <?php if ($forced_setup && !$totp_enabled): ?>
+                <!-- Forced setup banner -->
+                <div class="rounded-lg p-3 mb-4 text-sm" style="background: var(--warning-bg, #fef3c7); color: var(--warning-text, #92400e); border: 1px solid var(--warning-border, #fde68a);">
+                    <?php echo get_icon('exclamation-triangle', 'w-4 h-4 inline mr-1'); ?>
+                    <?php echo e(t('Your administrator requires two-factor authentication. Please set it up to continue.')); ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($show_backup_codes): ?>
+                <!-- ═══ Backup codes display (shown once after enabling) ═══ -->
+                <?php $backup_codes = $_SESSION['2fa_backup_codes_show']; unset($_SESSION['2fa_backup_codes_show']); ?>
+                <div class="space-y-4">
+                    <div class="rounded-lg p-3 text-sm" style="background: var(--warning-bg, #fef3c7); color: var(--warning-text, #92400e); border: 1px solid var(--warning-border, #fde68a);">
+                        <?php echo get_icon('exclamation-triangle', 'w-4 h-4 inline mr-1'); ?>
+                        <?php echo e(t('Save these backup codes in a safe place. Each code can only be used once. This is the only time they will be shown.')); ?>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 p-4 rounded-lg font-mono text-sm" style="background: var(--surface-secondary);" id="backup-codes-list">
+                        <?php foreach ($backup_codes as $code): ?>
+                            <div class="py-1 px-2 text-center" style="color: var(--text-primary);"><?php echo e($code); ?></div>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="downloadBackupCodes()" class="btn btn-ghost btn-sm">
+                            <?php echo get_icon('download', 'mr-1'); ?><?php echo e(t('Download as .txt')); ?>
+                        </button>
+                        <button type="button" onclick="copyBackupCodes()" class="btn btn-ghost btn-sm">
+                            <?php echo get_icon('copy', 'mr-1'); ?><?php echo e(t('Copy')); ?>
+                        </button>
+                    </div>
+                </div>
+
+                <script>
+                function downloadBackupCodes() {
+                    var codes = <?php echo json_encode($backup_codes); ?>;
+                    var text = "FoxDesk - Two-Factor Authentication Backup Codes\n";
+                    text += "Generated: " + new Date().toLocaleDateString() + "\n\n";
+                    codes.forEach(function(c) { text += c + "\n"; });
+                    text += "\nEach code can only be used once.";
+                    var blob = new Blob([text], {type: 'text/plain'});
+                    var a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'foxdesk-backup-codes.txt';
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                }
+                function copyBackupCodes() {
+                    var codes = <?php echo json_encode($backup_codes); ?>;
+                    navigator.clipboard.writeText(codes.join('\n')).then(function() {
+                        if (typeof showToast === 'function') showToast('<?php echo e(t('Copied to clipboard')); ?>', 'success');
+                    });
+                }
+                </script>
+
+            <?php elseif ($show_setup): ?>
+                <!-- ═══ Setup flow: QR code + verify ═══ -->
+                <?php
+                if (empty($setup_secret)) {
+                    // Generate secret if not yet in session (direct URL access)
+                    $setup_secret = totp_generate_secret();
+                    $_SESSION['2fa_setup_secret'] = $setup_secret;
+                }
+                $settings = get_settings();
+                $app_name = $settings['app_name'] ?? 'FoxDesk';
+                $otpauth_uri = totp_get_uri($setup_secret, $user['email'], $app_name);
+                ?>
+                <div class="space-y-5">
+                    <p class="text-sm" style="color: var(--text-secondary);">
+                        <?php echo e(t('Scan the QR code below with your authenticator app (Google Authenticator, Authy, 1Password, etc.), then enter the 6-digit code to verify.')); ?>
+                    </p>
+
+                    <!-- QR Code -->
+                    <div class="flex flex-col items-center gap-3">
+                        <div class="p-3 rounded-lg bg-white">
+                            <canvas id="totp-qr-code"></canvas>
+                        </div>
+                        <details class="w-full">
+                            <summary class="text-xs cursor-pointer" style="color: var(--text-muted);"><?php echo e(t("Can't scan? Enter code manually")); ?></summary>
+                            <div class="mt-2 p-3 rounded-lg font-mono text-sm text-center tracking-wider break-all" style="background: var(--surface-secondary); color: var(--text-primary);">
+                                <?php echo e(format_totp_secret($setup_secret)); ?>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Verify code -->
+                    <form method="post" class="space-y-3">
+                        <?php echo csrf_field(); ?>
+                        <div>
+                            <label for="setup-code" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Verification code')); ?></label>
+                            <input type="text" name="setup_code" id="setup-code"
+                                maxlength="6" inputmode="numeric" autocomplete="one-time-code"
+                                pattern="[0-9]{6}" required aria-required="true"
+                                placeholder="000000"
+                                class="form-input font-mono text-xl text-center tracking-[0.3em] w-full sm:w-48">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="submit" name="verify_2fa_setup" class="btn btn-primary">
+                                <?php echo get_icon('shield-alt', 'mr-1'); ?><?php echo e(t('Verify & Enable')); ?>
+                            </button>
+                            <?php if (!$forced_setup): ?>
+                                <a href="index.php?page=profile" class="btn btn-ghost btn-sm"><?php echo e(t('Cancel')); ?></a>
+                            <?php endif; ?>
+                        </div>
+                    </form>
+                </div>
+
+                <script src="https://cdn.jsdelivr.net/npm/qrcode@1/build/qrcode.min.js"></script>
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    var canvas = document.getElementById('totp-qr-code');
+                    if (canvas && typeof QRCode !== 'undefined') {
+                        QRCode.toCanvas(canvas, <?php echo json_encode($otpauth_uri); ?>, {
+                            width: 200,
+                            margin: 1,
+                            color: { dark: '#000000', light: '#ffffff' }
+                        });
+                    }
+                    // Auto-focus the code input
+                    var input = document.getElementById('setup-code');
+                    if (input) input.focus();
+                });
+                </script>
+
+            <?php elseif ($totp_enabled): ?>
+                <!-- ═══ 2FA is enabled — show status ═══ -->
+                <div class="space-y-4">
+                    <p class="text-sm" style="color: var(--text-secondary);">
+                        <?php echo get_icon('check-circle', 'w-4 h-4 inline mr-1 text-green-500'); ?>
+                        <?php echo e(t('Your account is protected with two-factor authentication.')); ?>
+                    </p>
+
+                    <?php $remaining = count_backup_codes($user); ?>
+                    <p class="text-xs" style="color: var(--text-muted);">
+                        <?php echo e(t('Backup codes remaining:')); ?> <strong><?php echo $remaining; ?>/8</strong>
+                        <?php if ($remaining <= 2 && $remaining > 0): ?>
+                            <span class="text-orange-500 ml-1"><?php echo get_icon('exclamation-triangle', 'w-3 h-3 inline'); ?> <?php echo e(t('Running low')); ?></span>
+                        <?php elseif ($remaining === 0): ?>
+                            <span class="text-red-500 ml-1"><?php echo get_icon('exclamation-circle', 'w-3 h-3 inline'); ?> <?php echo e(t('No backup codes left')); ?></span>
+                        <?php endif; ?>
+                    </p>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- Regenerate backup codes -->
+                        <button type="button" onclick="document.getElementById('regen-modal').classList.remove('hidden')" class="btn btn-ghost btn-sm">
+                            <?php echo get_icon('sync', 'mr-1'); ?><?php echo e(t('Regenerate backup codes')); ?>
+                        </button>
+
+                        <!-- Disable 2FA -->
+                        <button type="button" onclick="document.getElementById('disable-2fa-modal').classList.remove('hidden')" class="btn btn-danger btn-sm">
+                            <?php echo get_icon('times-circle', 'mr-1'); ?><?php echo e(t('Disable 2FA')); ?>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Disable 2FA modal -->
+                <div id="disable-2fa-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.5);">
+                    <div class="rounded-xl shadow-xl w-full max-w-sm p-6" style="background: var(--surface-primary);">
+                        <h4 class="text-base font-semibold mb-2" style="color: var(--text-primary);"><?php echo e(t('Disable two-factor authentication')); ?></h4>
+                        <p class="text-sm mb-4" style="color: var(--text-secondary);"><?php echo e(t('Enter your password to confirm.')); ?></p>
+                        <form method="post" class="space-y-3">
+                            <?php echo csrf_field(); ?>
+                            <input type="password" name="disable_2fa_password" required autocomplete="current-password"
+                                placeholder="<?php echo e(t('Password')); ?>" class="form-input w-full">
+                            <div class="flex items-center gap-2 justify-end">
+                                <button type="button" onclick="this.closest('#disable-2fa-modal').classList.add('hidden')" class="btn btn-ghost btn-sm"><?php echo e(t('Cancel')); ?></button>
+                                <button type="submit" name="disable_2fa" class="btn btn-danger btn-sm"><?php echo e(t('Disable')); ?></button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Regenerate backup codes modal -->
+                <div id="regen-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.5);">
+                    <div class="rounded-xl shadow-xl w-full max-w-sm p-6" style="background: var(--surface-primary);">
+                        <h4 class="text-base font-semibold mb-2" style="color: var(--text-primary);"><?php echo e(t('Regenerate backup codes')); ?></h4>
+                        <p class="text-sm mb-4" style="color: var(--text-secondary);"><?php echo e(t('This will invalidate all existing backup codes. Enter your password to confirm.')); ?></p>
+                        <form method="post" class="space-y-3">
+                            <?php echo csrf_field(); ?>
+                            <input type="password" name="regen_password" required autocomplete="current-password"
+                                placeholder="<?php echo e(t('Password')); ?>" class="form-input w-full">
+                            <div class="flex items-center gap-2 justify-end">
+                                <button type="button" onclick="this.closest('#regen-modal').classList.add('hidden')" class="btn btn-ghost btn-sm"><?php echo e(t('Cancel')); ?></button>
+                                <button type="submit" name="regenerate_backup_codes" class="btn btn-primary btn-sm"><?php echo e(t('Regenerate')); ?></button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+            <?php else: ?>
+                <!-- ═══ 2FA is off — show enable button ═══ -->
+                <div class="space-y-3">
+                    <p class="text-sm" style="color: var(--text-secondary);">
+                        <?php echo e(t('Add an extra layer of security to your account using an authenticator app.')); ?>
+                    </p>
+                    <form method="post">
+                        <?php echo csrf_field(); ?>
+                        <button type="submit" name="start_2fa_setup" class="btn btn-primary btn-sm">
+                            <?php echo get_icon('shield-alt', 'mr-1'); ?><?php echo e(t('Enable 2FA')); ?>
+                        </button>
+                    </form>
+                </div>
+            <?php endif; ?>
+        </div>
+
     </div>
 </div>
 

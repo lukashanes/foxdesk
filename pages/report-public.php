@@ -18,7 +18,7 @@ $token = $_GET['token'] ?? '';
 
 if (empty($token)) {
     http_response_code(400);
-    die('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Error</title></head><body style="font-family:sans-serif;max-width:600px;margin:100px auto;text-align:center;"><h1 style="color:#dc2626;">Invalid report token</h1></body></html>');
+    die('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' . e(t('Error')) . '</title></head><body style="font-family:sans-serif;max-width:600px;margin:100px auto;text-align:center;"><h1 style="color:#dc2626;">' . e(t('Invalid report token')) . '</h1></body></html>');
 }
 
 // Fetch report template

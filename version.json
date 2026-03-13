@@ -1,12 +1,16 @@
 {
-    "version": "0.3.75",
-    "date": "2026-03-11",
+    "version": "0.3.82",
+    "date": "2026-03-13",
     "min_php": "8.1",
     "changelog": [
-        "Notifications: cross-view read state sync between header, dashboard, and notification page",
-        "Notifications: consistent avatar colors across all views",
-        "Activity tracking: new admin section with page view analytics and user activity logs",
-        "Documentation: complete rewrite of README, INSTALL, and MANUAL for v0.3.75"
+        "Notifications: per-type preferences, unread indicators, avatars, group dismiss, due date reminders",
+        "Browser push notifications: VAPID Web Push with sound toggle, works with tab closed",
+        "Recurring tasks: run history, Run Now, preview, search/filter, pause/resume, auto-tag, duplicate",
+        "Reporting: client reports builder, CSV/Excel export, column picker, sparkline bars, tag filter",
+        "Reporting: scheduled auto-generation, email delivery, report duplication, print-friendly layout",
+        "Security: TOTP 2FA with QR setup, backup codes, rate-limited login, per-role enforcement",
+        "Settings: dedicated Security tab, consequence hints on non-obvious settings across all tabs",
+        "i18n: all remaining hardcoded UI strings wrapped in t() for translation"
     ],
     "delete_files": [
         "includes\/ticket-import-functions.php",

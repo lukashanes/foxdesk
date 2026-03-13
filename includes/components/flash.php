@@ -20,7 +20,7 @@ $flash_classes = $flash_type_map[$flash_type] ?? 'flash-info';
     data-flash-type="<?php echo e($flash_type); ?>">
     <div class="flex items-start justify-between gap-4">
         <div class="text-sm"><?php echo e($flash['message']); ?></div>
-        <button type="button" class="flash-close" aria-label="Close">
+        <button type="button" class="flash-close" aria-label="<?php echo e(t('Close')); ?>">
             <?php echo get_icon('times'); ?>
         </button>
     </div>

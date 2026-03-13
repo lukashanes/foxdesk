@@ -275,7 +275,7 @@ function calculate_timer_elapsed($timer) {
  */
 function pause_ticket_timer($ticket_id, $user_id) {
     if (!ticket_time_table_exists()) {
-        return ['success' => false, 'error' => 'Time tracking not available'];
+        return ['success' => false, 'error' => t('Time tracking not available')];
     }
 
     // Ensure pause columns exist
@@ -283,11 +283,11 @@ function pause_ticket_timer($ticket_id, $user_id) {
 
     $timer = get_active_ticket_timer($ticket_id, $user_id);
     if (!$timer) {
-        return ['success' => false, 'error' => 'No active timer found'];
+        return ['success' => false, 'error' => t('No active timer found')];
     }
 
     if (is_timer_paused($timer)) {
-        return ['success' => false, 'error' => 'Timer is already paused'];
+        return ['success' => false, 'error' => t('Timer is already paused')];
     }
 
     try {
@@ -304,7 +304,7 @@ function pause_ticket_timer($ticket_id, $user_id) {
             'message' => t('Timer paused.')
         ];
     } catch (Exception $e) {
-        return ['success' => false, 'error' => 'Failed to pause timer'];
+        return ['success' => false, 'error' => t('Failed to pause timer')];
     }
 }
 
@@ -313,23 +313,23 @@ function pause_ticket_timer($ticket_id, $user_id) {
  */
 function resume_ticket_timer($ticket_id, $user_id) {
     if (!ticket_time_table_exists()) {
-        return ['success' => false, 'error' => 'Time tracking not available'];
+        return ['success' => false, 'error' => t('Time tracking not available')];
     }
 
     $timer = get_active_ticket_timer($ticket_id, $user_id);
     if (!$timer) {
-        return ['success' => false, 'error' => 'No active timer found'];
+        return ['success' => false, 'error' => t('No active timer found')];
     }
 
     if (!is_timer_paused($timer)) {
-        return ['success' => false, 'error' => 'Timer is not paused'];
+        return ['success' => false, 'error' => t('Timer is not paused')];
     }
 
     try {
         // Calculate how long it was paused and add to paused_seconds
         $paused_at_ts = strtotime($timer['paused_at'] ?? '');
         if ($paused_at_ts === false) {
-            return ['success' => false, 'error' => 'Invalid pause timestamp'];
+            return ['success' => false, 'error' => t('Invalid pause timestamp')];
         }
         $paused_duration = time() - $paused_at_ts;
         $total_paused = (int)($timer['paused_seconds'] ?? 0) + $paused_duration;
@@ -346,7 +346,7 @@ function resume_ticket_timer($ticket_id, $user_id) {
             'message' => t('Timer resumed.')
         ];
     } catch (Exception $e) {
-        return ['success' => false, 'error' => 'Failed to resume timer'];
+        return ['success' => false, 'error' => t('Failed to resume timer')];
     }
 }
 
@@ -355,12 +355,12 @@ function resume_ticket_timer($ticket_id, $user_id) {
  */
 function discard_ticket_timer($ticket_id, $user_id) {
     if (!ticket_time_table_exists()) {
-        return ['success' => false, 'error' => 'Time tracking not available'];
+        return ['success' => false, 'error' => t('Time tracking not available')];
     }
 
     $timer = get_active_ticket_timer($ticket_id, $user_id);
     if (!$timer) {
-        return ['success' => false, 'error' => 'No active timer found'];
+        return ['success' => false, 'error' => t('No active timer found')];
     }
 
     try {
@@ -371,7 +371,7 @@ function discard_ticket_timer($ticket_id, $user_id) {
             'message' => t('Timer discarded.')
         ];
     } catch (Exception $e) {
-        return ['success' => false, 'error' => 'Failed to discard timer'];
+        return ['success' => false, 'error' => t('Failed to discard timer')];
     }
 }
 

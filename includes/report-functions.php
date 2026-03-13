@@ -541,3 +541,285 @@ function create_report_template_share($report_template_id, $organization_id, $ex
     return $template['uuid'];
 }
 
+// ── RP10/RP11: Scheduled Reports & Email Delivery ───────────────────────────
+
+/**
+ * Auto-migrate: add schedule columns to report_templates.
+ */
+function ensure_report_schedule_columns(): void
+{
+    static $done = false;
+    if ($done) return;
+    $done = true;
+
+    $cols = [
+        'schedule_enabled'    => "TINYINT(1) NOT NULL DEFAULT 0",
+        'schedule_interval'   => "VARCHAR(20) NOT NULL DEFAULT 'monthly'",
+        'schedule_day'        => "INT NOT NULL DEFAULT 1",
+        'schedule_recipients' => "TEXT NULL",
+        'schedule_last_sent'  => "DATETIME NULL",
+        'schedule_next_due'   => "DATE NULL",
+    ];
+
+    foreach ($cols as $col => $def) {
+        if (!report_template_column_exists($col)) {
+            try {
+                db_query("ALTER TABLE report_templates ADD COLUMN {$col} {$def}");
+            } catch (Throwable $e) { /* ignore */ }
+        }
+    }
+}
+
+/**
+ * Get scheduled reports that are due for generation.
+ *
+ * @return array List of report templates due for scheduled generation
+ */
+function get_due_scheduled_reports(): array
+{
+    ensure_report_schedule_columns();
+    $today = date('Y-m-d');
+
+    return db_fetch_all("
+        SELECT rt.*, o.name as organization_name
+        FROM report_templates rt
+        LEFT JOIN organizations o ON rt.organization_id = o.id
+        WHERE rt.schedule_enabled = 1
+          AND rt.is_draft = 0
+          AND (rt.schedule_next_due IS NULL OR rt.schedule_next_due <= ?)
+    ", [$today]);
+}
+
+/**
+ * Calculate the next due date for a scheduled report.
+ *
+ * @param string $interval  'weekly', 'monthly', or 'quarterly'
+ * @param int    $day       Day of week (1=Mon for weekly) or day of month
+ * @param string|null $from Base date (default: today)
+ * @return string Next due date (Y-m-d)
+ */
+function calculate_next_report_due(string $interval, int $day, ?string $from = null): string
+{
+    $base = new DateTime($from ?? 'today');
+
+    switch ($interval) {
+        case 'weekly':
+            // $day = 1 (Monday) to 7 (Sunday)
+            $current_dow = (int) $base->format('N'); // 1=Mon to 7=Sun
+            $diff = $day - $current_dow;
+            if ($diff <= 0) $diff += 7;
+            $base->modify("+{$diff} days");
+            break;
+
+        case 'quarterly':
+            // Move to first day of next quarter, then set day
+            $month = (int) $base->format('n');
+            $quarter_start = (int) (ceil($month / 3) * 3) + 1;
+            if ($quarter_start > 12) {
+                $quarter_start = 1;
+                $base->modify('+1 year');
+            }
+            $year = (int) $base->format('Y');
+            $max_day = cal_days_in_month(CAL_GREGORIAN, $quarter_start, $year);
+            $actual_day = min($day, $max_day);
+            $base->setDate($year, $quarter_start, $actual_day);
+            break;
+
+        default: // monthly
+            $base->modify('+1 month');
+            $year = (int) $base->format('Y');
+            $month = (int) $base->format('n');
+            $max_day = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+            $actual_day = min($day, $max_day);
+            $base->setDate($year, $month, $actual_day);
+            break;
+    }
+
+    return $base->format('Y-m-d');
+}
+
+/**
+ * Process all due scheduled reports: regenerate snapshots, advance dates, send emails.
+ */
+function process_scheduled_reports(): void
+{
+    ensure_report_schedule_columns();
+    $due_reports = get_due_scheduled_reports();
+
+    foreach ($due_reports as $report) {
+        try {
+            // Calculate new date range: previous interval up to yesterday
+            $today = new DateTime();
+            $interval = $report['schedule_interval'] ?? 'monthly';
+            $date_to = (clone $today)->modify('-1 day')->format('Y-m-d');
+
+            switch ($interval) {
+                case 'weekly':
+                    $date_from = (clone $today)->modify('-7 days')->format('Y-m-d');
+                    break;
+                case 'quarterly':
+                    $date_from = (clone $today)->modify('-3 months')->format('Y-m-d');
+                    break;
+                default:
+                    $date_from = (clone $today)->modify('-1 month')->format('Y-m-d');
+                    break;
+            }
+
+            // Update the report template date range and regenerate
+            db_update('report_templates', [
+                'date_from' => $date_from,
+                'date_to' => $date_to,
+            ], 'id = ?', [$report['id']]);
+
+            // Regenerate snapshot with new date range
+            generate_report_snapshot_cron($report['id']);
+
+            // Calculate next due date
+            $next_due = calculate_next_report_due(
+                $interval,
+                (int) ($report['schedule_day'] ?? 1)
+            );
+
+            db_update('report_templates', [
+                'schedule_last_sent' => date('Y-m-d H:i:s'),
+                'schedule_next_due' => $next_due,
+            ], 'id = ?', [$report['id']]);
+
+            // Send email to recipients (RP11)
+            $recipients = trim($report['schedule_recipients'] ?? '');
+            if ($recipients !== '') {
+                send_scheduled_report_email($report, $date_from, $date_to);
+            }
+        } catch (Throwable $e) {
+            error_log('[scheduled-reports] Error processing report #' . $report['id'] . ': ' . $e->getMessage());
+        }
+    }
+}
+
+/**
+ * Generate report snapshot in cron context (no current_user).
+ */
+function generate_report_snapshot_cron(int $report_template_id)
+{
+    $start_time = microtime(true);
+    $template = get_report_template($report_template_id);
+    if (!$template) return false;
+
+    $time_entries = get_report_time_entries($template);
+    $kpis = calculate_report_kpis($time_entries, $template);
+    $chart_data = generate_report_chart_data($time_entries, $template);
+
+    $generation_time_ms = round((microtime(true) - $start_time) * 1000);
+
+    $snapshot_data = [
+        'report_template_id' => $report_template_id,
+        'kpi_data' => json_encode($kpis),
+        'chart_data' => json_encode($chart_data),
+        'generation_time_ms' => $generation_time_ms,
+        'generated_by_user_id' => $template['created_by_user_id'] ?? null,
+    ];
+
+    $snapshot_id = db_insert('report_snapshots', $snapshot_data);
+    db_update('report_templates', [
+        'last_generated_at' => date('Y-m-d H:i:s')
+    ], 'id = ?', [$report_template_id]);
+
+    return $snapshot_id;
+}
+
+/**
+ * Send a scheduled report email to all configured recipients (RP11).
+ *
+ * @param array  $report    Report template data
+ * @param string $date_from Report period start
+ * @param string $date_to   Report period end
+ */
+function send_scheduled_report_email(array $report, string $date_from, string $date_to): void
+{
+    $recipients_str = $report['schedule_recipients'] ?? '';
+    $emails = array_filter(array_map('trim', explode(',', $recipients_str)));
+    if (empty($emails)) return;
+
+    $app_name = defined('APP_NAME') ? APP_NAME : 'FoxDesk';
+    $app_url = function_exists('get_app_url') ? get_app_url() : '';
+    $org_name = $report['organization_name'] ?? 'Client';
+    $report_title = $report['title'] ?? 'Report';
+    $uuid = $report['uuid'] ?? '';
+    $report_link = $app_url . '/index.php?page=report-public&uuid=' . urlencode($uuid);
+
+    // Fetch latest snapshot KPIs
+    $kpi_html = '';
+    try {
+        $snapshot = db_fetch_one(
+            "SELECT kpi_data FROM report_snapshots WHERE report_template_id = ? ORDER BY id DESC LIMIT 1",
+            [$report['id']]
+        );
+        if ($snapshot && !empty($snapshot['kpi_data'])) {
+            $kpis = json_decode($snapshot['kpi_data'], true);
+            if ($kpis) {
+                $total_hours = round(($kpis['total_minutes'] ?? 0) / 60, 1);
+                $total_tasks = $kpis['total_tasks'] ?? 0;
+                $team_size = $kpis['team_members'] ?? 0;
+                $kpi_html = "
+                    <table style='width:100%;border-collapse:collapse;margin:16px 0;'>
+                        <tr>
+                            <td style='padding:12px;text-align:center;background:#f3f4f6;border-radius:8px 0 0 8px;'>
+                                <div style='font-size:24px;font-weight:bold;color:#1f2937;'>{$total_hours}h</div>
+                                <div style='font-size:12px;color:#6b7280;'>Total Hours</div>
+                            </td>
+                            <td style='padding:12px;text-align:center;background:#f3f4f6;'>
+                                <div style='font-size:24px;font-weight:bold;color:#1f2937;'>{$total_tasks}</div>
+                                <div style='font-size:12px;color:#6b7280;'>Tasks</div>
+                            </td>
+                            <td style='padding:12px;text-align:center;background:#f3f4f6;border-radius:0 8px 8px 0;'>
+                                <div style='font-size:24px;font-weight:bold;color:#1f2937;'>{$team_size}</div>
+                                <div style='font-size:12px;color:#6b7280;'>Team Members</div>
+                            </td>
+                        </tr>
+                    </table>";
+            }
+        }
+    } catch (Throwable $e) { /* ignore */ }
+
+    $from_formatted = date('M j, Y', strtotime($date_from));
+    $to_formatted = date('M j, Y', strtotime($date_to));
+
+    $subject = "{$report_title} — {$from_formatted} to {$to_formatted}";
+    $body = "
+    <div style='font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,sans-serif;max-width:600px;margin:0 auto;'>
+        <div style='padding:24px 0;border-bottom:2px solid #e5e7eb;margin-bottom:24px;'>
+            <h1 style='margin:0;font-size:22px;color:#111827;'>{$report_title}</h1>
+            <p style='margin:8px 0 0;color:#6b7280;font-size:14px;'>
+                {$org_name} &mdash; {$from_formatted} to {$to_formatted}
+            </p>
+        </div>
+
+        {$kpi_html}
+
+        <p style='color:#374151;font-size:14px;line-height:1.6;'>
+            Your scheduled report has been generated and is ready for review.
+            Click the button below to view the full report with detailed breakdowns.
+        </p>
+
+        <div style='text-align:center;margin:24px 0;'>
+            <a href='{$report_link}' style='display:inline-block;padding:12px 32px;background:#3b82f6;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;'>
+                View Full Report
+            </a>
+        </div>
+
+        <p style='color:#9ca3af;font-size:12px;text-align:center;margin-top:32px;border-top:1px solid #e5e7eb;padding-top:16px;'>
+            Sent automatically by {$app_name}. To stop receiving these emails, ask your administrator to update the report schedule.
+        </p>
+    </div>";
+
+    foreach ($emails as $email) {
+        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            try {
+                send_email($email, $subject, $body, true, true);
+            } catch (Throwable $e) {
+                error_log("[scheduled-reports] Failed to email {$email}: " . $e->getMessage());
+            }
+        }
+    }
+}
+
