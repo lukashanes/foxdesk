@@ -1,0 +1,14 @@
+{
+    "version": "0.3.88",
+    "date": "2026-03-17",
+    "min_php": "8.1",
+    "changelog": [
+        "Quick start: removed instant ticket, kept 'New ticket + timer' with blank form",
+        "New ticket: company field no longer auto-prefilled from user profile",
+        "Tickets: all tickets displayed on single page, no pagination",
+        "Login: persistent sessions enabled by default (30-day remember me)",
+        "Notifications: table auto-created on fresh installs and upgrades",
+        "Fix: notifications dashboard crash on missing columns (actor_id, data)"
+    ],
+    "delete_files": []
+}

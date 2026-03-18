@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "foxdesk-docker",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/proxy.js"],
+      "port": 8083
+    }
+  ]
+}

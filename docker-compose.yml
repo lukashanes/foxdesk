@@ -1,0 +1,33 @@
+version: "3.8"
+services:
+  web:
+    image: php:8.2-apache
+    ports:
+      - "8082:80"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html
+    command: >
+      bash -c "
+        docker-php-ext-install pdo pdo_mysql &&
+        a2enmod rewrite &&
+        apache2-foreground
+      "
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: foxdesk
+      MYSQL_DATABASE: foxdesk
+      MYSQL_USER: foxdesk
+      MYSQL_PASSWORD: foxdesk
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
