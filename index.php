@@ -252,6 +252,26 @@ if (function_exists('debug_log')) {
     ], 'info', 'request');
 }
 
+// Background operations — run before page render, not inside UI shell
+// Update check for admins (throttled, every 12 hours)
+$_foxdesk_update_info = false;
+if (is_logged_in() && is_admin() && file_exists(BASE_PATH . '/includes/update-check-functions.php')) {
+    require_once BASE_PATH . '/includes/update-check-functions.php';
+    if (is_update_check_enabled()) {
+        $last_check = get_setting('update_check_last_run', '');
+        if (!$last_check || (time() - strtotime($last_check)) > UPDATE_CHECK_INTERVAL) {
+            @check_for_updates();
+        }
+        $_foxdesk_update_info = get_cached_update_info();
+    }
+}
+
+// Pseudo-cron: trigger background tasks on page load (WordPress-style)
+if (is_logged_in() && file_exists(BASE_PATH . '/includes/pseudo-cron.php')) {
+    require_once BASE_PATH . '/includes/pseudo-cron.php';
+    pseudo_cron_check();
+}
+
 // Route to appropriate page
 switch ($page) {
     case 'login':

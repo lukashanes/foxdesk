@@ -7,24 +7,7 @@ $app_version = defined('APP_VERSION') ? APP_VERSION : '';
 $in_app_notifications_enabled = user_in_app_notifications_enabled($user);
 $in_app_sound_enabled = user_in_app_sound_enabled($user);
 
-// Throttled update check for admins (every 12 hours)
-$_foxdesk_update_info = false;
-if (is_admin() && file_exists(__DIR__ . '/update-check-functions.php')) {
-    require_once __DIR__ . '/update-check-functions.php';
-    if (is_update_check_enabled()) {
-        $last_check = get_setting('update_check_last_run', '');
-        if (!$last_check || (time() - strtotime($last_check)) > UPDATE_CHECK_INTERVAL) {
-            @check_for_updates(); // silent, stores result in DB
-        }
-        $_foxdesk_update_info = get_cached_update_info();
-    }
-}
-
-// Pseudo-cron: trigger background tasks on page load (WordPress-style)
-if (file_exists(__DIR__ . '/pseudo-cron.php')) {
-    require_once __DIR__ . '/pseudo-cron.php';
-    pseudo_cron_check();
-}
+// $_foxdesk_update_info is set by index.php before page render
 ?>
 <!DOCTYPE html>
 <html lang="<?php echo e(get_app_language()); ?>">

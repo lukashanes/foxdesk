@@ -41,13 +41,13 @@ $success = '';
 $reason = isset($_GET['reason']) ? (string) $_GET['reason'] : '';
 
 if ($force_install && $reason === 'db_host') {
-    $error = 'Detected invalid database host "db" from previous deployment. Enter your hosting DB host (usually localhost).';
+    $error = 'It looks like this instance was moved from a Docker environment. Please enter the correct database host for your server (usually <code>localhost</code>).';
 }
 
 // Process form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_is_valid_install()) {
-        $error = 'Security check failed. Please try again.';
+        $error = 'Security token expired. Please reload the page and try again.';
     } else {
     
     // Step 1: Database configuration
@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Validate inputs
         if (empty($db_host) || empty($db_name) || empty($db_user)) {
-            $error = 'Please fill in all required fields.';
+            $error = 'All fields marked with * are required.';
         } else {
             // Test database connection
             try {
@@ -94,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
                 
             } catch (PDOException $e) {
-                $error = 'Could not connect to the database: ' . $e->getMessage();
+                $error = 'Could not connect to the database. Please check your credentials and make sure the database server is running. (' . $e->getMessage() . ')';
             }
         }
     }
@@ -110,15 +110,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Validate
         if (empty($admin_email) || empty($admin_name) || empty($admin_pass)) {
-            $error = 'Please fill in all required fields.';
+            $error = 'All fields marked with * are required.';
         } elseif (!filter_var($admin_email, FILTER_VALIDATE_EMAIL)) {
-            $error = 'Enter a valid email address.';
+            $error = 'Please enter a valid email address (e.g. admin@yourcompany.com).';
         } elseif (strlen($admin_pass) < 12) {
             $error = 'Password must be at least 12 characters.';
         } elseif ($admin_pass !== $admin_pass2) {
-            $error = 'Passwords do not match.';
+            $error = 'The passwords you entered don\'t match. Please try again.';
         } elseif (!isset($_SESSION['install'])) {
-            $error = 'Installation error. Please start again.';
+            $error = 'Your session expired. Let\'s start from the beginning.';
             header('Location: install.php?step=1' . $force_query);
             exit;
         } else {
@@ -277,7 +277,7 @@ date_default_timezone_set('Europe/Prague');
                 exit;
                 
             } catch (Exception $e) {
-                $error = 'Failed to create the account: ' . $e->getMessage();
+                $error = 'Something went wrong while setting up your account. Please try again. (' . $e->getMessage() . ')';
             }
         }
     }
@@ -325,7 +325,8 @@ date_default_timezone_set('Europe/Prague');
         
         <?php if ($step === 1): ?>
         <!-- Step 1: Database -->
-        <h2 class="text-xl font-semibold mb-6">Step 1: Database</h2>
+        <h2 class="text-xl font-semibold mb-2">Step 1: Database connection</h2>
+        <p class="text-gray-500 text-sm mb-6">Enter the database credentials provided by your hosting provider.</p>
         <form method="post">
             <?php echo csrf_field_install(); ?>
             <div class="space-y-4">
@@ -356,13 +357,14 @@ date_default_timezone_set('Europe/Prague');
                 </div>
             </div>
             <button type="submit" class="w-full mt-6 bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg transition">
-                Connect and continue ->
+                Test connection &amp; continue &rarr;
             </button>
         </form>
         
         <?php elseif ($step === 2): ?>
         <!-- Step 2: Admin Account -->
-        <h2 class="text-xl font-semibold mb-6">Step 2: App setup</h2>
+        <h2 class="text-xl font-semibold mb-2">Step 2: Your account</h2>
+        <p class="text-gray-500 text-sm mb-6">Set up the application name and create your administrator account.</p>
         <form method="post">
             <?php echo csrf_field_install(); ?>
             <div class="space-y-4">
@@ -406,7 +408,7 @@ date_default_timezone_set('Europe/Prague');
                 </div>
             </div>
             <button type="submit" class="w-full mt-6 bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg transition">
-                Finish installation ->
+                Create account &amp; finish &rarr;
             </button>
         </form>
         
@@ -418,13 +420,13 @@ date_default_timezone_set('Europe/Prague');
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                 </svg>
             </div>
-            <h2 class="text-2xl font-semibold text-gray-800 mb-2">Installation complete!</h2>
-            <p class="text-gray-600 mb-8">Your helpdesk is ready to use.</p>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-2">You're all set!</h2>
+            <p class="text-gray-600 mb-8">Your helpdesk is ready. Sign in with the email and password you just created.</p>
             <a href="index.php" class="inline-block bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-8 rounded-lg transition">
-                Go to app ->
+                Sign in &rarr;
             </a>
             <p class="text-sm text-gray-500 mt-6">
-                <strong>Tip:</strong> For better security, delete <code>install.php</code>
+                <strong>Security tip:</strong> Delete <code>install.php</code> from your server after installation.
             </p>
         </div>
         <?php endif; ?>

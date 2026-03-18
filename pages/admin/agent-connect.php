@@ -23,8 +23,64 @@ if ($agent_id > 0) {
 }
 
 if (!$agent) {
-    flash(t('Agent not found.'), 'error');
-    header('Location: index.php?page=admin&section=users&tab=ai_agents');
+    // No agent selected or invalid ID — show agent picker
+    $all_agents = db_fetch_all("SELECT id, first_name, last_name, ai_model FROM users WHERE is_ai_agent = 1 AND is_active = 1 AND deleted_at IS NULL ORDER BY first_name");
+    require_once BASE_PATH . '/includes/header.php';
+    ?>
+    <main class="main-content p-6">
+        <div class="max-w-2xl mx-auto">
+            <div class="flex items-center mb-6">
+                <a href="<?php echo url('admin', ['section' => 'users', 'tab' => 'ai_agents']); ?>" class="mr-3 theme-text-muted hover:theme-text transition">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <h1 class="text-2xl font-bold theme-text"><?php echo e(t('Agent Connect')); ?></h1>
+            </div>
+
+            <?php if (empty($all_agents)): ?>
+            <div class="card p-12 text-center">
+                <div class="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-robot text-2xl text-blue-400"></i>
+                </div>
+                <h2 class="text-lg font-semibold theme-text mb-2"><?php echo e(t('No AI agents yet')); ?></h2>
+                <p class="theme-text-muted mb-6"><?php echo e(t('Create an AI agent first, then connect it here.')); ?></p>
+                <a href="<?php echo url('admin', ['section' => 'users', 'tab' => 'ai_agents']); ?>" class="btn btn-primary">
+                    <i class="fas fa-plus mr-2"></i><?php echo e(t('Create AI Agent')); ?>
+                </a>
+            </div>
+            <?php else: ?>
+            <div class="card p-8">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-plug text-2xl text-blue-400"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold theme-text mb-1"><?php echo e(t('Select an agent to connect')); ?></h2>
+                    <p class="theme-text-muted text-sm"><?php echo e(t('Choose which AI agent you want to generate connection instructions for.')); ?></p>
+                </div>
+                <div class="space-y-2">
+                    <?php foreach ($all_agents as $a): ?>
+                    <a href="<?php echo url('admin', ['section' => 'agent-connect', 'id' => $a['id']]); ?>"
+                       class="flex items-center justify-between p-4 rounded-lg border theme-border hover:bg-blue-50 dark:hover:bg-blue-900/10 transition group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-medium">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium theme-text"><?php echo e($a['first_name'] . ' ' . $a['last_name']); ?></div>
+                                <?php if (!empty($a['ai_model'])): ?>
+                                <div class="text-xs theme-text-muted"><?php echo e($a['ai_model']); ?></div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right theme-text-muted group-hover:text-blue-500 transition"></i>
+                    </a>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+    </main>
+    <?php
+    require_once BASE_PATH . '/includes/footer.php';
     exit;
 }
 
