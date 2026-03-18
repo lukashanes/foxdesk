@@ -1,14 +1,16 @@
 {
-    "version": "0.3.88",
-    "date": "2026-03-17",
+    "version": "0.3.89",
+    "date": "2026-03-18",
     "min_php": "8.1",
     "changelog": [
-        "Quick start: removed instant ticket, kept 'New ticket + timer' with blank form",
-        "New ticket: company field no longer auto-prefilled from user profile",
-        "Tickets: all tickets displayed on single page, no pagination",
-        "Login: persistent sessions enabled by default (30-day remember me)",
-        "Notifications: table auto-created on fresh installs and upgrades",
-        "Fix: notifications dashboard crash on missing columns (actor_id, data)"
+        "Ticket detail: company dropdown moved to visible sidebar (no longer hidden in More options)",
+        "Timer button: fixed height — no size jump between running/paused/stopped states",
+        "Admin System tab: advanced settings (background tasks, manual update, backups) collapsed under expandable section",
+        "Agent Connect: shows agent picker or empty state instead of error redirect when no ID provided",
+        "Install wizard: improved microcopy — friendlier error messages, step descriptions, button labels",
+        "Background operations (update check, pseudo-cron) moved from header.php to index.php front controller",
+        "Fix: shared/public report showing 0 USD — now falls back to organization billable rate",
+        "Fix: assigned users always have access to their tickets"
     ],
     "delete_files": []
 }
