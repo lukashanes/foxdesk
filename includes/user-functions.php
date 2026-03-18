@@ -383,6 +383,10 @@ function can_see_ticket($ticket, $user = null)
     if ((int) $ticket['user_id'] === (int) $user['id'])
         return true;
 
+    // Assignee always sees the ticket
+    if (!empty($ticket['assignee_id']) && (int) $ticket['assignee_id'] === (int) $user['id'])
+        return true;
+
     // Explicit shared access
     if (!empty($ticket['id']) && user_has_ticket_access($ticket['id'], $user['id'])) {
         return true;

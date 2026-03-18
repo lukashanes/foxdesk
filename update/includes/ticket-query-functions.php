@@ -81,11 +81,13 @@ function build_ticket_where_clause($filters, &$params)
     if (!empty($filters['viewer_user_id'])) {
         $viewer_id = (int) $filters['viewer_user_id'];
         if ($has_ticket_access) {
-            $sql .= " AND (t.user_id = ? OR EXISTS (SELECT 1 FROM ticket_access ta WHERE ta.ticket_id = t.id AND ta.user_id = ?))";
+            $sql .= " AND (t.user_id = ? OR t.assignee_id = ? OR EXISTS (SELECT 1 FROM ticket_access ta WHERE ta.ticket_id = t.id AND ta.user_id = ?))";
+            $params[] = $viewer_id;
             $params[] = $viewer_id;
             $params[] = $viewer_id;
         } else {
-            $sql .= " AND t.user_id = ?";
+            $sql .= " AND (t.user_id = ? OR t.assignee_id = ?)";
+            $params[] = $viewer_id;
             $params[] = $viewer_id;
         }
     }
@@ -275,27 +277,31 @@ function build_ticket_where_clause($filters, &$params)
                     if (!empty($org_ids)) {
                         $placeholders = implode(',', array_fill(0, count($org_ids), '?'));
                         if ($has_ticket_access) {
-                            $sql .= " AND (t.organization_id IN ($placeholders) OR t.user_id = ? OR EXISTS (SELECT 1 FROM ticket_access ta WHERE ta.ticket_id = t.id AND ta.user_id = ?))";
+                            $sql .= " AND (t.organization_id IN ($placeholders) OR t.user_id = ? OR t.assignee_id = ? OR EXISTS (SELECT 1 FROM ticket_access ta WHERE ta.ticket_id = t.id AND ta.user_id = ?))";
                             foreach ($org_ids as $org_id) {
                                 $params[] = $org_id;
                             }
+                            $params[] = $current_user['id'];
                             $params[] = $current_user['id'];
                             $params[] = $current_user['id'];
                         } else {
-                            $sql .= " AND (t.organization_id IN ($placeholders) OR t.user_id = ?)";
+                            $sql .= " AND (t.organization_id IN ($placeholders) OR t.user_id = ? OR t.assignee_id = ?)";
                             foreach ($org_ids as $org_id) {
                                 $params[] = $org_id;
                             }
+                            $params[] = $current_user['id'];
                             $params[] = $current_user['id'];
                         }
                     } else {
                         // Fallback: Own tickets + Shared
                         if ($has_ticket_access) {
-                            $sql .= " AND (t.user_id = ? OR EXISTS (SELECT 1 FROM ticket_access ta WHERE ta.ticket_id = t.id AND ta.user_id = ?))";
+                            $sql .= " AND (t.user_id = ? OR t.assignee_id = ? OR EXISTS (SELECT 1 FROM ticket_access ta WHERE ta.ticket_id = t.id AND ta.user_id = ?))";
+                            $params[] = $current_user['id'];
                             $params[] = $current_user['id'];
                             $params[] = $current_user['id'];
                         } else {
-                            $sql .= " AND t.user_id = ?";
+                            $sql .= " AND (t.user_id = ? OR t.assignee_id = ?)";
+                            $params[] = $current_user['id'];
                             $params[] = $current_user['id'];
                         }
                     }
@@ -303,11 +309,13 @@ function build_ticket_where_clause($filters, &$params)
                 case 'own':
                     // Explicit self-only scope
                     if ($has_ticket_access) {
-                        $sql .= " AND (t.user_id = ? OR EXISTS (SELECT 1 FROM ticket_access ta WHERE ta.ticket_id = t.id AND ta.user_id = ?))";
+                        $sql .= " AND (t.user_id = ? OR t.assignee_id = ? OR EXISTS (SELECT 1 FROM ticket_access ta WHERE ta.ticket_id = t.id AND ta.user_id = ?))";
+                        $params[] = $current_user['id'];
                         $params[] = $current_user['id'];
                         $params[] = $current_user['id'];
                     } else {
-                        $sql .= " AND t.user_id = ?";
+                        $sql .= " AND (t.user_id = ? OR t.assignee_id = ?)";
+                        $params[] = $current_user['id'];
                         $params[] = $current_user['id'];
                     }
                     break;
