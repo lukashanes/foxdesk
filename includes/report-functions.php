@@ -219,11 +219,13 @@ function get_report_time_entries($template) {
             u.first_name,
             u.last_name,
             u.cost_rate as user_cost_rate,
+            o.billable_rate as org_billable_rate,
             DATE(te.started_at) as entry_date
         FROM ticket_time_entries te
         INNER JOIN tickets t ON te.ticket_id = t.id
         LEFT JOIN ticket_types tt ON t.type = tt.id
         LEFT JOIN users u ON te.user_id = u.id
+        LEFT JOIN organizations o ON t.organization_id = o.id
         WHERE t.organization_id = ?
           AND DATE(te.started_at) >= ?
           AND DATE(te.started_at) <= ?
@@ -297,9 +299,12 @@ function calculate_report_kpis($time_entries, $template) {
             $total_tasks++;
         }
 
-        // Calculate billable amount if financials are enabled (use billable_rate for client reports)
+        // Calculate billable amount if financials are enabled (use billable_rate, fallback to org rate)
         if ($template['show_financials']) {
-            $rate = $entry['billable_rate'] ?: 0;
+            $rate = !empty($entry['billable_rate']) ? (float)$entry['billable_rate'] : 0.0;
+            if ($rate <= 0 && !empty($entry['org_billable_rate'])) {
+                $rate = (float)$entry['org_billable_rate'];
+            }
             $total_cost += ($minutes / 60) * $rate;
         }
 
@@ -412,7 +417,7 @@ function group_report_entries($time_entries, $group_by, $template) {
             $grouped[$key]['entries'][] = $entry;
 
             if ($template['show_financials']) {
-                $rate = $entry['billable_rate'] ?: 0;
+                $rate = !empty($entry['billable_rate']) ? (float)$entry['billable_rate'] : (!empty($entry['org_billable_rate']) ? (float)$entry['org_billable_rate'] : 0.0);
                 $grouped[$key]['total_cost'] += ($minutes / 60) * $rate;
             }
         }
@@ -439,7 +444,7 @@ function group_report_entries($time_entries, $group_by, $template) {
             $grouped[$key]['entries'][] = $entry;
 
             if ($template['show_financials']) {
-                $rate = $entry['billable_rate'] ?: 0;
+                $rate = !empty($entry['billable_rate']) ? (float)$entry['billable_rate'] : (!empty($entry['org_billable_rate']) ? (float)$entry['org_billable_rate'] : 0.0);
                 $grouped[$key]['total_cost'] += ($minutes / 60) * $rate;
             }
         }
