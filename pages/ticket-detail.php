@@ -1101,7 +1101,8 @@ require_once BASE_PATH . '/includes/header.php';
                                 <div id="timer-controls" data-ticket-id="<?php echo $ticket_id; ?>"
                                     data-paused="<?php echo $timer_is_paused ? '1' : '0'; ?>" class="flex items-center gap-2">
                                     <button type="button" id="btn-timer-action"
-                                        class="btn <?php echo $timer_state === 'running' ? 'btn-warning' : 'btn-success'; ?> px-3 py-1.5 text-sm inline-flex items-center gap-1.5 transition-colors"
+                                        class="btn <?php echo $timer_state === 'running' ? 'btn-warning' : 'btn-success'; ?> px-3 py-1.5 text-sm inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                                        style="height: 34px;"
                                         data-state="<?php echo $timer_state; ?>"
                                         title="<?php echo $timer_state === 'running' ? e(t('Pause timer')) : ($timer_state === 'paused' ? e(t('Resume timer')) : e(t('Start timer'))); ?>">
                                         <span class="btn-timer-icon">
@@ -1121,7 +1122,7 @@ require_once BASE_PATH . '/includes/header.php';
                                                         <?php if ($timer_is_paused && !empty($active_timer['paused_at'])): ?>
                                                                 data-paused-at="<?php echo strtotime($active_timer['paused_at']); ?>" <?php endif; ?>><?php echo format_duration_minutes($active_timer_elapsed); ?></span>
                                                     <?php if ($timer_state === 'paused'): ?>
-                                                            <span class="text-xs uppercase ml-1"><?php echo e(t('Paused')); ?></span>
+                                                            <span class="text-xs uppercase ml-0.5 opacity-80"><?php echo e(t('Paused')); ?></span>
                                                     <?php endif; ?>
                                             <?php endif; ?>
                                         </span>
@@ -2429,9 +2430,9 @@ require_once BASE_PATH . '/includes/header.php';
                 btnAction.dataset.state = 'paused';
                 btnIcon.innerHTML = ICON_PLAY;
 
-                // Show frozen time + "Paused" label
-                btnText.innerHTML = '<span id="timer-elapsed" class="tabular-nums" data-started="' + timerStartTime + '" data-paused-seconds="' + pausedSeconds + '">' + elapsedMin + ' min</span>'
-                    + ' <span class="text-xs uppercase ml-1">' + STR.paused + '</span>';
+                // Show frozen time + "Paused" label (inline, no wrapping)
+                btnText.innerHTML = '<span id="timer-elapsed" class="tabular-nums" data-started="' + timerStartTime + '" data-paused-seconds="' + pausedSeconds + '">' + formatTime(elapsedSec) + '</span>'
+                    + ' <span class="text-xs uppercase ml-0.5 opacity-80">' + STR.paused + '</span>';
 
                 // Keep auxiliary controls visible & enable stop_timer checkbox
                 if (logToggle) logToggle.classList.remove('hidden');
@@ -2443,7 +2444,7 @@ require_once BASE_PATH . '/includes/header.php';
                 resetPageTitle();
 
                 // Toolbar timer
-                updateToolbarTimer('paused', elapsedMin + ' min');
+                updateToolbarTimer('paused', formatTime(elapsedSec));
 
             } else { // stopped
                 // Button: success (start action), play icon + text
