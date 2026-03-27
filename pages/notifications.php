@@ -281,10 +281,10 @@ function render_child_card(array $notif): void
         align-items: flex-start;
         gap: 12px;
         padding: 12px 14px;
-        border-radius: 12px;
+        border-radius: 0 8px 8px 0;
         text-decoration: none;
         transition: background 0.12s, border-color 0.12s;
-        border-left: 3px solid transparent;
+        border-left: 4px solid transparent;
         position: relative;
     }
     .notif-card:hover {

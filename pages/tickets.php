@@ -234,6 +234,7 @@ if ($tags_supported) {
 if (!in_array($sort, $allowed_sorts, true)) {
     $sort = 'newest';
 }
+$ticket_view = ($_GET['view'] ?? '') === 'board' ? 'board' : 'list';
 
 if (!empty($assigned_to)) {
     $filters['assigned_to'] = $assigned_to;
@@ -422,6 +423,10 @@ require_once BASE_PATH . '/includes/header.php';
 <?php
 $statuses = get_statuses();
 $priorities = get_priorities();
+$filter_users = [];
+if (is_agent()) {
+    $filter_users = get_all_users();
+}
 $organizations = [];
 if (is_agent()) {
     try {
@@ -516,6 +521,23 @@ if (!is_admin() && !is_agent() && isset($scope) && $scope === 'organization' && 
     </div>';
 }
 
+// Board/List view toggle
+if (!$is_archive) {
+    $view_params_list = $_GET; unset($view_params_list['p'], $view_params_list['page']); $view_params_list['view'] = 'list';
+    $view_params_board = $_GET; unset($view_params_board['p'], $view_params_board['page']); $view_params_board['view'] = 'board';
+    $list_url = url('tickets', $view_params_list);
+    $board_url = url('tickets', $view_params_board);
+
+    $page_header_actions .= '<div class="inline-flex rounded-md shadow-sm mr-2" role="group">'
+        . '<a href="' . $list_url . '" class="px-3 py-2 text-sm font-medium border rounded-l-lg ' . ($ticket_view === 'list' ? 'bg-blue-600 text-white border-blue-600' : '') . '" style="' . ($ticket_view !== 'list' ? 'background: var(--bg-primary); color: var(--text-secondary); border-color: var(--border-light);' : '') . '" title="' . e(t('List')) . '">'
+        . get_icon('list', 'w-4 h-4')
+        . '</a>'
+        . '<a href="' . $board_url . '" class="px-3 py-2 text-sm font-medium border rounded-r-lg ' . ($ticket_view === 'board' ? 'bg-blue-600 text-white border-blue-600' : '') . '" style="' . ($ticket_view !== 'board' ? 'background: var(--bg-primary); color: var(--text-secondary); border-color: var(--border-light);' : '') . '" title="' . e(t('Board')) . '">'
+        . get_icon('columns', 'w-4 h-4')
+        . '</a>'
+        . '</div>';
+}
+
 // Sort dropdown in page header (syncs with hidden input in filter form via JS)
 $sort_options = [
     'newest'           => t('Newest'),
@@ -540,7 +562,7 @@ foreach ($sort_options as $val => $label) {
 $sort_select .= '</select></div>';
 $page_header_actions .= $sort_select;
 
-if ($bulk_actions_enabled) {
+if ($bulk_actions_enabled && $ticket_view !== 'board') {
     $page_header_actions .= '<button type="button" onclick="toggleBulkMode()" class="btn btn-ghost" id="bulk-toggle" aria-pressed="false">' . get_icon('check-square', 'mr-1') . e(t('Bulk select')) . '</button>';
 }
 if (!$is_archive) {
@@ -835,10 +857,309 @@ include BASE_PATH . '/includes/components/page-header.php';
     border-color: var(--corp-slate-600);
     background-color: var(--corp-slate-700);
 }
+
+/* Kanban Board */
+.kanban-board-wrapper {
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+}
+.kanban-board {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding: 0.5rem 0.75rem 0.75rem;
+    align-items: flex-start;
+    -webkit-overflow-scrolling: touch;
+}
+.kanban-column {
+    flex: 0 0 272px;
+    min-width: 272px;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-secondary, #f9fafb);
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-light, #e5e7eb);
+}
+.kanban-column-header {
+    padding: 0.625rem 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 0.8125rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-light, #e5e7eb);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+.kanban-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.kanban-count {
+    margin-left: auto;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    background: var(--border-light, #e5e7eb);
+    color: var(--text-muted, #6b7280);
+}
+.kanban-cards {
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    min-height: 2rem;
+}
+.kanban-card {
+    background: var(--surface-primary, #ffffff);
+    border: 1px solid var(--border-light, #e5e7eb);
+    border-radius: 0.5rem;
+    transition: box-shadow 0.2s, opacity 0.2s, transform 0.2s;
+    position: relative;
+}
+.kanban-column {
+    transition: opacity 0.2s, transform 0.2s;
+}
+.kanban-card[draggable="true"] {
+    cursor: grab;
+}
+.kanban-card[draggable="true"]:active {
+    cursor: grabbing;
+}
+.kanban-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+}
+.kanban-card.dragging {
+    opacity: 0.35;
+    transform: scale(0.97) rotate(1.5deg);
+    box-shadow: none;
+    transition: opacity 0.15s, transform 0.15s;
+}
+/* Source column dims while dragging from it */
+.kanban-column.drag-source {
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+.kanban-column.drag-source .kanban-column-header {
+    opacity: 0.5;
+}
+/* Target column highlight with smooth transition */
+.kanban-column.drag-over {
+    background: color-mix(in srgb, var(--primary, #3c50e0) 6%, var(--surface-secondary, #f9fafb));
+    border-color: var(--primary, #3c50e0);
+    transform: scale(1.01);
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+.kanban-column.drag-over .kanban-cards {
+    outline: 2px dashed color-mix(in srgb, var(--primary, #3c50e0) 30%, transparent);
+    outline-offset: -2px;
+    border-radius: 0.375rem;
+}
+.kanban-column.drag-over .kanban-column-header {
+    color: var(--primary, #3c50e0);
+    transition: color 0.2s;
+}
+/* Drag ghost — floating thumbnail */
+.kanban-drag-ghost {
+    position: fixed;
+    top: -9999px;
+    left: -9999px;
+    z-index: 9999;
+    background: var(--surface-primary, #ffffff);
+    border: 1px solid var(--border-light, #e5e7eb);
+    border-radius: 0.5rem;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.1);
+    transform: rotate(-2deg) scale(1.02);
+    opacity: 0.95;
+    pointer-events: none;
+    max-width: 280px;
+    overflow: hidden;
+}
+[data-theme="dark"] .kanban-drag-ghost {
+    background: var(--corp-slate-900, #0f172a);
+    border-color: var(--corp-slate-600, #475569);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.3);
+}
+/* Drop placeholder — animated gap where card will land */
+.kanban-drop-placeholder {
+    background: color-mix(in srgb, var(--primary, #3c50e0) 8%, transparent);
+    border: 2px dashed color-mix(in srgb, var(--primary, #3c50e0) 25%, transparent);
+    border-radius: 0.5rem;
+    margin: 0.25rem 0;
+    transition: height 0.2s ease;
+    animation: placeholder-pulse 1.2s ease-in-out infinite;
+}
+@keyframes placeholder-pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+/* Card landing animation */
+.kanban-card.just-dropped {
+    animation: card-land 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes card-land {
+    0% { transform: scale(1.06); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+    100% { transform: scale(1); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+}
+/* Revert shake on error */
+.kanban-card.revert-shake {
+    animation: shake 0.4s ease;
+}
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+}
+/* Mobile: card fly out/in */
+.kanban-card.card-fly-out {
+    animation: fly-out 0.2s ease forwards;
+}
+@keyframes fly-out {
+    to { opacity: 0; transform: scale(0.9) translateY(-8px); }
+}
+.kanban-card.card-fly-in {
+    animation: fly-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes fly-in {
+    from { opacity: 0; transform: scale(0.9) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+/* Count badge pop on change */
+.kanban-count.count-pop {
+    animation: count-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes count-pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+.kanban-card-link {
+    display: block;
+    padding: 0.5rem 0.625rem;
+    text-decoration: none;
+    color: inherit;
+}
+.kanban-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+.kanban-card-code {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--text-muted, #6b7280);
+}
+.kanban-card-due {
+    font-size: 0.6875rem;
+    color: var(--text-muted, #6b7280);
+}
+.kanban-card-due.overdue {
+    color: var(--danger, #ef4444);
+    font-weight: 600;
+}
+.kanban-card-title {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.kanban-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-top: 0.375rem;
+    flex-wrap: wrap;
+}
+.kanban-card-priority {
+    font-size: 0.625rem;
+    font-weight: 600;
+    padding: 0.0625rem 0.375rem;
+    border-radius: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+.kanban-card-icon {
+    color: var(--text-muted, #6b7280);
+    display: flex;
+    align-items: center;
+}
+.kanban-card-assignee {
+    margin-left: auto;
+    font-size: 0.6875rem;
+    color: var(--text-muted, #6b7280);
+}
+.kanban-mobile-status {
+    display: none;
+}
+
+/* Mobile: stack columns */
+@media (max-width: 1023px) {
+    .kanban-board {
+        flex-direction: column;
+        overflow-x: visible;
+    }
+    .kanban-column {
+        flex: none;
+        min-width: 100%;
+        max-height: none;
+    }
+    .kanban-mobile-status {
+        display: block;
+        width: 100%;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        border-top: 1px solid var(--border-light, #e5e7eb);
+        background: var(--surface-secondary, #f9fafb);
+        color: var(--text-secondary);
+        border-radius: 0 0 0.5rem 0.5rem;
+        cursor: pointer;
+    }
+}
+
+/* Dark mode */
+[data-theme="dark"] .kanban-column {
+    background: var(--corp-slate-800, #1e293b);
+    border-color: var(--corp-slate-700, #334155);
+}
+[data-theme="dark"] .kanban-column-header {
+    border-color: var(--corp-slate-700, #334155);
+}
+[data-theme="dark"] .kanban-card {
+    background: var(--corp-slate-900, #0f172a);
+    border-color: var(--corp-slate-700, #334155);
+}
+[data-theme="dark"] .kanban-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+[data-theme="dark"] .kanban-count {
+    background: var(--corp-slate-700, #334155);
+    color: var(--corp-slate-400, #94a3b8);
+}
+[data-theme="dark"] .kanban-mobile-status {
+    background: var(--corp-slate-800, #1e293b);
+    border-color: var(--corp-slate-700, #334155);
+    color: var(--corp-slate-300, #cbd5e1);
+}
 </style>
 
 <!-- Tickets Table/List with Inline Filters -->
-<div class="card overflow-hidden">
+<div class="card overflow-hidden <?php echo $ticket_view === 'board' ? 'kanban-board-wrapper' : ''; ?>">
     <?php if (empty($tickets)): ?>
         <?php
         // Check if filters are active to show "Show all" button
@@ -862,6 +1183,83 @@ include BASE_PATH . '/includes/components/page-header.php';
             </div>
         <?php endif; ?>
     <?php else: ?>
+        <?php if ($ticket_view === 'board'): ?>
+            <?php
+            // Group tickets by status
+            $tickets_by_status = [];
+            foreach ($statuses as $s) {
+                $tickets_by_status[(int)$s['id']] = [];
+            }
+            foreach ($tickets as $t) {
+                $sid = (int)$t['status_id'];
+                if (isset($tickets_by_status[$sid])) {
+                    $tickets_by_status[$sid][] = $t;
+                }
+            }
+            $can_drag = is_agent() || is_admin();
+            ?>
+            <div class="kanban-board">
+                <?php foreach ($statuses as $status): ?>
+                    <div class="kanban-column" data-status-id="<?php echo (int)$status['id']; ?>">
+                        <div class="kanban-column-header">
+                            <span class="kanban-dot" style="background: <?php echo e($status['color']); ?>;"></span>
+                            <span class="kanban-status-name"><?php echo e($status['name']); ?></span>
+                            <span class="kanban-count"><?php echo count($tickets_by_status[(int)$status['id']]); ?></span>
+                        </div>
+                        <div class="kanban-cards" data-status-id="<?php echo (int)$status['id']; ?>">
+                            <?php foreach ($tickets_by_status[(int)$status['id']] as $ticket):
+                                $priority_color = $ticket['priority_color'] ?? '#94a3b8';
+                                $is_overdue = !empty($ticket['due_date']) && empty($ticket['is_closed']) && strtotime($ticket['due_date']) < time();
+                                $assignee_label = '';
+                                if (!empty($ticket['assignee_first_name'])) {
+                                    $assignee_label = $ticket['assignee_first_name'] . ' ' . mb_substr($ticket['assignee_last_name'] ?? '', 0, 1) . '.';
+                                }
+                            ?>
+                                <div class="kanban-card" <?php if ($can_drag): ?>draggable="true"<?php endif; ?>
+                                     data-ticket-id="<?php echo (int)$ticket['id']; ?>"
+                                     data-status-id="<?php echo (int)$ticket['status_id']; ?>">
+                                    <a href="<?php echo ticket_url($ticket); ?>" class="kanban-card-link">
+                                        <div class="kanban-card-top">
+                                            <span class="kanban-card-code"><?php echo e(get_ticket_code($ticket['id'])); ?></span>
+                                            <?php if (!empty($ticket['due_date'])): ?>
+                                                <span class="kanban-card-due<?php echo $is_overdue ? ' overdue' : ''; ?>">
+                                                    <?php echo date('d.m.', strtotime($ticket['due_date'])); ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="kanban-card-title"><?php echo e($ticket['title']); ?></div>
+                                        <div class="kanban-card-meta">
+                                            <?php if (!empty($ticket['priority_name'])): ?>
+                                                <span class="kanban-card-priority" style="background: <?php echo e($priority_color); ?>20; color: <?php echo e($priority_color); ?>;">
+                                                    <?php echo e($ticket['priority_name']); ?>
+                                                </span>
+                                            <?php endif; ?>
+                                            <?php if (!empty($ticket['attachment_count']) && $ticket['attachment_count'] > 0): ?>
+                                                <span class="kanban-card-icon" title="<?php echo e(t('Attachments')); ?>">
+                                                    <?php echo get_icon('paperclip', 'w-3 h-3'); ?>
+                                                </span>
+                                            <?php endif; ?>
+                                            <?php if ($assignee_label): ?>
+                                                <span class="kanban-card-assignee"><?php echo e($assignee_label); ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </a>
+                                    <?php if ($can_drag): ?>
+                                        <select class="kanban-mobile-status" data-ticket-id="<?php echo (int)$ticket['id']; ?>" aria-label="<?php echo e(t('Move to')); ?>">
+                                            <?php foreach ($statuses as $opt_status): ?>
+                                                <option value="<?php echo (int)$opt_status['id']; ?>" <?php echo (int)$opt_status['id'] === (int)$ticket['status_id'] ? 'selected' : ''; ?>>
+                                                    <?php echo e($opt_status['name']); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php else: ?>
         <?php
         // Check if any filters are active
         $has_filters = !empty($search_query) || !empty($status_id) || !empty($priority_id) ||
@@ -1156,18 +1554,32 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <?php endif; ?>
                         <?php if (is_admin()): ?>
                             <th class="px-2 py-2.5" style="width: 110px;">
-                                <input type="text" name="user" value="<?php echo e($user_search); ?>"
-                                    placeholder="<?php echo e(t('User...')); ?>"
-                                    class="filter-input">
+                                <select name="user" class="filter-select" onchange="this.form.submit()">
+                                    <option value=""><?php echo e(t('User...')); ?></option>
+                                    <?php foreach ($filter_users as $fu): ?>
+                                        <option value="<?php echo e($fu['first_name'] . ' ' . $fu['last_name']); ?>"
+                                            <?php echo $user_search === ($fu['first_name'] . ' ' . $fu['last_name']) ? 'selected' : ''; ?>>
+                                            <?php echo e($fu['first_name'] . ' ' . substr($fu['last_name'] ?? '', 0, 1) . '.'); ?>
+                                            <?php if ($fu['role'] !== 'user'): ?><span style="opacity:0.5">(<?php echo e($fu['role']); ?>)</span><?php endif; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </th>
                             <th class="px-3 py-2.5 text-left" style="width: 75px;">
                                 <span class="text-[10px] font-medium uppercase tracking-wider" style="color: var(--text-muted);"><?php echo e(t('Time')); ?></span>
                             </th>
                         <?php elseif (is_agent()): ?>
                             <th class="px-2 py-2.5" style="width: 110px;">
-                                <input type="text" name="user" value="<?php echo e($user_search); ?>"
-                                    placeholder="<?php echo e(t('User...')); ?>"
-                                    class="filter-input">
+                                <select name="user" class="filter-select" onchange="this.form.submit()">
+                                    <option value=""><?php echo e(t('User...')); ?></option>
+                                    <?php foreach ($filter_users as $fu): ?>
+                                        <option value="<?php echo e($fu['first_name'] . ' ' . $fu['last_name']); ?>"
+                                            <?php echo $user_search === ($fu['first_name'] . ' ' . $fu['last_name']) ? 'selected' : ''; ?>>
+                                            <?php echo e($fu['first_name'] . ' ' . substr($fu['last_name'] ?? '', 0, 1) . '.'); ?>
+                                            <?php if ($fu['role'] !== 'user'): ?>(<?php echo e($fu['role']); ?>)<?php endif; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </th>
                         <?php endif; ?>
                         <input type="hidden" name="created_date" value="<?php echo e($created_date_value); ?>">
@@ -1403,26 +1815,55 @@ include BASE_PATH . '/includes/components/page-header.php';
                 </div>
             </form>
         <?php endif; ?>
+        <?php endif; /* board/list toggle */ ?>
     <?php endif; ?>
 
 </div>
 
+<?php if ($ticket_view === 'board'): ?>
+<script src="assets/js/kanban.js" defer></script>
+<?php endif; ?>
+
 <script>
+    // View persistence via localStorage
+    (function() {
+        var key = 'foxdesk_ticket_view';
+        var currentView = '<?php echo $ticket_view; ?>';
+        if (currentView === 'board' || currentView === 'list') {
+            localStorage.setItem(key, currentView);
+        }
+        // Auto-redirect if no explicit view param and stored preference differs
+        if (!new URLSearchParams(window.location.search).has('view')) {
+            var stored = localStorage.getItem(key);
+            if (stored === 'board' && currentView !== 'board') {
+                var url = new URL(window.location);
+                url.searchParams.set('view', 'board');
+                window.location.replace(url.toString());
+            }
+        }
+    })();
+
     let bulkMode = false;
 
     // Sync header sort dropdown → hidden input in filter form, then submit
     function applyHeaderSort(value) {
         const form = document.getElementById('filter-form');
-        if (!form) return;
-        let hidden = form.querySelector('input[name="sort"]');
-        if (!hidden) {
-            hidden = document.createElement('input');
-            hidden.type = 'hidden';
-            hidden.name = 'sort';
-            form.appendChild(hidden);
+        if (form) {
+            let hidden = form.querySelector('input[name="sort"]');
+            if (!hidden) {
+                hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'sort';
+                form.appendChild(hidden);
+            }
+            hidden.value = value;
+            form.submit();
+        } else {
+            // Board view: no filter form, use URL redirect
+            var url = new URL(window.location);
+            url.searchParams.set('sort', value);
+            window.location = url.toString();
         }
-        hidden.value = value;
-        form.submit();
     }
 
     function syncBulkHighlights() {

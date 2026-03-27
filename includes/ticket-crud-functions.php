@@ -177,12 +177,14 @@ function get_tickets($filters = []) {
                    u.first_name, u.last_name, u.email,
                    o.name as organization_name,
                    p.name as priority_name, p.color as priority_color,
+                   a.first_name as assignee_first_name, a.last_name as assignee_last_name,
                    (SELECT COUNT(*) FROM attachments a WHERE a.ticket_id = t.id) as attachment_count
             FROM tickets t
             LEFT JOIN statuses s ON t.status_id = s.id
             LEFT JOIN users u ON t.user_id = u.id
             LEFT JOIN organizations o ON t.organization_id = o.id
-            LEFT JOIN priorities p ON t.priority_id = p.id";
+            LEFT JOIN priorities p ON t.priority_id = p.id
+            LEFT JOIN users a ON t.assignee_id = a.id";
     $params = [];
     $sql .= build_ticket_where_clause($filters, $params);
 
@@ -239,7 +241,8 @@ function get_tickets_count($filters = []) {
             LEFT JOIN statuses s ON t.status_id = s.id
             LEFT JOIN users u ON t.user_id = u.id
             LEFT JOIN organizations o ON t.organization_id = o.id
-            LEFT JOIN priorities p ON t.priority_id = p.id";
+            LEFT JOIN priorities p ON t.priority_id = p.id
+            LEFT JOIN users a ON t.assignee_id = a.id";
     $params = [];
     $sql .= build_ticket_where_clause($filters, $params);
     $row = db_fetch_one($sql, $params);

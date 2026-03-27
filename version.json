@@ -1,14 +1,15 @@
 {
-    "version": "0.3.88",
-    "date": "2026-03-17",
+    "version": "0.3.90",
+    "date": "2026-03-27",
     "min_php": "8.1",
     "changelog": [
-        "Quick start: removed instant ticket, kept 'New ticket + timer' with blank form",
-        "New ticket: company field no longer auto-prefilled from user profile",
-        "Tickets: all tickets displayed on single page, no pagination",
-        "Login: persistent sessions enabled by default (30-day remember me)",
-        "Notifications: table auto-created on fresh installs and upgrades",
-        "Fix: notifications dashboard crash on missing columns (actor_id, data)"
+        "Kanban board: visual ticket overview — columns by status, cards with priority, due date, and assigned agent",
+        "Kanban board: drag-and-drop to change ticket status with animated ghost thumbnail and drop placeholder",
+        "Kanban board: sort cards within columns (Newest, Priority, Due date, etc.)",
+        "Kanban board: List/Board toggle in header — preference remembered across sessions",
+        "Kanban board: mobile fallback with status dropdown on each card",
+        "Tickets: user filter dropdown replaces text input — filter by creator, assignee, or email",
+        "Notifications: card design updated — flat left border, consistent with ticket list style"
     ],
     "delete_files": []
 }
