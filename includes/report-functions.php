@@ -423,7 +423,7 @@ function group_report_entries($time_entries, $group_by, $template) {
             if (!isset($grouped[$key])) {
                 $grouped[$key] = [
                     'group_key' => $key,
-                    'group_label' => '#' . $entry['ticket_number'] . ' - ' . $entry['ticket_title'],
+                    'group_label' => $entry['ticket_title'],
                     'total_minutes' => 0,
                     'total_cost' => 0,
                     'entries' => []

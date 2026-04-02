@@ -550,6 +550,7 @@ return [
     'Italian' => 'Italian',
     'Spanish' => 'Spanish',
     'Time report' => 'Time report',
+    'Time Reports' => 'Time Reports',
     'Summary' => 'Summary',
     'Detailed' => 'Detailed',
     'Weekly' => 'Weekly',

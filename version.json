@@ -1,19 +1,11 @@
 {
-    "version": "0.3.91",
-    "date": "2026-04-01",
+    "version": "0.3.92",
+    "date": "2026-04-02",
     "min_php": "8.1",
     "changelog": [
-        "Notifications: viewing a ticket now marks all its notifications as read automatically",
-        "Notifications: action-required notifications auto-resolve when ticket is closed, assignee responds, or ticket is reassigned",
-        "Notifications: badge count simplified — shows only unread and non-resolved notifications",
-        "Notifications: new 'Resolved' filter tab to view dismissed action notifications",
-        "Link previews: rich preview cards for Google Drive, Docs, Sheets, Slides links in ticket content",
-        "Link previews: YouTube video thumbnails with play overlay",
-        "Link previews: Dropbox, OneDrive, Figma, and GitHub link cards with service icons",
-        "Link previews: direct image URLs (.png, .jpg, .gif, .webp) show inline thumbnails",
-        "Editor: paste or drag-and-drop images directly into ticket descriptions and comments",
-        "Editor: image toolbar button opens file picker for inline image upload",
-        "Editor: base64 data URI images are stripped server-side as a safety net"
+        "Reports: removed internal hash prefix from client report task grouping — shows clean ticket titles",
+        "Reports: fixed fatal error on public report page when APP_NAME constant not defined",
+        "Navigation: merged Time Report and Client Reports into single 'Time Reports' menu item"
     ],
     "delete_files": []
 }

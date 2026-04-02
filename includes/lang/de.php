@@ -665,6 +665,7 @@ return [
     'Past 7 days' => 'Letzte 7 Tage',
     'Past 30 days' => 'Letzte 30 Tage',
     'Time report' => 'Zeitbericht',
+    'Time Reports' => 'Zeitberichte',
     'Summary' => 'Zusammenfassung',
     'Detailed' => 'Detailliert',
     'Shared' => 'Geteilt',

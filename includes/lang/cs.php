@@ -543,6 +543,7 @@ return [
     'Recipient name' => 'Jméno příjemce',
     'Task description' => 'Popis úkolu',
     'Time report' => 'Výkaz času',
+    'Time Reports' => 'Výkazy času',
     'Summary' => 'Souhrn',
     'Detailed' => 'Detail',
     'Weekly' => 'Týdenní',

@@ -404,17 +404,8 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                     class="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors sidebar-hover"
                     style="color: var(--text-secondary);">
                     <?php echo get_icon('chart-bar', 'w-4 h-4'); ?>
-                    <span><?php echo e(t('Time report')); ?></span>
+                    <span><?php echo e(t('Time Reports')); ?></span>
                 </a>
-
-                <?php if (is_admin()): ?>
-                <a href="<?php echo url('admin', ['section' => 'reports-list']); ?>" role="menuitem"
-                    class="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors sidebar-hover"
-                    style="color: var(--text-secondary);">
-                    <?php echo get_icon('file-invoice', 'w-4 h-4'); ?>
-                    <span><?php echo e(t('Client Reports')); ?></span>
-                </a>
-                <?php endif; ?>
 
                 <?php if (is_admin()): ?>
                 <a href="<?php echo url('admin', ['section' => 'users']); ?>" role="menuitem"

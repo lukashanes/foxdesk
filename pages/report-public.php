@@ -63,7 +63,7 @@ $display_entries = group_report_entries($time_entries, $template['group_by'], $t
 
 // Get branding settings
 $report_company_logo = get_setting('report_company_logo', '');
-$report_company_name = get_setting('report_company_name', APP_NAME);
+$report_company_name = get_setting('report_company_name', defined('APP_NAME') ? APP_NAME : 'FoxDesk');
 $show_branding = !$template['hide_branding'] && get_setting('report_show_branding', '1') == '1';
 
 // Theme color
