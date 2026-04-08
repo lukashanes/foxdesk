@@ -122,7 +122,10 @@ function api_mark_notification_read()
 
     mark_notification_read($notification_id, (int) $user['id']);
 
-    api_success(['ok' => true]);
+    api_success([
+        'ok' => true,
+        'unread_count' => get_unread_notification_count((int) $user['id']),
+    ]);
 }
 
 /**
@@ -148,7 +151,10 @@ function api_mark_ticket_notifications_read()
 
     mark_ticket_notifications_read($ticket_id, (int) $user['id']);
 
-    api_success(['ok' => true]);
+    api_success([
+        'ok' => true,
+        'unread_count' => get_unread_notification_count((int) $user['id']),
+    ]);
 }
 
 /**
@@ -169,5 +175,8 @@ function api_mark_all_notifications_read()
 
     mark_all_notifications_read((int) $user['id']);
 
-    api_success(['ok' => true]);
+    api_success([
+        'ok' => true,
+        'unread_count' => get_unread_notification_count((int) $user['id']),
+    ]);
 }

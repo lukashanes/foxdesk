@@ -1,13 +1,19 @@
 {
-    "version": "0.3.93",
-    "date": "2026-04-04",
+    "version": "0.3.94",
+    "date": "2026-04-08",
     "min_php": "8.1",
     "changelog": [
-        "Time tracking: fixed paused timer duration calculation — paused_seconds now correctly subtracted everywhere",
-        "Reports: agents now see 'My time' label and filter badge instead of misleading 'Total time'",
-        "Reports: added DateTime validation guard to prevent crash on malformed worklog edits",
-        "Reports: added query limit (10,000 entries) to prevent memory exhaustion on large datasets",
-        "Reports: hidden redundant Agents breakdown table for non-admin users"
+        "Notifications: fixed mark-as-read not persisting — badge now uses server count instead of optimistic decrement",
+        "Notifications: click-to-navigate now survives page transition (keepalive fetch)",
+        "Notifications: badge renders instantly from server-side count, no 60s polling delay",
+        "Settings: fixed fatal crash on Security tab (invalid DATETIME comparison in MySQL strict mode)",
+        "Auth: fixed remember-me token not cleared on logout edge case, preventing session confusion",
+        "Dashboard: My Time widget now includes running and paused timers (consistent with Reports)",
+        "New ticket: agents can set initial status when creating a ticket",
+        "New ticket: agents can log manual time with start/end times (replaces minutes-only input)",
+        "Time tracking: fixed midnight overflow — entries spanning midnight (e.g. 23:16–00:16) now calculate correctly",
+        "Help panel: keyboard shortcuts now role-aware (admin-only shortcuts hidden from agents)",
+        "Performance: timer favicon preload limited to agent/admin pages only"
     ],
     "delete_files": []
 }

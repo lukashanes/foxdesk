@@ -267,8 +267,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $manual_end_time_input = trim($_POST['manual_end_time'] ?? '');
 
         if ($manual_start_input === '' && $manual_end_input === '' && ($manual_start_time_input !== '' || $manual_end_time_input !== '')) {
-            $manual_start_input = ($manual_date_input !== '' ? $manual_date_input : date('Y-m-d')) . 'T' . $manual_start_time_input;
-            $manual_end_input = ($manual_date_input !== '' ? $manual_date_input : date('Y-m-d')) . 'T' . $manual_end_time_input;
+            $base_date = $manual_date_input !== '' ? $manual_date_input : date('Y-m-d');
+            $manual_start_input = $base_date . 'T' . $manual_start_time_input;
+            // Midnight overflow: if end time is earlier than start time, it's the next day
+            $end_date = $base_date;
+            if ($manual_end_time_input < $manual_start_time_input) {
+                $end_date = date('Y-m-d', strtotime($base_date . ' +1 day'));
+            }
+            $manual_end_input = $end_date . 'T' . $manual_end_time_input;
         }
 
         $manual_requested = is_agent() && ($manual_start_input !== '' || $manual_end_input !== '' || $manual_start_time_input !== '' || $manual_end_time_input !== '');

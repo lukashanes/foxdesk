@@ -2909,8 +2909,8 @@ include BASE_PATH . '/includes/components/page-header.php';
         // Count users per role and their 2FA status
         $tfa_counts = [];
         foreach (['admin', 'agent', 'user'] as $_r) {
-            $total = (int) (db_fetch_one("SELECT COUNT(*) as c FROM users WHERE role = ? AND (deleted_at IS NULL OR deleted_at = '')", [$_r])['c'] ?? 0);
-            $enabled = (int) (db_fetch_one("SELECT COUNT(*) as c FROM users WHERE role = ? AND totp_enabled = 1 AND (deleted_at IS NULL OR deleted_at = '')", [$_r])['c'] ?? 0);
+            $total = (int) (db_fetch_one("SELECT COUNT(*) as c FROM users WHERE role = ? AND deleted_at IS NULL", [$_r])['c'] ?? 0);
+            $enabled = (int) (db_fetch_one("SELECT COUNT(*) as c FROM users WHERE role = ? AND totp_enabled = 1 AND deleted_at IS NULL", [$_r])['c'] ?? 0);
             $tfa_counts[$_r] = ['total' => $total, 'enabled' => $enabled, 'without' => $total - $enabled];
         }
         ?>

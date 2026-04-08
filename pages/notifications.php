@@ -738,12 +738,12 @@ function render_child_card(array $notif): void
                     if (btn && btn.tagName === 'BUTTON') btn.remove();
                 }
                 var badge = document.querySelector('.notif-page-badge');
+                var count = res.unread_count ?? 0;
                 if (badge) {
-                    var c = parseInt(badge.textContent) - 1;
-                    if (c <= 0) badge.remove();
-                    else badge.textContent = c > 99 ? '99+' : c;
+                    if (count <= 0) badge.remove();
+                    else badge.textContent = count > 99 ? '99+' : count;
                 }
-                if (typeof updateBadge === 'function') updateBadge();
+                if (typeof updateBadge === 'function') updateBadge(count);
             }
         });
     };
@@ -759,7 +759,6 @@ function render_child_card(array $notif): void
         .then(function(res) {
             if (res.success) {
                 // Find the ticket group and mark all items read
-                var count = res.marked_count || 0;
                 document.querySelectorAll('.notif-card[data-id], .notif-child-card[data-id]').forEach(function(el) {
                     // Check if this notification's link contains the ticket ID
                     var link = el.querySelector('a[href*="id=' + ticketId + '"]') || el;
@@ -770,14 +769,14 @@ function render_child_card(array $notif): void
                         if (btn) btn.remove();
                     }
                 });
-                // Update badge
+                // Update badge with server count
+                var count = res.unread_count ?? 0;
                 var badge = document.querySelector('.notif-page-badge');
-                if (badge && count > 0) {
-                    var c = parseInt(badge.textContent) - count;
-                    if (c <= 0) badge.remove();
-                    else badge.textContent = c > 99 ? '99+' : c;
+                if (badge) {
+                    if (count <= 0) badge.remove();
+                    else badge.textContent = count > 99 ? '99+' : count;
                 }
-                if (typeof updateBadge === 'function') updateBadge();
+                if (typeof updateBadge === 'function') updateBadge(count);
             }
         });
     };
@@ -805,7 +804,7 @@ function render_child_card(array $notif): void
                 if (badge) badge.remove();
                 var markAllBtn = document.querySelector('.notif-mark-all-btn');
                 if (markAllBtn) markAllBtn.disabled = true;
-                if (typeof updateBadge === 'function') updateBadge(0);
+                if (typeof updateBadge === 'function') updateBadge(res.unread_count ?? 0);
             }
         });
     };

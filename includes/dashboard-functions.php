@@ -166,13 +166,14 @@ function get_dashboard_data($user, $tags = [])
     $team_members_time = [];
 
     if (function_exists('ticket_time_table_exists') && ticket_time_table_exists() && $is_staff) {
+        $dur = function_exists('sql_timer_duration_minutes') ? sql_timer_duration_minutes() : 'duration_minutes';
         $my_time = db_fetch_one("
             SELECT
-                SUM(CASE WHEN DATE(started_at) = CURDATE() THEN duration_minutes ELSE 0 END) as today,
-                SUM(CASE WHEN started_at >= ? AND started_at <= ? THEN duration_minutes ELSE 0 END) as week,
-                SUM(CASE WHEN started_at >= ? AND started_at <= ? THEN duration_minutes ELSE 0 END) as month
+                SUM(CASE WHEN DATE(started_at) = CURDATE() THEN ({$dur}) ELSE 0 END) as today,
+                SUM(CASE WHEN started_at >= ? AND started_at <= ? THEN ({$dur}) ELSE 0 END) as week,
+                SUM(CASE WHEN started_at >= ? AND started_at <= ? THEN ({$dur}) ELSE 0 END) as month
             FROM ticket_time_entries
-            WHERE user_id = ? AND ended_at IS NOT NULL
+            WHERE user_id = ?
         ", [$week_start, $week_end, $month_start, $month_end, $user['id']]);
 
         $my_time_today = (int) ($my_time['today'] ?? 0);
@@ -180,14 +181,15 @@ function get_dashboard_data($user, $tags = [])
         $my_time_month = (int) ($my_time['month'] ?? 0);
 
         if ($is_admin) {
+            $dur_tte = function_exists('sql_timer_duration_minutes') ? sql_timer_duration_minutes('tte.') : 'tte.duration_minutes';
             $team_time = db_fetch_one("
                 SELECT
-                    SUM(CASE WHEN DATE(tte.started_at) = CURDATE() THEN tte.duration_minutes ELSE 0 END) as today,
-                    SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN tte.duration_minutes ELSE 0 END) as week,
-                    SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN tte.duration_minutes ELSE 0 END) as month
+                    SUM(CASE WHEN DATE(tte.started_at) = CURDATE() THEN ({$dur_tte}) ELSE 0 END) as today,
+                    SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_tte}) ELSE 0 END) as week,
+                    SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_tte}) ELSE 0 END) as month
                 FROM ticket_time_entries tte
                 JOIN users u ON u.id = tte.user_id
-                WHERE u.role IN ('agent', 'admin') AND tte.ended_at IS NOT NULL
+                WHERE u.role IN ('agent', 'admin')
             ", [$week_start, $week_end, $month_start, $month_end]);
 
             $team_time_today = (int) ($team_time['today'] ?? 0);
@@ -198,11 +200,11 @@ function get_dashboard_data($user, $tags = [])
             $team_members_time = db_fetch_all("
                 SELECT
                     u.id, u.first_name, u.last_name, u.role, u.avatar,
-                    COALESCE(SUM(CASE WHEN DATE(tte.started_at) = CURDATE() THEN tte.duration_minutes ELSE 0 END), 0) as today_mins,
-                    COALESCE(SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN tte.duration_minutes ELSE 0 END), 0) as week_mins,
-                    COALESCE(SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN tte.duration_minutes ELSE 0 END), 0) as month_mins
+                    COALESCE(SUM(CASE WHEN DATE(tte.started_at) = CURDATE() THEN ({$dur_tte}) ELSE 0 END), 0) as today_mins,
+                    COALESCE(SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_tte}) ELSE 0 END), 0) as week_mins,
+                    COALESCE(SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_tte}) ELSE 0 END), 0) as month_mins
                 FROM users u
-                LEFT JOIN ticket_time_entries tte ON tte.user_id = u.id AND tte.ended_at IS NOT NULL
+                LEFT JOIN ticket_time_entries tte ON tte.user_id = u.id
                 WHERE u.role IN ('agent', 'admin') AND u.is_active = 1
                   AND (u.deleted_at IS NULL)
                 GROUP BY u.id

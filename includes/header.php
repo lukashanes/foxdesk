@@ -114,8 +114,10 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <!-- Active timer favicon (preloaded for JS swap) -->
+    <?php if (is_agent()): ?>
+    <!-- Active timer favicon (preloaded for JS swap — agents/admins only) -->
     <link rel="preload" id="favicon-timer" as="image" type="image/svg+xml" href="data:image/svg+xml,<?php echo rawurlencode('<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 32 32\'><rect width=\'32\' height=\'32\' rx=\'6\' fill=\'#22c55e\'/><circle cx=\'16\' cy=\'16\' r=\'10\' fill=\'none\' stroke=\'white\' stroke-width=\'2\'/><path d=\'M16 10 L16 16 L20 16\' fill=\'none\' stroke=\'white\' stroke-width=\'2\' stroke-linecap=\'round\'/></svg>'); ?>">
+    <?php endif; ?>
 
     <link href="tailwind.min.css?v=<?php echo APP_VERSION; ?>" rel="stylesheet">
 
@@ -790,7 +792,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
             var _notifLoaded = false;
             var _notifOpen = false;
             var _pollInterval = null;
-            var _lastCount = 0;
+            var _lastCount = <?php echo function_exists('get_unread_notification_count') && is_logged_in() ? (int) get_unread_notification_count((int) (current_user()['id'] ?? 0)) : 0; ?>;
             var _firstPoll = true;
 
             function esc(s) {
@@ -899,6 +901,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                     el.classList.remove('unread');
                     fetch('index.php?page=api&action=mark-notification-read', {
                         method: 'POST',
+                        keepalive: true,
                         headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': window.csrfToken},
                         body: 'notification_id=' + id + '&csrf_token=' + encodeURIComponent(window.csrfToken)
                     }).catch(function(){});
@@ -906,9 +909,9 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                     var dbEl = document.getElementById('dbnotif-' + id);
                     if (dbEl) dbEl.classList.remove('unread');
                 }
-                // Navigate to ticket (nid for server-side mark-read)
+                // Navigate to ticket
                 if (ticketId) {
-                    window.location.href = 'index.php?page=ticket&id=' + ticketId + '&nid=' + id;
+                    window.location.href = 'index.php?page=ticket&id=' + ticketId;
                 }
             };
 
@@ -925,9 +928,8 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': window.csrfToken},
                     body: 'notification_id=' + id + '&csrf_token=' + encodeURIComponent(window.csrfToken)
-                }).then(function() {
-                    // Decrement badge
-                    if (_lastCount > 0) updateBadge(_lastCount - 1);
+                }).then(function(r) { return r.json(); }).then(function(res) {
+                    if (res.success) updateBadge(res.unread_count);
                 }).catch(function(){});
                 // Sync dashboard widget
                 var dbEl = document.getElementById('dbnotif-' + id);
@@ -938,7 +940,6 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 event.stopPropagation();
                 // Find all unread items in the panel and mark them read visually
                 var items = document.querySelectorAll('#notif-items .notif-item.unread');
-                var count = 0;
                 items.forEach(function(el) {
                     var onclick = el.getAttribute('onclick') || '';
                     // Match items that belong to this ticket
@@ -946,7 +947,6 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                         el.classList.remove('unread');
                         var btn = el.querySelector('.notif-mark-read');
                         if (btn) btn.style.display = 'none';
-                        count++;
                     }
                 });
                 // Hide the "mark all for this ticket" button
@@ -957,8 +957,8 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': window.csrfToken},
                     body: 'ticket_id=' + ticketId + '&csrf_token=' + encodeURIComponent(window.csrfToken)
-                }).then(function() {
-                    if (_lastCount > 0) updateBadge(Math.max(0, _lastCount - count));
+                }).then(function(r) { return r.json(); }).then(function(res) {
+                    if (res.success) updateBadge(res.unread_count);
                 }).catch(function(){});
             };
 
@@ -967,10 +967,11 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': window.csrfToken},
                     body: 'csrf_token=' + encodeURIComponent(window.csrfToken)
-                }).then(function() {
+                }).then(function(r) { return r.json(); }).then(function(res) {
+                    if (!res.success) return;
                     // Visual update — header dropdown
                     document.querySelectorAll('.notif-item.unread').forEach(function(el) { el.classList.remove('unread'); });
-                    updateBadge(0);
+                    updateBadge(res.unread_count);
                     // Sync dashboard notifications widget (if on dashboard page)
                     document.querySelectorAll('.dbnotif-card.unread').forEach(function(el) { el.classList.remove('unread'); });
                     document.querySelectorAll('.dbnotif-child-card.unread').forEach(function(el) { el.classList.remove('unread'); });
@@ -1136,9 +1137,9 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
 
             // Init on page load
             document.addEventListener('DOMContentLoaded', function() {
-                // Initial count check
-                pollCount();
-                // Poll every 60 seconds
+                // Set badge immediately from server-rendered count
+                updateBadge(_lastCount);
+                // Then poll for updates every 60 seconds
                 _pollInterval = setInterval(pollCount, 60000);
             });
         })();
