@@ -7,6 +7,7 @@ $page_title = t('New ticket');
 $page = 'new-ticket';
 $user = current_user();
 $priorities = get_priorities();
+$statuses = get_statuses();
 $ticket_types = get_ticket_types();
 $tags_supported = function_exists('ticket_tags_column_exists') && ticket_tags_column_exists();
 $organizations = [];
@@ -61,7 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $organization_id = !empty($_POST['organization_id']) ? (int) $_POST['organization_id'] : null;
         $assignee_id = (is_admin() || is_agent()) && !empty($_POST['assignee_id']) ? (int) $_POST['assignee_id'] : null;
         $on_behalf_of = (is_admin() || is_agent()) && !empty($_POST['on_behalf_of']) ? (int) $_POST['on_behalf_of'] : null;
+        $status_id = (is_admin() || is_agent()) && !empty($_POST['status_id']) ? (int) $_POST['status_id'] : null;
         $manual_duration_minutes = (int) ($_POST['manual_duration_minutes'] ?? 0);
+        // Manual time entry (start/end times)
+        $manual_date = trim($_POST['manual_date'] ?? '');
+        $manual_start_time = trim($_POST['manual_start_time'] ?? '');
+        $manual_end_time = trim($_POST['manual_end_time'] ?? '');
 
         // Resolve ticket owner: agent can create on behalf of another user
         $ticket_owner_id = $user['id'];
@@ -83,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = t('Selected organization is not available.');
         } else {
             $upload_errors = [];
-            $ticket_id = create_ticket([
+            $create_data = [
                 'title' => $title,
                 'description' => $description,
                 'type' => $type,
@@ -93,15 +99,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'due_date' => $due_date,
                 'tags' => $tags,
                 'assignee_id' => $assignee_id
-            ]);
+            ];
+            if ($status_id) {
+                $create_data['status_id'] = $status_id;
+            }
+            $ticket_id = create_ticket($create_data);
 
             log_activity($ticket_id, $user['id'], 'created', 'Ticket created');
 
-            // Save time entry — manual duration takes priority over timer
+            // Save time entry — manual start/end takes priority over simple minutes, which takes priority over timer
             $timer_elapsed = (int) ($_POST['timer_elapsed_seconds'] ?? 0);
             if (is_agent() && function_exists('ticket_time_table_exists') && ticket_time_table_exists()) {
-                if ($manual_duration_minutes > 0) {
-                    // Manual duration: log as completed time entry
+                $manual_time_logged = false;
+
+                // Manual time entry with start/end times
+                if ($manual_start_time !== '' && $manual_end_time !== '') {
+                    $base_date = $manual_date !== '' ? $manual_date : date('Y-m-d');
+                    $end_date = $base_date;
+                    // Midnight overflow: if end time < start time, it's the next day
+                    if ($manual_end_time < $manual_start_time) {
+                        $end_date = date('Y-m-d', strtotime($base_date . ' +1 day'));
+                    }
+                    $start_dt = DateTime::createFromFormat('Y-m-d H:i', $base_date . ' ' . $manual_start_time);
+                    $end_dt = DateTime::createFromFormat('Y-m-d H:i', $end_date . ' ' . $manual_end_time);
+                    if ($start_dt && $end_dt && $end_dt > $start_dt) {
+                        $duration = max(0, (int) floor(($end_dt->getTimestamp() - $start_dt->getTimestamp()) / 60));
+                        if ($duration > 0 && function_exists('add_manual_time_entry')) {
+                            add_manual_time_entry($ticket_id, $user['id'], [
+                                'started_at' => $start_dt->format('Y-m-d H:i:s'),
+                                'ended_at' => $end_dt->format('Y-m-d H:i:s'),
+                                'duration_minutes' => $duration,
+                                'summary' => t('Ticket creation'),
+                                'is_billable' => 1,
+                            ]);
+                            $manual_time_logged = true;
+                        }
+                    }
+                }
+
+                // Fallback: simple duration in minutes
+                if (!$manual_time_logged && $manual_duration_minutes > 0) {
                     if (function_exists('add_manual_time_entry')) {
                         add_manual_time_entry($ticket_id, $user['id'], [
                             'started_at' => date('Y-m-d H:i:s', time() - ($manual_duration_minutes * 60)),
@@ -110,8 +147,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'summary' => t('Ticket creation'),
                             'is_billable' => 1,
                         ]);
+                        $manual_time_logged = true;
                     }
-                } elseif ($timer_elapsed > 0) {
+                }
+
+                if (!$manual_time_logged && $timer_elapsed > 0) {
                     // Timer was running — start a live DB timer backdated to when client timer started
                     $org_billable_rate = 0.0;
                     if (!empty($ticket['organization_id'] ?? null)) {
@@ -368,6 +408,18 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 class="form-input">
                         </div>
 
+                        <!-- Status (admin/agent only) -->
+                        <?php if (is_admin() || is_agent()): ?>
+                        <div>
+                            <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Status')); ?></label>
+                            <select name="status_id" class="form-select">
+                                <?php foreach ($statuses as $status): ?>
+                                    <option value="<?php echo (int) $status['id']; ?>"><?php echo e($status['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <?php endif; ?>
+
                         <!-- Assign To (admin/agent only) -->
                         <?php if (is_admin() || is_agent()): ?>
                         <div>
@@ -421,6 +473,26 @@ include BASE_PATH . '/includes/components/page-header.php';
             </details>
         </div>
 
+        <?php if (is_agent() && function_exists('ticket_time_table_exists') && ticket_time_table_exists()): ?>
+        <!-- Manual Time Entry (hidden by default) -->
+        <div id="nt-manual-entry-row" class="hidden mt-3 pt-3 border-t" style="border-color: var(--border-light);">
+            <div class="grid grid-cols-3 gap-2">
+                <div>
+                    <label class="form-label-sm mb-1"><?php echo e(t('Date')); ?></label>
+                    <input type="date" name="manual_date" value="<?php echo e(date('Y-m-d')); ?>" class="form-input text-sm h-9">
+                </div>
+                <div>
+                    <label class="form-label-sm mb-1"><?php echo e(t('Start')); ?></label>
+                    <input type="time" name="manual_start_time" class="form-input text-sm h-9">
+                </div>
+                <div>
+                    <label class="form-label-sm mb-1"><?php echo e(t('End')); ?></label>
+                    <input type="time" name="manual_end_time" class="form-input text-sm h-9">
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <!-- Buttons - aligned right with consistent height -->
         <div class="mt-4 pt-3 border-t flex items-center justify-between gap-3">
             <div class="flex items-center gap-3">
@@ -441,13 +513,12 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <?php echo get_icon('trash', 'w-4 h-4'); ?>
                         </button>
                     </div>
-                    <div class="flex items-center gap-1.5">
-                        <?php echo get_icon('clock', 'w-4 h-4 flex-shrink-0'); ?>
-                        <input type="number" name="manual_duration_minutes" min="0" step="1"
-                            placeholder="<?php echo e(t('min')); ?>"
-                            class="form-input w-20 text-sm py-1.5"
-                            title="<?php echo e(t('Time (min)')); ?>">
-                    </div>
+                    <!-- Manual time entry toggle -->
+                    <button type="button" id="nt-manual-toggle" class="btn btn-ghost px-2 py-1.5"
+                        style="color: var(--text-muted);" title="<?php echo e(t('Manual entry')); ?>">
+                        <?php echo get_icon('pen', 'w-4 h-4'); ?>
+                    </button>
+                    <input type="hidden" name="manual_duration_minutes" id="nt-manual-duration" value="0">
                 <?php endif; ?>
             </div>
             <div class="flex items-center gap-3">
@@ -904,6 +975,17 @@ include BASE_PATH . '/includes/components/page-header.php';
         pausedAt = null;
         setState('running');
     }
+})();
+
+// Manual entry toggle
+(function() {
+    var toggle = document.getElementById('nt-manual-toggle');
+    var row = document.getElementById('nt-manual-entry-row');
+    if (!toggle || !row) return;
+    toggle.addEventListener('click', function() {
+        var hidden = row.classList.toggle('hidden');
+        toggle.style.color = hidden ? 'var(--text-muted)' : 'var(--accent-primary)';
+    });
 })();
 </script>
 <?php endif; ?>

@@ -94,6 +94,10 @@ function login($email, $password)
     $user = db_fetch_one($sql, [$email]);
 
     if ($user && password_verify($password, $user['password'])) {
+        // Clear any stale remember-me cookie from a previous user
+        if (!empty($_COOKIE['foxdesk_remember'])) {
+            clear_remember_cookie();
+        }
         session_regenerate_id(true);
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_email'] = $user['email'];
@@ -124,9 +128,12 @@ function logout()
     $_SESSION = [];
     session_destroy();
 
-    // Clear remember-me token
+    // Clear remember-me token from DB + cookie
     if ($user_id) {
         clear_remember_token($user_id);
+    } else {
+        // Session was already gone — still clear the cookie
+        clear_remember_cookie();
     }
 }
 

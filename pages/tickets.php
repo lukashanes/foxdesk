@@ -234,7 +234,13 @@ if ($tags_supported) {
 if (!in_array($sort, $allowed_sorts, true)) {
     $sort = 'newest';
 }
-$ticket_view = ($_GET['view'] ?? '') === 'board' ? 'board' : 'list';
+// View persistence: URL param → cookie → default 'list'
+if (isset($_GET['view']) && in_array($_GET['view'], ['list', 'board'], true)) {
+    $ticket_view = $_GET['view'];
+    setcookie('foxdesk_ticket_view', $ticket_view, ['expires' => time() + 365 * 86400, 'path' => '/', 'samesite' => 'Lax']);
+} else {
+    $ticket_view = ($_COOKIE['foxdesk_ticket_view'] ?? '') === 'board' ? 'board' : 'list';
+}
 
 if (!empty($assigned_to)) {
     $filters['assigned_to'] = $assigned_to;
@@ -1825,22 +1831,11 @@ include BASE_PATH . '/includes/components/page-header.php';
 <?php endif; ?>
 
 <script>
-    // View persistence via localStorage
+    // Sync localStorage with server cookie (for backward compat)
     (function() {
         var key = 'foxdesk_ticket_view';
         var currentView = '<?php echo $ticket_view; ?>';
-        if (currentView === 'board' || currentView === 'list') {
-            localStorage.setItem(key, currentView);
-        }
-        // Auto-redirect if no explicit view param and stored preference differs
-        if (!new URLSearchParams(window.location.search).has('view')) {
-            var stored = localStorage.getItem(key);
-            if (stored === 'board' && currentView !== 'board') {
-                var url = new URL(window.location);
-                url.searchParams.set('view', 'board');
-                window.location.replace(url.toString());
-            }
-        }
+        localStorage.setItem(key, currentView);
     })();
 
     let bulkMode = false;

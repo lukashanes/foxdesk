@@ -74,7 +74,9 @@ $is_admin_user = is_admin();
                 <?php if ($is_staff_user): ?>
                 <kbd>G → R</kbd>
                 <span><?php echo e(t('Reports')); ?></span>
+                <?php endif; ?>
 
+                <?php if ($is_admin_user): ?>
                 <kbd>G → O</kbd>
                 <span><?php echo e(t('Organizations')); ?></span>
 

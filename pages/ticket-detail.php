@@ -1068,6 +1068,13 @@ require_once BASE_PATH . '/includes/header.php';
             <form method="post" enctype="multipart/form-data" class="p-3 lg:p-4 border-t"
                 style="background: var(--surface-secondary);" id="comment-form">
                 <?php echo csrf_field(); ?>
+                <?php
+                // Capture referrer for redirect after status change (back to tickets list or dashboard)
+                $referrer = $_SERVER['HTTP_REFERER'] ?? '';
+                if (preg_match('/page=(tickets|dashboard)/', $referrer)) {
+                    echo '<input type="hidden" name="redirect_to" value="' . e($referrer) . '">';
+                }
+                ?>
                 <?php if (is_agent()): ?>
                         <input type="hidden" name="change_status_with_comment" value="1">
                 <?php endif; ?>
