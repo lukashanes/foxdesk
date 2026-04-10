@@ -16,22 +16,11 @@ ensure_totp_columns();
 // Refresh user to get TOTP columns
 $user = current_user(true);
 
-$users_has_column = function ($column) {
-    $safe_column = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $column);
-    if ($safe_column === '') {
-        return false;
-    }
-    try {
-        return (bool) db_fetch_one("SHOW COLUMNS FROM users LIKE '{$safe_column}'");
-    } catch (Throwable $e) {
-        return false;
-    }
-};
-$notification_preferences_available = $users_has_column('email_notifications_enabled')
-    && $users_has_column('in_app_notifications_enabled')
-    && $users_has_column('in_app_sound_enabled');
-$contact_phone_column_exists = $users_has_column('contact_phone');
-$notes_column_exists = $users_has_column('notes');
+$notification_preferences_available = column_exists('users', 'email_notifications_enabled')
+    && column_exists('users', 'in_app_notifications_enabled')
+    && column_exists('users', 'in_app_sound_enabled');
+$contact_phone_column_exists = column_exists('users', 'contact_phone');
+$notes_column_exists = column_exists('users', 'notes');
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

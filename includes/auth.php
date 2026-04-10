@@ -174,7 +174,7 @@ function set_remember_token($user_id)
 
     $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
     setcookie('foxdesk_remember', $token, [
-        'expires'  => time() + (30 * 24 * 60 * 60), // 30 days
+        'expires'  => time() + (defined('REMEMBER_ME_DURATION') ? REMEMBER_ME_DURATION : 2592000),
         'path'     => '/',
         'httponly'  => true,
         'secure'   => $is_https,
@@ -270,7 +270,12 @@ function clear_remember_cookie()
  */
 function get_user($id)
 {
-    return db_fetch_one("SELECT * FROM users WHERE id = ?", [$id]);
+    static $cache = [];
+    $id = (int) $id;
+    if (!isset($cache[$id])) {
+        $cache[$id] = db_fetch_one("SELECT * FROM users WHERE id = ?", [$id]);
+    }
+    return $cache[$id];
 }
 
 /**

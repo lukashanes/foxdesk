@@ -407,6 +407,7 @@ require_once BASE_PATH . '/includes/header.php';
     }
 
     [data-theme="dark"] #comment-editor .ql-toolbar,
+    [data-theme="dark"] #internal-editor .ql-toolbar,
     [data-theme="dark"] #edit-description-editor .ql-toolbar,
     [data-theme="dark"] #edit-comment-editor .ql-toolbar {
         background: var(--corp-slate-800) !important;
@@ -414,15 +415,31 @@ require_once BASE_PATH . '/includes/header.php';
     }
 
     [data-theme="dark"] #comment-editor .ql-container,
+    [data-theme="dark"] #internal-editor .ql-container,
     [data-theme="dark"] #edit-description-editor .ql-container,
     [data-theme="dark"] #edit-comment-editor .ql-container {
         background: var(--corp-slate-800) !important;
     }
 
     [data-theme="dark"] #comment-editor .ql-editor,
+    [data-theme="dark"] #internal-editor .ql-editor,
     [data-theme="dark"] #edit-description-editor .ql-editor,
     [data-theme="dark"] #edit-comment-editor .ql-editor {
         color: var(--corp-slate-100) !important;
+        background: var(--corp-slate-800) !important;
+    }
+
+    [data-theme="dark"] .editor-wrapper--internal {
+        border-color: var(--corp-slate-600) !important;
+        background: var(--corp-slate-800) !important;
+    }
+
+    [data-theme="dark"] #internal-editor .ql-toolbar {
+        background: var(--corp-slate-700) !important;
+        border-bottom-color: var(--corp-slate-600) !important;
+    }
+
+    [data-theme="dark"] #internal-editor .ql-container {
         background: var(--corp-slate-800) !important;
     }
 
@@ -561,6 +578,9 @@ require_once BASE_PATH . '/includes/header.php';
     /* Rich content in dark mode */
     [data-theme="dark"] .rich-content a {
         color: var(--primary);
+    }
+    [data-theme="dark"] .rich-content a:hover {
+        color: var(--accent-primary);
     }
 
     [data-theme="dark"] .rich-content blockquote {
@@ -2075,8 +2095,6 @@ require_once BASE_PATH . '/includes/header.php';
     // Manual time entry toggle
     const manualToggle = document.getElementById('manual-toggle');
     const manualEntryRow = document.getElementById('manual-entry-row');
-    const manualStartInput = document.querySelector('input[name="manual_start"]');
-    const manualEndInput = document.querySelector('input[name="manual_end"]');
     const manualDateInput = document.querySelector('input[name="manual_date"]');
     const manualStartTimeInput = document.querySelector('input[name="manual_start_time"]');
     const manualEndTimeInput = document.querySelector('input[name="manual_end_time"]');
@@ -2118,9 +2136,7 @@ require_once BASE_PATH . '/includes/header.php';
         });
     }
 
-    if ((manualStartInput && manualStartInput.value) ||
-        (manualEndInput && manualEndInput.value) ||
-        (manualStartTimeInput && manualStartTimeInput.value) ||
+    if ((manualStartTimeInput && manualStartTimeInput.value) ||
         (manualEndTimeInput && manualEndTimeInput.value)) {
         setManualEntryVisible(true);
     }
@@ -2243,8 +2259,6 @@ require_once BASE_PATH . '/includes/header.php';
 
     // Update submit label when stopping timer or logging manual time
     const commentSubmitBtn = document.getElementById('comment-submit-btn');
-    // manualStartInput and manualEndInput already declared above (lines ~1493-1494)
-
     // Exposed globally so timer IIFE can call it after DOM updates
     window.updateSubmitLabel = function () {
         if (!commentSubmitBtn) return;
@@ -2253,8 +2267,6 @@ require_once BASE_PATH . '/includes/header.php';
         const hasActiveTimer = commentSubmitBtn.dataset.hasActiveTimer === '1';
         const stopRequested = hasActiveTimer && stopTimerToggle && stopTimerToggle.checked;
         const hasManualTime =
-            (manualStartInput && manualStartInput.value) ||
-            (manualEndInput && manualEndInput.value) ||
             (manualStartTimeInput && manualStartTimeInput.value) ||
             (manualEndTimeInput && manualEndTimeInput.value);
 
@@ -2280,12 +2292,6 @@ require_once BASE_PATH . '/includes/header.php';
     };
 
     window.attachStopTimerToggleListener();
-    if (manualStartInput) {
-        manualStartInput.addEventListener('input', window.updateSubmitLabel);
-    }
-    if (manualEndInput) {
-        manualEndInput.addEventListener('input', window.updateSubmitLabel);
-    }
     if (manualStartTimeInput) {
         manualStartTimeInput.addEventListener('input', window.updateSubmitLabel);
     }

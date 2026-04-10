@@ -178,13 +178,14 @@ function get_tickets($filters = []) {
                    o.name as organization_name,
                    p.name as priority_name, p.color as priority_color,
                    a.first_name as assignee_first_name, a.last_name as assignee_last_name,
-                   (SELECT COUNT(*) FROM attachments a WHERE a.ticket_id = t.id) as attachment_count
+                   IFNULL(ac.attachment_count, 0) as attachment_count
             FROM tickets t
             LEFT JOIN statuses s ON t.status_id = s.id
             LEFT JOIN users u ON t.user_id = u.id
             LEFT JOIN organizations o ON t.organization_id = o.id
             LEFT JOIN priorities p ON t.priority_id = p.id
-            LEFT JOIN users a ON t.assignee_id = a.id";
+            LEFT JOIN users a ON t.assignee_id = a.id
+            LEFT JOIN (SELECT ticket_id, COUNT(*) AS attachment_count FROM attachments GROUP BY ticket_id) ac ON ac.ticket_id = t.id";
     $params = [];
     $sql .= build_ticket_where_clause($filters, $params);
 
@@ -266,6 +267,33 @@ function get_ticket($id) {
                          LEFT JOIN priorities p ON t.priority_id = p.id
                          LEFT JOIN users a ON t.assignee_id = a.id
                          WHERE t.id = ?", [$id]);
+}
+
+/**
+ * Get multiple tickets by IDs in a single query
+ */
+function get_tickets_by_ids(array $ids) {
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+    if (empty($ids)) return [];
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $rows = db_fetch_all("SELECT t.*,
+                                s.name as status_name, s.color as status_color, s.is_closed,
+                                u.first_name, u.last_name, u.email, u.avatar,
+                                o.name as organization_name,
+                                p.name as priority_name, p.color as priority_color,
+                                a.first_name as assignee_first_name, a.last_name as assignee_last_name
+                         FROM tickets t
+                         LEFT JOIN statuses s ON t.status_id = s.id
+                         LEFT JOIN users u ON t.user_id = u.id
+                         LEFT JOIN organizations o ON t.organization_id = o.id
+                         LEFT JOIN priorities p ON t.priority_id = p.id
+                         LEFT JOIN users a ON t.assignee_id = a.id
+                         WHERE t.id IN ({$placeholders})", $ids);
+    $keyed = [];
+    foreach ($rows as $row) {
+        $keyed[(int)$row['id']] = $row;
+    }
+    return $keyed;
 }
 
 /**

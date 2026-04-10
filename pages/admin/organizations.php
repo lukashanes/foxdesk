@@ -7,12 +7,9 @@ $page_title = t('Organizations');
 $page = 'admin';
 
 // Auto-migrate: add logo column if missing
-try {
-    $cols = db_fetch_all("SHOW COLUMNS FROM organizations LIKE 'logo'");
-    if (empty($cols)) {
-        db_query("ALTER TABLE organizations ADD COLUMN logo TEXT DEFAULT NULL AFTER notes");
-    }
-} catch (Exception $e) {}
+if (!column_exists('organizations', 'logo')) {
+    try { db_query("ALTER TABLE organizations ADD COLUMN logo TEXT DEFAULT NULL AFTER notes"); } catch (Exception $e) {}
+}
 
 $time_range = $_GET['time_range'] ?? 'all';
 $from_date = $_GET['from_date'] ?? '';

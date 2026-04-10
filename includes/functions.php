@@ -421,7 +421,8 @@ function t($key, $replacements = [])
     if ($translations === null) {
         $translations = require BASE_PATH . '/includes/translations.php';
     }
-    $lang = get_app_language();
+    static $lang = null;
+    if ($lang === null) $lang = get_app_language();
     $text = $translations[$lang][$key] ?? $translations['en'][$key] ?? $key;
     foreach ($replacements as $name => $value) {
         $text = str_replace('{' . $name . '}', $value, $text);
@@ -490,12 +491,16 @@ function get_flash()
  */
 function get_organizations($include_inactive = false)
 {
+    static $cache = [];
+    $key = $include_inactive ? 'all' : 'active';
+    if (isset($cache[$key])) return $cache[$key];
     $sql = "SELECT * FROM organizations";
     if (!$include_inactive) {
         $sql .= " WHERE is_active = 1";
     }
     $sql .= " ORDER BY name";
-    return db_fetch_all($sql);
+    $cache[$key] = db_fetch_all($sql);
+    return $cache[$key];
 }
 
 /**
@@ -503,7 +508,12 @@ function get_organizations($include_inactive = false)
  */
 function get_organization($id)
 {
-    return db_fetch_one("SELECT * FROM organizations WHERE id = ?", [$id]);
+    static $cache = [];
+    $id = (int) $id;
+    if (!isset($cache[$id])) {
+        $cache[$id] = db_fetch_one("SELECT * FROM organizations WHERE id = ?", [$id]);
+    }
+    return $cache[$id];
 }
 
 
@@ -516,8 +526,11 @@ function get_organization($id)
  */
 function get_priorities()
 {
+    static $cache = null;
+    if ($cache !== null) return $cache;
     try {
-        return db_fetch_all("SELECT * FROM priorities ORDER BY sort_order");
+        $cache = db_fetch_all("SELECT * FROM priorities ORDER BY sort_order");
+        return $cache;
     } catch (Exception $e) {
         // Fallback for old installations
         return [
@@ -534,7 +547,12 @@ function get_priorities()
  */
 function get_priority($id)
 {
-    return db_fetch_one("SELECT * FROM priorities WHERE id = ?", [$id]);
+    static $cache = [];
+    $id = (int) $id;
+    if (!isset($cache[$id])) {
+        $cache[$id] = db_fetch_one("SELECT * FROM priorities WHERE id = ?", [$id]);
+    }
+    return $cache[$id];
 }
 
 /**
@@ -596,13 +614,17 @@ function get_priority_color($priority)
  */
 function get_ticket_types($include_inactive = false)
 {
+    static $cache = [];
+    $key = $include_inactive ? 'all' : 'active';
+    if (isset($cache[$key])) return $cache[$key];
     try {
         $sql = "SELECT * FROM ticket_types";
         if (!$include_inactive) {
             $sql .= " WHERE is_active = 1";
         }
         $sql .= " ORDER BY sort_order";
-        return db_fetch_all($sql);
+        $cache[$key] = db_fetch_all($sql);
+        return $cache[$key];
     } catch (Exception $e) {
         // Fallback for old installations
         return [
@@ -635,7 +657,11 @@ function get_ticket_type($slug)
  */
 function get_statuses()
 {
-    return db_fetch_all("SELECT * FROM statuses ORDER BY sort_order");
+    static $cache = null;
+    if ($cache === null) {
+        $cache = db_fetch_all("SELECT * FROM statuses ORDER BY sort_order");
+    }
+    return $cache;
 }
 
 /**
@@ -643,7 +669,12 @@ function get_statuses()
  */
 function get_status($id)
 {
-    return db_fetch_one("SELECT * FROM statuses WHERE id = ?", [$id]);
+    static $cache = [];
+    $id = (int) $id;
+    if (!isset($cache[$id])) {
+        $cache[$id] = db_fetch_one("SELECT * FROM statuses WHERE id = ?", [$id]);
+    }
+    return $cache[$id];
 }
 
 /**

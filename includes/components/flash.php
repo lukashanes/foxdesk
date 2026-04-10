@@ -16,7 +16,9 @@ $flash_type_map = [
 ];
 $flash_classes = $flash_type_map[$flash_type] ?? 'flash-info';
 ?>
-<div class="flash-message <?php echo $flash_classes; ?>" role="status" aria-live="polite"
+<div class="flash-message <?php echo $flash_classes; ?>"
+    role="<?php echo $flash_type === 'error' ? 'alert' : 'status'; ?>"
+    aria-live="<?php echo $flash_type === 'error' ? 'assertive' : 'polite'; ?>"
     data-flash-type="<?php echo e($flash_type); ?>">
     <div class="flex items-start justify-between gap-4">
         <div class="text-sm"><?php echo e($flash['message']); ?></div>

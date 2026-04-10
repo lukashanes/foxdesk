@@ -11,12 +11,12 @@ $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
 ini_set('session.use_strict_mode', '1');
 ini_set('session.cookie_httponly', '1');
 ini_set('session.cookie_samesite', 'Lax');
-ini_set('session.gc_maxlifetime', '2592000'); // 30 days
+ini_set('session.gc_maxlifetime', (string) SESSION_LIFETIME);
 if ($is_https) {
     ini_set('session.cookie_secure', '1');
 }
 session_set_cookie_params([
-    'lifetime' => 2592000, // 30 days
+    'lifetime' => SESSION_LIFETIME,
     'path' => '/',
     'secure' => $is_https,
     'httponly' => true,
@@ -28,9 +28,11 @@ session_start();
 ini_set('default_charset', 'UTF-8');
 header('Content-Type: text/html; charset=UTF-8');
 
-// Define base path
+// Define base path and constants
 define('BASE_PATH', __DIR__);
-define('APP_VERSION', '0.3.96');
+define('APP_VERSION', '0.3.97');
+define('SESSION_LIFETIME', 2592000); // 30 days
+define('REMEMBER_ME_DURATION', 30 * 86400); // 30 days
 
 // Maintenance mode – shown during update/rollback operations.
 // The .maintenance file is created by apply_update()/rollback_update()

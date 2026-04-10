@@ -244,22 +244,31 @@ function hash_reset_token($token)
  */
 function get_client_ip()
 {
-    $candidates = [
-        'HTTP_CF_CONNECTING_IP',
-        'HTTP_X_FORWARDED_FOR',
-        'HTTP_X_REAL_IP',
-        'REMOTE_ADDR'
-    ];
-    foreach ($candidates as $key) {
-        if (!empty($_SERVER[$key])) {
-            $ip = trim($_SERVER[$key]);
-            if (strpos($ip, ',') !== false) {
-                $ip = trim(explode(',', $ip)[0]);
+    $remote = trim($_SERVER['REMOTE_ADDR'] ?? '');
+
+    // Only trust forwarded headers when request comes through a local reverse proxy
+    $is_trusted_proxy = $remote !== '' && (
+        str_starts_with($remote, '127.') ||
+        str_starts_with($remote, '10.') ||
+        str_starts_with($remote, '172.') ||
+        str_starts_with($remote, '192.168.') ||
+        $remote === '::1'
+    );
+
+    if ($is_trusted_proxy) {
+        $candidates = ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP'];
+        foreach ($candidates as $key) {
+            if (!empty($_SERVER[$key])) {
+                $ip = trim($_SERVER[$key]);
+                if (strpos($ip, ',') !== false) {
+                    $ip = trim(explode(',', $ip)[0]);
+                }
+                if ($ip !== '') return $ip;
             }
-            return $ip;
         }
     }
-    return '';
+
+    return $remote;
 }
 
 /**

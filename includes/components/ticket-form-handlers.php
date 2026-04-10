@@ -260,13 +260,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $cc_users = isset($_POST['cc_users']) ? array_map('intval', $_POST['cc_users']) : [];
         $stop_timer = is_agent() && isset($_POST['stop_timer']);
-        $manual_start_input = trim($_POST['manual_start'] ?? '');
-        $manual_end_input = trim($_POST['manual_end'] ?? '');
         $manual_date_input = trim($_POST['manual_date'] ?? date('Y-m-d'));
         $manual_start_time_input = trim($_POST['manual_start_time'] ?? '');
         $manual_end_time_input = trim($_POST['manual_end_time'] ?? '');
+        $manual_start_input = '';
+        $manual_end_input = '';
 
-        if ($manual_start_input === '' && $manual_end_input === '' && ($manual_start_time_input !== '' || $manual_end_time_input !== '')) {
+        if ($manual_start_time_input !== '' || $manual_end_time_input !== '') {
             $base_date = $manual_date_input !== '' ? $manual_date_input : date('Y-m-d');
             $manual_start_input = $base_date . 'T' . $manual_start_time_input;
             // Midnight overflow: if end time is earlier than start time, it's the next day

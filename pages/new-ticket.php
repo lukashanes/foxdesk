@@ -63,7 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $assignee_id = (is_admin() || is_agent()) && !empty($_POST['assignee_id']) ? (int) $_POST['assignee_id'] : null;
         $on_behalf_of = (is_admin() || is_agent()) && !empty($_POST['on_behalf_of']) ? (int) $_POST['on_behalf_of'] : null;
         $status_id = (is_admin() || is_agent()) && !empty($_POST['status_id']) ? (int) $_POST['status_id'] : null;
-        $manual_duration_minutes = (int) ($_POST['manual_duration_minutes'] ?? 0);
         // Manual time entry (start/end times)
         $manual_date = trim($_POST['manual_date'] ?? '');
         $manual_start_time = trim($_POST['manual_start_time'] ?? '');
@@ -134,20 +133,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             ]);
                             $manual_time_logged = true;
                         }
-                    }
-                }
-
-                // Fallback: simple duration in minutes
-                if (!$manual_time_logged && $manual_duration_minutes > 0) {
-                    if (function_exists('add_manual_time_entry')) {
-                        add_manual_time_entry($ticket_id, $user['id'], [
-                            'started_at' => date('Y-m-d H:i:s', time() - ($manual_duration_minutes * 60)),
-                            'ended_at' => date('Y-m-d H:i:s'),
-                            'duration_minutes' => $manual_duration_minutes,
-                            'summary' => t('Ticket creation'),
-                            'is_billable' => 1,
-                        ]);
-                        $manual_time_logged = true;
                     }
                 }
 
@@ -302,7 +287,8 @@ include BASE_PATH . '/includes/components/page-header.php';
         </div>
     <?php endif; ?>
 
-    <form method="post" enctype="multipart/form-data" class="card card-body" id="new-ticket-form">
+    <form method="post" enctype="multipart/form-data" class="card card-body" id="new-ticket-form"
+        onsubmit="var b=this.querySelector('[type=submit]');if(b){b.disabled=true;b.style.opacity='0.6';}">
         <?php echo csrf_field(); ?>
         <div class="space-y-4">
             <!-- Title -->
@@ -366,12 +352,12 @@ include BASE_PATH . '/includes/components/page-header.php';
                 <input type="hidden" name="status_id" id="status_id" value="<?php echo (int) ($statuses[0]['id'] ?? 0); ?>">
                 <div class="flex flex-wrap gap-1.5 items-center" id="status-selector">
                     <?php foreach ($statuses as $i => $status): ?>
-                        <div class="option-pill <?php echo $i === 0 ? 'selected' : ''; ?>"
+                        <button type="button" class="option-pill <?php echo $i === 0 ? 'selected' : ''; ?>"
                             data-value="<?php echo (int) $status['id']; ?>" data-group="status"
                             onclick="selectOption(this, 'status_id')"
                             style="--pill-color: <?php echo e($status['color'] ?? '#6b7280'); ?>">
                             <span><?php echo e($status['name']); ?></span>
-                        </div>
+                        </button>
                     <?php endforeach; ?>
                 </div>
             </div>
@@ -395,13 +381,13 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 <?php foreach ($priorities as $priority):
                                     $is_selected = ($default_priority_id == $priority['id']);
                                     ?>
-                                    <div class="option-pill <?php echo $is_selected ? 'selected' : ''; ?>"
+                                    <button type="button" class="option-pill <?php echo $is_selected ? 'selected' : ''; ?>"
                                         data-value="<?php echo $priority['id']; ?>" data-group="priority"
                                         onclick="selectOption(this, 'priority_id')"
                                         style="--pill-color: <?php echo e($priority['color']); ?>">
                                         <span class="pill-icon"><?php echo get_icon($priority['icon'] ?? 'flag', 'w-3.5 h-3.5'); ?></span>
                                         <span><?php echo e($priority['name']); ?></span>
-                                    </div>
+                                    </button>
                                 <?php endforeach; ?>
                             </div>
                         </div>
@@ -414,13 +400,13 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 <?php foreach ($ticket_types as $tt):
                                     $is_selected = ($default_type_slug === $tt['slug']);
                                     ?>
-                                    <div class="option-pill <?php echo $is_selected ? 'selected' : ''; ?>"
+                                    <button type="button" class="option-pill <?php echo $is_selected ? 'selected' : ''; ?>"
                                         data-value="<?php echo e($tt['slug']); ?>" data-group="type"
                                         onclick="selectOption(this, 'type')"
                                         style="--pill-color: <?php echo e($tt['color']); ?>">
                                         <span class="pill-icon"><?php echo get_icon($tt['icon'], 'w-3.5 h-3.5'); ?></span>
                                         <span><?php echo e($tt['name']); ?></span>
-                                    </div>
+                                    </button>
                                 <?php endforeach; ?>
                             </div>
                         </div>
@@ -530,7 +516,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         style="color: var(--text-muted);" title="<?php echo e(t('Manual entry')); ?>">
                         <?php echo get_icon('pen', 'w-4 h-4'); ?>
                     </button>
-                    <input type="hidden" name="manual_duration_minutes" id="nt-manual-duration" value="0">
+
                 <?php endif; ?>
             </div>
             <div class="flex items-center gap-3">

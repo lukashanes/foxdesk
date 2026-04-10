@@ -1,14 +1,23 @@
 {
-    "version": "0.3.96",
-    "date": "2026-04-09",
+    "version": "0.3.97",
+    "date": "2026-04-10",
     "min_php": "8.1",
     "changelog": [
-        "New ticket: status selector moved out of Advanced section — visible immediately as pill selector",
-        "New ticket: timer now persists across page navigation and browser restarts via localStorage",
-        "New ticket: timer automatically stops and saves when ticket is submitted (no more orphaned running timers)",
-        "New ticket: draft timer appears in sidebar Active Timers on all pages with live elapsed time",
-        "New ticket: browser notification when draft timer exceeds configured alert threshold (Settings > Time Tracking)",
-        "New ticket: removed dead code path for manual_duration_minutes fallback"
+        "Performance: static caching for statuses, priorities, ticket types, organizations, users — eliminates repeated DB queries",
+        "Performance: translation language resolved once per request instead of 200+ times",
+        "Performance: replaced inline SHOW COLUMNS with cached column_exists() across 5 pages",
+        "Performance: bulk ticket operations use single IN() query instead of N+1 individual fetches",
+        "Performance: ticket list attachment count uses LEFT JOIN instead of correlated subquery",
+        "Security: get_client_ip() only trusts forwarded headers from local reverse proxy",
+        "Security: integer cast on all echoed ticket IDs in templates",
+        "UX: option pills (status, priority, type) converted to buttons — keyboard accessible",
+        "UX: flash error messages use role=alert for screen readers",
+        "UX: bulk actions on ticket list now preserve active filters after redirect",
+        "UX: double-submit protection on new ticket form",
+        "Dark mode: fixed internal comment editor missing dark theme overrides",
+        "Dark mode: fixed rich-content link hover color in dark mode",
+        "Code: defined SESSION_LIFETIME and REMEMBER_ME_DURATION constants",
+        "Code: removed dead code — ghost JS selectors, unused POST reads, dead fallback path"
     ],
     "delete_files": []
 }

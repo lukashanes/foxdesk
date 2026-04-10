@@ -8,11 +8,7 @@ $page = 'admin';
 
 // Tab: 'users' (default) or 'ai_agents'
 $tab = ($_GET['tab'] ?? '') === 'ai_agents' ? 'ai_agents' : 'users';
-$ai_agent_col_exists = false;
-try {
-    $ai_agent_col_exists = (bool) db_fetch_one("SHOW COLUMNS FROM users LIKE 'is_ai_agent'");
-} catch (Throwable $e) {
-}
+$ai_agent_col_exists = column_exists('users', 'is_ai_agent');
 
 // Filter parameters
 $filter_search = trim($_GET['search'] ?? '');
@@ -36,49 +32,13 @@ try {
     $organizations = [];
 }
 
-$users_has_column = function ($column) {
-    static $cache = [];
-    $safe_column = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $column);
-    if ($safe_column === '') {
-        return false;
-    }
-    if (array_key_exists($safe_column, $cache)) {
-        return $cache[$safe_column];
-    }
-    try {
-        $cache[$safe_column] = (bool) db_fetch_one("SHOW COLUMNS FROM users LIKE '{$safe_column}'");
-    } catch (Throwable $e) {
-        $cache[$safe_column] = false;
-    }
-    return $cache[$safe_column];
-};
-
-$email_pref_column_exists = $users_has_column('email_notifications_enabled');
-$in_app_pref_column_exists = $users_has_column('in_app_notifications_enabled');
-$in_app_sound_column_exists = $users_has_column('in_app_sound_enabled');
+$email_pref_column_exists = column_exists('users', 'email_notifications_enabled');
+$in_app_pref_column_exists = column_exists('users', 'in_app_notifications_enabled');
+$in_app_sound_column_exists = column_exists('users', 'in_app_sound_enabled');
 $notification_preferences_available = $email_pref_column_exists && $in_app_pref_column_exists && $in_app_sound_column_exists;
-$contact_phone_column_exists = $users_has_column('contact_phone');
-$notes_column_exists = $users_has_column('notes');
-$deleted_at_column_exists = $users_has_column('deleted_at');
-
-$table_has_column = function ($table, $column) {
-    static $cache = [];
-    $safe_table = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $table);
-    $safe_column = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $column);
-    if ($safe_table === '' || $safe_column === '') {
-        return false;
-    }
-    $key = $safe_table . '.' . $safe_column;
-    if (array_key_exists($key, $cache)) {
-        return $cache[$key];
-    }
-    try {
-        $cache[$key] = (bool) db_fetch_one("SHOW COLUMNS FROM `{$safe_table}` LIKE '{$safe_column}'");
-    } catch (Throwable $e) {
-        $cache[$key] = false;
-    }
-    return $cache[$key];
-};
+$contact_phone_column_exists = column_exists('users', 'contact_phone');
+$notes_column_exists = column_exists('users', 'notes');
+$deleted_at_column_exists = column_exists('users', 'deleted_at');
 
 $get_user_fk_references = function () {
     try {
@@ -433,7 +393,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ], 'info', 'users');
         }
 
-        $ai_agent_col = $users_has_column('is_ai_agent');
+        $ai_agent_col = column_exists('users', 'is_ai_agent');
         $target_user_sql = "SELECT id, email, role, is_active"
             . ($ai_agent_col ? ", is_ai_agent" : "")
             . ($deleted_at_column_exists ? ", deleted_at" : "")
@@ -511,13 +471,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($deleted_at_column_exists) {
                             $purge_updates['deleted_at'] = date('Y-m-d H:i:s');
                         }
-                        if ($table_has_column('users', 'organization_id')) {
+                        if (column_exists('users', 'organization_id')) {
                             $purge_updates['organization_id'] = null;
                         }
-                        if ($table_has_column('users', 'avatar')) {
+                        if (column_exists('users', 'avatar')) {
                             $purge_updates['avatar'] = null;
                         }
-                        if ($table_has_column('users', 'cost_rate')) {
+                        if (column_exists('users', 'cost_rate')) {
                             $purge_updates['cost_rate'] = 0;
                         }
                         if ($contact_phone_column_exists) {

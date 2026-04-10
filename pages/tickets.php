@@ -15,21 +15,22 @@ if ($is_archive && !is_admin()) {
 $page_title = $is_archive ? t('Archive') : t('Tickets');
 $page = 'tickets';
 
+// Preserve current filter params for redirects after bulk actions
+$_redirect_params = [];
+foreach (['archived', 'status', 'priority', 'assignee', 'type', 'search', 'sort', 'view', 'tag', 'organization'] as $_fk) {
+    if (isset($_GET[$_fk]) && $_GET[$_fk] !== '') $_redirect_params[$_fk] = $_GET[$_fk];
+}
+
 // Bulk actions (archive/delete/update)
 $collect_editable_tickets = function ($ticket_ids) use ($user) {
     $editable = [];
     $unique_ids = array_values(array_unique(array_filter(array_map('intval', (array) $ticket_ids))));
+    if (empty($unique_ids)) return $editable;
+    $all_tickets = function_exists('get_tickets_by_ids') ? get_tickets_by_ids($unique_ids) : [];
     foreach ($unique_ids as $ticket_id) {
-        if ($ticket_id <= 0) {
-            continue;
-        }
-        $ticket_item = get_ticket($ticket_id);
-        if (!$ticket_item) {
-            continue;
-        }
-        if (!can_see_ticket($ticket_item, $user) || !can_edit_ticket($ticket_item, $user)) {
-            continue;
-        }
+        $ticket_item = $all_tickets[$ticket_id] ?? null;
+        if (!$ticket_item) continue;
+        if (!can_see_ticket($ticket_item, $user) || !can_edit_ticket($ticket_item, $user)) continue;
         $editable[$ticket_id] = $ticket_item;
     }
     return $editable;
@@ -61,20 +62,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_agent()) {
         } else {
             flash(t('No tickets selected.'), 'error');
         }
-        redirect('tickets', ['archived' => '1']);
+        redirect('tickets', $_redirect_params + ['archived' => '1']);
     }
 
     if (isset($_POST['bulk_archive']) && !$is_archive) {
         $archived_count = 0;
-        try {
-            $archive_column_exists = (bool) db_fetch_one("SHOW COLUMNS FROM tickets LIKE 'is_archived'");
-        } catch (Exception $e) {
-            $archive_column_exists = false;
-        }
+        $archive_column_exists = column_exists('tickets', 'is_archived');
 
         if (!$archive_column_exists) {
             flash(t('Archive is not available on this installation yet.'), 'error');
-            redirect('tickets');
+            redirect('tickets', $_redirect_params);
         }
 
         foreach ($editable_tickets as $ticket_id => $ticket_item) {
@@ -89,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_agent()) {
         } else {
             flash(t('No tickets selected.'), 'error');
         }
-        redirect('tickets');
+        redirect('tickets', $_redirect_params);
     }
 
     if (isset($_POST['bulk_update']) && !$is_archive) {
@@ -111,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_agent()) {
                 $organization_exists = $organization_id_candidate > 0 && get_organization($organization_id_candidate);
                 if (!$organization_exists) {
                     flash(t('Selected organization is not available.'), 'error');
-                    redirect('tickets');
+                    redirect('tickets', $_redirect_params);
                 }
                 $base_update_data['organization_id'] = $organization_id_candidate;
                 $has_update = true;
@@ -147,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_agent()) {
 
         if (!$has_update) {
             flash(t('Select at least one field to update.'), 'error');
-            redirect('tickets');
+            redirect('tickets', $_redirect_params);
         }
 
         $updated_count = 0;
@@ -176,7 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_agent()) {
         } else {
             flash(t('No tickets selected.'), 'error');
         }
-        redirect('tickets');
+        redirect('tickets', $_redirect_params);
     }
 }
 
@@ -292,15 +289,8 @@ if ($due_date_filter !== '') {
 if (!empty($sort) && $sort !== 'newest') {
     $filters['sort'] = $sort;
 }
-// Only set is_archived filter if we're specifically viewing archive or regular list
-// This prevents errors if the column doesn't exist yet
-try {
-    $check = db_fetch_one("SHOW COLUMNS FROM tickets LIKE 'is_archived'");
-    if ($check) {
-        $filters['is_archived'] = $is_archive ? 1 : 0;
-    }
-} catch (Exception $e) {
-    // Column check failed, don't filter by archive
+if (column_exists('tickets', 'is_archived')) {
+    $filters['is_archived'] = $is_archive ? 1 : 0;
 }
 
 // VISIBILITY CONTROL
@@ -1399,7 +1389,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                 <div class="p-4 ticket-list-item<?php echo $is_overdue_mobile ? ' ticket-overdue' : ''; ?>" style="border-left: 5px solid <?php echo e($ticket['status_color']); ?>;">
                     <div class="flex items-start gap-3">
                         <?php if ($bulk_actions_enabled): ?>
-                            <input type="checkbox" name="ticket_ids[]" value="<?php echo $ticket['id']; ?>"
+                            <input type="checkbox" name="ticket_ids[]" value="<?php echo (int) $ticket['id']; ?>"
                                 class="bulk-checkbox hidden mt-1 rounded" form="bulk-actions-form" onclick="event.stopPropagation()">
                         <?php endif; ?>
                             <a href="<?php echo ticket_url($ticket); ?>" class="flex-1 min-w-0">
@@ -1615,7 +1605,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <td class="px-3 py-2.5 whitespace-nowrap align-top">
                                 <div class="flex items-center gap-1.5">
                                     <?php if ($bulk_actions_enabled): ?>
-                                        <input type="checkbox" name="ticket_ids[]" value="<?php echo $ticket['id']; ?>"
+                                        <input type="checkbox" name="ticket_ids[]" value="<?php echo (int) $ticket['id']; ?>"
                                             class="bulk-checkbox hidden rounded flex-shrink-0" form="bulk-actions-form">
                                     <?php endif; ?>
                                     <div>
