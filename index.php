@@ -6,6 +6,10 @@
  * Works on any PHP hosting (PHP 8.1+)
  */
 
+// Constants (must be defined before session init)
+define('SESSION_LIFETIME', 2592000); // 30 days
+define('REMEMBER_ME_DURATION', 30 * 86400); // 30 days
+
 // Start session (hardened settings)
 $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
 ini_set('session.use_strict_mode', '1');
@@ -28,11 +32,9 @@ session_start();
 ini_set('default_charset', 'UTF-8');
 header('Content-Type: text/html; charset=UTF-8');
 
-// Define base path and constants
+// Define base path
 define('BASE_PATH', __DIR__);
 define('APP_VERSION', '0.3.97');
-define('SESSION_LIFETIME', 2592000); // 30 days
-define('REMEMBER_ME_DURATION', 30 * 86400); // 30 days
 
 // Maintenance mode – shown during update/rollback operations.
 // The .maintenance file is created by apply_update()/rollback_update()
