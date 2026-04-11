@@ -421,8 +421,7 @@ function t($key, $replacements = [])
     if ($translations === null) {
         $translations = require BASE_PATH . '/includes/translations.php';
     }
-    static $lang = null;
-    if ($lang === null) $lang = get_app_language();
+    $lang = get_app_language();
     $text = $translations[$lang][$key] ?? $translations['en'][$key] ?? $key;
     foreach ($replacements as $name => $value) {
         $text = str_replace('{' . $name . '}', $value, $text);

@@ -10,6 +10,76 @@
  *   Error:   {"success": false, "error": "message"}
  */
 
+/**
+ * Format a ticket code consistently with the rest of the app.
+ */
+function api_agent_ticket_code($ticket_id)
+{
+    $ticket_id = (int) $ticket_id;
+    return function_exists('get_ticket_code') ? get_ticket_code($ticket_id) : ('TK-' . $ticket_id);
+}
+
+/**
+ * Apply the current agent's visibility scope to a ticket query filter set.
+ */
+function api_agent_apply_ticket_scope_filters(array &$filters, array $user): void
+{
+    if (($user['role'] ?? '') === 'admin') {
+        return;
+    }
+
+    $permissions = get_user_permissions((int) $user['id']) ?? [];
+    $scope = $permissions['ticket_scope'] ?? 'assigned';
+
+    switch ($scope) {
+        case 'all':
+            break;
+        case 'organization':
+            $filters['current_user'] = $user;
+            $filters['scope'] = 'organization';
+            break;
+        case 'assigned':
+        default:
+            $filters['agent_id'] = (int) $user['id'];
+            break;
+    }
+}
+
+/**
+ * Resolve a ticket from request input and enforce access for the current agent.
+ */
+function api_agent_resolve_ticket(array $source, array $user, string $hash_key, string $id_key)
+{
+    $hash = trim((string) ($source[$hash_key] ?? ''));
+    $ticket_id = (int) ($source[$id_key] ?? 0);
+    $ticket = null;
+
+    if ($hash !== '') {
+        $ticket = get_ticket_by_hash($hash);
+    } elseif ($ticket_id > 0) {
+        $ticket = get_ticket($ticket_id);
+    } else {
+        api_error('Provide "' . $hash_key . '" or "' . $id_key . '"', 422);
+    }
+
+    if (!$ticket) {
+        api_error('Ticket not found', 404);
+    }
+
+    if (!can_see_ticket($ticket, $user)) {
+        if (function_exists('log_security_event')) {
+            log_security_event('agent_api_ticket_access_denied', (int) $user['id'], json_encode([
+                'ticket_id' => (int) ($ticket['id'] ?? 0),
+                'hash_key' => $hash_key,
+                'id_key' => $id_key,
+            ], JSON_UNESCAPED_UNICODE));
+        }
+        api_error('Forbidden', 403);
+    }
+
+    return $ticket;
+}
+
 // =============================================================================
 // AGENT-ME — current token's user info
 // =============================================================================
@@ -170,7 +240,7 @@ function api_agent_create_ticket()
     $response = [
         'ticket_id' => (int) $ticket_id,
         'ticket_hash' => $ticket['hash'] ?? null,
-        'ticket_code' => 'T-' . $ticket_id,
+        'ticket_code' => api_agent_ticket_code($ticket_id),
     ];
 
     // Auto-log time if duration_minutes provided
@@ -220,6 +290,7 @@ function api_agent_list_tickets()
         api_error('Forbidden — agent or admin role required', 403);
     }
 
+    $user = current_user();
     $filters = [];
 
     if (!empty($_GET['status'])) {
@@ -258,20 +329,21 @@ function api_agent_list_tickets()
         $filters['sort'] = $_GET['sort'];
     }
 
-    $limit = min((int) ($_GET['limit'] ?? 50), 200);
-    $offset = (int) ($_GET['offset'] ?? 0);
+    api_agent_apply_ticket_scope_filters($filters, $user);
 
-    // get_tickets returns all matching; we slice manually
-    $all_tickets = get_tickets($filters);
-    $total = count($all_tickets);
-    $sliced = array_slice($all_tickets, $offset, $limit);
+    $limit = max(1, min((int) ($_GET['limit'] ?? 50), 200));
+    $offset = max(0, (int) ($_GET['offset'] ?? 0));
+    $total = get_tickets_count($filters);
+    $filters['limit'] = $limit;
+    $filters['offset'] = $offset;
+    $tickets = get_tickets($filters);
 
     $out = [];
-    foreach ($sliced as $t) {
+    foreach ($tickets as $t) {
         $out[] = [
             'id' => (int) $t['id'],
             'hash' => $t['hash'] ?? null,
-            'ticket_code' => 'T-' . $t['id'],
+            'ticket_code' => api_agent_ticket_code($t['id']),
             'title' => $t['title'],
             'description' => mb_substr($t['description'] ?? '', 0, 300),
             'status' => $t['status_name'] ?? null,
@@ -305,36 +377,8 @@ function api_agent_get_ticket()
         api_error('Forbidden — agent or admin role required', 403);
     }
 
-    $hash = $_GET['hash'] ?? '';
-    $id = $_GET['id'] ?? '';
-
-    $ticket = null;
-    if (!empty($hash)) {
-        $ticket = get_ticket_by_hash($hash);
-    } elseif (!empty($id)) {
-        $ticket = db_fetch_one(
-            "SELECT t.*,
-                    s.name as status_name, s.color as status_color,
-                    u.first_name, u.last_name, u.email,
-                    o.name as organization_name,
-                    p.name as priority_name, p.color as priority_color,
-                    a.first_name as assignee_first_name, a.last_name as assignee_last_name
-             FROM tickets t
-             LEFT JOIN statuses s ON t.status_id = s.id
-             LEFT JOIN users u ON t.user_id = u.id
-             LEFT JOIN organizations o ON t.organization_id = o.id
-             LEFT JOIN priorities p ON t.priority_id = p.id
-             LEFT JOIN users a ON t.assignee_id = a.id
-             WHERE t.id = ?",
-            [(int) $id]
-        );
-    } else {
-        api_error('Provide "hash" or "id" parameter', 422);
-    }
-
-    if (!$ticket) {
-        api_error('Ticket not found', 404);
-    }
+    $user = current_user();
+    $ticket = api_agent_resolve_ticket($_GET, $user, 'hash', 'id');
 
     // Get time breakdown
     $time_breakdown = ['total' => 0, 'human' => 0, 'ai' => 0];
@@ -344,8 +388,8 @@ function api_agent_get_ticket()
 
     // Get comments
     $comments = [];
-    if (function_exists('get_comments')) {
-        $raw_comments = get_comments($ticket['id']);
+    if (function_exists('get_ticket_comments')) {
+        $raw_comments = get_ticket_comments($ticket['id']);
         foreach ($raw_comments as $c) {
             $comments[] = [
                 'id' => (int) $c['id'],
@@ -384,7 +428,7 @@ function api_agent_get_ticket()
         'ticket' => [
             'id' => (int) $ticket['id'],
             'hash' => $ticket['hash'] ?? null,
-            'ticket_code' => 'T-' . $ticket['id'],
+            'ticket_code' => api_agent_ticket_code($ticket['id']),
             'title' => $ticket['title'],
             'description' => $ticket['description'] ?? '',
             'type' => $ticket['type'] ?? 'general',
@@ -427,33 +471,13 @@ function api_agent_add_comment()
     }
 
     $input = get_json_input();
-
-    // Resolve ticket
-    $ticket_id = null;
-    if (!empty($input['ticket_hash'])) {
-        $tid = null;
-        if (function_exists('get_ticket_id_by_hash')) {
-            $tid = get_ticket_id_by_hash($input['ticket_hash']);
-        }
-        $ticket_id = $tid;
-    } elseif (!empty($input['ticket_id'])) {
-        $ticket_id = (int) $input['ticket_id'];
-    }
-
-    if (!$ticket_id) {
-        api_error('Provide "ticket_hash" or "ticket_id"', 422);
-    }
     if (empty($input['content'])) {
         api_error('Field "content" is required', 422);
     }
 
-    // Verify ticket exists
-    $ticket = db_fetch_one("SELECT id FROM tickets WHERE id = ?", [$ticket_id]);
-    if (!$ticket) {
-        api_error('Ticket not found', 404);
-    }
-
     $user = current_user();
+    $ticket = api_agent_resolve_ticket($input, $user, 'ticket_hash', 'ticket_id');
+    $ticket_id = (int) $ticket['id'];
     $is_internal = !empty($input['is_internal']) ? 1 : 0;
 
     $comment_id = add_comment($ticket_id, $user['id'], $input['content'], $is_internal);
@@ -510,20 +534,6 @@ function api_agent_update_status()
 
     $input = get_json_input();
 
-    // Resolve ticket
-    $ticket_id = null;
-    if (!empty($input['ticket_hash'])) {
-        if (function_exists('get_ticket_id_by_hash')) {
-            $ticket_id = get_ticket_id_by_hash($input['ticket_hash']);
-        }
-    } elseif (!empty($input['ticket_id'])) {
-        $ticket_id = (int) $input['ticket_id'];
-    }
-
-    if (!$ticket_id) {
-        api_error('Provide "ticket_hash" or "ticket_id"', 422);
-    }
-
     // Resolve status
     $status_id = null;
     if (!empty($input['status_id'])) {
@@ -539,11 +549,9 @@ function api_agent_update_status()
         api_error('Provide "status_id" or "status" (name)', 422);
     }
 
-    // Verify ticket exists
-    $ticket = db_fetch_one("SELECT id, status_id FROM tickets WHERE id = ?", [$ticket_id]);
-    if (!$ticket) {
-        api_error('Ticket not found', 404);
-    }
+    $user = current_user();
+    $ticket = api_agent_resolve_ticket($input, $user, 'ticket_hash', 'ticket_id');
+    $ticket_id = (int) $ticket['id'];
 
     // Verify status exists
     $status = db_fetch_one("SELECT id, name FROM statuses WHERE id = ?", [$status_id]);
@@ -555,7 +563,6 @@ function api_agent_update_status()
 
     // Log activity
     if (function_exists('log_activity')) {
-        $user = current_user();
         log_activity($ticket_id, $user['id'], 'status_changed', json_encode([
             'old_status_id' => (int) $ticket['status_id'],
             'new_status_id' => $status_id,
@@ -564,7 +571,6 @@ function api_agent_update_status()
 
     // In-app notification for status change
     if (function_exists('dispatch_ticket_notifications')) {
-        $user = $user ?? current_user();
         $old_status_row = db_fetch_one("SELECT name FROM statuses WHERE id = ?", [(int) $ticket['status_id']]);
         dispatch_ticket_notifications('status_changed', $ticket_id, $user['id'], [
             'old_status' => $old_status_row['name'] ?? '',
@@ -594,32 +600,14 @@ function api_agent_log_time()
 
     $input = get_json_input();
 
-    // Resolve ticket
-    $ticket_id = null;
-    if (!empty($input['ticket_hash'])) {
-        if (function_exists('get_ticket_id_by_hash')) {
-            $ticket_id = get_ticket_id_by_hash($input['ticket_hash']);
-        }
-    } elseif (!empty($input['ticket_id'])) {
-        $ticket_id = (int) $input['ticket_id'];
-    }
-
-    if (!$ticket_id) {
-        api_error('Provide "ticket_hash" or "ticket_id"', 422);
-    }
-
     // Duration is required
     if (empty($input['duration_minutes']) || (int) $input['duration_minutes'] < 1) {
         api_error('Field "duration_minutes" is required (positive integer)', 422);
     }
 
-    // Verify ticket exists
-    $ticket = db_fetch_one("SELECT id FROM tickets WHERE id = ?", [$ticket_id]);
-    if (!$ticket) {
-        api_error('Ticket not found', 404);
-    }
-
     $user = current_user();
+    $ticket = api_agent_resolve_ticket($input, $user, 'ticket_hash', 'ticket_id');
+    $ticket_id = (int) $ticket['id'];
     $duration = (int) $input['duration_minutes'];
     $now = date('Y-m-d H:i:s');
     $started_at = $input['started_at'] ?? $now;
@@ -668,4 +656,3 @@ function api_agent_log_time()
         'source' => $source,
     ]);
 }
-

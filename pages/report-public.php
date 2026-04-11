@@ -10,9 +10,6 @@ set_time_limit(60);
 // Enable output buffering to prevent partial output
 ob_start();
 
-// This is a public page - no authentication required
-$page_title = t('Time Report');
-
 // Get report UUID from token parameter
 $token = $_GET['token'] ?? '';
 
@@ -27,6 +24,14 @@ $template = get_report_template_by_uuid($token);
 if (!$template) {
     http_response_code(404);
     die('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Error</title></head><body style="font-family:sans-serif;max-width:600px;margin:100px auto;text-align:center;"><h1 style="color:#dc2626;">' . e(t('Report not found or access denied')) . '</h1></body></html>');
+}
+
+// Set language for this report (save original and override temporarily)
+$_report_original_lang = $_SESSION['lang'] ?? null;
+$_report_original_override = $_SESSION['lang_override'] ?? null;
+if (!empty($template['report_language'])) {
+    $_SESSION['lang'] = $template['report_language'];
+    $_SESSION['lang_override'] = true;
 }
 
 // Check if report has expired
@@ -45,13 +50,8 @@ if (!empty($template['expires_at'])) {
     }
 }
 
-// Set language for this report (save original and override temporarily)
-$_report_original_lang = $_SESSION['lang'] ?? null;
-$_report_original_override = $_SESSION['lang_override'] ?? null;
-if (!empty($template['report_language'])) {
-    $_SESSION['lang'] = $template['report_language'];
-    $_SESSION['lang_override'] = true;
-}
+// This is a public page - no authentication required
+$page_title = t('Time Report');
 
 // Generate fresh data (no caching per requirements)
 $time_entries = get_report_time_entries($template);
@@ -652,4 +652,3 @@ if ($_report_original_override !== null) {
 }
 // Flush output buffer
 ob_end_flush();
-

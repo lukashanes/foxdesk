@@ -1,23 +1,13 @@
 {
-    "version": "0.3.97",
-    "date": "2026-04-10",
+    "version": "0.3.98",
+    "date": "2026-04-11",
     "min_php": "8.1",
     "changelog": [
-        "Performance: static caching for statuses, priorities, ticket types, organizations, users — eliminates repeated DB queries",
-        "Performance: translation language resolved once per request instead of 200+ times",
-        "Performance: replaced inline SHOW COLUMNS with cached column_exists() across 5 pages",
-        "Performance: bulk ticket operations use single IN() query instead of N+1 individual fetches",
-        "Performance: ticket list attachment count uses LEFT JOIN instead of correlated subquery",
-        "Security: get_client_ip() only trusts forwarded headers from local reverse proxy",
-        "Security: integer cast on all echoed ticket IDs in templates",
-        "UX: option pills (status, priority, type) converted to buttons — keyboard accessible",
-        "UX: flash error messages use role=alert for screen readers",
-        "UX: bulk actions on ticket list now preserve active filters after redirect",
-        "UX: double-submit protection on new ticket form",
-        "Dark mode: fixed internal comment editor missing dark theme overrides",
-        "Dark mode: fixed rich-content link hover color in dark mode",
-        "Code: defined SESSION_LIFETIME and REMEMBER_ME_DURATION constants",
-        "Code: removed dead code — ghost JS selectors, unused POST reads, dead fallback path"
+        "Security: agent API ticket listing now respects agent ticket scope",
+        "Security: agent API comment, status, and time endpoints now enforce ticket access",
+        "API: agent ticket detail now returns comments and uses standard ticket codes",
+        "Reports: public report language override now applies correctly per report",
+        "Search: quick ticket search excludes archived tickets again"
     ],
     "delete_files": []
 }

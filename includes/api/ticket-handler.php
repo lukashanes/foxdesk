@@ -1055,11 +1055,8 @@ function api_search_tickets() {
         $params[] = $user_id;
     }
 
-    // Exclude archived
-    $archive_sql = '';
-    if (function_exists('ticket_archive_column_exists') && ticket_archive_column_exists()) {
-        $archive_sql = ' AND (t.archived_at IS NULL)';
-    }
+    // Exclude archived tickets when the archive flag exists.
+    $archive_sql = column_exists('tickets', 'is_archived') ? ' AND t.is_archived = 0' : '';
 
     $sql = "SELECT t.id, t.title,
                    s.name AS status_name, s.color AS status_color
@@ -1121,5 +1118,4 @@ function api_get_timeline() {
 
     api_success(['events' => $events]);
 }
-
 
