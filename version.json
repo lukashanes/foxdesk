@@ -1,13 +1,12 @@
 {
-    "version": "0.3.98",
-    "date": "2026-04-11",
+    "version": "0.3.99",
+    "date": "2026-04-16",
     "min_php": "8.1",
     "changelog": [
-        "Security: agent API ticket listing now respects agent ticket scope",
-        "Security: agent API comment, status, and time endpoints now enforce ticket access",
-        "API: agent ticket detail now returns comments and uses standard ticket codes",
-        "Reports: public report language override now applies correctly per report",
-        "Search: quick ticket search excludes archived tickets again"
+        "Tickets list: inline editing of subject, type, due date, company and assignee directly from the row",
+        "Tickets list: compact Quick add toolbar button toggles a collapsible inline row for creating a ticket without leaving the page (including optional time log in minutes)",
+        "Tickets list: dropdowns now render with fixed positioning so they cannot be clipped by table or column overflow",
+        "API: new endpoints quick-subject and quick-create-ticket"
     ],
     "delete_files": []
 }

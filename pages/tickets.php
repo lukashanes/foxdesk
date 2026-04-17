@@ -423,6 +423,18 @@ $filter_users = [];
 if (is_agent()) {
     $filter_users = get_all_users();
 }
+// Inline-edit data: assignable agents + ticket types
+$assignable_agents = [];
+if (is_agent()) {
+    try {
+        $assignable_agents = db_fetch_all(
+            "SELECT id, first_name, last_name FROM users WHERE role IN ('agent', 'admin') AND is_active = 1 ORDER BY first_name"
+        ) ?: [];
+    } catch (Exception $e) {
+        $assignable_agents = [];
+    }
+}
+$ticket_types_list = function_exists('get_ticket_types') ? get_ticket_types() : [];
 $organizations = [];
 if (is_agent()) {
     try {
@@ -559,10 +571,13 @@ $sort_select .= '</select></div>';
 $page_header_actions .= $sort_select;
 
 if ($bulk_actions_enabled && $ticket_view !== 'board') {
-    $page_header_actions .= '<button type="button" onclick="toggleBulkMode()" class="btn btn-ghost" id="bulk-toggle" aria-pressed="false">' . get_icon('check-square', 'mr-1') . e(t('Bulk select')) . '</button>';
+    $page_header_actions .= '<button type="button" onclick="toggleBulkMode()" class="hdr-icon-btn" id="bulk-toggle" aria-pressed="false" title="' . e(t('Bulk select')) . '" aria-label="' . e(t('Bulk select')) . '">' . get_icon('check-square', 'w-4 h-4') . '</button>';
 }
 if (!$is_archive) {
-    $page_header_actions .= '<a href="' . url('new-ticket') . '" class="btn btn-primary">' . get_icon('plus', 'mr-1') . e(t('New ticket')) . '</a>';
+    if (is_agent() || is_admin()) {
+        $page_header_actions .= '<button type="button" id="quick-add-toggle-btn" class="hdr-icon-btn hdr-icon-btn--quick" onclick="window.toggleNewTicketRow && window.toggleNewTicketRow()" title="' . e(t('Quick add')) . '" aria-label="' . e(t('Quick add')) . '">' . get_icon('bolt', 'w-4 h-4') . '</button>';
+    }
+    $page_header_actions .= '<a href="' . url('new-ticket') . '" class="btn btn-primary btn-sm" title="' . e(t('New ticket')) . '">' . get_icon('plus', 'mr-1 w-4 h-4') . e(t('New ticket')) . '</a>';
 }
 
 $build_tag_filter_url = function ($tag_value) use ($is_archive, $normalize_tag_filters, $tag_filters) {
@@ -1484,7 +1499,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 <span class="text-[10px] font-medium uppercase tracking-wider" style="color: var(--text-muted);"><?php echo e(t('Date')); ?></span>
                             </div>
                         </th>
-                        <th class="px-3 py-2.5 text-left" style="overflow:visible">
+                        <th class="px-3 py-2.5 text-left" style="min-width: 260px; max-width: 480px; overflow:visible">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="text-[10px] font-medium uppercase tracking-wider" style="color: var(--text-muted);"><?php echo e(t('Subject')); ?></span>
                                 <div class="flex items-center gap-1.5">
@@ -1561,7 +1576,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                     <?php endforeach; ?>
                                 </select>
                             </th>
-                            <th class="px-3 py-2.5 text-left" style="width: 75px;">
+                            <th class="px-3 py-2.5 text-left" style="width: 110px;">
                                 <span class="text-[10px] font-medium uppercase tracking-wider" style="color: var(--text-muted);"><?php echo e(t('Time')); ?></span>
                             </th>
                         <?php elseif (is_agent()): ?>
@@ -1577,12 +1592,87 @@ include BASE_PATH . '/includes/components/page-header.php';
                                     <?php endforeach; ?>
                                 </select>
                             </th>
+                            <th class="px-3 py-2.5 text-left" style="width: 110px;">
+                                <span class="text-[10px] font-medium uppercase tracking-wider" style="color: var(--text-muted);"><?php echo e(t('Time')); ?></span>
+                            </th>
                         <?php endif; ?>
                         <input type="hidden" name="created_date" value="<?php echo e($created_date_value); ?>">
                         <input type="hidden" name="sort" value="<?php echo e($sort); ?>">
                     </tr>
                 </thead>
                 <tbody>
+                <?php if ((is_agent() || is_admin()) && !$is_archive): ?>
+                    <tr id="new-ticket-row" class="new-ticket-row" style="border-left: 5px solid var(--border-light); background: var(--surface-secondary); display: none;">
+                        <td class="px-3 py-1.5 whitespace-nowrap align-middle text-center">
+                            <button type="button" id="new-ticket-submit-btn"
+                                    class="nt-plus-btn"
+                                    title="<?php echo e(t('Add ticket')); ?>">
+                                <?php echo get_icon('plus', 'w-4 h-4'); ?>
+                            </button>
+                        </td>
+                        <td class="px-3 py-1.5 align-middle">
+                            <input type="text" id="new-ticket-subject"
+                                   class="nt-input w-full"
+                                   placeholder="<?php echo e(t('New ticket subject — press Enter')); ?>"
+                                   maxlength="500">
+                            <?php if (!empty($ticket_types_list)): ?>
+                            <select id="new-ticket-type" class="nt-input nt-input-sm mt-1 w-full" style="font-size: 10px;">
+                                <option value=""><?php echo e(t('Type')); ?></option>
+                                <?php foreach ($ticket_types_list as $tt): ?>
+                                    <option value="<?php echo e($tt['slug']); ?>"><?php echo e($tt['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?php endif; ?>
+                        </td>
+                        <td class="px-2 py-1.5 align-middle">
+                            <select id="new-ticket-status" class="nt-input w-full">
+                                <?php foreach ($statuses as $st): ?>
+                                    <option value="<?php echo (int)$st['id']; ?>"><?php echo e($st['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                        <td class="px-2 py-1.5 align-middle">
+                            <select id="new-ticket-priority" class="nt-input w-full">
+                                <option value=""><?php echo e(t('Priority')); ?></option>
+                                <?php foreach ($priorities as $pr): ?>
+                                    <option value="<?php echo (int)$pr['id']; ?>"><?php echo e($pr['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                        <td class="px-2 py-1.5 align-middle">
+                            <input type="date" id="new-ticket-due" class="nt-input w-full">
+                        </td>
+                        <?php if (is_admin()): ?>
+                            <td class="px-2 py-1.5 align-middle">
+                                <?php if (!empty($organizations)): ?>
+                                <select id="new-ticket-company" class="nt-input w-full">
+                                    <option value=""><?php echo e(t('Company')); ?></option>
+                                    <?php foreach ($organizations as $org): ?>
+                                        <option value="<?php echo (int)$org['id']; ?>"><?php echo e($org['name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <?php endif; ?>
+                            </td>
+                        <?php endif; ?>
+                        <td class="px-2 py-1.5 align-middle">
+                            <select id="new-ticket-assignee" class="nt-input w-full">
+                                <option value=""><?php echo e(t('Unassigned')); ?></option>
+                                <?php foreach ($assignable_agents as $_ag): ?>
+                                    <option value="<?php echo (int)$_ag['id']; ?>">
+                                        <?php echo e($_ag['first_name'] . ' ' . substr($_ag['last_name'] ?? '', 0, 1) . '.'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                        <td class="px-3 py-1.5 align-middle">
+                            <input type="number" id="new-ticket-minutes"
+                                   class="nt-input w-full"
+                                   placeholder="<?php echo e(t('min')); ?>"
+                                   min="0" max="1440" step="1"
+                                   title="<?php echo e(t('Log time (minutes)')); ?>">
+                        </td>
+                    </tr>
+                <?php endif; ?>
                 <?php foreach ($ticket_groups as $group): ?>
                     <?php if ($group['name'] === 'closed'): ?>
                         </tbody>
@@ -1618,9 +1708,18 @@ include BASE_PATH . '/includes/components/page-header.php';
                             </td>
                             <td class="px-3 py-2.5 align-top">
                                 <div class="flex items-center gap-1.5">
+                                    <?php if (is_agent() || is_admin()): ?>
+                                    <span class="ticket-subject-link truncate tl-inline-text tl-inline-edit"
+                                          data-ticket="<?php echo (int)$ticket['id']; ?>"
+                                          data-field="subject"
+                                          data-value="<?php echo e($ticket['title']); ?>"
+                                          title="<?php echo e(t('Click to edit')); ?>"
+                                          style="cursor: text;"><?php echo e($ticket['title']); ?></span>
+                                    <?php else: ?>
                                     <a href="<?php echo ticket_url($ticket); ?>" class="ticket-subject-link truncate">
                                         <?php echo e($ticket['title']); ?>
                                     </a>
+                                    <?php endif; ?>
                                     <?php if (!empty($ticket['attachment_count']) && $ticket['attachment_count'] > 0): ?>
                                         <span class="flex-shrink-0" style="color: var(--text-muted);" title="<?php echo e(t('Attachments')); ?>: <?php echo $ticket['attachment_count']; ?>">
                                             <?php echo get_icon('paperclip', 'w-3 h-3'); ?>
@@ -1628,7 +1727,26 @@ include BASE_PATH . '/includes/components/page-header.php';
                                     <?php endif; ?>
                                 </div>
                                 <div class="text-[11px] mt-0.5" style="color: var(--text-muted);">
-                                    <?php echo e(get_type_label($ticket['type'])); ?>
+                                    <?php if ((is_agent() || is_admin()) && !empty($ticket_types_list)): ?>
+                                        <span class="tl-inline-edit" style="position:relative; display:inline-block;">
+                                            <span class="tl-edit-trigger tl-type-trigger"
+                                                  data-ticket="<?php echo (int)$ticket['id']; ?>"
+                                                  data-field="type"
+                                                  style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;">
+                                                <?php echo e(get_type_label($ticket['type'])); ?>
+                                            </span>
+                                            <span class="tl-dropdown hidden" data-dropdown="type-<?php echo (int)$ticket['id']; ?>">
+                                                <?php foreach ($ticket_types_list as $tt): ?>
+                                                    <button type="button" class="tl-dropdown-item"
+                                                        onclick="inlineUpdateType(<?php echo (int)$ticket['id']; ?>, '<?php echo e($tt['slug']); ?>', <?php echo e(json_encode($tt['name'])); ?>, this)">
+                                                        <?php echo e($tt['name']); ?>
+                                                    </button>
+                                                <?php endforeach; ?>
+                                            </span>
+                                        </span>
+                                    <?php else: ?>
+                                        <?php echo e(get_type_label($ticket['type'])); ?>
+                                    <?php endif; ?>
                                     <?php if (!is_admin() && !empty($ticket['organization_name'])): ?>
                                         <span class="ml-1"><?php echo e($ticket['organization_name']); ?></span>
                                     <?php endif; ?>
@@ -1694,45 +1812,173 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 <?php endif; ?>
                             </td>
                             <td class="px-2 py-2.5 whitespace-nowrap align-top text-xs" style="color: var(--text-muted);">
-                                <?php if (!empty($ticket['due_date'])): ?>
-                                    <?php
-                                    $due_ts = strtotime($ticket['due_date']);
-                                    $is_overdue = $due_ts < time() && empty($ticket['is_closed']);
-                                    ?>
-                                    <span class="<?php echo $is_overdue ? 'text-red-600 font-medium' : ''; ?>">
-                                        <?php echo date('d.m', $due_ts); ?>
-                                        <?php if ($is_overdue): ?>
+                                <?php
+                                $_due_ts = !empty($ticket['due_date']) ? strtotime($ticket['due_date']) : null;
+                                $_is_overdue = $_due_ts && $_due_ts < time() && empty($ticket['is_closed']);
+                                $_due_iso = $_due_ts ? date('Y-m-d', $_due_ts) : '';
+                                ?>
+                                <?php if (is_agent() || is_admin()): ?>
+                                    <span class="tl-due-trigger tl-inline-edit <?php echo $_is_overdue ? 'text-red-600 font-medium' : ''; ?>"
+                                          data-ticket="<?php echo (int)$ticket['id']; ?>"
+                                          data-due="<?php echo e($_due_iso); ?>"
+                                          style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;"
+                                          title="<?php echo e(t('Click to change')); ?>">
+                                        <?php if ($_due_ts): ?>
+                                            <?php echo date('d.m', $_due_ts); ?>
+                                            <?php if ($_is_overdue): ?>
+                                                <?php echo get_icon('exclamation-circle', 'w-2.5 h-2.5 inline ml-0.5'); ?>
+                                            <?php endif; ?>
+                                        <?php else: ?>
+                                            <span style="opacity:0.4;">—</span>
+                                        <?php endif; ?>
+                                    </span>
+                                <?php elseif ($_due_ts): ?>
+                                    <span class="<?php echo $_is_overdue ? 'text-red-600 font-medium' : ''; ?>">
+                                        <?php echo date('d.m', $_due_ts); ?>
+                                        <?php if ($_is_overdue): ?>
                                             <?php echo get_icon('exclamation-circle', 'w-2.5 h-2.5 inline ml-0.5'); ?>
                                         <?php endif; ?>
                                     </span>
                                 <?php endif; ?>
                             </td>
                             <?php if (is_admin()): ?>
-                                <td class="px-2 py-2.5 text-xs truncate align-top" style="color: var(--text-muted);" title="<?php echo e($ticket['organization_name'] ?? ''); ?>">
-                                    <?php if (!empty($ticket['organization_name'])): ?>
-                                        <?php echo e($ticket['organization_name']); ?>
-                                    <?php endif; ?>
+                                <td class="px-2 py-2.5 text-xs truncate align-top" style="color: var(--text-muted); overflow: visible;" title="<?php echo e($ticket['organization_name'] ?? ''); ?>">
+                                    <span class="tl-inline-edit" style="position:relative; display:inline-block;">
+                                        <span class="tl-edit-trigger tl-company-trigger"
+                                              data-ticket="<?php echo (int)$ticket['id']; ?>"
+                                              data-field="company"
+                                              style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;"
+                                              title="<?php echo e(t('Click to change')); ?>">
+                                            <?php if (!empty($ticket['organization_name'])): ?>
+                                                <?php echo e($ticket['organization_name']); ?>
+                                            <?php else: ?>
+                                                <span style="opacity:0.4;">—</span>
+                                            <?php endif; ?>
+                                        </span>
+                                        <span class="tl-dropdown hidden" data-dropdown="company-<?php echo (int)$ticket['id']; ?>">
+                                            <button type="button" class="tl-dropdown-item"
+                                                onclick="inlineUpdateCompany(<?php echo (int)$ticket['id']; ?>, '', <?php echo e(json_encode(t('No company'))); ?>, this)">
+                                                <span style="opacity:0.6;"><?php echo e(t('No company')); ?></span>
+                                            </button>
+                                            <?php foreach ($organizations as $org): ?>
+                                                <button type="button" class="tl-dropdown-item"
+                                                    onclick="inlineUpdateCompany(<?php echo (int)$ticket['id']; ?>, <?php echo (int)$org['id']; ?>, <?php echo e(json_encode($org['name'])); ?>, this)">
+                                                    <?php echo e($org['name']); ?>
+                                                </button>
+                                            <?php endforeach; ?>
+                                        </span>
+                                    </span>
                                 </td>
                             <?php endif; ?>
                             <?php if (is_admin()): ?>
-                                <td class="px-2 py-2.5 text-xs truncate align-top" style="color: var(--text-muted);" title="<?php echo e($ticket['first_name'] . ' ' . $ticket['last_name']); ?>">
-                                    <?php echo e($ticket['first_name'] . ' ' . substr($ticket['last_name'] ?? '', 0, 1) . '.'); ?>
+                                <td class="px-2 py-2.5 text-xs truncate align-top" style="color: var(--text-muted); overflow: visible;" title="<?php echo e($ticket['first_name'] . ' ' . $ticket['last_name']); ?>">
+                                    <span class="tl-inline-edit" style="position:relative; display:inline-block;">
+                                        <span class="tl-edit-trigger tl-assign-trigger"
+                                              data-ticket="<?php echo (int)$ticket['id']; ?>"
+                                              data-field="assign"
+                                              style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;"
+                                              title="<?php echo e(t('Click to change')); ?>">
+                                            <?php if (!empty($ticket['assignee_id'])):
+                                                $_assigned = null;
+                                                foreach ($assignable_agents as $_ag) { if ((int)$_ag['id'] === (int)$ticket['assignee_id']) { $_assigned = $_ag; break; } }
+                                            ?>
+                                                <?php if ($_assigned): ?>
+                                                    <?php echo e($_assigned['first_name'] . ' ' . substr($_assigned['last_name'] ?? '', 0, 1) . '.'); ?>
+                                                <?php else: ?>
+                                                    <?php echo e(t('Unassigned')); ?>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <span style="opacity:0.4;"><?php echo e(t('Unassigned')); ?></span>
+                                            <?php endif; ?>
+                                        </span>
+                                        <span class="tl-dropdown hidden" data-dropdown="assign-<?php echo (int)$ticket['id']; ?>">
+                                            <button type="button" class="tl-dropdown-item"
+                                                onclick="inlineUpdateAssign(<?php echo (int)$ticket['id']; ?>, '', <?php echo e(json_encode(t('Unassigned'))); ?>, this)">
+                                                <span style="opacity:0.6;"><?php echo e(t('Unassigned')); ?></span>
+                                            </button>
+                                            <?php foreach ($assignable_agents as $_ag): ?>
+                                                <button type="button" class="tl-dropdown-item"
+                                                    onclick="inlineUpdateAssign(<?php echo (int)$ticket['id']; ?>, <?php echo (int)$_ag['id']; ?>, <?php echo e(json_encode($_ag['first_name'] . ' ' . substr($_ag['last_name'] ?? '', 0, 1) . '.')); ?>, this)">
+                                                    <?php echo e($_ag['first_name'] . ' ' . $_ag['last_name']); ?>
+                                                </button>
+                                            <?php endforeach; ?>
+                                        </span>
+                                    </span>
                                 </td>
                                 <td class="px-3 py-2.5 text-xs whitespace-nowrap align-top" style="color: var(--text-muted);">
                                     <?php
                                     $ticket_total = $ticket_time_totals[$ticket['id']] ?? 0;
                                     $running_entries = $ticket_running_entries[$ticket['id']] ?? [];
                                     ?>
-                                    <?php if (!empty($running_entries)): ?>
-                                        <span class="text-green-600"><?php echo get_icon('play', 'w-2.5 h-2.5 inline'); ?></span>
-                                    <?php endif; ?>
-                                    <?php if ($ticket_total > 0): ?>
-                                        <?php echo e(format_duration_minutes($ticket_total)); ?>
-                                    <?php endif; ?>
+                                    <div class="flex items-center gap-1.5">
+                                        <?php if (!empty($running_entries)): ?>
+                                            <span class="text-green-600"><?php echo get_icon('play', 'w-2.5 h-2.5 inline'); ?></span>
+                                        <?php endif; ?>
+                                        <?php if ($ticket_total > 0): ?>
+                                            <span><?php echo e(format_duration_minutes($ticket_total)); ?></span>
+                                        <?php endif; ?>
+                                        <button type="button" class="inline-log-time__btn js-inline-log-time"
+                                            data-ticket-id="<?php echo (int) $ticket['id']; ?>"
+                                            title="<?php echo e(t('Log time')); ?>"
+                                            aria-label="<?php echo e(t('Log time')); ?>">
+                                            <?php echo get_icon('clock', 'w-3.5 h-3.5'); ?>
+                                        </button>
+                                    </div>
                                 </td>
                             <?php elseif (is_agent()): ?>
-                                <td class="px-2 py-2.5 text-xs truncate align-top" style="color: var(--text-muted);" title="<?php echo e($ticket['first_name'] . ' ' . $ticket['last_name']); ?>">
-                                    <?php echo e($ticket['first_name'] . ' ' . substr($ticket['last_name'] ?? '', 0, 1) . '.'); ?>
+                                <td class="px-2 py-2.5 text-xs truncate align-top" style="color: var(--text-muted); overflow: visible;" title="<?php echo e($ticket['first_name'] . ' ' . $ticket['last_name']); ?>">
+                                    <span class="tl-inline-edit" style="position:relative; display:inline-block;">
+                                        <span class="tl-edit-trigger tl-assign-trigger"
+                                              data-ticket="<?php echo (int)$ticket['id']; ?>"
+                                              data-field="assign"
+                                              style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;"
+                                              title="<?php echo e(t('Click to change')); ?>">
+                                            <?php if (!empty($ticket['assignee_id'])):
+                                                $_assigned = null;
+                                                foreach ($assignable_agents as $_ag) { if ((int)$_ag['id'] === (int)$ticket['assignee_id']) { $_assigned = $_ag; break; } }
+                                            ?>
+                                                <?php if ($_assigned): ?>
+                                                    <?php echo e($_assigned['first_name'] . ' ' . substr($_assigned['last_name'] ?? '', 0, 1) . '.'); ?>
+                                                <?php else: ?>
+                                                    <?php echo e(t('Unassigned')); ?>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <span style="opacity:0.4;"><?php echo e(t('Unassigned')); ?></span>
+                                            <?php endif; ?>
+                                        </span>
+                                        <span class="tl-dropdown hidden" data-dropdown="assign-<?php echo (int)$ticket['id']; ?>">
+                                            <button type="button" class="tl-dropdown-item"
+                                                onclick="inlineUpdateAssign(<?php echo (int)$ticket['id']; ?>, '', <?php echo e(json_encode(t('Unassigned'))); ?>, this)">
+                                                <span style="opacity:0.6;"><?php echo e(t('Unassigned')); ?></span>
+                                            </button>
+                                            <?php foreach ($assignable_agents as $_ag): ?>
+                                                <button type="button" class="tl-dropdown-item"
+                                                    onclick="inlineUpdateAssign(<?php echo (int)$ticket['id']; ?>, <?php echo (int)$_ag['id']; ?>, <?php echo e(json_encode($_ag['first_name'] . ' ' . substr($_ag['last_name'] ?? '', 0, 1) . '.')); ?>, this)">
+                                                    <?php echo e($_ag['first_name'] . ' ' . $_ag['last_name']); ?>
+                                                </button>
+                                            <?php endforeach; ?>
+                                        </span>
+                                    </span>
+                                </td>
+                                <td class="px-3 py-2.5 text-xs whitespace-nowrap align-top" style="color: var(--text-muted);">
+                                    <?php
+                                    $ticket_total = $ticket_time_totals[$ticket['id']] ?? 0;
+                                    $running_entries = $ticket_running_entries[$ticket['id']] ?? [];
+                                    ?>
+                                    <div class="flex items-center gap-1.5">
+                                        <?php if (!empty($running_entries)): ?>
+                                            <span class="text-green-600"><?php echo get_icon('play', 'w-2.5 h-2.5 inline'); ?></span>
+                                        <?php endif; ?>
+                                        <?php if ($ticket_total > 0): ?>
+                                            <span><?php echo e(format_duration_minutes($ticket_total)); ?></span>
+                                        <?php endif; ?>
+                                        <button type="button" class="inline-log-time__btn js-inline-log-time"
+                                            data-ticket-id="<?php echo (int) $ticket['id']; ?>"
+                                            title="<?php echo e(t('Log time')); ?>"
+                                            aria-label="<?php echo e(t('Log time')); ?>">
+                                            <?php echo get_icon('clock', 'w-3.5 h-3.5'); ?>
+                                        </button>
+                                    </div>
                                 </td>
                             <?php endif; ?>
                         </tr>
@@ -2067,10 +2313,52 @@ include BASE_PATH . '/includes/components/page-header.php';
     // ─── Inline status/priority editing ─────────────────────
     (function() {
         var openDd = null;
+        var openTrig = null;
+
+        function positionDropdown(dd, trigger) {
+            // Fixed positioning so the dropdown can overflow the table/td
+            var r = trigger.getBoundingClientRect();
+            dd.style.position = 'fixed';
+            dd.style.left = 'auto';
+            dd.style.top = 'auto';
+            // Temporarily show to measure
+            var prevVis = dd.style.visibility;
+            dd.style.visibility = 'hidden';
+            dd.classList.remove('hidden');
+            var ddW = dd.offsetWidth;
+            var ddH = dd.offsetHeight;
+            var vw = document.documentElement.clientWidth;
+            var vh = document.documentElement.clientHeight;
+            var left = r.left;
+            if (left + ddW > vw - 8) left = Math.max(8, vw - ddW - 8);
+            var top = r.bottom + 4;
+            if (top + ddH > vh - 8) {
+                // Flip above trigger
+                top = Math.max(8, r.top - ddH - 4);
+            }
+            dd.style.left = left + 'px';
+            dd.style.top = top + 'px';
+            dd.style.visibility = prevVis || '';
+        }
 
         function closeAll() {
-            if (openDd) { openDd.classList.add('hidden'); openDd = null; }
+            if (openDd) {
+                openDd.classList.add('hidden');
+                openDd.style.position = '';
+                openDd.style.left = '';
+                openDd.style.top = '';
+                openDd = null;
+            }
+            openTrig = null;
+            window.removeEventListener('scroll', onReposition, true);
+            window.removeEventListener('resize', onReposition);
         }
+
+        function onReposition() {
+            if (openDd && openTrig) positionDropdown(openDd, openTrig);
+        }
+
+        window.__foxdeskCloseInlineDropdowns = closeAll;
 
         document.addEventListener('click', function(e) {
             var trigger = e.target.closest('.tl-edit-trigger');
@@ -2083,8 +2371,11 @@ include BASE_PATH . '/includes/components/page-header.php';
                 if (!dd) return;
                 if (openDd === dd) { closeAll(); return; }
                 closeAll();
-                dd.classList.remove('hidden');
+                positionDropdown(dd, trigger);
                 openDd = dd;
+                openTrig = trigger;
+                window.addEventListener('scroll', onReposition, true);
+                window.addEventListener('resize', onReposition);
                 return;
             }
             if (!e.target.closest('.tl-dropdown')) closeAll();
@@ -2133,17 +2424,386 @@ include BASE_PATH . '/includes/components/page-header.php';
             });
         };
     })();
+
+    // ─── Generic quick-edit helper + new field inline editors ───────────
+    (function() {
+        function apiCall(action, ticketId, payload) {
+            var body = new FormData();
+            if (ticketId) body.append('ticket_id', ticketId);
+            Object.keys(payload || {}).forEach(function(k){ body.append(k, payload[k]); });
+            return fetch(window.appConfig.apiUrl + '&action=' + action, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': window.csrfToken },
+                body: body
+            }).then(function(r){ return r.json(); });
+        }
+        function toast(msg, kind) {
+            if (window.showAppToast) window.showAppToast(msg, kind || 'success');
+        }
+        function closeAllDropdowns() {
+            if (typeof window.__foxdeskCloseInlineDropdowns === 'function') {
+                window.__foxdeskCloseInlineDropdowns();
+            } else {
+                document.querySelectorAll('.tl-dropdown').forEach(function(d){ d.classList.add('hidden'); });
+            }
+        }
+
+        // inlineUpdateType
+        window.inlineUpdateType = function(ticketId, slug, label, btn) {
+            closeAllDropdowns();
+            apiCall('quick-type', ticketId, { type: slug }).then(function(res){
+                if (res.success) {
+                    var row = btn.closest('tr');
+                    var trig = row && row.querySelector('.tl-type-trigger[data-ticket="' + ticketId + '"]');
+                    if (trig) trig.textContent = label;
+                    toast(res.message || '<?php echo e(t('Saved')); ?>', 'success');
+                } else {
+                    toast(res.error || '<?php echo e(t('Error')); ?>', 'error');
+                }
+            }).catch(function(){ toast('<?php echo e(t('Error')); ?>', 'error'); });
+        };
+
+        // inlineUpdateCompany
+        window.inlineUpdateCompany = function(ticketId, orgId, label, btn) {
+            closeAllDropdowns();
+            apiCall('quick-company', ticketId, { organization_id: orgId }).then(function(res){
+                if (res.success) {
+                    var row = btn.closest('tr');
+                    var trig = row && row.querySelector('.tl-company-trigger[data-ticket="' + ticketId + '"]');
+                    if (trig) {
+                        if (orgId === '' || !label) {
+                            trig.innerHTML = '<span style="opacity:0.4;">—</span>';
+                        } else {
+                            trig.textContent = label;
+                        }
+                    }
+                    toast(res.message || '<?php echo e(t('Saved')); ?>', 'success');
+                } else {
+                    toast(res.error || '<?php echo e(t('Error')); ?>', 'error');
+                }
+            }).catch(function(){ toast('<?php echo e(t('Error')); ?>', 'error'); });
+        };
+
+        // inlineUpdateAssign
+        window.inlineUpdateAssign = function(ticketId, assigneeId, label, btn) {
+            closeAllDropdowns();
+            apiCall('quick-assign', ticketId, { assignee_id: assigneeId }).then(function(res){
+                if (res.success) {
+                    var row = btn.closest('tr');
+                    var trig = row && row.querySelector('.tl-assign-trigger[data-ticket="' + ticketId + '"]');
+                    if (trig) {
+                        if (!assigneeId) {
+                            trig.innerHTML = '<span style="opacity:0.4;"><?php echo e(t('Unassigned')); ?></span>';
+                        } else {
+                            trig.textContent = label;
+                        }
+                    }
+                    toast(res.message || '<?php echo e(t('Saved')); ?>', 'success');
+                } else {
+                    toast(res.error || '<?php echo e(t('Error')); ?>', 'error');
+                }
+            }).catch(function(){ toast('<?php echo e(t('Error')); ?>', 'error'); });
+        };
+
+        // Subject inline editor (click-to-edit)
+        document.addEventListener('click', function(e) {
+            var sp = e.target.closest('.tl-inline-text[data-field="subject"]');
+            if (!sp) return;
+            if (sp.dataset.editing === '1') return;
+            e.preventDefault();
+            e.stopPropagation();
+            var tid = sp.dataset.ticket;
+            var current = sp.dataset.value || sp.textContent.trim();
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.value = current;
+            input.className = 'tl-inline-input';
+            input.maxLength = 500;
+            sp.dataset.editing = '1';
+            sp.textContent = '';
+            sp.appendChild(input);
+            input.focus();
+            input.select();
+            var committed = false;
+            function commit(save) {
+                if (committed) return;
+                committed = true;
+                var newVal = input.value.trim();
+                sp.dataset.editing = '';
+                if (!save || newVal === '' || newVal === current) {
+                    sp.textContent = current;
+                    return;
+                }
+                sp.textContent = newVal;
+                sp.dataset.value = newVal;
+                apiCall('quick-subject', tid, { title: newVal }).then(function(res){
+                    if (res.success) {
+                        toast(res.message || '<?php echo e(t('Saved')); ?>', 'success');
+                    } else {
+                        sp.textContent = current;
+                        sp.dataset.value = current;
+                        toast(res.error || '<?php echo e(t('Error')); ?>', 'error');
+                    }
+                }).catch(function(){
+                    sp.textContent = current;
+                    sp.dataset.value = current;
+                    toast('<?php echo e(t('Error')); ?>', 'error');
+                });
+            }
+            input.addEventListener('keydown', function(ev){
+                if (ev.key === 'Enter') { ev.preventDefault(); commit(true); input.blur(); }
+                else if (ev.key === 'Escape') { commit(false); input.blur(); }
+            });
+            input.addEventListener('blur', function(){ commit(true); });
+            input.addEventListener('click', function(ev){ ev.stopPropagation(); });
+        });
+
+        // Due date inline editor
+        document.addEventListener('click', function(e) {
+            var trig = e.target.closest('.tl-due-trigger');
+            if (!trig) return;
+            if (trig.dataset.editing === '1') return;
+            e.preventDefault();
+            e.stopPropagation();
+            var tid = trig.dataset.ticket;
+            var currentDue = trig.dataset.due || '';
+            var originalHTML = trig.innerHTML;
+            var input = document.createElement('input');
+            input.type = 'date';
+            input.value = currentDue;
+            input.className = 'tl-inline-input';
+            trig.dataset.editing = '1';
+            trig.innerHTML = '';
+            trig.appendChild(input);
+            input.focus();
+            var committed = false;
+            function commit(save) {
+                if (committed) return;
+                committed = true;
+                trig.dataset.editing = '';
+                if (!save) {
+                    trig.innerHTML = originalHTML;
+                    return;
+                }
+                var newVal = input.value;
+                apiCall('quick-due-date', tid, { due_date: newVal }).then(function(res){
+                    if (res.success) {
+                        trig.dataset.due = newVal;
+                        if (newVal) {
+                            var parts = newVal.split('-');
+                            trig.textContent = parts[2] + '.' + parts[1];
+                            trig.classList.remove('text-red-600', 'font-medium');
+                            var now = new Date(); now.setHours(0,0,0,0);
+                            var d = new Date(newVal);
+                            if (d < now) trig.classList.add('text-red-600', 'font-medium');
+                        } else {
+                            trig.innerHTML = '<span style="opacity:0.4;">—</span>';
+                            trig.classList.remove('text-red-600', 'font-medium');
+                        }
+                        toast(res.message || '<?php echo e(t('Saved')); ?>', 'success');
+                    } else {
+                        trig.innerHTML = originalHTML;
+                        toast(res.error || '<?php echo e(t('Error')); ?>', 'error');
+                    }
+                }).catch(function(){
+                    trig.innerHTML = originalHTML;
+                    toast('<?php echo e(t('Error')); ?>', 'error');
+                });
+            }
+            input.addEventListener('change', function(){ commit(true); });
+            input.addEventListener('blur', function(){ setTimeout(function(){ commit(true); }, 100); });
+            input.addEventListener('keydown', function(ev){
+                if (ev.key === 'Escape') { commit(false); input.blur(); }
+            });
+            input.addEventListener('click', function(ev){ ev.stopPropagation(); });
+        });
+
+        // New-ticket row: toggle + submission
+        (function() {
+            var row = document.getElementById('new-ticket-row');
+            var btn = document.getElementById('new-ticket-submit-btn');
+            var subject = document.getElementById('new-ticket-subject');
+            if (!row || !btn || !subject) return;
+            function getVal(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+            function setVal(id, v) { var el = document.getElementById(id); if (el) el.value = v; }
+
+            window.toggleNewTicketRow = function(force) {
+                var show = (typeof force === 'boolean') ? force : (row.style.display === 'none');
+                row.style.display = show ? '' : 'none';
+                var tbtn = document.getElementById('quick-add-toggle-btn');
+                if (tbtn) tbtn.classList.toggle('is-active', show);
+                if (show) {
+                    setTimeout(function(){ subject.focus(); }, 50);
+                }
+            };
+
+            var submitting = false;
+            function submit() {
+                if (submitting) return;
+                var title = subject.value.trim();
+                if (!title) { subject.focus(); return; }
+                var minutes = parseInt(getVal('new-ticket-minutes'), 10);
+                if (!isNaN(minutes) && (minutes < 0 || minutes > 1440)) {
+                    toast('<?php echo e(t('Duration must be between 1 and 1440 minutes.')); ?>', 'error');
+                    return;
+                }
+                submitting = true;
+                btn.disabled = true;
+                apiCall('quick-create-ticket', null, {
+                    title: title,
+                    status_id: getVal('new-ticket-status'),
+                    priority_id: getVal('new-ticket-priority'),
+                    due_date: getVal('new-ticket-due'),
+                    organization_id: getVal('new-ticket-company'),
+                    assignee_id: getVal('new-ticket-assignee'),
+                    type: getVal('new-ticket-type')
+                }).then(function(res){
+                    if (!res.success) {
+                        submitting = false;
+                        btn.disabled = false;
+                        toast(res.error || '<?php echo e(t('Error')); ?>', 'error');
+                        return;
+                    }
+                    var newId = res.ticket_id;
+                    // Optionally log time
+                    if (!isNaN(minutes) && minutes > 0 && newId) {
+                        apiCall('quick-log-time', newId, { duration_minutes: minutes }).then(function(r2){
+                            toast(res.message || '<?php echo e(t('Ticket created.')); ?>', 'success');
+                            location.reload();
+                        }).catch(function(){
+                            toast(res.message || '<?php echo e(t('Ticket created.')); ?>', 'success');
+                            location.reload();
+                        });
+                    } else {
+                        toast(res.message || '<?php echo e(t('Ticket created.')); ?>', 'success');
+                        location.reload();
+                    }
+                }).catch(function(){
+                    submitting = false;
+                    btn.disabled = false;
+                    toast('<?php echo e(t('Error')); ?>', 'error');
+                });
+            }
+            btn.addEventListener('click', submit);
+            [subject, document.getElementById('new-ticket-minutes')].forEach(function(el){
+                if (!el) return;
+                el.addEventListener('keydown', function(ev){
+                    if (ev.key === 'Enter') { ev.preventDefault(); submit(); }
+                    else if (ev.key === 'Escape') { window.toggleNewTicketRow(false); }
+                });
+            });
+        })();
+    })();
 </script>
 
 <style>
+/* Compact header icon buttons (Bulk select / Quick add) */
+.hdr-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+    background: var(--surface-primary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.hdr-icon-btn:hover {
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+    border-color: var(--border-strong, var(--text-muted));
+}
+.hdr-icon-btn[aria-pressed="true"] {
+    background: #6366f1;
+    color: #fff;
+    border-color: #6366f1;
+}
+.hdr-icon-btn--quick {
+    color: #f59e0b;
+    border-color: #fcd34d;
+    background: #fffbeb;
+}
+[data-theme="dark"] .hdr-icon-btn--quick {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.08);
+    border-color: rgba(251, 191, 36, 0.35);
+}
+.hdr-icon-btn--quick:hover {
+    color: #fff;
+    background: #f59e0b;
+    border-color: #f59e0b;
+}
+.hdr-icon-btn--quick.is-active {
+    color: #fff;
+    background: #f59e0b;
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+}
+
+.tl-inline-input {
+    background: var(--surface-primary);
+    border: 1px solid var(--primary, #3b82f6);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 12px;
+    color: var(--text-primary);
+    width: 100%;
+    outline: none;
+    box-sizing: border-box;
+}
+.new-ticket-row .nt-input {
+    background: var(--surface-primary);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 12px;
+    color: var(--text-primary);
+    width: 100%;
+    box-sizing: border-box;
+}
+.new-ticket-row .nt-input:focus {
+    outline: 2px solid var(--primary, #3b82f6);
+    outline-offset: 0;
+    border-color: transparent;
+}
+.new-ticket-row .nt-plus-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--primary, #3b82f6);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.1s ease, opacity 0.1s ease;
+}
+.new-ticket-row .nt-plus-btn:hover { transform: scale(1.08); }
+.new-ticket-row .nt-plus-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.tl-inline-text:hover {
+    background: var(--surface-secondary);
+    border-radius: 3px;
+}
+.tl-due-trigger:hover {
+    background: var(--surface-secondary);
+    border-radius: 3px;
+    padding: 1px 3px;
+    margin: -1px -3px;
+}
+</style>
+
+<style>
 .tl-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    z-index: 50;
+    position: fixed;
+    z-index: 9999;
     min-width: 160px;
+    max-height: 320px;
+    overflow-y: auto;
     padding: 4px 0;
-    margin-top: 4px;
     background: var(--surface-primary);
     border: 1px solid var(--border-light);
     border-radius: 8px;
@@ -2174,5 +2834,212 @@ include BASE_PATH . '/includes/components/page-header.php';
     border-radius: 4px;
 }
 </style>
+
+<!-- Inline log-time: preset chips slide out next to the clock on click. One click = save. -->
+<template id="inline-log-time-chips-tpl">
+    <span class="ilt-chips" role="group" aria-label="<?php echo e(t('Log time')); ?>">
+        <button type="button" class="ilt-chip" data-mins="5">+5</button>
+        <button type="button" class="ilt-chip" data-mins="10">+10</button>
+        <button type="button" class="ilt-chip" data-mins="15">+15</button>
+        <button type="button" class="ilt-chip" data-mins="30">+30</button>
+        <button type="button" class="ilt-chip" data-mins="60">+60</button>
+        <button type="button" class="ilt-chip ilt-chip--custom" title="<?php echo e(t('Custom')); ?>">…</button>
+    </span>
+</template>
+<template id="inline-log-time-custom-tpl">
+    <div class="ilt-custom" role="dialog" aria-label="<?php echo e(t('Log time')); ?>">
+        <input type="number" min="1" max="1440" step="1" class="ilt-duration"
+            placeholder="<?php echo e(t('Minutes')); ?>" autofocus>
+        <textarea class="ilt-note" rows="2" placeholder="<?php echo e(t('Note (optional)')); ?>"></textarea>
+        <div class="ilt-custom__actions">
+            <button type="button" class="ilt-cancel"><?php echo e(t('Cancel')); ?></button>
+            <button type="button" class="ilt-save"><?php echo e(t('Save')); ?></button>
+        </div>
+    </div>
+</template>
+
+<script>
+(function() {
+    let activeChips = null;   // currently expanded chip row
+    let activeBtn   = null;   // the clock button that opened it
+    let customPop   = null;   // custom-duration popover
+
+    function closeAll() {
+        if (activeChips) {
+            if (activeChips._reposition) {
+                window.removeEventListener('resize', activeChips._reposition);
+                window.removeEventListener('scroll', activeChips._reposition, true);
+            }
+            activeChips.remove();
+            activeChips = null;
+        }
+        if (customPop)   { customPop.remove();   customPop   = null; }
+        activeBtn = null;
+        document.removeEventListener('click', onOutsideClick, true);
+        document.removeEventListener('keydown', onEscape);
+    }
+
+    function positionChips(chips, btn) {
+        const r = btn.getBoundingClientRect();
+        const vw = document.documentElement.clientWidth;
+        const vh = document.documentElement.clientHeight;
+        const cw = chips.offsetWidth || 240;
+        const ch = chips.offsetHeight || 28;
+        // Prefer placing to the LEFT of the clock so the row isn't pushed around.
+        let left = r.left - cw - 8;
+        if (left < 8) left = 8;                   // don't overflow left
+        if (left + cw > vw - 8) left = vw - cw - 8;
+        let top = r.top + (r.height - ch) / 2;    // vertically centered with clock
+        if (top < 8) top = 8;
+        if (top + ch > vh - 8) top = vh - ch - 8;
+        chips.style.left = left + 'px';
+        chips.style.top  = top  + 'px';
+    }
+
+    function onOutsideClick(e) {
+        if (e.target.closest('.js-inline-log-time') ||
+            e.target.closest('.ilt-chips') ||
+            e.target.closest('.ilt-custom')) return;
+        closeAll();
+    }
+    function onEscape(e) { if (e.key === 'Escape') closeAll(); }
+
+    function toast(msg, kind) {
+        if (window.showAppToast) window.showAppToast(msg, kind || 'success');
+    }
+
+    function saveDuration(ticketId, minutes, note) {
+        const body = new URLSearchParams();
+        body.append('ticket_id', ticketId);
+        body.append('duration_minutes', String(minutes));
+        if (note) body.append('note', note);
+        return fetch('index.php?page=api&action=quick-log-time', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': window.csrfToken,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: body.toString()
+        }).then(r => r.json());
+    }
+
+    function openChips(btn) {
+        closeAll();
+        const tpl = document.getElementById('inline-log-time-chips-tpl');
+        const frag = tpl.content.cloneNode(true);
+        const chips = frag.querySelector('.ilt-chips');
+        // Append to body + position: fixed so we stay visible even when the table
+        // scrolls horizontally and the cell is off-screen.
+        chips.classList.add('ilt-chips--floating');
+        document.body.appendChild(chips);
+        positionChips(chips, btn);
+        activeChips = chips;
+        activeBtn = btn;
+        const onResize = function(){ if (activeChips) positionChips(activeChips, btn); };
+        window.addEventListener('resize', onResize);
+        window.addEventListener('scroll', onResize, true);
+        chips._reposition = onResize;
+
+        chips.querySelectorAll('.ilt-chip[data-mins]').forEach(function(chip) {
+            chip.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const m = parseInt(chip.dataset.mins, 10) || 0;
+                if (!m) return;
+                chip.disabled = true;
+                chip.textContent = '…';
+                saveDuration(btn.dataset.ticketId, m, '')
+                    .then(function(res) {
+                        if (res.success) {
+                            toast(res.message || 'OK', 'success');
+                            setTimeout(function(){ window.location.reload(); }, 300);
+                        } else {
+                            chip.disabled = false;
+                            chip.textContent = '+' + m;
+                            toast(res.error || 'Error', 'error');
+                        }
+                    })
+                    .catch(function() {
+                        chip.disabled = false;
+                        chip.textContent = '+' + m;
+                        toast('<?php echo e(t('Error')); ?>', 'error');
+                    });
+            });
+        });
+
+        chips.querySelector('.ilt-chip--custom').addEventListener('click', function(e) {
+            e.stopPropagation();
+            openCustom(btn);
+        });
+
+        setTimeout(function() {
+            document.addEventListener('click', onOutsideClick, true);
+            document.addEventListener('keydown', onEscape);
+        }, 0);
+    }
+
+    function openCustom(btn) {
+        if (activeChips) activeChips.remove();
+        activeChips = null;
+        const tpl = document.getElementById('inline-log-time-custom-tpl');
+        const frag = tpl.content.cloneNode(true);
+        const pop = frag.querySelector('.ilt-custom');
+        document.body.appendChild(pop);
+        customPop = pop;
+
+        // Position fixed near button, viewport-safe.
+        const r = btn.getBoundingClientRect();
+        const vw = document.documentElement.clientWidth;
+        const vh = document.documentElement.clientHeight;
+        const pw = 240, ph = 140;
+        let left = Math.min(r.right - pw, vw - pw - 8);
+        if (left < 8) left = 8;
+        let top = r.bottom + 6;
+        if (top + ph > vh - 8) top = r.top - ph - 6;
+        if (top < 8) top = 8;
+        pop.style.left = left + 'px';
+        pop.style.top  = top  + 'px';
+
+        const dur = pop.querySelector('.ilt-duration');
+        const note = pop.querySelector('.ilt-note');
+        setTimeout(function(){ dur.focus(); }, 30);
+
+        pop.querySelector('.ilt-cancel').addEventListener('click', function(e){
+            e.stopPropagation();
+            closeAll();
+        });
+        const save = pop.querySelector('.ilt-save');
+        save.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const m = parseInt(dur.value, 10) || 0;
+            if (m <= 0) { dur.focus(); return; }
+            save.disabled = true;
+            save.textContent = '…';
+            saveDuration(btn.dataset.ticketId, m, note.value.trim())
+                .then(function(res){
+                    if (res.success) {
+                        toast(res.message || 'OK', 'success');
+                        setTimeout(function(){ window.location.reload(); }, 300);
+                    } else {
+                        save.disabled = false;
+                        save.textContent = '<?php echo e(t('Save')); ?>';
+                        toast(res.error || 'Error', 'error');
+                    }
+                });
+        });
+        dur.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); save.click(); }
+        });
+    }
+
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.js-inline-log-time');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (activeBtn === btn) { closeAll(); return; }
+        openChips(btn);
+    });
+})();
+</script>
 
 <?php require_once BASE_PATH . '/includes/footer.php';

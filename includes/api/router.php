@@ -72,6 +72,7 @@ function route_api_request($action) {
         'cancel-ticket' => 'api_cancel_ticket',
         'delete-time-entry' => 'api_delete_time_entry',
         'update-time-inline' => 'api_update_time_inline',
+        'quick-log-time' => 'api_quick_log_time',
         'edit-comment' => 'api_edit_comment',
         'delete-comment' => 'api_delete_comment',
 
@@ -82,6 +83,8 @@ function route_api_request($action) {
         'quick-priority' => 'api_quick_priority',
         'quick-type' => 'api_quick_type',
         'quick-company' => 'api_quick_company',
+        'quick-subject' => 'api_quick_subject',
+        'quick-create-ticket' => 'api_quick_create_ticket',
 
         // User handlers
         'search_users' => 'api_search_users',

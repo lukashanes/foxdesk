@@ -724,6 +724,100 @@ function api_delete_time_entry() {
 }
 
 /**
+ * Quick-log a manual time entry from any page (tickets list popover, etc.).
+ * Duration semantics: end = now, start = now − duration_minutes.
+ * POST params: ticket_id (int), duration_minutes (int 1..1440), note (optional string).
+ */
+function api_quick_log_time() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        api_error('Method not allowed', 405);
+    }
+
+    require_csrf_token(true);
+
+    $user = current_user();
+    if (!$user || (!is_agent() && !is_admin())) {
+        api_error('Unauthorized', 401);
+    }
+
+    $ticket_id = (int) ($_POST['ticket_id'] ?? 0);
+    $duration  = (int) ($_POST['duration_minutes'] ?? 0);
+    $note      = trim((string) ($_POST['note'] ?? ''));
+
+    if ($duration <= 0 || $duration > 1440) {
+        api_error(t('Duration must be between 1 and 1440 minutes.'), 400);
+    }
+
+    $ticket = get_ticket($ticket_id);
+    if (!$ticket) {
+        api_error('Ticket not found', 404);
+    }
+    if (!can_see_ticket($ticket, $user)) {
+        api_error('Forbidden', 403);
+    }
+
+    if (!ticket_time_table_exists()) {
+        api_error(t('Time tracking is not available.'), 400);
+    }
+
+    require_once BASE_PATH . '/includes/ticket-time-functions.php';
+
+    // Resolve billable / cost rates like the form handler does.
+    $org_billable_rate = 0;
+    if (!empty($ticket['organization_id'])) {
+        $org = db_fetch_one("SELECT billable_rate FROM organizations WHERE id = ?", [$ticket['organization_id']]);
+        $org_billable_rate = $org ? (float) ($org['billable_rate'] ?? 0) : 0;
+    }
+    $user_cost_rate = (float) ($user['cost_rate'] ?? 0);
+
+    $now = new DateTime();
+    $start = (clone $now)->modify('-' . $duration . ' minutes');
+
+    $comment_id = null;
+    if ($note !== '') {
+        $comment_id = db_insert('comments', [
+            'ticket_id'  => $ticket_id,
+            'user_id'    => $user['id'],
+            'content'    => $note,
+            'is_internal' => 0,
+            'time_spent' => $duration,
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+        db_query("UPDATE tickets SET updated_at = NOW() WHERE id = ?", [$ticket_id]);
+    }
+
+    $insert = [
+        'ticket_id'        => $ticket_id,
+        'user_id'          => $user['id'],
+        'comment_id'       => $comment_id,
+        'started_at'       => $start->format('Y-m-d H:i:s'),
+        'ended_at'         => $now->format('Y-m-d H:i:s'),
+        'duration_minutes' => $duration,
+        'is_billable'      => 1,
+        'billable_rate'    => $org_billable_rate,
+        'cost_rate'        => $user_cost_rate,
+        'is_manual'        => 1,
+        'created_at'       => date('Y-m-d H:i:s'),
+    ];
+    if (function_exists('time_entry_source_column_exists') && time_entry_source_column_exists()) {
+        $insert['source'] = 'manual';
+    }
+    $entry_id = (int) db_insert('ticket_time_entries', $insert);
+
+    log_activity($ticket_id, $user['id'], 'time_manual', "Quick-logged {$duration} min");
+    if (function_exists('log_ticket_history')) {
+        log_ticket_history($ticket_id, $user['id'], 'time_manual', null, "{$duration} min");
+    }
+
+    api_success([
+        'success'          => true,
+        'entry_id'         => $entry_id,
+        'duration_minutes' => $duration,
+        'message'          => format_duration_minutes($duration) . ' ' . t('logged.'),
+    ]);
+}
+
+/**
  * Get all unique tags across tickets (for autocomplete)
  * GET — returns [{id: "tag", name: "tag"}, ...]
  */
@@ -1117,5 +1211,129 @@ function api_get_timeline() {
     $events = get_ticket_timeline($ticket_id, $include_internal);
 
     api_success(['events' => $events]);
+}
+
+/**
+ * Quick-edit: Change ticket subject/title (AJAX)
+ */
+function api_quick_subject() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { api_error('Method not allowed', 405); }
+    require_csrf_token(true);
+    $user = current_user();
+    if (!$user || (!is_agent() && !is_admin())) { api_error('Unauthorized', 401); }
+
+    $ticket_id = (int)($_POST['ticket_id'] ?? 0);
+    $ticket = get_ticket($ticket_id);
+    if (!$ticket) { api_error('Ticket not found', 404); }
+    if (!can_see_ticket($ticket, $user) || !can_edit_ticket($ticket, $user)) { api_error('Forbidden', 403); }
+
+    $new_title = trim((string)($_POST['title'] ?? ''));
+    if ($new_title === '') { api_error(t('Subject cannot be empty.'), 400); }
+    if (mb_strlen($new_title) > 500) { $new_title = mb_substr($new_title, 0, 500); }
+
+    $old_title = $ticket['title'] ?? '';
+    if ($old_title === $new_title) {
+        api_success(['message' => t('Ticket updated.'), 'title' => $new_title]);
+    }
+
+    db_update('tickets', ['title' => $new_title], 'id = ?', [$ticket_id]);
+    if (function_exists('log_ticket_history')) {
+        log_ticket_history($ticket_id, $user['id'], 'title', $old_title, $new_title);
+    }
+    log_activity($ticket_id, $user['id'], 'ticket_edited', 'Subject updated');
+
+    if (function_exists('dispatch_ticket_notifications')) {
+        dispatch_ticket_notifications('ticket_updated', $ticket_id, $user['id'], [
+            'field' => 'title',
+            'detail' => $new_title,
+        ]);
+    }
+
+    api_success(['message' => t('Ticket updated.'), 'title' => $new_title]);
+}
+
+/**
+ * Quick-create: Create a ticket from the inline "new row" on the tickets list.
+ * Only agents/admins can use this. Minimum required field is title.
+ */
+function api_quick_create_ticket() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { api_error('Method not allowed', 405); }
+    require_csrf_token(true);
+    $user = current_user();
+    if (!$user || (!is_agent() && !is_admin())) { api_error('Unauthorized', 401); }
+
+    $title = trim((string)($_POST['title'] ?? ''));
+    if ($title === '') { api_error(t('Subject cannot be empty.'), 400); }
+    if (mb_strlen($title) > 500) { $title = mb_substr($title, 0, 500); }
+
+    $data = [
+        'title' => $title,
+        'description' => '',
+        'user_id' => (int)$user['id'],
+    ];
+
+    $type_raw = trim((string)($_POST['type'] ?? ''));
+    if ($type_raw !== '') { $data['type'] = $type_raw; }
+
+    $assignee_raw = (string)($_POST['assignee_id'] ?? '');
+    if ($assignee_raw !== '') {
+        $aid = (int)$assignee_raw;
+        if ($aid > 0) { $data['assignee_id'] = $aid; }
+    }
+
+    $org_raw = (string)($_POST['organization_id'] ?? '');
+    if ($org_raw !== '') {
+        $oid = (int)$org_raw;
+        $data['organization_id'] = $oid > 0 ? $oid : null;
+    }
+
+    $priority_raw = (string)($_POST['priority_id'] ?? '');
+    if ($priority_raw !== '') {
+        $pid = (int)$priority_raw;
+        if ($pid > 0 && get_priority($pid)) { $data['priority_id'] = $pid; }
+    }
+
+    $status_raw = (string)($_POST['status_id'] ?? '');
+    if ($status_raw !== '') {
+        $sid = (int)$status_raw;
+        if ($sid > 0 && get_status($sid)) { $data['status_id'] = $sid; }
+    }
+
+    $due_raw = trim((string)($_POST['due_date'] ?? ''));
+    if ($due_raw !== '') {
+        $ts = strtotime($due_raw);
+        if ($ts) { $data['due_date'] = date('Y-m-d H:i:s', $ts); }
+    }
+
+    $new_id = create_ticket($data);
+    if (!$new_id) { api_error(t('Failed to create ticket.'), 500); }
+
+    // Auto-grant access to assignee
+    if (!empty($data['assignee_id']) && function_exists('add_ticket_access')) {
+        add_ticket_access($new_id, (int)$data['assignee_id'], (int)$user['id']);
+    }
+
+    log_activity($new_id, $user['id'], 'created', 'Ticket created from inline row');
+
+    if (!empty($data['assignee_id'])) {
+        $assigned_user = get_user((int)$data['assignee_id']);
+        if ($assigned_user) {
+            require_once BASE_PATH . '/includes/mailer.php';
+            $new_ticket = get_ticket($new_id);
+            if ($new_ticket) {
+                send_ticket_assignment_notification($new_ticket, $assigned_user, $user);
+            }
+            if (function_exists('dispatch_ticket_notifications')) {
+                dispatch_ticket_notifications('assigned_to_you', $new_id, $user['id'], [
+                    'assignee_id' => (int)$data['assignee_id'],
+                ]);
+            }
+        }
+    }
+
+    api_success([
+        'message' => t('Ticket created.'),
+        'ticket_id' => $new_id,
+    ]);
 }
 
