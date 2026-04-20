@@ -52,7 +52,31 @@ function require_csrf_token($json = false)
     }
 
     flash(t('Security check failed. Please try again.'), 'error');
-    $redirect = $_SERVER['HTTP_REFERER'] ?? url('dashboard');
+    $fallback = url('dashboard');
+    $redirect = trim((string) ($_SERVER['HTTP_REFERER'] ?? ''));
+
+    if ($redirect !== '') {
+        if (preg_match('#^https?://#i', $redirect)) {
+            $parts = parse_url($redirect);
+            $expected_host = function_exists('foxdesk_request_host') ? foxdesk_request_host() : ($_SERVER['HTTP_HOST'] ?? '');
+            if (
+                !$parts
+                || empty($parts['host'])
+                || strcasecmp((string) $parts['host'], (string) $expected_host) !== 0
+            ) {
+                $redirect = $fallback;
+            }
+        } elseif (
+            !str_starts_with($redirect, '/')
+            && !str_starts_with($redirect, 'index.php')
+            && !str_starts_with($redirect, '?')
+        ) {
+            $redirect = $fallback;
+        }
+    } else {
+        $redirect = $fallback;
+    }
+
     header('Location: ' . $redirect);
     exit;
 }
@@ -89,7 +113,11 @@ function send_security_headers()
     }
 
     // HTTP Strict Transport Security - Force HTTPS (only if using HTTPS)
-    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+    $is_https = function_exists('foxdesk_request_is_https')
+        ? foxdesk_request_is_https()
+        : (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+
+    if ($is_https) {
         header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
     }
 }
@@ -378,4 +406,3 @@ function log_security_event($event_type, $user_id = null, $context = '')
         'created_at' => date('Y-m-d H:i:s')
     ]);
 }
-

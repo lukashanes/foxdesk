@@ -9,6 +9,13 @@ if (is_logged_in()) {
     exit;
 }
 
+// If the PHP session was lost (for example after an app/container restart),
+// restore the user from the persistent remember-me cookie before showing login.
+if (empty($_SESSION['2fa_pending']) && !empty($_COOKIE['foxdesk_remember']) && validate_remember_token()) {
+    header('Location: index.php?page=dashboard');
+    exit;
+}
+
 $settings = get_settings();
 $app_name = $settings['app_name'] ?? (defined('APP_NAME') ? APP_NAME : 'FoxDesk');
 

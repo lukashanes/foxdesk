@@ -1,12 +1,12 @@
 {
-    "version": "0.3.99",
-    "date": "2026-04-16",
+    "version": "0.3.100",
+    "date": "2026-04-20",
     "min_php": "8.1",
     "changelog": [
-        "Tickets list: inline editing of subject, type, due date, company and assignee directly from the row",
-        "Tickets list: compact Quick add toolbar button toggles a collapsible inline row for creating a ticket without leaving the page (including optional time log in minutes)",
-        "Tickets list: dropdowns now render with fixed positioning so they cannot be clipped by table or column overflow",
-        "API: new endpoints quick-subject and quick-create-ticket"
+        "Login sessions now persist across app and container restarts using database-backed session storage",
+        "Inbound email attachments now stay attached to ticket threads and open correctly in the UI",
+        "Attachment downloads now enforce ticket permissions and public share-token access rules",
+        "Remember-me no longer bypasses TOTP 2FA; reverse-proxy URL handling and CSRF redirects were hardened"
     ],
     "delete_files": []
 }

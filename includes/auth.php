@@ -3,6 +3,32 @@
  * Authentication Functions
  */
 
+if (!function_exists('foxdesk_request_is_https')) {
+    function foxdesk_request_is_https(): bool
+    {
+        if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+            return true;
+        }
+
+        $forwarded_proto = strtolower(trim((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
+        if ($forwarded_proto === 'https') {
+            return true;
+        }
+
+        $forwarded_ssl = strtolower(trim((string) ($_SERVER['HTTP_X_FORWARDED_SSL'] ?? '')));
+        if ($forwarded_ssl === 'on') {
+            return true;
+        }
+
+        $cf_visitor = (string) ($_SERVER['HTTP_CF_VISITOR'] ?? '');
+        if ($cf_visitor !== '' && stripos($cf_visitor, '"scheme":"https"') !== false) {
+            return true;
+        }
+
+        return false;
+    }
+}
+
 /**
  * Check if user is logged in
  */
@@ -142,6 +168,31 @@ function logout()
 // =============================================================================
 
 /**
+ * Remember-me cookies are intentionally disabled for accounts protected by 2FA.
+ * A persistent login token would otherwise bypass the second factor entirely.
+ */
+function remember_me_allowed_for_user(array $user): bool
+{
+    if (empty($user)) {
+        return false;
+    }
+
+    if (defined('BASE_PATH') && file_exists(BASE_PATH . '/includes/totp.php')) {
+        require_once BASE_PATH . '/includes/totp.php';
+    }
+
+    $role = (string) ($user['role'] ?? '');
+    $totp_enabled = function_exists('is_2fa_enabled')
+        ? is_2fa_enabled($user)
+        : !empty($user['totp_enabled']);
+    $role_requires_2fa = $role !== '' && function_exists('is_2fa_required_for_role')
+        ? is_2fa_required_for_role($role)
+        : false;
+
+    return !$totp_enabled && !$role_requires_2fa;
+}
+
+/**
  * Ensure the remember_token column exists on users table (auto-migration).
  */
 function ensure_remember_token_column()
@@ -167,12 +218,23 @@ function set_remember_token($user_id)
 {
     if (!ensure_remember_token_column()) return;
 
+    $user = db_fetch_one("SELECT * FROM users WHERE id = ? AND is_active = 1", [(int) $user_id]);
+    if (!$user || !remember_me_allowed_for_user($user)) {
+        try {
+            db_update('users', ['remember_token' => null], 'id = ?', [(int) $user_id]);
+        } catch (Throwable $e) {
+            // Non-critical
+        }
+        clear_remember_cookie();
+        return;
+    }
+
     $token = bin2hex(random_bytes(32)); // 64 hex chars
     $hash = hash('sha256', $token);
 
     db_update('users', ['remember_token' => $hash], 'id = ?', [$user_id]);
 
-    $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    $is_https = foxdesk_request_is_https();
     setcookie('foxdesk_remember', $token, [
         'expires'  => time() + (defined('REMEMBER_ME_DURATION') ? REMEMBER_ME_DURATION : 2592000),
         'path'     => '/',
@@ -208,6 +270,11 @@ function validate_remember_token()
 
     if (!$user) {
         clear_remember_cookie();
+        return false;
+    }
+
+    if (!remember_me_allowed_for_user($user)) {
+        clear_remember_token((int) $user['id']);
         return false;
     }
 
@@ -254,7 +321,7 @@ function clear_remember_token($user_id)
  */
 function clear_remember_cookie()
 {
-    $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    $is_https = foxdesk_request_is_https();
     setcookie('foxdesk_remember', '', [
         'expires'  => time() - 3600,
         'path'     => '/',
@@ -476,5 +543,3 @@ function revoke_api_token($token_id)
 {
     return db_update('api_tokens', ['is_active' => 0], 'id = ?', [$token_id]);
 }
-
-

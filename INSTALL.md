@@ -1,7 +1,7 @@
 # FoxDesk — Installation Guide
 
 > Fresh installation instructions for shared hosting (FTP), VPS, or dedicated servers.
-> Version: **0.3.74** | Requires: PHP 8.1+ | MySQL 5.7+ / MariaDB 10.2+
+> Version: **0.3.100** | Requires: PHP 8.1+ | MySQL 5.7+ / MariaDB 10.2+
 
 ---
 
@@ -293,6 +293,12 @@ Notification preferences are per-user in Profile settings:
 - In-app notifications on/off
 - Sound notifications on/off
 
+### 8. Security
+
+- Open **Admin > Settings > Security** and decide which roles must use 2FA
+- Ask each admin/agent to enable TOTP in their **Profile** and store backup codes safely
+- Review **Allowed Senders** if you plan to use IMAP email-to-ticket
+
 ---
 
 ## Shared Hosting (cPanel) Guide
@@ -471,7 +477,8 @@ Configure in `config.php`:
 2. **Use HTTPS** — Get a free SSL certificate from Let's Encrypt
 3. **Strong SECRET_KEY** — Generate 64 random hex chars
 4. **Strong passwords** — Enforce for all admin/agent accounts
-5. **Restrict file permissions** — `config.php` should be 644 or 640
+5. **Enable 2FA for sensitive roles** — Configure requirements in Admin > Settings > Security
+6. **Restrict file permissions** — `config.php` should be 644 or 640
 
 ### File Protection
 

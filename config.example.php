@@ -16,7 +16,6 @@ define('SECRET_KEY', 'generate_64_hex_secret_here');
 define('APP_NAME', 'FoxDesk');
 define('APP_URL', 'https://your-domain.tld');
 // define('APP_DEBUG', false); // Set true to enable debug mode
-define('APP_VERSION', '0.3.46');
 
 // Incoming email ingest (IMAP)
 define('IMAP_ENABLED', false);
@@ -40,4 +39,3 @@ define('UPLOAD_DIR', 'uploads/');
 define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024);
 
 date_default_timezone_set('Europe/Prague');
-

@@ -5,7 +5,11 @@
  * WordPress-style installer - just upload files and run this!
  */
 
-session_start();
+define('BASE_PATH', __DIR__);
+define('SESSION_LIFETIME', 2592000);
+
+require_once BASE_PATH . '/includes/session-bootstrap.php';
+foxdesk_bootstrap_session(false);
 
 ini_set('default_charset', 'UTF-8');
 header('Content-Type: text/html; charset=UTF-8');
@@ -253,7 +257,9 @@ define('SECRET_KEY', '{$secret}');
 
 // Application Settings
 define('APP_NAME', '" . addslashes($app_name) . "');
-define('APP_URL', '" . rtrim((isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']), '/') . "');
+define('APP_URL', '" . addslashes(function_exists('foxdesk_get_request_base_url')
+                    ? foxdesk_get_request_base_url($_SERVER['REQUEST_URI'] ?? '/install.php')
+                    : rtrim((isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']), '/')) . "');
 
 // Upload Settings
 define('UPLOAD_DIR', 'uploads/');
@@ -436,4 +442,3 @@ date_default_timezone_set('Europe/Prague');
     </div>
 </body>
 </html>
-
