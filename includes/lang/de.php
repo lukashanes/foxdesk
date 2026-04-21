@@ -211,6 +211,7 @@ return [
     'Invalid expiration date.' => 'Ungültiges Ablaufdatum.',
     'Invalid or expired reset link.' => 'Ungültiger oder abgelaufener Reset-Link.',
     'Invalid time range.' => 'Ungültiger Zeitraum.',
+    'Invalid due date.' => 'Ungültiges Fälligkeitsdatum.',
     'Invalid user.' => 'Ungültiger Benutzer.',
     'Italian' => 'Italienisch',
     'JPG, PNG, GIF, or WebP. Max 2MB.' => 'JPG, PNG, GIF oder WebP. Max. 2 MB.',
@@ -506,6 +507,7 @@ return [
     'User activity and ticket history.' => 'Benutzeraktivität und Ticketverlauf.',
     'User count' => 'Benutzeranzahl',
     'User created.' => 'Benutzer erstellt.',
+    'Failed to create user.' => 'Benutzer konnte nicht erstellt werden.',
     'User name' => 'Benutzername',
     'User not found.' => 'Benutzer nicht gefunden.',
     'User profile: {name}' => 'Benutzerprofil: {name}',
@@ -767,6 +769,7 @@ return [
     'Notify users when their timer has been running for too long.' => 'Benutzer benachrichtigen, wenn ihr Timer zu lange läuft.',
     'You cannot archive or delete your own account while logged in.' => 'Sie können Ihr eigenes Konto nicht archivieren oder löschen, solange Sie angemeldet sind.',
     'Cannot archive the last active admin.' => 'Der letzte aktive Administrator kann nicht archiviert werden.',
+    'Cannot deactivate or demote the last active admin.' => 'Der letzte aktive Administrator kann nicht deaktiviert oder herabgestuft werden.',
     'User is already archived.' => 'Der Benutzer ist bereits archiviert.',
     'User archived.' => 'Benutzer archiviert.',
     'Archive user first before permanent deletion.' => 'Archivieren Sie den Benutzer zuerst, bevor Sie ihn dauerhaft löschen.',
@@ -1179,5 +1182,3 @@ return [
     'Figma design' => 'Figma Design',
     'Image' => 'Bild',
 ];
-
-

@@ -13,6 +13,16 @@
  * @return int|false Report template ID or false on failure
  */
 function create_report_template($data) {
+    if (
+        array_key_exists('schedule_enabled', $data) ||
+        array_key_exists('schedule_interval', $data) ||
+        array_key_exists('schedule_day', $data) ||
+        array_key_exists('schedule_recipients', $data) ||
+        array_key_exists('schedule_next_due', $data)
+    ) {
+        ensure_report_schedule_columns();
+    }
+
     $uuid = generate_uuid();
 
     $insert_data = [
@@ -31,7 +41,12 @@ function create_report_template($data) {
         'rounding_minutes' => $data['rounding_minutes'] ?? 15,
         'theme_color' => $data['theme_color'] ?? null,
         'hide_branding' => $data['hide_branding'] ?? 0,
-        'is_draft' => $data['is_draft'] ?? 1
+        'is_draft' => $data['is_draft'] ?? 1,
+        'schedule_enabled' => $data['schedule_enabled'] ?? 0,
+        'schedule_interval' => $data['schedule_interval'] ?? 'monthly',
+        'schedule_day' => $data['schedule_day'] ?? 1,
+        'schedule_recipients' => $data['schedule_recipients'] ?? null,
+        'schedule_next_due' => $data['schedule_next_due'] ?? null,
     ];
 
     $insert_data = report_filter_template_data($insert_data);
@@ -148,11 +163,22 @@ function get_report_template_by_uuid($uuid) {
 function update_report_template($id, $data) {
     $update_data = [];
 
+    if (
+        array_key_exists('schedule_enabled', $data) ||
+        array_key_exists('schedule_interval', $data) ||
+        array_key_exists('schedule_day', $data) ||
+        array_key_exists('schedule_recipients', $data) ||
+        array_key_exists('schedule_next_due', $data)
+    ) {
+        ensure_report_schedule_columns();
+    }
+
     $allowed_fields = [
-        'title', 'report_language', 'date_from', 'date_to',
+        'organization_id', 'title', 'report_language', 'date_from', 'date_to',
         'executive_summary', 'show_financials', 'show_team_attribution',
         'show_cost_breakdown', 'group_by', 'rounding_minutes',
-        'theme_color', 'hide_branding', 'is_draft', 'is_archived', 'expires_at'
+        'theme_color', 'hide_branding', 'is_draft', 'is_archived', 'expires_at',
+        'schedule_enabled', 'schedule_interval', 'schedule_day', 'schedule_recipients', 'schedule_next_due'
     ];
 
     foreach ($allowed_fields as $field) {
@@ -598,6 +624,17 @@ function get_due_scheduled_reports(): array
  * @param string|null $from Base date (default: today)
  * @return string Next due date (Y-m-d)
  */
+function report_days_in_month(int $year, int $month): int
+{
+    $month = max(1, min(12, $month));
+    $date = DateTimeImmutable::createFromFormat('!Y-n-j', $year . '-' . $month . '-1');
+    if (!$date) {
+        return 31;
+    }
+
+    return (int) $date->format('t');
+}
+
 function calculate_next_report_due(string $interval, int $day, ?string $from = null): string
 {
     $base = new DateTime($from ?? 'today');
@@ -620,7 +657,7 @@ function calculate_next_report_due(string $interval, int $day, ?string $from = n
                 $base->modify('+1 year');
             }
             $year = (int) $base->format('Y');
-            $max_day = cal_days_in_month(CAL_GREGORIAN, $quarter_start, $year);
+            $max_day = report_days_in_month($year, $quarter_start);
             $actual_day = min($day, $max_day);
             $base->setDate($year, $quarter_start, $actual_day);
             break;
@@ -629,7 +666,7 @@ function calculate_next_report_due(string $interval, int $day, ?string $from = n
             $base->modify('+1 month');
             $year = (int) $base->format('Y');
             $month = (int) $base->format('n');
-            $max_day = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+            $max_day = report_days_in_month($year, $month);
             $actual_day = min($day, $max_day);
             $base->setDate($year, $month, $actual_day);
             break;
@@ -822,4 +859,3 @@ function send_scheduled_report_email(array $report, string $date_from, string $d
         }
     }
 }
-

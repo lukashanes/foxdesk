@@ -1068,7 +1068,7 @@ function process_due_date_notifications(): array
             continue;
         }
 
-        $is_overdue = strtotime($ticket['due_date']) < time();
+        $is_overdue = is_due_date_overdue($ticket['due_date'] ?? null);
         $due_formatted = function_exists('format_date') ? format_date($ticket['due_date'], 'd.m.Y H:i') : $ticket['due_date'];
 
         // Dispatch in-app notification

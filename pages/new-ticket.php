@@ -77,12 +77,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Convert datetime-local format to MySQL datetime format
         if ($due_date) {
-            $due_date = date('Y-m-d H:i:s', strtotime($due_date));
+            $due_date = normalize_due_date_input($due_date);
+            if ($due_date === false) {
+                $error = t('Invalid due date.');
+            }
         }
 
-        if (empty($title)) {
+        if (!empty($error)) {
+            // Keep the validation error raised above.
+        } elseif (empty($title)) {
             $error = t('Enter a subject.');
         } elseif ($organization_id !== null && $organization_id > 0 && !in_array($organization_id, $allowed_organization_ids, true)) {
             $error = t('Selected organization is not available.');

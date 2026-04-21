@@ -220,7 +220,11 @@ function api_agent_create_ticket()
         $data['organization_id'] = $input['organization_id'] ? (int) $input['organization_id'] : null;
     }
     if (!empty($input['due_date'])) {
-        $data['due_date'] = $input['due_date'];
+        $normalized_due_date = normalize_due_date_input($input['due_date']);
+        if ($normalized_due_date === false) {
+            api_error('Field "due_date" is invalid', 422);
+        }
+        $data['due_date'] = $normalized_due_date;
     }
     if (!empty($input['tags'])) {
         $data['tags'] = $input['tags'];

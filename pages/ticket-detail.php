@@ -1204,7 +1204,15 @@ require_once BASE_PATH . '/includes/header.php';
                 <?php if (is_agent() && $time_tracking_available): ?>
                         <!-- Manual Time Entry (expandable, between attachments and submit row) -->
                         <div id="manual-entry-row" class="hidden mt-2 pt-2 border-t" style="border-color: var(--border-light);">
-                            <div class="grid grid-cols-3 gap-2">
+                            <input type="hidden" name="manual_start_at" id="manual-start-at">
+                            <input type="hidden" name="manual_end_at" id="manual-end-at">
+                            <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                                <div>
+                                    <label class="form-label-sm mb-1"><?php echo e(t('Time (min)')); ?></label>
+                                    <input type="number" name="manual_duration_minutes" id="manual-duration-minutes"
+                                        min="1" max="1440" step="1" placeholder="15"
+                                        class="form-input text-sm h-9">
+                                </div>
                                 <div>
                                     <label class="form-label-sm mb-1"><?php echo e(t('Date')); ?></label>
                                     <input type="date" name="manual_date" value="<?php echo e(date('Y-m-d')); ?>"
@@ -1218,6 +1226,13 @@ require_once BASE_PATH . '/includes/header.php';
                                     <label class="form-label-sm mb-1"><?php echo e(t('End')); ?></label>
                                     <input type="time" name="manual_end_time" class="form-input text-sm h-9">
                                 </div>
+                            </div>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <button type="button" class="manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="5">+5</button>
+                                <button type="button" class="manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="10">+10</button>
+                                <button type="button" class="manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="15">+15</button>
+                                <button type="button" class="manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="30">+30</button>
+                                <button type="button" class="manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="60">+60</button>
                             </div>
                         </div>
                 <?php endif; ?>
@@ -1476,9 +1491,7 @@ require_once BASE_PATH . '/includes/header.php';
                             <dt class="text-xs" style="color: var(--text-muted);"><?php echo e(t('Due date')); ?></dt>
                             <dd class="text-xs">
                                 <?php
-                                $due_datetime = new DateTime($ticket['due_date']);
-                                $now = new DateTime();
-                                $is_overdue = $due_datetime < $now && empty($ticket['is_closed']);
+                                $is_overdue = is_due_date_overdue($ticket['due_date'], !empty($ticket['is_closed']));
                                 ?>
                                 <span class="<?php echo $is_overdue ? 'text-red-600 font-bold' : ''; ?>"
                                     style="<?php echo !$is_overdue ? 'color: var(--text-primary);' : ''; ?>">
@@ -1626,7 +1639,7 @@ require_once BASE_PATH . '/includes/header.php';
                                     <label class="form-label-sm mb-0.5">
                                         <?php echo get_icon('calendar-alt', 'w-3 h-3 inline mr-1'); ?>        <?php echo e(t('Due date')); ?>
                                     </label>
-                                    <?php $quick_due_overdue = !empty($ticket['due_date']) && empty($ticket['is_closed']) && strtotime($ticket['due_date']) < time(); ?>
+                                    <?php $quick_due_overdue = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed'])); ?>
                                     <input type="datetime-local"
                                         value="<?php echo !empty($ticket['due_date']) ? date('Y-m-d\TH:i', strtotime($ticket['due_date'])) : ''; ?>"
                                         class="form-input text-sm py-1.5 w-full <?php echo $quick_due_overdue ? 'border-red-400 bg-red-50 text-red-700' : ''; ?>"
@@ -2095,39 +2108,90 @@ require_once BASE_PATH . '/includes/header.php';
     // Manual time entry toggle
     const manualToggle = document.getElementById('manual-toggle');
     const manualEntryRow = document.getElementById('manual-entry-row');
+    const manualDurationInput = document.getElementById('manual-duration-minutes');
     const manualDateInput = document.querySelector('input[name="manual_date"]');
     const manualStartTimeInput = document.querySelector('input[name="manual_start_time"]');
     const manualEndTimeInput = document.querySelector('input[name="manual_end_time"]');
+    const manualStartAtInput = document.getElementById('manual-start-at');
+    const manualEndAtInput = document.getElementById('manual-end-at');
+    const manualDurationButtons = document.querySelectorAll('.manual-duration-chip');
+    let applyingManualDuration = false;
 
     function pad2(n) {
         return String(n).padStart(2, '0');
     }
 
-    function setManualDefaults() {
-        const now = new Date();
-        const today = now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-' + pad2(now.getDate());
-        const currentTime = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
-        const plusTenMin = new Date(now.getTime() + (10 * 60 * 1000));
-        const endTime = pad2(plusTenMin.getHours()) + ':' + pad2(plusTenMin.getMinutes());
+    function formatDateInput(date) {
+        return date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate());
+    }
 
-        if (manualDateInput && !manualDateInput.value) {
-            manualDateInput.value = today;
-        }
-        if (manualStartTimeInput && !manualStartTimeInput.value) {
-            manualStartTimeInput.value = currentTime;
-        }
-        if (manualEndTimeInput && !manualEndTimeInput.value) {
-            manualEndTimeInput.value = endTime;
-        }
+    function formatTimeInput(date) {
+        return pad2(date.getHours()) + ':' + pad2(date.getMinutes());
+    }
+
+    function formatDateTimeLocal(date) {
+        return formatDateInput(date) + 'T' + formatTimeInput(date);
     }
 
     function setManualEntryVisible(show) {
         if (!manualEntryRow || !manualToggle) return;
         manualEntryRow.classList.toggle('hidden', !show);
         manualToggle.setAttribute('aria-expanded', show ? 'true' : 'false');
-        if (show) {
-            setManualDefaults();
+    }
+
+    function clearManualDurationSnapshot(clearDurationValue, clearRangeValues) {
+        if (clearDurationValue && manualDurationInput) {
+            manualDurationInput.value = '';
         }
+        if (manualStartAtInput) {
+            manualStartAtInput.value = '';
+        }
+        if (manualEndAtInput) {
+            manualEndAtInput.value = '';
+        }
+        if (clearRangeValues) {
+            if (manualStartTimeInput) {
+                manualStartTimeInput.value = '';
+            }
+            if (manualEndTimeInput) {
+                manualEndTimeInput.value = '';
+            }
+        }
+    }
+
+    function applyManualDuration(minutes) {
+        const parsedMinutes = parseInt(minutes, 10) || 0;
+        if (!parsedMinutes || !manualDateInput || !manualStartTimeInput || !manualEndTimeInput) {
+            clearManualDurationSnapshot(false, true);
+            window.updateSubmitLabel();
+            return;
+        }
+
+        const end = new Date();
+        const start = new Date(end.getTime() - (parsedMinutes * 60 * 1000));
+
+        applyingManualDuration = true;
+        if (manualDurationInput) {
+            manualDurationInput.value = parsedMinutes;
+        }
+        manualDateInput.value = formatDateInput(start);
+        manualStartTimeInput.value = formatTimeInput(start);
+        manualEndTimeInput.value = formatTimeInput(end);
+        if (manualStartAtInput) {
+            manualStartAtInput.value = formatDateTimeLocal(start);
+        }
+        if (manualEndAtInput) {
+            manualEndAtInput.value = formatDateTimeLocal(end);
+        }
+        applyingManualDuration = false;
+        setManualEntryVisible(true);
+        window.updateSubmitLabel();
+    }
+
+    function switchToManualRangeMode() {
+        if (applyingManualDuration) return;
+        clearManualDurationSnapshot(true);
+        window.updateSubmitLabel();
     }
 
     if (manualToggle && manualEntryRow) {
@@ -2136,10 +2200,39 @@ require_once BASE_PATH . '/includes/header.php';
         });
     }
 
-    if ((manualStartTimeInput && manualStartTimeInput.value) ||
+    if ((manualDurationInput && manualDurationInput.value) ||
+        (manualStartTimeInput && manualStartTimeInput.value) ||
         (manualEndTimeInput && manualEndTimeInput.value)) {
         setManualEntryVisible(true);
     }
+
+    if (manualDurationInput) {
+        manualDurationInput.addEventListener('change', function () {
+            if (this.value) {
+                applyManualDuration(this.value);
+            } else {
+                clearManualDurationSnapshot(false, true);
+                window.updateSubmitLabel();
+            }
+        });
+        manualDurationInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                applyManualDuration(this.value);
+            }
+        });
+    }
+
+    manualDurationButtons.forEach(function(btn) {
+        btn.addEventListener('click', function () {
+            applyManualDuration(this.dataset.minutes);
+        });
+    });
+
+    [manualDateInput, manualStartTimeInput, manualEndTimeInput].forEach(function(input) {
+        if (!input) return;
+        input.addEventListener('input', switchToManualRangeMode);
+    });
 
     // CC Autocomplete
     const ccSearchInput = document.getElementById('cc-search-input');
@@ -2267,6 +2360,7 @@ require_once BASE_PATH . '/includes/header.php';
         const hasActiveTimer = commentSubmitBtn.dataset.hasActiveTimer === '1';
         const stopRequested = hasActiveTimer && stopTimerToggle && stopTimerToggle.checked;
         const hasManualTime =
+            (manualDurationInput && manualDurationInput.value) ||
             (manualStartTimeInput && manualStartTimeInput.value) ||
             (manualEndTimeInput && manualEndTimeInput.value);
 
@@ -2292,6 +2386,9 @@ require_once BASE_PATH . '/includes/header.php';
     };
 
     window.attachStopTimerToggleListener();
+    if (manualDurationInput) {
+        manualDurationInput.addEventListener('input', window.updateSubmitLabel);
+    }
     if (manualStartTimeInput) {
         manualStartTimeInput.addEventListener('input', window.updateSubmitLabel);
     }

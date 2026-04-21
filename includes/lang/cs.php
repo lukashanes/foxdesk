@@ -213,6 +213,7 @@ return [
     'Invalid expiration date.' => 'Neplatné datum vypršení.',
     'Invalid or expired reset link.' => 'Neplatný nebo expirovaný odkaz pro obnovení hesla.',
     'Invalid time range.' => 'Neplatný časový rozsah.',
+    'Invalid due date.' => 'Neplatný termín.',
     'Invalid user.' => 'Neplatný uživatel.',
     'JPG, PNG, GIF, or WebP. Max 2MB.' => 'JPG, PNG, GIF nebo WebP. Max 2MB.',
     'Language' => 'Jazyk',
@@ -510,6 +511,7 @@ return [
     'User activity and ticket history.' => 'Aktivita uživatele a historie požadavků.',
     'User count' => 'Počet uživatelů',
     'User created.' => 'Uživatel vytvořen.',
+    'Failed to create user.' => 'Nepodařilo se vytvořit uživatele.',
     'User not found.' => 'Uživatel nenalezen.',
     'User profile: {name}' => 'Profil uživatele: {name}',
     'User updated.' => 'Uživatel aktualizován.',
@@ -812,6 +814,7 @@ return [
     'No active share link exists yet.' => 'Zatím neexistuje žádný aktivní sdílený odkaz.',
     'You cannot archive or delete your own account while logged in.' => 'Nemůžete archivovat ani smazat vlastní účet, když jste přihlášen.',
     'Cannot archive the last active admin.' => 'Nelze archivovat posledního aktivního administrátora.',
+    'Cannot deactivate or demote the last active admin.' => 'Nelze deaktivovat ani odebrat roli poslednímu aktivnímu administrátorovi.',
     'User is already archived.' => 'Uživatel je již archivován.',
     'User archived.' => 'Uživatel byl archivován.',
     'Deleted' => 'Smazaný',
@@ -1178,5 +1181,3 @@ return [
     'Figma design' => 'Figma design',
     'Image' => 'Obrázek',
 ];
-
-

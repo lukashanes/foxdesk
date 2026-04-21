@@ -538,13 +538,13 @@ function api_quick_due_date() {
     $ticket_id = (int)($_POST['ticket_id'] ?? 0);
     $ticket = get_ticket($ticket_id);
     if (!$ticket) { api_error('Ticket not found', 404); }
-    if (!can_see_ticket($ticket, $user)) { api_error('Forbidden', 403); }
+    if (!can_see_ticket($ticket, $user) || !can_edit_ticket($ticket, $user)) { api_error('Forbidden', 403); }
 
     $old_due_date = $ticket['due_date'] ?? null;
-    $due_date = !empty($_POST['due_date']) ? $_POST['due_date'] : null;
-
-    if ($due_date) {
-        $due_date = date('Y-m-d H:i:s', strtotime($due_date));
+    $due_date_input = trim((string) ($_POST['due_date'] ?? ''));
+    $due_date = normalize_due_date_input($due_date_input);
+    if ($due_date_input !== '' && $due_date === false) {
+        api_error(t('Invalid due date.'), 400);
     }
 
     db_update('tickets', ['due_date' => $due_date], 'id = ?', [$ticket_id]);
@@ -1301,8 +1301,11 @@ function api_quick_create_ticket() {
 
     $due_raw = trim((string)($_POST['due_date'] ?? ''));
     if ($due_raw !== '') {
-        $ts = strtotime($due_raw);
-        if ($ts) { $data['due_date'] = date('Y-m-d H:i:s', $ts); }
+        $normalized_due_date = normalize_due_date_input($due_raw);
+        if ($normalized_due_date === false) {
+            api_error(t('Invalid due date.'), 400);
+        }
+        $data['due_date'] = $normalized_due_date;
     }
 
     $new_id = create_ticket($data);
@@ -1336,4 +1339,3 @@ function api_quick_create_ticket() {
         'ticket_id' => $new_id,
     ]);
 }
-

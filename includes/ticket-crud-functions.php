@@ -299,6 +299,62 @@ function get_tickets_by_ids(array $ids) {
 /**
  * Create ticket
  */
+function normalize_due_date_input($value) {
+    $raw = trim((string) $value);
+    if ($raw === '') {
+        return null;
+    }
+
+    $formats = [
+        'Y-m-d\TH:i:s',
+        'Y-m-d\TH:i',
+        'Y-m-d H:i:s',
+        'Y-m-d H:i',
+        'Y-m-d',
+    ];
+
+    foreach ($formats as $format) {
+        $dt = DateTime::createFromFormat($format, $raw);
+        if (!$dt) {
+            continue;
+        }
+
+        $errors = DateTime::getLastErrors();
+        if (is_array($errors) && (($errors['warning_count'] ?? 0) > 0 || ($errors['error_count'] ?? 0) > 0)) {
+            continue;
+        }
+
+        if ($format === 'Y-m-d') {
+            // Date-only deadlines should stay active through the whole day.
+            $dt->setTime(23, 59, 59);
+        } elseif ($format === 'Y-m-d\TH:i' || $format === 'Y-m-d H:i') {
+            $dt->setTime((int) $dt->format('H'), (int) $dt->format('i'), 0);
+        }
+
+        return $dt->format('Y-m-d H:i:s');
+    }
+
+    $ts = strtotime($raw);
+    if ($ts === false) {
+        return false;
+    }
+
+    return date('Y-m-d H:i:s', $ts);
+}
+
+function is_due_date_overdue($due_date, $is_closed = false) {
+    if ($is_closed || empty($due_date)) {
+        return false;
+    }
+
+    $dt = date_create((string) $due_date);
+    if (!$dt) {
+        return false;
+    }
+
+    return $dt < new DateTime();
+}
+
 function create_ticket($data) {
     $default_status = get_default_status();
     $default_priority = get_default_priority();
@@ -334,7 +390,11 @@ function create_ticket($data) {
     }
 
     if (array_key_exists('due_date', $data)) {
-        $ticket_data['due_date'] = !empty($data['due_date']) ? $data['due_date'] : null;
+        $normalized_due_date = normalize_due_date_input($data['due_date']);
+        if ($normalized_due_date === false) {
+            return false;
+        }
+        $ticket_data['due_date'] = $normalized_due_date;
     }
 
     if (array_key_exists('tags', $data) && function_exists('ticket_tags_column_exists') && ticket_tags_column_exists()) {
@@ -869,5 +929,3 @@ function format_history_value($field_name, $value) {
             return e($value);
     }
 }
-
-

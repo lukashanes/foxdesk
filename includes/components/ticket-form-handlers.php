@@ -261,10 +261,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cc_users = isset($_POST['cc_users']) ? array_map('intval', $_POST['cc_users']) : [];
         $stop_timer = is_agent() && isset($_POST['stop_timer']);
         $manual_date_input = trim($_POST['manual_date'] ?? date('Y-m-d'));
+        $manual_duration_input = trim((string) ($_POST['manual_duration_minutes'] ?? ''));
         $manual_start_time_input = trim($_POST['manual_start_time'] ?? '');
         $manual_end_time_input = trim($_POST['manual_end_time'] ?? '');
+        $manual_start_at_input = trim((string) ($_POST['manual_start_at'] ?? ''));
+        $manual_end_at_input = trim((string) ($_POST['manual_end_at'] ?? ''));
         $manual_start_input = '';
         $manual_end_input = '';
+        $manual_duration_minutes = $manual_duration_input !== '' ? (int) $manual_duration_input : 0;
+        $manual_quick_requested = is_agent() && $manual_duration_input !== '';
 
         if ($manual_start_time_input !== '' || $manual_end_time_input !== '') {
             $base_date = $manual_date_input !== '' ? $manual_date_input : date('Y-m-d');
@@ -277,7 +282,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $manual_end_input = $end_date . 'T' . $manual_end_time_input;
         }
 
-        $manual_requested = is_agent() && ($manual_start_input !== '' || $manual_end_input !== '' || $manual_start_time_input !== '' || $manual_end_time_input !== '');
+        $manual_range_requested = is_agent() && ($manual_start_input !== '' || $manual_end_input !== '' || $manual_start_time_input !== '' || $manual_end_time_input !== '');
+        $manual_snapshot_requested = $manual_quick_requested && $manual_start_at_input !== '' && $manual_end_at_input !== '';
+        $manual_requested = $manual_range_requested || $manual_quick_requested;
         $log_time_requested = $stop_timer || $manual_requested;
         $comment_time_spent = 0;
         $manual_start_dt = null;
@@ -292,13 +299,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($manual_requested) {
-            if ($manual_start_input === '' || $manual_end_input === '') {
-                flash(t('Start and end time are required.'), 'error');
+            if ($manual_quick_requested && ($manual_duration_minutes < 1 || $manual_duration_minutes > 1440)) {
+                flash(t('Duration must be between 1 and 1440 minutes.'), 'error');
                 redirect('ticket', ['id' => $ticket_id]);
             }
 
-            $manual_start_dt = DateTime::createFromFormat('Y-m-d\\TH:i', $manual_start_input);
-            $manual_end_dt = DateTime::createFromFormat('Y-m-d\\TH:i', $manual_end_input);
+            if ($manual_snapshot_requested) {
+                $manual_start_dt = DateTime::createFromFormat('Y-m-d\\TH:i', $manual_start_at_input);
+                $manual_end_dt = DateTime::createFromFormat('Y-m-d\\TH:i', $manual_end_at_input);
+            } elseif ($manual_quick_requested && !$manual_range_requested) {
+                $manual_end_dt = new DateTime();
+                $manual_start_dt = (clone $manual_end_dt)->modify('-' . $manual_duration_minutes . ' minutes');
+            } else {
+                if ($manual_start_input === '' || $manual_end_input === '') {
+                    flash(t('Start and end time are required.'), 'error');
+                    redirect('ticket', ['id' => $ticket_id]);
+                }
+
+                $manual_start_dt = DateTime::createFromFormat('Y-m-d\\TH:i', $manual_start_input);
+                $manual_end_dt = DateTime::createFromFormat('Y-m-d\\TH:i', $manual_end_input);
+            }
+
             if (!$manual_start_dt || !$manual_end_dt) {
                 flash(t('Invalid time range.'), 'error');
                 redirect('ticket', ['id' => $ticket_id]);
@@ -573,11 +594,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Update due date
     if (isset($_POST['update_due_date']) && is_agent()) {
         $old_due_date = $ticket['due_date'] ?? null;
-        $due_date = !empty($_POST['due_date']) ? $_POST['due_date'] : null;
-
-        // Convert datetime-local format to MySQL datetime format
-        if ($due_date) {
-            $due_date = date('Y-m-d H:i:s', strtotime($due_date));
+        $due_date_input = trim((string) ($_POST['due_date'] ?? ''));
+        $due_date = normalize_due_date_input($due_date_input);
+        if ($due_date_input !== '' && $due_date === false) {
+            flash(t('Invalid due date.'), 'error');
+            redirect('ticket', ['id' => $ticket_id]);
         }
 
         db_update('tickets', ['due_date' => $due_date], 'id = ?', [$ticket_id]);

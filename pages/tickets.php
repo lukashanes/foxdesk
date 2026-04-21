@@ -887,6 +887,12 @@ include BASE_PATH . '/includes/components/page-header.php';
 .kanban-board--closed {
     padding-top: 0.75rem;
 }
+.kanban-board--centered {
+    width: 100%;
+}
+.kanban-board--fill {
+    width: 100%;
+}
 .kanban-closed-toggle {
     width: calc(100% - 1.5rem);
     margin: 0.25rem 0.75rem 0;
@@ -1144,6 +1150,63 @@ include BASE_PATH . '/includes/components/page-header.php';
     display: none;
 }
 
+/* Wide screens: let the active board breathe instead of leaving a large empty strip */
+@media (min-width: 1440px) {
+    .kanban-board--centered {
+        display: grid;
+        grid-template-columns: repeat(var(--kanban-column-count, 1), minmax(320px, var(--kanban-centered-width, 440px)));
+        justify-content: center;
+        gap: 1rem;
+        overflow-x: visible;
+        padding-left: 0;
+        padding-right: 0;
+        align-items: start;
+    }
+    .kanban-board--centered .kanban-column {
+        flex: none;
+        min-width: 0;
+    }
+    .kanban-board--centered .kanban-column-header {
+        padding: 0.75rem 0.875rem;
+    }
+    .kanban-board--centered .kanban-cards {
+        padding: 0.625rem;
+        gap: 0.5rem;
+    }
+    .kanban-board--centered .kanban-card-link {
+        padding: 0.75rem 0.8125rem;
+    }
+    .kanban-board--centered .kanban-card-title {
+        font-size: 0.9375rem;
+    }
+    .kanban-board--fill {
+        display: grid;
+        grid-template-columns: repeat(var(--kanban-column-count, 1), minmax(0, 1fr));
+        gap: 1rem;
+        overflow-x: visible;
+        padding-left: 0;
+        padding-right: 0;
+        align-items: start;
+    }
+    .kanban-board--fill .kanban-column {
+        flex: none;
+        min-width: 0;
+    }
+    .kanban-board--fill .kanban-column-header {
+        padding: 0.75rem 0.875rem;
+    }
+    .kanban-board--fill .kanban-cards {
+        padding: 0.625rem;
+        gap: 0.5rem;
+    }
+    .kanban-board--fill .kanban-card-link {
+        padding: 0.625rem 0.75rem;
+    }
+    .kanban-board--fill .kanban-card-title {
+        font-size: 0.875rem;
+    }
+}
+
 /* Mobile: stack columns */
 @media (max-width: 1023px) {
     .kanban-board {
@@ -1287,6 +1350,21 @@ if (!empty($closed_statuses) && !empty($closed_tickets)) {
             $can_drag = is_agent() || is_admin();
             ?>
             <?php foreach ($board_status_groups as $board_group): ?>
+                <?php
+                $board_column_count = max(1, count($board_group['statuses']));
+                $center_wide_board = $board_group['name'] !== 'closed' && $board_column_count <= 2;
+                $fill_wide_board = $board_group['name'] !== 'closed' && $board_column_count >= 3 && $board_column_count <= 4;
+                $board_classes = 'kanban-board' . ($board_group['name'] === 'closed' ? ' kanban-board--closed' : '');
+                if ($center_wide_board) {
+                    $board_classes .= ' kanban-board--centered';
+                }
+                if ($fill_wide_board) {
+                    $board_classes .= ' kanban-board--fill';
+                }
+                $board_style = ($center_wide_board || $fill_wide_board)
+                    ? '--kanban-column-count: ' . $board_column_count . ';'
+                    : '';
+                ?>
                 <?php if ($board_group['name'] === 'closed'): ?>
                     <button type="button"
                             class="kanban-closed-toggle"
@@ -1297,7 +1375,7 @@ if (!empty($closed_statuses) && !empty($closed_tickets)) {
                     </button>
                     <div id="closed-kanban-board" class="hidden">
                 <?php endif; ?>
-                <div class="kanban-board<?php echo $board_group['name'] === 'closed' ? ' kanban-board--closed' : ''; ?>">
+                <div class="<?php echo e($board_classes); ?>"<?php echo $board_style !== '' ? ' style="' . e($board_style) . '"' : ''; ?>>
                     <?php foreach ($board_group['statuses'] as $status): ?>
                         <div class="kanban-column"
                              data-status-id="<?php echo (int) $status['id']; ?>"
@@ -1310,7 +1388,7 @@ if (!empty($closed_statuses) && !empty($closed_tickets)) {
                             <div class="kanban-cards" data-status-id="<?php echo (int) $status['id']; ?>">
                                 <?php foreach ($tickets_by_status[(int) $status['id']] as $ticket):
                                     $priority_color = $ticket['priority_color'] ?? '#94a3b8';
-                                    $is_overdue = !empty($ticket['due_date']) && empty($ticket['is_closed']) && strtotime($ticket['due_date']) < time();
+                                    $is_overdue = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed']));
                                     $assignee_label = '';
                                     if (!empty($ticket['assignee_first_name'])) {
                                         $assignee_label = $ticket['assignee_first_name'] . ' ' . mb_substr($ticket['assignee_last_name'] ?? '', 0, 1) . '.';
@@ -1466,7 +1544,7 @@ if (!empty($closed_statuses) && !empty($closed_tickets)) {
                 <?php foreach ($group['tickets'] as $ticket):
                 $priority_name = $ticket['priority_name'] ?? get_priority_label($ticket['priority_id'] ?? $ticket['priority'] ?? 'medium');
                 $priority_color = $ticket['priority_color'] ?? get_priority_color($ticket['priority_id'] ?? $ticket['priority'] ?? 'medium');
-                $is_overdue_mobile = !empty($ticket['due_date']) && empty($ticket['is_closed']) && strtotime($ticket['due_date']) < time();
+                $is_overdue_mobile = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed']));
                 ?>
                 <div class="p-4 ticket-list-item<?php echo $is_overdue_mobile ? ' ticket-overdue' : ''; ?>" style="border-left: 5px solid <?php echo e($ticket['status_color']); ?>;">
                     <div class="flex items-start gap-3">
@@ -1489,7 +1567,7 @@ if (!empty($closed_statuses) && !empty($closed_tickets)) {
                                     <?php if (!empty($ticket['due_date'])): ?>
                                         <?php
                                         $due_ts = strtotime($ticket['due_date']);
-                                        $is_overdue = $due_ts < time() && empty($ticket['is_closed']);
+                                        $is_overdue = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed']));
                                         ?>
                                         <span
                                             class="<?php echo $is_overdue ? 'text-red-600 font-medium' : ''; ?> text-xs"
@@ -1756,7 +1834,7 @@ if (!empty($closed_statuses) && !empty($closed_tickets)) {
                     <?php foreach ($group['tickets'] as $ticket):
                         $priority_name = $ticket['priority_name'] ?? get_priority_label($ticket['priority_id'] ?? $ticket['priority'] ?? 'medium');
                         $priority_color = $ticket['priority_color'] ?? get_priority_color($ticket['priority_id'] ?? $ticket['priority'] ?? 'medium');
-                        $is_overdue = !empty($ticket['due_date']) && empty($ticket['is_closed']) && strtotime($ticket['due_date']) < time();
+                        $is_overdue = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed']));
                         ?>
                         <tr class="ticket-row<?php echo $is_overdue ? ' ticket-overdue' : ''; ?>" style="border-left: 5px solid <?php echo e($ticket['status_color']); ?>;" data-href="<?php echo e(ticket_url($ticket)); ?>">
                             <td class="px-3 py-2.5 whitespace-nowrap align-top">
@@ -1881,13 +1959,14 @@ if (!empty($closed_statuses) && !empty($closed_tickets)) {
                             <td class="px-2 py-2.5 whitespace-nowrap align-top text-xs" style="color: var(--text-muted);">
                                 <?php
                                 $_due_ts = !empty($ticket['due_date']) ? strtotime($ticket['due_date']) : null;
-                                $_is_overdue = $_due_ts && $_due_ts < time() && empty($ticket['is_closed']);
+                                $_is_overdue = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed']));
                                 $_due_iso = $_due_ts ? date('Y-m-d', $_due_ts) : '';
                                 ?>
                                 <?php if (is_agent() || is_admin()): ?>
                                     <span class="tl-due-trigger tl-inline-edit <?php echo $_is_overdue ? 'text-red-600 font-medium' : ''; ?>"
                                           data-ticket="<?php echo (int)$ticket['id']; ?>"
                                           data-due="<?php echo e($_due_iso); ?>"
+                                          data-is-closed="<?php echo !empty($ticket['is_closed']) ? '1' : '0'; ?>"
                                           style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;"
                                           title="<?php echo e(t('Click to change')); ?>">
                                         <?php if ($_due_ts): ?>
@@ -2625,65 +2704,156 @@ if (!empty($closed_statuses) && !empty($closed_tickets)) {
             input.addEventListener('click', function(ev){ ev.stopPropagation(); });
         });
 
-        // Due date inline editor
-        document.addEventListener('click', function(e) {
-            var trig = e.target.closest('.tl-due-trigger');
-            if (!trig) return;
-            if (trig.dataset.editing === '1') return;
-            e.preventDefault();
-            e.stopPropagation();
-            var tid = trig.dataset.ticket;
-            var currentDue = trig.dataset.due || '';
-            var originalHTML = trig.innerHTML;
-            var input = document.createElement('input');
-            input.type = 'date';
-            input.value = currentDue;
-            input.className = 'tl-inline-input';
-            trig.dataset.editing = '1';
-            trig.innerHTML = '';
-            trig.appendChild(input);
-            input.focus();
-            var committed = false;
-            function commit(save) {
-                if (committed) return;
-                committed = true;
-                trig.dataset.editing = '';
-                if (!save) {
-                    trig.innerHTML = originalHTML;
+        // Due date popover editor
+        (function() {
+            var activeDuePopover = null;
+            var activeDueTrigger = null;
+            var overdueDueIconHtml = <?php echo json_encode(get_icon('exclamation-circle', 'w-2.5 h-2.5 inline ml-0.5')); ?>;
+
+            function closeDuePopover() {
+                if (activeDuePopover) {
+                    activeDuePopover.remove();
+                    activeDuePopover = null;
+                }
+                activeDueTrigger = null;
+                document.removeEventListener('click', onDueOutsideClick, true);
+                document.removeEventListener('keydown', onDueEscape);
+                window.removeEventListener('resize', repositionDuePopover);
+                window.removeEventListener('scroll', repositionDuePopover, true);
+            }
+
+            function onDueOutsideClick(e) {
+                if (e.target.closest('.tl-due-popover') || e.target.closest('.tl-due-trigger')) return;
+                closeDuePopover();
+            }
+
+            function onDueEscape(e) {
+                if (e.key === 'Escape') closeDuePopover();
+            }
+
+            function repositionDuePopover() {
+                if (!activeDuePopover || !activeDueTrigger) return;
+                var r = activeDueTrigger.getBoundingClientRect();
+                var vw = document.documentElement.clientWidth;
+                var vh = document.documentElement.clientHeight;
+                var pw = activeDuePopover.offsetWidth || 220;
+                var ph = activeDuePopover.offsetHeight || 90;
+                var left = Math.min(r.left, vw - pw - 8);
+                if (left < 8) left = 8;
+                var top = r.bottom + 6;
+                if (top + ph > vh - 8) top = Math.max(8, r.top - ph - 6);
+                activeDuePopover.style.left = left + 'px';
+                activeDuePopover.style.top = top + 'px';
+            }
+
+            function renderDueTrigger(trig, dueValue) {
+                trig.dataset.due = dueValue || '';
+                trig.classList.remove('text-red-600', 'font-medium');
+                var row = trig.closest('.ticket-row, .ticket-list-item');
+                var isClosed = trig.dataset.isClosed === '1';
+                if (!dueValue) {
+                    trig.innerHTML = '<span style="opacity:0.4;">—</span>';
+                    if (row) {
+                        row.classList.remove('ticket-overdue');
+                    }
                     return;
                 }
+
+                var parts = dueValue.split('-');
+                var dueLabel = (parts[2] || '') + '.' + (parts[1] || '');
+                var dueEnd = new Date(dueValue + 'T23:59:59');
+                var isOverdue = !isClosed && !isNaN(dueEnd.getTime()) && dueEnd.getTime() < Date.now();
+                trig.innerHTML = dueLabel + (isOverdue ? overdueDueIconHtml : '');
+                if (isOverdue) {
+                    trig.classList.add('text-red-600', 'font-medium');
+                }
+                if (row) {
+                    row.classList.toggle('ticket-overdue', isOverdue);
+                }
+            }
+
+            function saveDueValue(trig, input) {
+                var tid = trig.dataset.ticket;
                 var newVal = input.value;
+                input.disabled = true;
                 apiCall('quick-due-date', tid, { due_date: newVal }).then(function(res){
                     if (res.success) {
-                        trig.dataset.due = newVal;
-                        if (newVal) {
-                            var parts = newVal.split('-');
-                            trig.textContent = parts[2] + '.' + parts[1];
-                            trig.classList.remove('text-red-600', 'font-medium');
-                            var now = new Date(); now.setHours(0,0,0,0);
-                            var d = new Date(newVal);
-                            if (d < now) trig.classList.add('text-red-600', 'font-medium');
-                        } else {
-                            trig.innerHTML = '<span style="opacity:0.4;">—</span>';
-                            trig.classList.remove('text-red-600', 'font-medium');
-                        }
+                        renderDueTrigger(trig, newVal);
+                        closeDuePopover();
                         toast(res.message || '<?php echo e(t('Saved')); ?>', 'success');
                     } else {
-                        trig.innerHTML = originalHTML;
+                        input.disabled = false;
                         toast(res.error || '<?php echo e(t('Error')); ?>', 'error');
                     }
-                }).catch(function(){
-                    trig.innerHTML = originalHTML;
+                }).catch(function() {
+                    input.disabled = false;
                     toast('<?php echo e(t('Error')); ?>', 'error');
                 });
             }
-            input.addEventListener('change', function(){ commit(true); });
-            input.addEventListener('blur', function(){ setTimeout(function(){ commit(true); }, 100); });
-            input.addEventListener('keydown', function(ev){
-                if (ev.key === 'Escape') { commit(false); input.blur(); }
+
+            document.addEventListener('click', function(e) {
+                var trig = e.target.closest('.tl-due-trigger');
+                if (!trig) return;
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (activeDueTrigger === trig) {
+                    closeDuePopover();
+                    return;
+                }
+
+                closeDuePopover();
+
+                var tpl = document.getElementById('tl-due-popover-tpl');
+                if (!tpl) return;
+                var frag = tpl.content.cloneNode(true);
+                var pop = frag.querySelector('.tl-due-popover');
+                var input = frag.querySelector('.tl-due-popover__input');
+                var saveBtn = frag.querySelector('.tl-due-popover__save');
+                var clearBtn = frag.querySelector('.tl-due-popover__clear');
+
+                input.value = trig.dataset.due || '';
+                document.body.appendChild(pop);
+                activeDuePopover = pop;
+                activeDueTrigger = trig;
+                repositionDuePopover();
+
+                saveBtn.addEventListener('click', function(ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    saveDueValue(trig, input);
+                });
+                clearBtn.addEventListener('click', function(ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    input.value = '';
+                    saveDueValue(trig, input);
+                });
+                input.addEventListener('keydown', function(ev) {
+                    if (ev.key === 'Enter') {
+                        ev.preventDefault();
+                        saveDueValue(trig, input);
+                    } else if (ev.key === 'Escape') {
+                        ev.preventDefault();
+                        closeDuePopover();
+                    }
+                });
+
+                setTimeout(function() {
+                    input.focus();
+                    if (typeof input.showPicker === 'function') {
+                        try { input.showPicker(); } catch (err) {}
+                    }
+                }, 30);
+
+                setTimeout(function() {
+                    document.addEventListener('click', onDueOutsideClick, true);
+                    document.addEventListener('keydown', onDueEscape);
+                    window.addEventListener('resize', repositionDuePopover);
+                    window.addEventListener('scroll', repositionDuePopover, true);
+                }, 0);
             });
-            input.addEventListener('click', function(ev){ ev.stopPropagation(); });
-        });
+        })();
 
         // New-ticket row: toggle + submission
         (function() {
@@ -2861,6 +3031,12 @@ if (!empty($closed_statuses) && !empty($closed_tickets)) {
     padding: 1px 3px;
     margin: -1px -3px;
 }
+.tl-due-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 2.5rem;
+}
 </style>
 
 <style>
@@ -2900,7 +3076,65 @@ if (!empty($closed_statuses) && !empty($closed_tickets)) {
     outline-offset: 1px;
     border-radius: 4px;
 }
+.tl-due-popover {
+    position: fixed;
+    z-index: 10000;
+    width: 220px;
+    padding: 10px;
+    background: var(--surface-primary);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.14);
+}
+[data-theme="dark"] .tl-due-popover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.36);
+}
+.tl-due-popover__input {
+    width: 100%;
+    background: var(--surface-primary);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--text-primary);
+}
+.tl-due-popover__actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 10px;
+}
+.tl-due-popover__btn {
+    flex: 1;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.tl-due-popover__btn:hover {
+    background: var(--surface-secondary);
+}
+.tl-due-popover__btn--primary {
+    background: var(--primary, #3b82f6);
+    border-color: var(--primary, #3b82f6);
+    color: #fff;
+}
+.tl-due-popover__btn--primary:hover {
+    background: var(--primary-hover, #2563eb);
+    border-color: var(--primary-hover, #2563eb);
+}
 </style>
+
+<template id="tl-due-popover-tpl">
+    <div class="tl-due-popover" role="dialog" aria-label="<?php echo e(t('Due date')); ?>">
+        <input type="date" class="tl-due-popover__input">
+        <div class="tl-due-popover__actions">
+            <button type="button" class="tl-due-popover__btn tl-due-popover__clear"><?php echo e(t('Clear')); ?></button>
+            <button type="button" class="tl-due-popover__btn tl-due-popover__btn--primary tl-due-popover__save"><?php echo e(t('Save')); ?></button>
+        </div>
+    </div>
+</template>
 
 <!-- Inline log-time: preset chips slide out next to the clock on click. One click = save. -->
 <template id="inline-log-time-chips-tpl">

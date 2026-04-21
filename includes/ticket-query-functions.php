@@ -229,7 +229,7 @@ function build_ticket_where_clause($filters, &$params)
     if (!empty($due_date_filter)) {
         switch ($due_date_filter) {
             case 'overdue':
-                $sql .= " AND t.due_date IS NOT NULL AND DATE(t.due_date) < CURDATE()";
+                $sql .= " AND t.due_date IS NOT NULL AND t.due_date < NOW()";
                 break;
             case 'today':
                 $sql .= " AND DATE(t.due_date) = CURDATE()";
@@ -333,4 +333,3 @@ function build_ticket_where_clause($filters, &$params)
 
     return $sql;
 }
-

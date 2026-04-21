@@ -49,8 +49,8 @@ function get_dashboard_data($user, $tags = [])
     $workload_sql = "
         SELECT
             COUNT(*) as open_count,
-            SUM(CASE WHEN t.due_date IS NOT NULL AND t.due_date < CURDATE() THEN 1 ELSE 0 END) as overdue_count,
-            SUM(CASE WHEN DATE(t.due_date) = CURDATE() THEN 1 ELSE 0 END) as due_today_count,
+            SUM(CASE WHEN t.due_date IS NOT NULL AND t.due_date < NOW() THEN 1 ELSE 0 END) as overdue_count,
+            SUM(CASE WHEN t.due_date IS NOT NULL AND DATE(t.due_date) = CURDATE() AND t.due_date >= NOW() THEN 1 ELSE 0 END) as due_today_count,
             SUM(CASE WHEN t.due_date >= ? AND t.due_date <= ? THEN 1 ELSE 0 END) as due_week_count,
             SUM(CASE WHEN t.due_date >= ? AND t.due_date <= ? THEN 1 ELSE 0 END) as due_month_count
         FROM tickets t
@@ -328,7 +328,8 @@ function get_dashboard_data($user, $tags = [])
             $due_ts = !empty($ticket['due_date']) ? strtotime((string) $ticket['due_date']) : false;
             $urgency_rank = 3;
             if ($due_ts !== false) {
-                if ($due_ts < $today_start)
+                $is_overdue = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed']));
+                if ($is_overdue)
                     $urgency_rank = 0;
                 elseif ($due_ts <= $today_end)
                     $urgency_rank = 1;
@@ -529,4 +530,3 @@ function get_dashboard_data($user, $tags = [])
         'section_labels' => $section_labels,
     ];
 }
-

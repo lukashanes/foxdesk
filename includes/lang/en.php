@@ -218,6 +218,7 @@ return [
     'Invalid expiration date.' => 'Invalid expiration date.',
     'Invalid or expired reset link.' => 'Invalid or expired reset link.',
     'Invalid time range.' => 'Invalid time range.',
+    'Invalid due date.' => 'Invalid due date.',
     'Invalid user.' => 'Invalid user.',
     'JPG, PNG, GIF, or WebP. Max 2MB.' => 'JPG, PNG, GIF, or WebP. Max 2MB.',
     'Language' => 'Language',
@@ -521,6 +522,7 @@ return [
     'User activity and ticket history.' => 'User activity and ticket history.',
     'User count' => 'User count',
     'User created.' => 'User created.',
+    'Failed to create user.' => 'Failed to create user.',
     'User name' => 'User name',
     'User not found.' => 'User not found.',
     'User profile: {name}' => 'User profile: {name}',
@@ -778,6 +780,7 @@ return [
     'Notify users when their timer has been running for too long.' => 'Notify users when their timer has been running for too long.',
     'You cannot archive or delete your own account while logged in.' => 'You cannot archive or delete your own account while logged in.',
     'Cannot archive the last active admin.' => 'Cannot archive the last active admin.',
+    'Cannot deactivate or demote the last active admin.' => 'Cannot deactivate or demote the last active admin.',
     'User is already archived.' => 'User is already archived.',
     'User archived.' => 'User archived.',
     'Deleted' => 'Deleted',
@@ -1178,5 +1181,3 @@ return [
     'Figma design' => 'Figma design',
     'Image' => 'Image',
 ];
-
-

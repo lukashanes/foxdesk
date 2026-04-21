@@ -209,6 +209,7 @@ return [
     'Invalid expiration date.' => 'Data di scadenza non valida.',
     'Invalid or expired reset link.' => 'Link di reimpostazione non valido o scaduto.',
     'Invalid time range.' => 'Intervallo di tempo non valido.',
+    'Invalid due date.' => 'Data di scadenza non valida.',
     'Invalid user.' => 'Utente non valido.',
     'Italian' => 'Italiano',
     'JPG, PNG, GIF, or WebP. Max 2MB.' => 'JPG, PNG, GIF o WebP. Max 2 MB.',
@@ -504,6 +505,7 @@ return [
     'User activity and ticket history.' => 'Attività utente e cronologia ticket.',
     'User count' => 'Numero di utenti',
     'User created.' => 'Utente creato.',
+    'Failed to create user.' => 'Impossibile creare l\'utente.',
     'User name' => 'Nome utente',
     'User not found.' => 'Utente non trovato.',
     'User profile: {name}' => 'Profilo utente: {name}',
@@ -767,6 +769,7 @@ return [
     'Notify users when their timer has been running for too long.' => 'Notifica gli utenti quando il loro timer è in esecuzione da troppo tempo.',
     'You cannot archive or delete your own account while logged in.' => 'Non puoi archiviare o eliminare il tuo account mentre sei connesso.',
     'Cannot archive the last active admin.' => 'Impossibile archiviare l\'ultimo amministratore attivo.',
+    'Cannot deactivate or demote the last active admin.' => 'Impossibile disattivare o retrocedere l\'ultimo amministratore attivo.',
     'User is already archived.' => 'L\'utente è già archiviato.',
     'User archived.' => 'Utente archiviato.',
     'Archive user first before permanent deletion.' => 'Archivia prima l\'utente prima dell\'eliminazione definitiva.',
@@ -1179,5 +1182,3 @@ return [
     'Figma design' => 'Design Figma',
     'Image' => 'Immagine',
 ];
-
-

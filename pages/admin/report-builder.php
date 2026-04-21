@@ -50,6 +50,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($theme_color !== '' && !preg_match('/^#[0-9a-fA-F]{6}$/', $theme_color)) {
         $theme_color = '';
     }
+    $schedule_interval = in_array(($_POST['schedule_interval'] ?? ''), ['weekly', 'monthly', 'quarterly'], true)
+        ? $_POST['schedule_interval']
+        : 'monthly';
+    $schedule_day_source = $schedule_interval === 'weekly'
+        ? ($_POST['schedule_day'] ?? 1)
+        : ($_POST['schedule_day_num'] ?? ($_POST['schedule_day'] ?? 1));
+    $schedule_day = max(1, min($schedule_interval === 'weekly' ? 7 : 28, (int) $schedule_day_source));
 
     $report_data = [
         'organization_id' => $organization_id,
@@ -68,10 +75,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'hide_branding' => isset($_POST['hide_branding']) ? 1 : 0,
         'is_draft' => isset($_POST['save_as_draft']) ? 1 : 0,
         'schedule_enabled' => isset($_POST['schedule_enabled']) ? 1 : 0,
-        'schedule_interval' => in_array(($_POST['schedule_interval'] ?? ''), ['weekly', 'monthly', 'quarterly']) ? $_POST['schedule_interval'] : 'monthly',
-        'schedule_day' => max(1, min(31, (int) ($_POST['schedule_day'] ?? 1))),
+        'schedule_interval' => $schedule_interval,
+        'schedule_day' => $schedule_day,
         'schedule_recipients' => trim((string) ($_POST['schedule_recipients'] ?? '')),
     ];
+
+    if (!empty($report_data['schedule_enabled']) && function_exists('calculate_next_report_due')) {
+        ensure_report_schedule_columns();
+        $report_data['schedule_next_due'] = calculate_next_report_due($report_data['schedule_interval'], $report_data['schedule_day']);
+    } else {
+        $report_data['schedule_next_due'] = null;
+    }
 
     $validation_errors = [];
     if ($organization_id <= 0 || !get_organization($organization_id)) {
@@ -101,12 +115,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($success) {
-                // Update schedule_next_due if scheduling enabled
-                if (!empty($report_data['schedule_enabled']) && function_exists('calculate_next_report_due')) {
-                    ensure_report_schedule_columns();
-                    $next = calculate_next_report_due($report_data['schedule_interval'], $report_data['schedule_day']);
-                    db_update('report_templates', ['schedule_next_due' => $next], 'id = ?', [$update_id]);
-                }
                 flash(t('Report updated successfully.'), 'success');
                 redirect('admin', ['section' => 'reports-list']);
             } else {
@@ -122,12 +130,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($report_id) {
-                // Set schedule_next_due if scheduling enabled
-                if (!empty($report_data['schedule_enabled']) && function_exists('calculate_next_report_due')) {
-                    ensure_report_schedule_columns();
-                    $next = calculate_next_report_due($report_data['schedule_interval'], $report_data['schedule_day']);
-                    db_update('report_templates', ['schedule_next_due' => $next], 'id = ?', [$report_id]);
-                }
                 if ($report_data['is_draft']) {
                     flash(t('Report draft saved successfully.'), 'success');
                 } else {
@@ -206,8 +208,8 @@ if ($editing && $_SERVER['REQUEST_METHOD'] !== 'POST') {
         'show_cost_breakdown' => $_SERVER['REQUEST_METHOD'] === 'POST' ? isset($_POST['show_cost_breakdown']) : false,
         'hide_branding' => $_SERVER['REQUEST_METHOD'] === 'POST' ? isset($_POST['hide_branding']) : false,
         'schedule_enabled' => $_SERVER['REQUEST_METHOD'] === 'POST' ? isset($_POST['schedule_enabled']) : false,
-        'schedule_interval' => trim((string) ($_POST['schedule_interval'] ?? 'monthly')),
-        'schedule_day' => (int) ($_POST['schedule_day'] ?? 1),
+        'schedule_interval' => isset($schedule_interval) ? $schedule_interval : trim((string) ($_POST['schedule_interval'] ?? 'monthly')),
+        'schedule_day' => isset($schedule_day) ? $schedule_day : (int) ($_POST['schedule_day'] ?? 1),
         'schedule_recipients' => trim((string) ($_POST['schedule_recipients'] ?? '')),
     ];
 }

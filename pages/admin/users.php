@@ -98,7 +98,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash(t('A user with this email already exists.'), 'error');
             } else {
                 $language = $_POST['language'] ?? 'en';
-                $user_id = create_user($email, $password, $first_name, $last_name, $role, $language);
+                try {
+                    $user_id = create_user($email, $password, $first_name, $last_name, $role, $language);
+                } catch (Throwable $e) {
+                    $user_id = false;
+                    error_log('Admin user create failed: ' . $e->getMessage());
+                }
 
                 if ($user_id) {
                     $updates = [];
@@ -208,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         flash(t('User created.'), 'success');
                     }
                 } else {
-                    flash(t('User created.'), 'success');
+                    flash(t('Failed to create user.'), 'error');
                 }
             }
         }
@@ -250,6 +255,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($existing) {
             flash(t('A user with this email already exists.'), 'error');
             redirect('admin', ['section' => 'users']);
+        }
+
+        $target_user = db_fetch_one("SELECT id, role, is_active FROM users WHERE id = ?", [$id]);
+        if (!$target_user) {
+            flash(t('User not found.'), 'error');
+            redirect('admin', ['section' => 'users']);
+        }
+
+        $is_currently_active_admin = ($target_user['role'] ?? '') === 'admin' && (int) ($target_user['is_active'] ?? 0) === 1;
+        $will_be_active_admin = $role === 'admin' && $is_active === 1;
+        if ($is_currently_active_admin && !$will_be_active_admin) {
+            $active_admin_count_row = db_fetch_one("SELECT COUNT(*) AS c FROM users WHERE role = 'admin' AND is_active = 1");
+            $active_admin_count = (int) ($active_admin_count_row['c'] ?? 0);
+            if ($active_admin_count <= 1) {
+                flash(t('Cannot deactivate or demote the last active admin.'), 'error');
+                redirect('admin', ['section' => 'users']);
+            }
         }
 
         // Permissions (for agents and users)
@@ -550,7 +572,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $email = 'ai-' . $slug . '-' . substr(bin2hex(random_bytes(4)), 0, 8) . '@system.local';
             $password = bin2hex(random_bytes(32));
 
-            $user_id = create_user($email, $password, $agent_name, '', 'agent', 'en');
+            try {
+                $user_id = create_user($email, $password, $agent_name, '', 'agent', 'en');
+            } catch (Throwable $e) {
+                $user_id = false;
+                error_log('AI agent create failed: ' . $e->getMessage());
+            }
             if ($user_id) {
                 db_update('users', [
                     'is_ai_agent' => 1,

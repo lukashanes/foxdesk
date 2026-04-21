@@ -1412,8 +1412,8 @@ require_once BASE_PATH . '/includes/header.php';
                                 if (!empty($ticket['due_date'])) {
                                     $due_ts = strtotime($ticket['due_date']);
                                     $ticket_closed = !empty($ticket['is_closed']);
-                                    $is_overdue = !$ticket_closed && $due_ts !== false && $due_ts < time();
-                                    $is_today = !$ticket_closed && $due_ts !== false && date('Y-m-d', $due_ts) === date('Y-m-d');
+                                    $is_overdue = is_due_date_overdue($ticket['due_date'], $ticket_closed);
+                                    $is_today = !$ticket_closed && !$is_overdue && $due_ts !== false && date('Y-m-d', $due_ts) === date('Y-m-d');
                                     if ($is_overdue) {
                                         $due_label = t('Overdue');
                                         $due_class = 'bg-red-100 text-red-700';
@@ -1532,8 +1532,8 @@ require_once BASE_PATH . '/includes/header.php';
                                 if (!empty($ticket['due_date'])) {
                                     $due_ts = strtotime($ticket['due_date']);
                                     $ticket_closed = !empty($ticket['is_closed']);
-                                    $is_overdue = !$ticket_closed && $due_ts !== false && $due_ts < strtotime(date('Y-m-d 00:00:00'));
-                                    $is_today = !$ticket_closed && $due_ts !== false && date('Y-m-d', $due_ts) === date('Y-m-d');
+                                    $is_overdue = is_due_date_overdue($ticket['due_date'], $ticket_closed);
+                                    $is_today = !$ticket_closed && !$is_overdue && $due_ts !== false && date('Y-m-d', $due_ts) === date('Y-m-d');
                                     if ($is_overdue) {
                                         $due_label = t('Overdue');
                                         $due_class = 'bg-red-100 text-red-700';
@@ -1603,8 +1603,8 @@ require_once BASE_PATH . '/includes/header.php';
                                 if (!empty($ticket['due_date'])) {
                                     $due_ts = strtotime($ticket['due_date']);
                                     $ticket_closed = !empty($ticket['is_closed']);
-                                    $is_overdue = !$ticket_closed && $due_ts !== false && $due_ts < strtotime(date('Y-m-d 00:00:00'));
-                                    $is_today = !$ticket_closed && $due_ts !== false && date('Y-m-d', $due_ts) === date('Y-m-d');
+                                    $is_overdue = is_due_date_overdue($ticket['due_date'], $ticket_closed);
+                                    $is_today = !$ticket_closed && !$is_overdue && $due_ts !== false && date('Y-m-d', $due_ts) === date('Y-m-d');
                                     if ($is_overdue) {
                                         $due_label = t('Overdue');
                                         $due_class = 'bg-red-100 text-red-700';
@@ -1679,8 +1679,8 @@ require_once BASE_PATH . '/includes/header.php';
                                         if (!empty($ticket['due_date'])) {
                                             $due_ts = strtotime($ticket['due_date']);
                                             $ticket_closed = !empty($ticket['is_closed']);
-                                            $is_overdue = !$ticket_closed && $due_ts !== false && $due_ts < time();
-                                            $is_today = !$ticket_closed && $due_ts !== false && date('Y-m-d', $due_ts) === date('Y-m-d');
+                                            $is_overdue = is_due_date_overdue($ticket['due_date'], $ticket_closed);
+                                            $is_today = !$ticket_closed && !$is_overdue && $due_ts !== false && date('Y-m-d', $due_ts) === date('Y-m-d');
                                             if ($is_overdue) {
                                                 $due_label = t('Overdue');
                                                 $due_class = 'bg-red-100 text-red-700';
