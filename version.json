@@ -1,12 +1,12 @@
 {
-    "version": "0.3.104",
+    "version": "0.3.105",
     "date": "2026-04-22",
     "min_php": "8.1",
     "changelog": [
-        "Fixed notification visibility so non-admin users only see notifications for tickets they directly own or are assigned to",
-        "Blocked agents from seeing notifications for tickets that are merely in the same organization",
-        "Blocked end users from seeing notifications for tickets they do not own",
-        "Applied the stricter notification rules to both new and previously stored notifications"
+        "Fixed notification visibility to follow the same ticket scope rules as the tickets list and sidebar APIs",
+        "Blocked agents and end users from receiving notifications for tickets outside their effective visibility scope",
+        "Fixed the user tickets API so agent scope own no longer falls back to all tickets",
+        "Turned pasted inline images into compact previews with full-size lightbox opening on click"
     ],
     "delete_files": []
 }

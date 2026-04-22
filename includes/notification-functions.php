@@ -426,7 +426,7 @@ function notification_is_visible_to_user(array $notification, array $user): bool
         return true;
     }
 
-    if (!function_exists('get_ticket') || !function_exists('can_see_ticket')) {
+    if (!function_exists('get_ticket')) {
         return true;
     }
 
@@ -435,7 +435,11 @@ function notification_is_visible_to_user(array $notification, array $user): bool
         return false;
     }
 
-    if (!can_see_ticket($ticket, $user)) {
+    if (function_exists('can_user_access_ticket_in_listing_scope')) {
+        if (!can_user_access_ticket_in_listing_scope($ticket_id, $user)) {
+            return false;
+        }
+    } elseif (!function_exists('can_see_ticket') || !can_see_ticket($ticket, $user)) {
         return false;
     }
 

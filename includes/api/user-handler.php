@@ -59,55 +59,23 @@ function api_get_user_tickets() {
     }
     $limit = min((int)($_GET['limit'] ?? 20), 50);
 
-    // Build query based on user role and permissions
+    $filters = [];
+    if (column_exists('tickets', 'is_archived')) {
+        $filters['is_archived'] = 0;
+    }
+    if (function_exists('build_ticket_visibility_filters_for_user')) {
+        $filters = build_ticket_visibility_filters_for_user($user, $filters);
+    }
+
+    $params = [];
     $sql = "SELECT t.id, t.title, t.created_at, s.name as status_name, s.slug as status_slug
             FROM tickets t
-            LEFT JOIN statuses s ON t.status_id = s.id
-            WHERE t.is_archived = 0";
-    $params = [];
-
-    // Filter based on user permissions
-    if ($user['role'] === 'user') {
-        // Users see only their own tickets or organization tickets
-        $permissions = json_decode($user['permissions'] ?? '{}', true) ?? [];
-        $ticket_scope = $permissions['ticket_scope'] ?? 'own';
-
-        if ($ticket_scope === 'organization') {
-            $org_ids = get_user_organization_ids($user['id']);
-            if (!empty($org_ids)) {
-                $org_placeholders = implode(',', array_fill(0, count($org_ids), '?'));
-                $sql .= " AND (t.user_id = ? OR t.organization_id IN ($org_placeholders))";
-                $params[] = $user['id'];
-                $params = array_merge($params, $org_ids);
-            } else {
-                $sql .= " AND t.user_id = ?";
-                $params[] = $user['id'];
-            }
-        } else {
-            $sql .= " AND t.user_id = ?";
-            $params[] = $user['id'];
-        }
-    } elseif ($user['role'] === 'agent') {
-        $permissions = json_decode($user['permissions'] ?? '{}', true) ?? [];
-        $ticket_scope = $permissions['ticket_scope'] ?? 'all';
-
-        if ($ticket_scope === 'assigned') {
-            $sql .= " AND t.assignee_id = ?";
-            $params[] = $user['id'];
-        } elseif ($ticket_scope === 'organization') {
-            $org_ids = get_user_organization_ids($user['id']);
-            if (!empty($org_ids)) {
-                $org_placeholders = implode(',', array_fill(0, count($org_ids), '?'));
-                $sql .= " AND t.organization_id IN ($org_placeholders)";
-                $params = array_merge($params, $org_ids);
-            } else {
-                $sql .= " AND 0=1";
-            }
-        }
-        // 'all' scope sees all tickets
+            LEFT JOIN statuses s ON t.status_id = s.id";
+    if (function_exists('build_ticket_where_clause')) {
+        $sql .= build_ticket_where_clause($filters, $params);
+    } elseif (column_exists('tickets', 'is_archived')) {
+        $sql .= " WHERE t.is_archived = 0";
     }
-    // Admins see all tickets
-
     $sql .= " ORDER BY t.created_at DESC LIMIT ?";
     $params[] = $limit;
 
@@ -377,5 +345,4 @@ function api_save_dashboard_layout() {
 
     api_success(['saved' => true]);
 }
-
 

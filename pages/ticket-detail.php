@@ -224,6 +224,23 @@ require_once BASE_PATH . '/includes/header.php';
         padding: 14px;
     }
 
+    #comment-editor .ql-editor img,
+    #internal-editor .ql-editor img,
+    #edit-description-editor .ql-editor img,
+    #edit-comment-editor .ql-editor img {
+        display: block;
+        max-width: min(100%, 18rem);
+        max-height: 14rem;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        margin: 0.75rem 0;
+        border-radius: 0.875rem;
+        border: 1px solid var(--border-light);
+        background: var(--surface-secondary);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+
     #internal-editor .ql-toolbar {
         background: #fef9c3;
         border-bottom-color: #fde047 !important;
@@ -296,9 +313,31 @@ require_once BASE_PATH . '/includes/header.php';
         color: #6b7280;
     }
 
-    .rich-content img {
-        max-width: 100%;
+    .rich-content img.rich-inline-image {
+        display: block;
+        max-width: min(100%, 22rem);
+        max-height: 18rem;
+        width: auto;
         height: auto;
+        object-fit: contain;
+        margin: 0.75rem 0;
+        border-radius: 0.875rem;
+        border: 1px solid var(--border-light);
+        background: var(--surface-secondary);
+        box-shadow: 0 10px 26px rgba(15, 23, 42, 0.10);
+        cursor: zoom-in;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+
+    .rich-content img.rich-inline-image:hover {
+        transform: translateY(-1px);
+        border-color: var(--primary);
+        box-shadow: 0 16px 34px rgba(15, 23, 42, 0.14);
+    }
+
+    .rich-content img.rich-inline-image:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 3px;
     }
 
     /* ── Link preview cards ──────────────────────────────────────────────── */
@@ -3369,6 +3408,46 @@ require_once BASE_PATH . '/includes/header.php';
             if (commentEditor) commentEditor.setText('');
             if (internalEditor) internalEditor.setText('');
         });
+    });
+
+    function getInlinePreviewName(img) {
+        var alt = (img.getAttribute('alt') || '').trim();
+        if (alt) {
+            return alt;
+        }
+
+        var src = img.currentSrc || img.getAttribute('src') || '';
+        if (!src) {
+            return '';
+        }
+
+        try {
+            var url = new URL(src, window.location.origin);
+            var fileParam = url.searchParams.get('f');
+            if (fileParam) {
+                return decodeURIComponent(fileParam.split('/').pop() || fileParam);
+            }
+
+            var pathPart = url.pathname.split('/').pop() || '';
+            return decodeURIComponent(pathPart);
+        } catch (err) {
+            var fallback = src.split('/').pop() || '';
+            return decodeURIComponent((fallback.split('?')[0] || fallback));
+        }
+    }
+
+    document.addEventListener('click', function (event) {
+        var img = event.target.closest('.rich-content img.rich-inline-image');
+        if (!img || img.closest('.link-preview-card')) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (typeof openImagePreview === 'function') {
+            openImagePreview(img.currentSrc || img.src, getInlinePreviewName(img));
+        }
     });
 
     // ================================

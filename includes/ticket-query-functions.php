@@ -61,12 +61,117 @@ function ticket_tags_column_exists()
 }
 
 /**
+ * Build visibility filters that match the main tickets page for a given user.
+ */
+function build_ticket_visibility_filters_for_user(array $user, array $filters = []): array
+{
+    $role = (string) ($user['role'] ?? '');
+    $user_id = (int) ($user['id'] ?? 0);
+
+    if ($user_id <= 0 || $role === 'admin') {
+        unset($filters['view_mode']);
+        return $filters;
+    }
+
+    $permissions = get_user_permissions($user_id) ?? [];
+    $scope = (string) ($permissions['ticket_scope'] ?? 'own');
+
+    if ($role === 'agent') {
+        switch ($scope) {
+            case 'all':
+                break;
+            case 'organization':
+                $filters['current_user'] = $user;
+                $filters['scope'] = 'organization';
+                break;
+            case 'assigned':
+            case 'own':
+            default:
+                $filters['agent_id'] = $user_id;
+                break;
+        }
+
+        unset($filters['view_mode']);
+        return $filters;
+    }
+
+    if ($role === 'user') {
+        $view_mode = (string) ($filters['view_mode'] ?? 'company');
+
+        switch ($scope) {
+            case 'all':
+                break;
+            case 'organization':
+                if ($view_mode === 'mine') {
+                    $filters['viewer_user_id'] = $user_id;
+                    break;
+                }
+
+                $org_ids = $permissions['organization_ids'] ?? [];
+                if (!empty($org_ids)) {
+                    $filters['current_user'] = $user;
+                    $filters['scope'] = 'organization';
+                } elseif (!empty($user['organization_id'])) {
+                    $filters['organization_id'] = (int) $user['organization_id'];
+                } else {
+                    $filters['viewer_user_id'] = $user_id;
+                }
+                break;
+            case 'own':
+            default:
+                $filters['viewer_user_id'] = $user_id;
+                unset($filters['organization_id']);
+                $filters['current_user'] = $user;
+                $filters['scope'] = 'own';
+                break;
+        }
+    }
+
+    unset($filters['view_mode']);
+    return $filters;
+}
+
+/**
+ * Check ticket visibility using the same scope rules as the tickets list.
+ */
+function can_user_access_ticket_in_listing_scope(int $ticket_id, array $user, array $filters = []): bool
+{
+    if ($ticket_id <= 0 || empty($user['id'])) {
+        return false;
+    }
+
+    if (($user['role'] ?? '') === 'admin') {
+        return true;
+    }
+
+    $filters['ticket_id'] = $ticket_id;
+    if (column_exists('tickets', 'is_archived') && !array_key_exists('is_archived', $filters)) {
+        $filters['is_archived'] = 0;
+    }
+
+    $filters = build_ticket_visibility_filters_for_user($user, $filters);
+
+    $params = [];
+    $sql = "SELECT t.id FROM tickets t";
+    $sql .= build_ticket_where_clause($filters, $params);
+    $sql .= " LIMIT 1";
+
+    $row = db_fetch_one($sql, $params);
+    return !empty($row['id']);
+}
+
+/**
  * Build ticket WHERE clause and parameters.
  */
 function build_ticket_where_clause($filters, &$params)
 {
     $sql = " WHERE 1=1";
     $has_ticket_access = ticket_access_table_exists();
+
+    if (!empty($filters['ticket_id'])) {
+        $sql .= " AND t.id = ?";
+        $params[] = (int) $filters['ticket_id'];
+    }
 
     if (!empty($filters['status_id'])) {
         $sql .= " AND t.status_id = ?";

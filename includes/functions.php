@@ -42,7 +42,12 @@ function safe_html($html)
             $src = $srcMatch[1];
             // Allow relative URLs (image.php?f=...) and https:// URLs, block data: URIs
             if (preg_match('/^(https?:|image\.php|uploads\/)/i', $src)) {
-                return '<img src="' . e($src) . '" alt="" loading="lazy" style="max-width:100%;height:auto">';
+                $alt = '';
+                if (preg_match('/alt\s*=\s*["\']([^"\']*)["\']/i', $attrs, $altMatch)) {
+                    $alt = $altMatch[1];
+                }
+
+                return '<img src="' . e($src) . '" alt="' . e($alt) . '" loading="lazy" class="rich-inline-image">';
             }
         }
         // Strip base64/data URI images and any other invalid src
