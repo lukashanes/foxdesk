@@ -2904,13 +2904,27 @@ foreach ($board_closed_statuses as $status_item) {
                 }
             }
 
+            function syncDueDraft(input) {
+                if (!input) return '';
+                input.dataset.pendingValue = input.value || '';
+                return input.dataset.pendingValue;
+            }
+
+            function readDueDraft(input) {
+                if (!input) return '';
+                if (typeof input.dataset.pendingValue === 'string') {
+                    return input.dataset.pendingValue;
+                }
+                return input.value || '';
+            }
+
             function saveDueValue(trig, input) {
                 var tid = trig.dataset.ticket;
-                var newVal = input.value;
+                var newVal = readDueDraft(input);
                 input.disabled = true;
                 apiCall('quick-due-date', tid, { due_date: newVal }).then(function(res){
                     if (res.success) {
-                        renderDueTrigger(trig, newVal);
+                        renderDueTrigger(trig, typeof res.due_date_iso === 'string' ? res.due_date_iso : newVal);
                         closeDuePopover();
                         toast(res.message || '<?php echo e(t('Saved')); ?>', 'success');
                     } else {
@@ -2945,26 +2959,39 @@ foreach ($board_closed_statuses as $status_item) {
                 var clearBtn = frag.querySelector('.tl-due-popover__clear');
 
                 input.value = trig.dataset.due || '';
+                input.dataset.pendingValue = trig.dataset.due || '';
                 document.body.appendChild(pop);
                 activeDuePopover = pop;
                 activeDueTrigger = trig;
                 repositionDuePopover();
 
+                input.addEventListener('input', function() { syncDueDraft(input); });
+                input.addEventListener('change', function() { syncDueDraft(input); });
+
                 saveBtn.addEventListener('click', function(ev) {
                     ev.preventDefault();
                     ev.stopPropagation();
-                    saveDueValue(trig, input);
+                    syncDueDraft(input);
+                    window.setTimeout(function() {
+                        saveDueValue(trig, input);
+                    }, 0);
                 });
                 clearBtn.addEventListener('click', function(ev) {
                     ev.preventDefault();
                     ev.stopPropagation();
                     input.value = '';
-                    saveDueValue(trig, input);
+                    input.dataset.pendingValue = '';
+                    window.setTimeout(function() {
+                        saveDueValue(trig, input);
+                    }, 0);
                 });
                 input.addEventListener('keydown', function(ev) {
                     if (ev.key === 'Enter') {
                         ev.preventDefault();
-                        saveDueValue(trig, input);
+                        syncDueDraft(input);
+                        window.setTimeout(function() {
+                            saveDueValue(trig, input);
+                        }, 0);
                     } else if (ev.key === 'Escape') {
                         ev.preventDefault();
                         closeDuePopover();

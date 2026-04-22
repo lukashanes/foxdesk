@@ -1,12 +1,12 @@
 {
-    "version": "0.3.105",
+    "version": "0.3.106",
     "date": "2026-04-22",
     "min_php": "8.1",
     "changelog": [
-        "Fixed notification visibility to follow the same ticket scope rules as the tickets list and sidebar APIs",
-        "Blocked agents and end users from receiving notifications for tickets outside their effective visibility scope",
-        "Fixed the user tickets API so agent scope own no longer falls back to all tickets",
-        "Turned pasted inline images into compact previews with full-size lightbox opening on click"
+        "Fixed notifications pages and dashboard rendering for comment notifications on installs that store comments in the comments table",
+        "Unified the full notifications page with the notifications API so badge, bell dropdown, and page use the same grouped data source",
+        "Fixed quick due date editing in the tickets list so changes persist after saving existing deadlines",
+        "Fixed multiple attachment uploads so normal multi-file submits work and oversized requests no longer fall back to a misleading security check error"
     ],
     "delete_files": []
 }

@@ -9,6 +9,68 @@
 /**
  * CSRF protection helpers
  */
+function foxdesk_parse_ini_size($value): int
+{
+    $value = trim((string) $value);
+    if ($value === '') {
+        return 0;
+    }
+
+    if (is_numeric($value)) {
+        return (int) $value;
+    }
+
+    $unit = strtolower(substr($value, -1));
+    $number = (float) $value;
+
+    switch ($unit) {
+        case 'g':
+            $number *= 1024;
+            // no break
+        case 'm':
+            $number *= 1024;
+            // no break
+        case 'k':
+            $number *= 1024;
+            break;
+    }
+
+    return (int) round($number);
+}
+
+function foxdesk_request_exceeded_post_max_size(): bool
+{
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+        return false;
+    }
+
+    $content_length = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+    if ($content_length <= 0) {
+        return false;
+    }
+
+    $post_max_size = foxdesk_parse_ini_size(ini_get('post_max_size'));
+    if ($post_max_size <= 0 || $content_length <= $post_max_size) {
+        return false;
+    }
+
+    return empty($_POST) && empty($_FILES);
+}
+
+function foxdesk_post_max_size_error_message(): ?string
+{
+    if (!foxdesk_request_exceeded_post_max_size()) {
+        return null;
+    }
+
+    $limit = foxdesk_parse_ini_size(ini_get('post_max_size'));
+    $limit_label = function_exists('format_file_size') ? format_file_size($limit) : ((string) $limit . ' B');
+
+    return t('Upload exceeds the server request limit of {size}. Reduce the total size of attachments or ask your administrator to increase PHP post_max_size.', [
+        'size' => $limit_label,
+    ]);
+}
+
 function csrf_token()
 {
     if (empty($_SESSION['csrf_token'])) {
@@ -39,6 +101,44 @@ function require_csrf_token($json = false)
     // API token auth doesn't need CSRF — the token itself is the proof
     if (!empty($GLOBALS['is_api_token_auth'])) {
         return;
+    }
+
+    $post_size_error = foxdesk_post_max_size_error_message();
+    if ($post_size_error !== null) {
+        if ($json) {
+            http_response_code(413);
+            echo json_encode(['error' => $post_size_error]);
+            exit;
+        }
+
+        flash($post_size_error, 'error');
+        $fallback = url('dashboard');
+        $redirect = trim((string) ($_SERVER['HTTP_REFERER'] ?? ''));
+
+        if ($redirect !== '') {
+            if (preg_match('#^https?://#i', $redirect)) {
+                $parts = parse_url($redirect);
+                $expected_host = function_exists('foxdesk_request_host') ? foxdesk_request_host() : ($_SERVER['HTTP_HOST'] ?? '');
+                if (
+                    !$parts
+                    || empty($parts['host'])
+                    || strcasecmp((string) $parts['host'], (string) $expected_host) !== 0
+                ) {
+                    $redirect = $fallback;
+                }
+            } elseif (
+                !str_starts_with($redirect, '/')
+                && !str_starts_with($redirect, 'index.php')
+                && !str_starts_with($redirect, '?')
+            ) {
+                $redirect = $fallback;
+            }
+        } else {
+            $redirect = $fallback;
+        }
+
+        header('Location: ' . $redirect);
+        exit;
     }
 
     if (csrf_is_valid()) {

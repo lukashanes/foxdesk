@@ -24,8 +24,9 @@ function api_get_notifications()
 
     $limit = max(1, min(100, (int) ($_GET['limit'] ?? 50)));
     $offset = max(0, (int) ($_GET['offset'] ?? 0));
+    $include_resolved = (int) ($_GET['include_resolved'] ?? 0) === 1;
 
-    $result = get_user_notifications((int) $user['id'], $limit, $offset);
+    $result = get_user_notifications((int) $user['id'], $limit, $offset, !$include_resolved);
 
     // Update "seen" timestamp so badge count resets
     update_notifications_seen((int) $user['id']);
@@ -49,6 +50,9 @@ function api_get_notifications()
             'time_ago'         => notification_time_ago($n['created_at']),
             'formatted_text'   => format_notification_text($n),
             'text'             => format_notification_text($n),
+            'action_text'      => format_notification_action($n),
+            'snippet'          => get_notification_snippet($n),
+            'is_action'        => is_action_required_notification($n['type'], $n['data'] ?? []),
             'actor_name'       => $actor_name,
             'actor_first_name' => $n['actor_first_name'] ?? '',
             'actor_last_name'  => $n['actor_last_name'] ?? '',

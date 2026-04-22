@@ -491,7 +491,11 @@ function api_quick_assign() {
         resolve_action_notifications($ticket_id, (int)$old_assignee_id);
     }
 
-    api_success(['message' => t('Ticket updated.')]);
+    api_success([
+        'message' => t('Ticket updated.'),
+        'due_date' => $due_date,
+        'due_date_iso' => $due_date ? date('Y-m-d', strtotime($due_date)) : '',
+    ]);
 }
 
 /**

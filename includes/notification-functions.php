@@ -345,13 +345,7 @@ function get_notification_ticket_relevant_user_ids(int $ticket_id): array
     }
 
     try {
-        $commenters = db_fetch_all(
-            "SELECT DISTINCT user_id FROM comments WHERE ticket_id = ? AND user_id IS NOT NULL",
-            [$ticket_id]
-        );
-
-        foreach ($commenters as $commenter) {
-            $commenter_id = (int) ($commenter['user_id'] ?? 0);
+        foreach (get_ticket_comment_user_ids($ticket_id) as $commenter_id) {
             if ($commenter_id > 0) {
                 $ids[] = $commenter_id;
             }
@@ -710,9 +704,9 @@ function get_notification_snippet(array $notif): string
         case 'new_comment':
             // Fallback: fetch latest comment text from DB
             if (!empty($data['comment_id'])) {
-                $comment = db_fetch_one("SELECT body FROM ticket_comments WHERE id = ?", [(int) $data['comment_id']]);
-                if ($comment && !empty($comment['body'])) {
-                    $text = strip_tags($comment['body']);
+                $comment_text = get_comment_text_by_id((int) $data['comment_id']);
+                if ($comment_text !== null) {
+                    $text = strip_tags($comment_text);
                     return mb_strlen($text) > 80 ? mb_substr($text, 0, 77) . '...' : $text;
                 }
             }
@@ -743,12 +737,8 @@ function get_ticket_participants(int $ticket_id, ?int $exclude_user_id = null): 
     }
 
     // Commenters
-    $commenters = db_fetch_all(
-        "SELECT DISTINCT user_id FROM comments WHERE ticket_id = ?",
-        [$ticket_id]
-    );
-    foreach ($commenters as $c) {
-        $ids[] = (int) $c['user_id'];
+    foreach (get_ticket_comment_user_ids($ticket_id) as $commenter_id) {
+        $ids[] = (int) $commenter_id;
     }
 
     $ids = array_unique($ids);

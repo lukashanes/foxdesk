@@ -440,12 +440,9 @@ function send_new_comment_notification($ticket, $comment, $commenter, $comment_i
 
     // Previous commenters (participants) — notify everyone who commented on this ticket
     try {
-        $participants = db_fetch_all(
-            "SELECT DISTINCT user_id FROM ticket_comments WHERE ticket_id = ? AND user_id != ?",
-            [$ticket['id'], $commenter['id']]
-        );
-        foreach ($participants as $p) {
-            $pid = (int)$p['user_id'];
+        $participants = get_ticket_comment_user_ids((int) $ticket['id'], (int) $commenter['id']);
+        foreach ($participants as $pid) {
+            $pid = (int) $pid;
             if ($pid > 0 && !isset($recipients[$pid])) {
                 $recipients[$pid] = ['type' => 'participant'];
             }

@@ -19,33 +19,9 @@ if (!in_array($filter, ['all', 'action', 'info', 'resolved'])) {
     $filter = 'all';
 }
 
-// Fetch notifications (server-side, first 50)
-$all_notifications = [];
 $unread_count = 0;
-if (function_exists('notifications_table_exists') && notifications_table_exists()) {
-    // For "resolved" filter, include resolved notifications; otherwise exclude them
-    $exclude_resolved = ($filter !== 'resolved');
-    $result = get_user_notifications((int) $user['id'], 50, 0, $exclude_resolved);
-    $all_notifications = $result['notifications'];
-    $unread_count = $result['unread_count'];
-}
-
-// Apply filter
-$notifications = [];
-foreach ($all_notifications as $n) {
-    $data = $n['data'] ?? [];
-    $is_action = is_action_required_notification($n['type'], $data);
-    $is_resolved = !empty($n['is_resolved']);
-    if ($filter === 'action' && !$is_action) continue;
-    if ($filter === 'info' && $is_action) continue;
-    if ($filter === 'resolved' && !$is_resolved) continue;
-    $notifications[] = $n;
-}
-
-// Group by date, then sub-group each date bucket by ticket
-$grouped = group_notifications($notifications);
-foreach (['today', 'yesterday', 'earlier'] as $grp) {
-    $grouped[$grp] = group_by_ticket($grouped[$grp]);
+if (function_exists('get_unread_notification_count') && function_exists('notifications_table_exists') && notifications_table_exists()) {
+    $unread_count = get_unread_notification_count((int) $user['id']);
 }
 
 require_once BASE_PATH . '/includes/header.php';
@@ -654,61 +630,23 @@ function render_child_card(array $notif): void
 
     <!-- Notification list -->
     <div id="notif-list">
-        <?php if (empty($notifications)): ?>
+        <div id="notif-page-loading" class="text-center py-8 text-sm" style="color: var(--text-muted);">
+            <?php echo e(t('Loading...')); ?>
+        </div>
+        <noscript>
             <div class="notif-empty">
                 <?php echo get_icon('bell', 'w-12 h-12 notif-empty-icon'); ?>
-                <p class="text-base font-medium" style="color: var(--text-secondary);"><?php echo e(t('No notifications')); ?></p>
-                <p class="text-sm mt-1"><?php echo e(t('Activity on your tickets will appear here')); ?></p>
+                <p class="text-base font-medium" style="color: var(--text-secondary);"><?php echo e(t('Notifications require JavaScript to load on this page.')); ?></p>
             </div>
-        <?php else: ?>
-            <?php
-            $group_labels = [
-                'today' => t('Today'),
-                'yesterday' => t('Yesterday'),
-                'earlier' => t('Earlier'),
-            ];
-            foreach (['today', 'yesterday', 'earlier'] as $grp):
-                if (empty($grouped[$grp])) continue;
-            ?>
-                <div class="notif-date-label"><?php echo e($group_labels[$grp]); ?></div>
-                <div class="space-y-1">
-                    <?php foreach ($grouped[$grp] as $tg):
-                        $primary = $tg['primary'];
-                        $others = $tg['others'];
-                        $group_count = $tg['count'];
-                    ?>
-                        <?php if ($group_count > 1): ?>
-                            <!-- Ticket group: primary + collapsed children -->
-                            <div class="notif-ticket-group">
-                                <?php render_notif_card($primary, $group_count); ?>
-                                <div class="notif-group-children">
-                                    <?php foreach ($others as $child): ?>
-                                        <?php render_child_card($child); ?>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-                        <?php else: ?>
-                            <!-- Single notification (no group) -->
-                            <?php render_notif_card($primary); ?>
-                        <?php endif; ?>
-                    <?php endforeach; ?>
-                </div>
-            <?php endforeach; ?>
-
-            <?php if (count($all_notifications) >= 50): ?>
-                <button type="button" class="notif-load-more" id="notif-load-more-btn"
-                        onclick="loadMoreNotifs()">
-                    <?php echo e(t('Load more')); ?>
-                </button>
-            <?php endif; ?>
-        <?php endif; ?>
+        </noscript>
     </div>
 </div>
 
 <script>
 (function() {
-    var _offset = <?php echo count($all_notifications); ?>;
+    var _offset = 0;
     var _filter = <?php echo json_encode($filter); ?>;
+    var _includeResolved = _filter === 'resolved';
     var _loading = false;
 
     // ── Toggle group expand on click (mobile + desktop fallback) ─────────
@@ -736,12 +674,9 @@ function render_child_card(array $notif): void
                     el.classList.remove('unread');
                     el.querySelectorAll('button.notif-mark-read-btn').forEach(function(btn) { btn.remove(); });
                 }
-                var badge = document.querySelector('.notif-page-badge');
                 var count = res.unread_count ?? 0;
-                if (badge) {
-                    if (count <= 0) badge.remove();
-                    else badge.textContent = count > 99 ? '99+' : count;
-                }
+                refreshPageBadge(count);
+                syncMarkAllButton(count);
                 if (typeof updateBadge === 'function') updateBadge(count);
             }
         });
@@ -770,11 +705,8 @@ function render_child_card(array $notif): void
                 });
                 // Update badge with server count
                 var count = res.unread_count ?? 0;
-                var badge = document.querySelector('.notif-page-badge');
-                if (badge) {
-                    if (count <= 0) badge.remove();
-                    else badge.textContent = count > 99 ? '99+' : count;
-                }
+                refreshPageBadge(count);
+                syncMarkAllButton(count);
                 if (typeof updateBadge === 'function') updateBadge(count);
             }
         });
@@ -799,10 +731,8 @@ function render_child_card(array $notif): void
                 document.querySelectorAll('.notif-card-actions .notif-mark-read-btn').forEach(function(btn) {
                     if (btn.tagName === 'BUTTON') btn.remove();
                 });
-                var badge = document.querySelector('.notif-page-badge');
-                if (badge) badge.remove();
-                var markAllBtn = document.querySelector('.notif-mark-all-btn');
-                if (markAllBtn) markAllBtn.disabled = true;
+                refreshPageBadge(res.unread_count ?? 0);
+                syncMarkAllButton(res.unread_count ?? 0);
                 if (typeof updateBadge === 'function') updateBadge(res.unread_count ?? 0);
             }
         });
@@ -815,38 +745,16 @@ function render_child_card(array $notif): void
         var btn = document.getElementById('notif-load-more-btn');
         if (btn) btn.textContent = '...';
 
-        fetch('index.php?page=api&action=get-notifications&limit=50&offset=' + _offset)
+        fetch('index.php?page=api&action=get-notifications&limit=50&offset=' + _offset + '&include_resolved=' + (_includeResolved ? '1' : '0'))
         .then(function(r) { return r.json(); })
         .then(function(res) {
             _loading = false;
-            if (!res.success) return;
-
             var groups = res.groups || {};
-            var hasItems = false;
-            var container = document.getElementById('notif-list');
+            var fetchedCount = countFetchedNotifications(groups);
+            _offset += fetchedCount;
 
-            ['today', 'yesterday', 'earlier'].forEach(function(grp) {
-                var ticketGroups = groups[grp] || [];
-                ticketGroups.forEach(function(tg) {
-                    var primary = tg.primary;
-                    if (!primary) return;
-
-                    // Apply filter on primary
-                    var isAction = isActionRequired(primary);
-                    if (_filter === 'action' && !isAction) return;
-                    if (_filter === 'info' && isAction) return;
-
-                    hasItems = true;
-                    _offset += tg.count || 1;
-
-                    var html = buildNotifGroup(tg);
-                    var lastDiv = container.querySelector('.space-y-1:last-of-type');
-                    if (lastDiv) lastDiv.insertAdjacentHTML('beforeend', html);
-                    else container.insertAdjacentHTML('beforeend', '<div class="space-y-1">' + html + '</div>');
-                });
-            });
-
-            if (!hasItems || _offset >= 200) {
+            var hasItems = renderPageGroups(groups, false);
+            if (!hasItems || fetchedCount < 50 || _offset >= 200) {
                 if (btn) btn.remove();
             } else {
                 if (btn) btn.textContent = <?php echo json_encode(t('Load more')); ?>;
@@ -857,6 +765,63 @@ function render_child_card(array $notif): void
             if (btn) btn.textContent = <?php echo json_encode(t('Load more')); ?>;
         });
     };
+
+    function refreshPageBadge(count) {
+        var badge = document.querySelector('.notif-page-badge');
+        if (badge) {
+            if (count <= 0) {
+                badge.remove();
+            } else {
+                badge.textContent = count > 99 ? '99+' : count;
+            }
+        }
+    }
+
+    function syncMarkAllButton(count) {
+        var markAllBtn = document.querySelector('.notif-mark-all-btn');
+        if (markAllBtn) {
+            markAllBtn.disabled = count <= 0;
+        }
+    }
+
+    function loadInitialNotifs() {
+        var loading = document.getElementById('notif-page-loading');
+        if (loading) loading.classList.remove('hidden');
+
+        fetch('index.php?page=api&action=get-notifications&limit=50&offset=0&include_resolved=' + (_includeResolved ? '1' : '0'))
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (loading) loading.remove();
+
+                if (!res.success) {
+                    document.getElementById('notif-list').innerHTML = renderEmptyState();
+                    return;
+                }
+
+                var groups = res.groups || {};
+                _offset = countFetchedNotifications(groups);
+                renderPageGroups(groups, true);
+                refreshPageBadge(res.unread_count || 0);
+                syncMarkAllButton(res.unread_count || 0);
+                if (typeof updateBadge === 'function') updateBadge(res.unread_count || 0);
+
+                var existingLoadMore = document.getElementById('notif-load-more-btn');
+                if (existingLoadMore) existingLoadMore.remove();
+                if (_offset >= 50) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'notif-load-more';
+                    btn.id = 'notif-load-more-btn';
+                    btn.textContent = <?php echo json_encode(t('Load more')); ?>;
+                    btn.onclick = function() { loadMoreNotifs(); };
+                    document.getElementById('notif-list').appendChild(btn);
+                }
+            })
+            .catch(function() {
+                if (loading) loading.remove();
+                document.getElementById('notif-list').innerHTML = renderEmptyState();
+            });
+    }
 
     // ── Helper: check if action required ─────────────────────────────────
     function isActionRequired(n) {
@@ -887,6 +852,92 @@ function render_child_card(array $notif): void
         }
     }
 
+    function getGroupLabel(groupKey) {
+        if (groupKey === 'today') return <?php echo json_encode(t('Today')); ?>;
+        if (groupKey === 'yesterday') return <?php echo json_encode(t('Yesterday')); ?>;
+        return <?php echo json_encode(t('Earlier')); ?>;
+    }
+
+    function notificationMatchesFilter(n) {
+        var isAction = !!(n && n.is_action);
+        var isResolved = !!(n && n.is_resolved);
+
+        if (_filter === 'action') return isAction;
+        if (_filter === 'info') return !isAction && !isResolved;
+        if (_filter === 'resolved') return isResolved;
+        return !isResolved;
+    }
+
+    function filterTicketGroupForPage(tg) {
+        if (!tg || !tg.primary) return null;
+
+        var items = [tg.primary].concat(tg.others || []).filter(notificationMatchesFilter);
+        if (!items.length) return null;
+
+        return {
+            ticket_id: tg.ticket_id,
+            primary: items[0],
+            others: items.slice(1),
+            count: items.length,
+            has_unread: items.some(function(item) { return !item.is_read; })
+        };
+    }
+
+    function countFetchedNotifications(groups) {
+        var total = 0;
+        ['today', 'yesterday', 'earlier'].forEach(function(grp) {
+            (groups[grp] || []).forEach(function(tg) {
+                total += Number(tg.count || 0);
+            });
+        });
+        return total;
+    }
+
+    function renderEmptyState() {
+        return '<div class="notif-empty">'
+            + <?php echo json_encode(get_icon('bell', 'w-12 h-12 notif-empty-icon')); ?>
+            + '<p class="text-base font-medium" style="color: var(--text-secondary);">' + esc(<?php echo json_encode(t('No notifications')); ?>) + '</p>'
+            + '<p class="text-sm mt-1">' + esc(<?php echo json_encode(t('Activity on your tickets will appear here')); ?>) + '</p>'
+            + '</div>';
+    }
+
+    function renderPageGroups(groups, replace) {
+        var container = document.getElementById('notif-list');
+        if (!container) return false;
+
+        var html = '';
+        var renderedAny = false;
+
+        ['today', 'yesterday', 'earlier'].forEach(function(grp) {
+            var filteredGroups = (groups[grp] || [])
+                .map(filterTicketGroupForPage)
+                .filter(Boolean);
+
+            if (!filteredGroups.length) return;
+
+            renderedAny = true;
+            html += '<div class="notif-date-label" data-notif-group-label="' + grp + '">' + esc(getGroupLabel(grp)) + '</div>';
+            html += '<div class="space-y-1" data-notif-group="' + grp + '">';
+            filteredGroups.forEach(function(tg) {
+                html += buildNotifGroup(tg);
+            });
+            html += '</div>';
+        });
+
+        if (!renderedAny && replace) {
+            container.innerHTML = renderEmptyState();
+            return false;
+        }
+
+        if (replace) {
+            container.innerHTML = html;
+        } else if (html) {
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+        return renderedAny;
+    }
+
     // ── Build a full ticket group (primary + children) ───────────────────
     function buildNotifGroup(tg) {
         var primary = tg.primary;
@@ -915,16 +966,19 @@ function render_child_card(array $notif): void
         var isAction = isActionRequired(n);
         var actorName = ((n.actor_first_name || '') + ' ' + (n.actor_last_name || '')).trim();
         var initials = (n.actor_first_name || '?').charAt(0).toUpperCase();
-        var snippet = data.comment_preview || '';
+        var snippet = n.snippet || data.comment_preview || '';
         var commentId = data.comment_id || null;
         var ticketId = n.ticket_id || null;
+        var subject = data.ticket_subject || '';
+        if (subject.length > 60) {
+            subject = subject.slice(0, 57) + '...';
+        }
+        var actionText = n.action_text || n.formatted_text || n.text || n.type;
         var href = '#';
         if (ticketId) {
             href = 'index.php?page=ticket&id=' + ticketId + '&ref=notifications&nid=' + n.id;
             if (commentId) href += '#comment-' + commentId;
         }
-        var ti = typeInfo(n.type);
-        var text = n.formatted_text || n.text || esc(data.actor_name || actorName) + ' — ' + esc(n.type);
 
         var html = '<div class="notif-card ' + (isRead ? '' : 'unread') + '" id="notif-item-' + n.id + '" data-id="' + n.id + '">';
         html += '<a href="' + esc(href) + '" class="notif-avatar" style="background:' + avatarColor(actorName) + '">';
@@ -935,10 +989,12 @@ function render_child_card(array $notif): void
         }
         html += '</a>';
         html += '<a href="' + esc(href) + '" class="notif-card-content" style="text-decoration:none">';
-        html += '<div class="notif-card-text">' + esc(text) + '</div>';
+        if (subject) {
+            html += '<div class="notif-card-subject">' + esc(subject) + '</div>';
+        }
+        html += '<div class="notif-card-action">' + esc(actionText) + '</div>';
         if (snippet) html += '<div class="notif-card-snippet">' + esc(snippet) + '</div>';
         html += '<div class="notif-card-meta">';
-        html += '<span class="notif-type-icon" style="color:' + ti.color + '"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg></span>';
         html += '<span class="notif-card-time">' + esc(n.time_ago || '') + '</span>';
         if (isAction) html += '<span class="notif-action-badge">' + esc(<?php echo json_encode(t('Action required')); ?>) + '</span>';
         html += '</div></a>';
@@ -969,17 +1025,17 @@ function render_child_card(array $notif): void
             href = 'index.php?page=ticket&id=' + ticketId + '&ref=notifications&nid=' + n.id;
             if (commentId) href += '#comment-' + commentId;
         }
-        var ti = typeInfo(n.type);
-        var text = n.formatted_text || n.text || n.type;
+        var text = n.action_text || n.formatted_text || n.text || n.type;
 
         var html = '<a href="' + esc(href) + '" class="notif-child-card ' + (isRead ? '' : 'unread') + '" id="notif-item-' + n.id + '" data-id="' + n.id + '">';
-        html += '<span class="notif-type-icon" style="color:' + ti.color + '"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg></span>';
         html += '<span class="notif-child-text">' + esc(text) + '</span>';
         html += '<span class="notif-child-time">' + esc(n.time_ago || '') + '</span>';
         if (isAction) html += '<span class="notif-action-badge">' + esc(<?php echo json_encode(t('Action required')); ?>) + '</span>';
         html += '</a>';
         return html;
     }
+
+    loadInitialNotifs();
 })();
 
     // ── Compact / Normal view toggle ─────────────────────────────────────

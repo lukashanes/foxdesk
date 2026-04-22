@@ -504,6 +504,108 @@ function get_ticket_comments($ticket_id) {
 }
 
 /**
+ * Return the canonical comment table/column mapping for this installation.
+ *
+ * Newer installs use `comments.content`, while some legacy code paths still
+ * reference `ticket_comments.body`. We resolve the active storage once here so
+ * rendering and mail/notification helpers can stay schema-safe.
+ *
+ * @return array{table:string, content_column:string}|null
+ */
+function get_comment_storage_definition(): ?array
+{
+    static $definition = null;
+    static $resolved = false;
+
+    if ($resolved) {
+        return $definition;
+    }
+
+    $resolved = true;
+
+    if (function_exists('table_exists') && table_exists('comments')) {
+        $definition = ['table' => 'comments', 'content_column' => 'content'];
+        return $definition;
+    }
+
+    if (function_exists('table_exists') && table_exists('ticket_comments')) {
+        $definition = ['table' => 'ticket_comments', 'content_column' => 'body'];
+        return $definition;
+    }
+
+    return null;
+}
+
+/**
+ * Fetch a single comment body/content as plain text.
+ */
+function get_comment_text_by_id(int $comment_id): ?string
+{
+    if ($comment_id <= 0) {
+        return null;
+    }
+
+    $storage = get_comment_storage_definition();
+    if (!$storage) {
+        return null;
+    }
+
+    try {
+        if ($storage['table'] === 'comments') {
+            $row = db_fetch_one("SELECT content AS comment_text FROM comments WHERE id = ?", [$comment_id]);
+        } else {
+            $row = db_fetch_one("SELECT body AS comment_text FROM ticket_comments WHERE id = ?", [$comment_id]);
+        }
+    } catch (Throwable $e) {
+        return null;
+    }
+
+    $text = trim((string) ($row['comment_text'] ?? ''));
+    return $text !== '' ? $text : null;
+}
+
+/**
+ * Get distinct participant user IDs from comments on a ticket.
+ *
+ * @return int[]
+ */
+function get_ticket_comment_user_ids(int $ticket_id, ?int $exclude_user_id = null): array
+{
+    if ($ticket_id <= 0) {
+        return [];
+    }
+
+    $storage = get_comment_storage_definition();
+    if (!$storage) {
+        return [];
+    }
+
+    $params = [$ticket_id];
+    $exclude_sql = '';
+    if ($exclude_user_id !== null) {
+        $exclude_sql = ' AND user_id != ?';
+        $params[] = $exclude_user_id;
+    }
+
+    try {
+        $sql = "SELECT DISTINCT user_id FROM {$storage['table']} WHERE ticket_id = ? AND user_id IS NOT NULL{$exclude_sql}";
+        $rows = db_fetch_all($sql, $params);
+    } catch (Throwable $e) {
+        return [];
+    }
+
+    $ids = [];
+    foreach ($rows as $row) {
+        $user_id = (int) ($row['user_id'] ?? 0);
+        if ($user_id > 0) {
+            $ids[] = $user_id;
+        }
+    }
+
+    return array_values(array_unique($ids));
+}
+
+/**
  * Add comment to ticket
  */
 function add_comment($ticket_id, $user_id, $content, $is_internal = 0) {

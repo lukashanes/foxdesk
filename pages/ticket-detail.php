@@ -1239,6 +1239,11 @@ require_once BASE_PATH . '/includes/header.php';
                             </div>
                     <?php endif; ?>
                 </div>
+                <?php if (get_request_upload_limit() > 0): ?>
+                <p class="mt-2 text-xs" style="color: var(--text-muted);">
+                    <?php echo e(t('Total upload per request is limited to {size}.', ['size' => format_file_size(get_request_upload_limit())])); ?>
+                </p>
+                <?php endif; ?>
 
                 <?php if (is_agent() && $time_tracking_available): ?>
                         <!-- Manual Time Entry (expandable, between attachments and submit row) -->
@@ -2068,8 +2073,78 @@ require_once BASE_PATH . '/includes/header.php';
     const commentFileInput = document.getElementById('comment-file-input');
     const commentFilePreview = document.getElementById('comment-file-preview');
     const removeFileLabel = '<?php echo e(t('Remove')); ?>';
+    const commentUploadLimitConfig = {
+        single: <?php echo json_encode((int) get_max_upload_size()); ?>,
+        total: <?php echo json_encode((int) get_request_upload_limit()); ?>,
+        singleTemplate: <?php echo json_encode(t('File "{name}" exceeds the maximum allowed size of {size}.')); ?>,
+        totalTemplate: <?php echo json_encode(t('Selected attachments exceed the server request limit of {size}.')); ?>
+    };
+
+    function showCommentUploadLimitMessage(message) {
+        if (!message) return;
+        if (window.showAppToast) {
+            window.showAppToast(message, 'error');
+        } else {
+            alert(message);
+        }
+    }
+
+    function fillCommentUploadTemplate(template, replacements) {
+        var output = String(template || '');
+        Object.keys(replacements || {}).forEach(function (key) {
+            output = output.split('{' + key + '}').join(replacements[key]);
+        });
+        return output;
+    }
+
+    function enforceCommentUploadLimits() {
+        if (!commentFileInput || typeof DataTransfer === 'undefined') {
+            return { changed: false, hadErrors: false };
+        }
+
+        var originalCount = commentFileInput.files.length;
+        var dt = new DataTransfer();
+        var totalSize = 0;
+        var hadErrors = false;
+        var totalErrorShown = false;
+
+        for (var i = 0; i < commentFileInput.files.length; i++) {
+            var file = commentFileInput.files[i];
+
+            if (commentUploadLimitConfig.single > 0 && file.size > commentUploadLimitConfig.single) {
+                hadErrors = true;
+                showCommentUploadLimitMessage(fillCommentUploadTemplate(commentUploadLimitConfig.singleTemplate, {
+                    name: file.name,
+                    size: formatFileSize(commentUploadLimitConfig.single)
+                }));
+                continue;
+            }
+
+            if (commentUploadLimitConfig.total > 0 && totalSize + file.size > commentUploadLimitConfig.total) {
+                hadErrors = true;
+                if (!totalErrorShown) {
+                    showCommentUploadLimitMessage(fillCommentUploadTemplate(commentUploadLimitConfig.totalTemplate, {
+                        size: formatFileSize(commentUploadLimitConfig.total)
+                    }));
+                    totalErrorShown = true;
+                }
+                continue;
+            }
+
+            totalSize += file.size;
+            dt.items.add(file);
+        }
+
+        if (originalCount !== dt.files.length) {
+            commentFileInput.files = dt.files;
+            return { changed: true, hadErrors: hadErrors };
+        }
+
+        return { changed: false, hadErrors: hadErrors };
+    }
 
     function updateCommentPreview() {
+        enforceCommentUploadLimits();
         commentFilePreview.innerHTML = '';
 
         if (commentFileInput.files.length === 0) {
@@ -3373,6 +3448,12 @@ require_once BASE_PATH . '/includes/header.php';
     const commentForm = document.getElementById('comment-form');
     if (commentForm) {
         commentForm.addEventListener('submit', function (e) {
+            const uploadValidation = enforceCommentUploadLimits();
+            if (uploadValidation.hadErrors && commentFileInput && commentFileInput.files.length === 0) {
+                e.preventDefault();
+                return;
+            }
+
             // Get the active editor based on comment mode
             const isInternal = document.getElementById('is_internal_toggle')?.checked;
 

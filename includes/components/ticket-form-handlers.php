@@ -215,7 +215,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Add comment
     if (isset($_POST['add_comment'])) {
         $skip_notification = isset($_POST['skip_notification']) && $_POST['skip_notification'] == '1';
-        $has_attachments = !empty($_FILES['comment_attachments']['name'][0]);
+        $attachment_upload_errors = [];
+        $has_uploadable_attachments = false;
+        if (!empty($_FILES['comment_attachments']['name'][0])) {
+            $attachment_names = $_FILES['comment_attachments']['name'] ?? [];
+            $attachment_errors = $_FILES['comment_attachments']['error'] ?? [];
+            foreach ($attachment_names as $attachment_index => $attachment_name) {
+                if (trim((string) $attachment_name) === '') {
+                    continue;
+                }
+
+                $error_code = (int) ($attachment_errors[$attachment_index] ?? UPLOAD_ERR_NO_FILE);
+                if ($error_code === UPLOAD_ERR_OK) {
+                    $has_uploadable_attachments = true;
+                    continue;
+                }
+
+                if ($error_code !== UPLOAD_ERR_NO_FILE) {
+                    $attachment_upload_errors[] = $attachment_name . ': ' . get_upload_error_message($error_code, get_max_upload_size());
+                }
+            }
+        }
+        $has_attachments = $has_uploadable_attachments;
         // Handle status change first (if agent)
         if (isset($_POST['change_status_with_comment']) && is_agent()) {
             $new_status_id = (int) ($_POST['status_id'] ?? $ticket['status_id']);
@@ -373,33 +394,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $files = $_FILES['comment_attachments'];
 
             for ($i = 0; $i < count($files['name']); $i++) {
-                if ($files['error'][$i] === UPLOAD_ERR_OK) {
-                    try {
-                        $file = [
-                            'name' => $files['name'][$i],
-                            'type' => $files['type'][$i],
-                            'tmp_name' => $files['tmp_name'][$i],
-                            'error' => $files['error'][$i],
-                            'size' => $files['size'][$i]
-                        ];
+                if ($files['error'][$i] === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
 
-                        $result = upload_file($file);
+                if ($files['error'][$i] !== UPLOAD_ERR_OK) {
+                    continue;
+                }
 
-                        db_insert('attachments', [
-                            'ticket_id' => $ticket_id,
-                            'comment_id' => $comment_id,
-                            'filename' => $result['filename'],
-                            'original_name' => $result['original_name'],
-                            'mime_type' => $result['mime_type'],
-                            'file_size' => $result['file_size'],
-                            'uploaded_by' => $user['id'],
-                            'created_at' => date('Y-m-d H:i:s')
-                        ]);
+                try {
+                    $file = [
+                        'name' => $files['name'][$i],
+                        'type' => $files['type'][$i],
+                        'tmp_name' => $files['tmp_name'][$i],
+                        'error' => $files['error'][$i],
+                        'size' => $files['size'][$i]
+                    ];
 
-                        $uploaded_attachments[] = $result;
-                    } catch (Exception $e) {
-                        // Ignore upload errors for comments
-                    }
+                    $result = upload_file($file);
+
+                    db_insert('attachments', [
+                        'ticket_id' => $ticket_id,
+                        'comment_id' => $comment_id,
+                        'filename' => $result['filename'],
+                        'original_name' => $result['original_name'],
+                        'mime_type' => $result['mime_type'],
+                        'file_size' => $result['file_size'],
+                        'uploaded_by' => $user['id'],
+                        'created_at' => date('Y-m-d H:i:s')
+                    ]);
+
+                    $uploaded_attachments[] = $result;
+                } catch (Exception $e) {
+                    $attachment_upload_errors[] = $files['name'][$i] . ': ' . $e->getMessage();
                 }
             }
 
@@ -489,6 +516,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash(t('Time entry added.'), 'success');
         } elseif (isset($_POST['change_status_with_comment']) && is_agent()) {
             flash(t('Status updated.'), 'success');
+        }
+
+        if (!empty($attachment_upload_errors)) {
+            flash(t('Some attachments could not be uploaded: {errors}', ['errors' => implode(', ', $attachment_upload_errors)]), 'error');
         }
 
         // Redirect to referrer if provided (e.g. back to ticket list after status change)

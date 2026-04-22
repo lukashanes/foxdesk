@@ -47,14 +47,97 @@ function get_max_upload_size() {
     $size_mb = (int)get_setting('max_upload_size', '10');
     // Ensure reasonable limits (1MB - 100MB)
     $size_mb = max(1, min(100, $size_mb));
-    return $size_mb * 1024 * 1024;
+    $app_limit = $size_mb * 1024 * 1024;
+
+    $limits = [$app_limit];
+    $php_upload_limit = get_php_upload_max_size();
+    $php_post_limit = get_php_post_max_size();
+
+    if ($php_upload_limit > 0) {
+        $limits[] = $php_upload_limit;
+    }
+    if ($php_post_limit > 0) {
+        $limits[] = $php_post_limit;
+    }
+
+    return min($limits);
 }
 
 /**
  * Get max upload size in MB for display
  */
 function get_max_upload_size_mb() {
-    return (int)get_setting('max_upload_size', '10');
+    return max(1, (int) ceil(get_max_upload_size() / 1048576));
+}
+
+/**
+ * Get PHP upload_max_filesize limit in bytes.
+ */
+function get_php_upload_max_size(): int
+{
+    return function_exists('foxdesk_parse_ini_size')
+        ? foxdesk_parse_ini_size(ini_get('upload_max_filesize'))
+        : 0;
+}
+
+/**
+ * Get PHP post_max_size limit in bytes.
+ */
+function get_php_post_max_size(): int
+{
+    return function_exists('foxdesk_parse_ini_size')
+        ? foxdesk_parse_ini_size(ini_get('post_max_size'))
+        : 0;
+}
+
+/**
+ * Get total request upload limit in bytes.
+ */
+function get_request_upload_limit(): int
+{
+    return get_php_post_max_size();
+}
+
+/**
+ * Translate PHP upload error codes into user-facing messages.
+ */
+function get_upload_error_message(int $error_code, ?int $fallback_limit = null): string
+{
+    switch ($error_code) {
+        case UPLOAD_ERR_INI_SIZE:
+            $limit = get_php_upload_max_size();
+            if ($limit <= 0 && $fallback_limit) {
+                $limit = $fallback_limit;
+            }
+            $label = ($limit > 0 && function_exists('format_file_size')) ? format_file_size($limit) : '';
+            return $label !== ''
+                ? t('File exceeds the server upload limit of {size}.', ['size' => $label])
+                : t('File upload failed.');
+
+        case UPLOAD_ERR_FORM_SIZE:
+            $limit = $fallback_limit ?: get_max_upload_size();
+            return t('File is too large. Maximum size is {size}.', [
+                'size' => function_exists('format_file_size') ? format_file_size($limit) : ((string) $limit . ' B')
+            ]);
+
+        case UPLOAD_ERR_PARTIAL:
+            return t('File was only partially uploaded.');
+
+        case UPLOAD_ERR_NO_FILE:
+            return t('No file was uploaded.');
+
+        case UPLOAD_ERR_NO_TMP_DIR:
+            return t('Server is missing a temporary upload folder.');
+
+        case UPLOAD_ERR_CANT_WRITE:
+            return t('Server could not write the uploaded file to disk.');
+
+        case UPLOAD_ERR_EXTENSION:
+            return t('A PHP extension blocked the file upload.');
+
+        default:
+            return t('File upload failed.');
+    }
 }
 
 /**
@@ -75,7 +158,7 @@ function upload_file($file, $allowed_types = null, $max_size = null) {
     }
 
     if ($file['error'] !== UPLOAD_ERR_OK) {
-        throw new Exception(t('File upload failed.'));
+        throw new Exception(get_upload_error_message((int) $file['error'], $max_size));
     }
 
     if ($file['size'] > $max_size) {

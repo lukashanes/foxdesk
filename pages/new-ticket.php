@@ -175,31 +175,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $files = $_FILES['attachments'];
 
                 for ($i = 0; $i < count($files['name']); $i++) {
-                    if ($files['error'][$i] === UPLOAD_ERR_OK) {
-                        try {
-                            $file = [
-                                'name' => $files['name'][$i],
-                                'type' => $files['type'][$i],
-                                'tmp_name' => $files['tmp_name'][$i],
-                                'error' => $files['error'][$i],
-                                'size' => $files['size'][$i]
-                            ];
+                    if ($files['error'][$i] === UPLOAD_ERR_NO_FILE) {
+                        continue;
+                    }
 
-                            $result = upload_file($file);
+                    if ($files['error'][$i] !== UPLOAD_ERR_OK) {
+                        $upload_errors[] = $files['name'][$i] . ': ' . get_upload_error_message((int) $files['error'][$i], get_max_upload_size());
+                        continue;
+                    }
 
-                            // Save attachment record
-                            db_insert('attachments', [
-                                'ticket_id' => $ticket_id,
-                                'filename' => $result['filename'],
-                                'original_name' => $result['original_name'],
-                                'mime_type' => $result['mime_type'],
-                                'file_size' => $result['file_size'],
-                                'uploaded_by' => $user['id'],
-                                'created_at' => date('Y-m-d H:i:s')
-                            ]);
-                        } catch (Exception $e) {
-                            $upload_errors[] = $files['name'][$i] . ': ' . $e->getMessage();
-                        }
+                    try {
+                        $file = [
+                            'name' => $files['name'][$i],
+                            'type' => $files['type'][$i],
+                            'tmp_name' => $files['tmp_name'][$i],
+                            'error' => $files['error'][$i],
+                            'size' => $files['size'][$i]
+                        ];
+
+                        $result = upload_file($file);
+
+                        // Save attachment record
+                        db_insert('attachments', [
+                            'ticket_id' => $ticket_id,
+                            'filename' => $result['filename'],
+                            'original_name' => $result['original_name'],
+                            'mime_type' => $result['mime_type'],
+                            'file_size' => $result['file_size'],
+                            'uploaded_by' => $user['id'],
+                            'created_at' => date('Y-m-d H:i:s')
+                        ]);
+                    } catch (Exception $e) {
+                        $upload_errors[] = $files['name'][$i] . ': ' . $e->getMessage();
                     }
                 }
 
@@ -330,6 +337,11 @@ include BASE_PATH . '/includes/components/page-header.php';
                     <p class="text-xs mt-1" style="color: var(--text-muted);">
                         <?php echo e(t('Max {size}MB. Types: JPG, PNG, GIF, PDF, DOC, XLS, TXT, ZIP', ['size' => get_max_upload_size_mb()])); ?>
                     </p>
+                    <?php if (get_request_upload_limit() > 0): ?>
+                    <p class="text-xs mt-0.5" style="color: var(--text-muted);">
+                        <?php echo e(t('Total upload per request is limited to {size}.', ['size' => format_file_size(get_request_upload_limit())])); ?>
+                    </p>
+                    <?php endif; ?>
                     <!-- File preview -->
                     <div id="file-preview" class="mt-1.5 space-y-1 hidden"></div>
                 </div>
@@ -778,8 +790,76 @@ include BASE_PATH . '/includes/components/page-header.php';
     const fileInput = document.getElementById('file-input');
     const filePreview = document.getElementById('file-preview');
     const removeFileLabel = '<?php echo e(t('Remove')); ?>';
+    const uploadLimitConfig = {
+        single: <?php echo json_encode((int) get_max_upload_size()); ?>,
+        total: <?php echo json_encode((int) get_request_upload_limit()); ?>,
+        singleTemplate: <?php echo json_encode(t('File "{name}" exceeds the maximum allowed size of {size}.')); ?>,
+        totalTemplate: <?php echo json_encode(t('Selected attachments exceed the server request limit of {size}.')); ?>
+    };
+
+    function showUploadLimitMessage(message) {
+        if (!message) return;
+        if (window.showAppToast) {
+            window.showAppToast(message, 'error');
+        } else {
+            alert(message);
+        }
+    }
+
+    function fillUploadTemplate(template, replacements) {
+        let output = String(template || '');
+        Object.keys(replacements || {}).forEach(function (key) {
+            output = output.split('{' + key + '}').join(replacements[key]);
+        });
+        return output;
+    }
+
+    function enforceUploadLimits() {
+        if (!fileInput || typeof DataTransfer === 'undefined') return { changed: false, hadErrors: false };
+
+        const originalCount = fileInput.files.length;
+        const dt = new DataTransfer();
+        let totalSize = 0;
+        let hadErrors = false;
+        let totalErrorShown = false;
+
+        for (let i = 0; i < fileInput.files.length; i++) {
+            const file = fileInput.files[i];
+
+            if (uploadLimitConfig.single > 0 && file.size > uploadLimitConfig.single) {
+                hadErrors = true;
+                showUploadLimitMessage(fillUploadTemplate(uploadLimitConfig.singleTemplate, {
+                    name: file.name,
+                    size: formatFileSize(uploadLimitConfig.single)
+                }));
+                continue;
+            }
+
+            if (uploadLimitConfig.total > 0 && totalSize + file.size > uploadLimitConfig.total) {
+                hadErrors = true;
+                if (!totalErrorShown) {
+                    showUploadLimitMessage(fillUploadTemplate(uploadLimitConfig.totalTemplate, {
+                        size: formatFileSize(uploadLimitConfig.total)
+                    }));
+                    totalErrorShown = true;
+                }
+                continue;
+            }
+
+            totalSize += file.size;
+            dt.items.add(file);
+        }
+
+        if (originalCount !== dt.files.length) {
+            fileInput.files = dt.files;
+            return { changed: true, hadErrors: hadErrors };
+        }
+
+        return { changed: false, hadErrors: hadErrors };
+    }
 
     function updatePreview() {
+        enforceUploadLimits();
         filePreview.innerHTML = '';
         if (fileInput.files.length === 0) {
             filePreview.classList.add('hidden');
@@ -1008,7 +1088,17 @@ include BASE_PATH . '/includes/components/page-header.php';
     });
 
     // Clear localStorage on form submit — timer data goes into hidden input
-    document.getElementById('new-ticket-form').addEventListener('submit', function() {
+    document.getElementById('new-ticket-form').addEventListener('submit', function(event) {
+        const validation = enforceUploadLimits();
+        if (validation.hadErrors && fileInput && fileInput.files.length === 0) {
+            const submitBtn = this.querySelector('[type=submit]');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '';
+            }
+            event.preventDefault();
+            return;
+        }
         localStorage.removeItem(STORAGE_KEY);
     });
 
