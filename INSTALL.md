@@ -1,7 +1,7 @@
 # FoxDesk — Installation Guide
 
 > Fresh installation instructions for shared hosting (FTP), VPS, or dedicated servers.
-> Version: **0.3.103** | Requires: PHP 8.1+ | MySQL 5.7+ / MariaDB 10.2+
+> Version: **0.3.104** | Requires: PHP 8.1+ | MySQL 5.7+ / MariaDB 10.2+
 
 ---
 

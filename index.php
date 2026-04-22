@@ -15,7 +15,7 @@ define('REMEMBER_ME_DURATION', 30 * 86400); // 30 days
 
 require_once BASE_PATH . '/includes/session-bootstrap.php';
 
-define('APP_VERSION', '0.3.103');
+define('APP_VERSION', '0.3.104');
 
 // Check if installed
 if (!file_exists(BASE_PATH . '/config.php')) {

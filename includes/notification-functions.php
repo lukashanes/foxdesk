@@ -384,6 +384,7 @@ function get_notification_ticket_relevant_user_ids(int $ticket_id): array
 
 /**
  * Check whether a ticket notification is still relevant to an agent user.
+ * Agents only see notifications for tickets currently assigned to them.
  */
 function notification_is_relevant_to_agent(array $notification, array $user, array $ticket): bool
 {
@@ -392,19 +393,23 @@ function notification_is_relevant_to_agent(array $notification, array $user, arr
         return false;
     }
 
-    $type = (string) ($notification['type'] ?? '');
-    $data = get_notification_data_payload($notification);
+    $assignee_id = (int) ($ticket['assignee_id'] ?? 0);
+    return $assignee_id > 0 && $assignee_id === $user_id;
+}
 
-    if ($type === 'mentioned') {
-        return true;
+/**
+ * Check whether a ticket notification is still relevant to an end user.
+ * End users only see notifications for tickets they created.
+ */
+function notification_is_relevant_to_regular_user(array $notification, array $user, array $ticket): bool
+{
+    $user_id = (int) ($user['id'] ?? 0);
+    if ($user_id <= 0) {
+        return false;
     }
 
-    if (in_array($type, ['assigned_to_you', 'due_date_reminder'], true)) {
-        $assigned_user_id = (int) ($data['assignee_id'] ?? ($ticket['assignee_id'] ?? 0));
-        return $assigned_user_id > 0 && $assigned_user_id === $user_id;
-    }
-
-    return in_array($user_id, get_notification_ticket_relevant_user_ids((int) $ticket['id']), true);
+    $creator_id = (int) ($ticket['user_id'] ?? 0);
+    return $creator_id > 0 && $creator_id === $user_id;
 }
 
 /**
@@ -438,7 +443,11 @@ function notification_is_visible_to_user(array $notification, array $user): bool
         return notification_is_relevant_to_agent($notification, $user, $ticket);
     }
 
-    return true;
+    if (($user['role'] ?? '') === 'user') {
+        return notification_is_relevant_to_regular_user($notification, $user, $ticket);
+    }
+
+    return false;
 }
 
 /**

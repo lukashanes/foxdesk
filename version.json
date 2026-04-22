@@ -1,12 +1,12 @@
 {
-    "version": "0.3.103",
+    "version": "0.3.104",
     "date": "2026-04-22",
     "min_php": "8.1",
     "changelog": [
-        "Added an admin setting to hide completed kanban cards after a configurable number of days",
-        "Moved older completed tickets into a collapsed Closed section while keeping recent completions visible on the board",
-        "Improved kanban drag and drop and status counts for archived closed cards",
-        "Fixed agent notification visibility so agents only see ticket notifications that directly involve them"
+        "Fixed notification visibility so non-admin users only see notifications for tickets they directly own or are assigned to",
+        "Blocked agents from seeing notifications for tickets that are merely in the same organization",
+        "Blocked end users from seeing notifications for tickets they do not own",
+        "Applied the stricter notification rules to both new and previously stored notifications"
     ],
     "delete_files": []
 }
