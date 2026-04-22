@@ -327,6 +327,73 @@ function package_extract_path($temp_dir, $package_root, $relative_path): string
 }
 
 /**
+ * Detect whether the ZIP contains application payload at package root.
+ *
+ * Compatible flat packages contain normal app files like index.php, includes/,
+ * pages/, or assets/ directly next to version.json instead of under files/.
+ */
+function zip_has_flat_app_payload(ZipArchive $zip, string $package_root = ''): bool
+{
+    $prefix = trim($package_root, '/\\');
+    if ($prefix !== '') {
+        $prefix .= '/';
+    }
+
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $name = ltrim(str_replace('\\', '/', (string) $zip->getNameIndex($i)), '/');
+        if ($prefix !== '' && strpos($name, $prefix) === 0) {
+            $name = substr($name, strlen($prefix));
+        }
+
+        if ($name === '' || $name === 'version.json') {
+            continue;
+        }
+
+        if (
+            $name === 'index.php'
+            || $name === 'attachment.php'
+            || $name === 'image.php'
+            || strpos($name, 'includes/') === 0
+            || strpos($name, 'pages/') === 0
+            || strpos($name, 'assets/') === 0
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Resolve the extracted directory that should be copied into BASE_PATH.
+ *
+ * Preferred format is files/, but we also support flat packages where the app
+ * payload lives directly at package root next to version.json.
+ *
+ * @return array{path:string, mode:string}|null
+ */
+function resolve_package_payload_dir(string $temp_dir, string $package_root): ?array
+{
+    $files_dir = package_extract_path($temp_dir, $package_root, 'files');
+    if (is_dir($files_dir)) {
+        return [
+            'path' => $files_dir,
+            'mode' => 'files',
+        ];
+    }
+
+    $root_dir = rtrim(package_extract_path($temp_dir, $package_root, ''), '/\\');
+    if ($root_dir !== '' && is_dir($root_dir)) {
+        return [
+            'path' => $root_dir,
+            'mode' => 'flat',
+        ];
+    }
+
+    return null;
+}
+
+/**
  * Split SQL script into statements while respecting strings/comments.
  */
 function split_sql_statements($sql): array
@@ -610,7 +677,12 @@ function validate_update_package($zip_path): array
     }
 
     if (!$has_files) {
-        $result['warnings'][] = t('No files directory found in update package.');
+        if (zip_has_flat_app_payload($zip, $result['package_root'])) {
+            $result['warnings'][] = t('Flat update package detected. Root files will be applied for compatibility.');
+        } else {
+            $result['errors'][] = t('Update package contains no application files.');
+            $result['error'] = t('Update package contains no application files.');
+        }
     }
 
     $zip->close();
@@ -875,11 +947,12 @@ function apply_update($zip_path, $backup_id = null, bool $dry_run = false): arra
 
         // ── DRY-RUN MODE ───────────────────────────────────────────────
         if ($dry_run) {
-            $files_dir = package_extract_path($temp_dir, $package_root, 'files');
+            $payload = resolve_package_payload_dir($temp_dir, $package_root);
+            $files_dir = $payload['path'] ?? null;
             $migrations_dir = package_extract_path($temp_dir, $package_root, 'migrations');
             $changes = [];
 
-            if (is_dir($files_dir)) {
+            if ($files_dir !== null && is_dir($files_dir)) {
                 $iter = new RecursiveIteratorIterator(
                     new RecursiveDirectoryIterator($files_dir, RecursiveDirectoryIterator::SKIP_DOTS),
                     RecursiveIteratorIterator::SELF_FIRST
@@ -887,6 +960,9 @@ function apply_update($zip_path, $backup_id = null, bool $dry_run = false): arra
                 foreach ($iter as $item) {
                     if ($item->isDir()) continue;
                     $relative = substr($item->getPathname(), strlen($files_dir) + 1);
+                    if (($payload['mode'] ?? '') === 'flat' && ($relative === 'version.json' || strpos($relative, 'migrations/') === 0)) {
+                        continue;
+                    }
                     $target = BASE_PATH . '/' . $relative;
                     if (!file_exists($target)) {
                         $changes[] = ['action' => 'new', 'file' => $relative];
@@ -947,9 +1023,18 @@ function apply_update($zip_path, $backup_id = null, bool $dry_run = false): arra
         enable_maintenance_mode();
 
         // Copy files from update package
-        $files_dir = package_extract_path($temp_dir, $package_root, 'files');
+        $payload = resolve_package_payload_dir($temp_dir, $package_root);
+        if ($payload === null || !is_dir($payload['path'])) {
+            throw new RuntimeException(t('Update package contains no application files.'));
+        }
+
+        if (($payload['mode'] ?? '') === 'flat') {
+            $result['messages'][] = t('Flat update package compatibility mode used.');
+        }
+
+        $files_dir = $payload['path'];
         if (is_dir($files_dir)) {
-            $copied = copy_directory($files_dir, BASE_PATH);
+            $copied = copy_directory($files_dir, BASE_PATH, ($payload['mode'] ?? '') === 'flat' ? ['version.json', 'migrations'] : []);
             if ($copied > 0) {
                 $result['messages'][] = t('{count} files updated.', ['count' => $copied]);
             }
@@ -1538,10 +1623,17 @@ function log_update($version, $action, $backup_id = null, $success = true, array
 /**
  * Helper: Copy directory recursively
  */
-function copy_directory($source, $dest): int
+function copy_directory($source, $dest, array $exclude_top_level = []): int
 {
     $count = 0;
     $has_opcache = function_exists('opcache_invalidate');
+    $exclude_lookup = [];
+    foreach ($exclude_top_level as $name) {
+        $clean = trim(str_replace('\\', '/', (string) $name), '/');
+        if ($clean !== '') {
+            $exclude_lookup[$clean] = true;
+        }
+    }
 
     if (!is_dir($dest)) {
         mkdir($dest, 0755, true);
@@ -1553,6 +1645,12 @@ function copy_directory($source, $dest): int
     );
 
     foreach ($iterator as $item) {
+        $sub_path = str_replace('\\', '/', $iterator->getSubPathName());
+        $top_level = strtok($sub_path, '/');
+        if ($top_level !== false && isset($exclude_lookup[$top_level])) {
+            continue;
+        }
+
         $target = $dest . DIRECTORY_SEPARATOR . $iterator->getSubPathName();
 
         if ($item->isDir()) {
@@ -1758,4 +1856,3 @@ function notify_admins_about_update(string $new_version, string $old_version, st
         }
     }
 }
-
