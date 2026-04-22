@@ -140,21 +140,46 @@ window.initFileDropzone = function(config) {
     var acceptedExtensions = Array.isArray(config && config.acceptedExtensions)
         ? config.acceptedExtensions.map(function(ext) { return String(ext).toLowerCase(); })
         : null;
+    var pendingExistingFiles = [];
 
     if (!zone || !input) return null;
 
     var invalidMsg = (config && config.invalidTypeMessage) || (window.appConfig && window.appConfig.invalidFileTypeMsg) || 'Invalid file type.';
+    var toArray = function(fileList) {
+        return Array.prototype.slice.call(fileList || []);
+    };
+    var fileSignature = function(file) {
+        return [
+            String(file && file.name || ''),
+            String(file && file.size || 0),
+            String(file && file.lastModified || 0),
+            String(file && file.type || '')
+        ].join('::');
+    };
 
     var mergeFiles = function(existing, incoming) {
         var dt = new DataTransfer();
-        for (var i = 0; i < existing.length; i++) dt.items.add(existing[i]);
-        for (var j = 0; j < incoming.length; j++) {
-            var extension = '.' + String(incoming[j].name || '').split('.').pop().toLowerCase();
-            if (acceptedExtensions && !acceptedExtensions.includes(extension)) {
-                window.showAppToast(invalidMsg, 'error');
-                continue;
+        var seen = Object.create(null);
+        var addFile = function(file, validateType) {
+            if (!file) return;
+            var signature = fileSignature(file);
+            if (seen[signature]) return;
+
+            if (validateType) {
+                var extension = '.' + String(file.name || '').split('.').pop().toLowerCase();
+                if (acceptedExtensions && !acceptedExtensions.includes(extension)) {
+                    window.showAppToast(invalidMsg, 'error');
+                    return;
+                }
             }
-            dt.items.add(incoming[j]);
+
+            seen[signature] = true;
+            dt.items.add(file);
+        };
+
+        for (var i = 0; i < existing.length; i++) addFile(existing[i], false);
+        for (var j = 0; j < incoming.length; j++) {
+            addFile(incoming[j], true);
         }
         input.files = dt.files;
         if (onFilesChanged) onFilesChanged(input.files);
@@ -162,6 +187,7 @@ window.initFileDropzone = function(config) {
 
     zone.addEventListener('click', function(event) {
         if (event.target.closest('button')) return;
+        pendingExistingFiles = input.multiple ? toArray(input.files) : [];
         input.click();
     });
     zone.addEventListener('dragover', function(event) {
@@ -175,7 +201,10 @@ window.initFileDropzone = function(config) {
         mergeFiles(input.files, event.dataTransfer.files);
     });
     input.addEventListener('change', function() {
-        if (onFilesChanged) onFilesChanged(input.files);
+        var pickedFiles = toArray(input.files);
+        var existingFiles = input.multiple ? pendingExistingFiles : [];
+        pendingExistingFiles = [];
+        mergeFiles(existingFiles, pickedFiles);
     });
 
     return {

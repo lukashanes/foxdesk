@@ -1,14 +1,10 @@
 {
-    "version": "0.3.107",
+    "version": "0.3.108",
     "date": "2026-04-22",
     "min_php": "8.1",
     "changelog": [
-        "Fixed the in-app updater package format so real file changes are applied correctly during updates",
-        "Added compatibility handling for flat update packages so malformed archives no longer silently update only the version number",
-        "Fixed notifications pages and dashboard rendering for comment notifications on installs that store comments in the comments table",
-        "Unified the full notifications page with the notifications API so badge, bell dropdown, and page use the same grouped data source",
-        "Fixed quick due date editing in the tickets list so changes persist after saving existing deadlines",
-        "Fixed multiple attachment uploads so normal multi-file submits work and oversized requests no longer fall back to a misleading security check error"
+        "Fixed new ticket attachments so selecting files multiple times appends them instead of replacing the previous selection",
+        "Improved new ticket upload validation so blocked attachments show a persistent inline error and prevent silent submit without files"
     ],
     "delete_files": []
 }

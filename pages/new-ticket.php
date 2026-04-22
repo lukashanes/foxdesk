@@ -342,6 +342,9 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <?php echo e(t('Total upload per request is limited to {size}.', ['size' => format_file_size(get_request_upload_limit())])); ?>
                     </p>
                     <?php endif; ?>
+                    <div id="file-upload-errors" class="mt-2 hidden rounded-lg border px-3 py-2 text-xs"
+                        style="border-color: color-mix(in srgb, #ef4444 28%, var(--border-light)); background: color-mix(in srgb, #ef4444 10%, var(--surface-primary)); color: #b91c1c;"
+                        aria-live="polite"></div>
                     <!-- File preview -->
                     <div id="file-preview" class="mt-1.5 space-y-1 hidden"></div>
                 </div>
@@ -789,6 +792,7 @@ include BASE_PATH . '/includes/components/page-header.php';
     // File upload handling
     const fileInput = document.getElementById('file-input');
     const filePreview = document.getElementById('file-preview');
+    const fileUploadErrors = document.getElementById('file-upload-errors');
     const removeFileLabel = '<?php echo e(t('Remove')); ?>';
     const uploadLimitConfig = {
         single: <?php echo json_encode((int) get_max_upload_size()); ?>,
@@ -804,6 +808,22 @@ include BASE_PATH . '/includes/components/page-header.php';
         } else {
             alert(message);
         }
+    }
+
+    function renderUploadErrors(messages) {
+        if (!fileUploadErrors) return;
+
+        const uniqueMessages = Array.from(new Set((messages || []).filter(Boolean)));
+        if (uniqueMessages.length === 0) {
+            fileUploadErrors.innerHTML = '';
+            fileUploadErrors.classList.add('hidden');
+            return;
+        }
+
+        fileUploadErrors.innerHTML = uniqueMessages.map(function (message) {
+            return '<div>' + message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+        }).join('');
+        fileUploadErrors.classList.remove('hidden');
     }
 
     function fillUploadTemplate(template, replacements) {
@@ -822,25 +842,30 @@ include BASE_PATH . '/includes/components/page-header.php';
         let totalSize = 0;
         let hadErrors = false;
         let totalErrorShown = false;
+        const messages = [];
 
         for (let i = 0; i < fileInput.files.length; i++) {
             const file = fileInput.files[i];
 
             if (uploadLimitConfig.single > 0 && file.size > uploadLimitConfig.single) {
                 hadErrors = true;
-                showUploadLimitMessage(fillUploadTemplate(uploadLimitConfig.singleTemplate, {
+                const message = fillUploadTemplate(uploadLimitConfig.singleTemplate, {
                     name: file.name,
                     size: formatFileSize(uploadLimitConfig.single)
-                }));
+                });
+                messages.push(message);
+                showUploadLimitMessage(message);
                 continue;
             }
 
             if (uploadLimitConfig.total > 0 && totalSize + file.size > uploadLimitConfig.total) {
                 hadErrors = true;
                 if (!totalErrorShown) {
-                    showUploadLimitMessage(fillUploadTemplate(uploadLimitConfig.totalTemplate, {
+                    const message = fillUploadTemplate(uploadLimitConfig.totalTemplate, {
                         size: formatFileSize(uploadLimitConfig.total)
-                    }));
+                    });
+                    messages.push(message);
+                    showUploadLimitMessage(message);
                     totalErrorShown = true;
                 }
                 continue;
@@ -852,14 +877,15 @@ include BASE_PATH . '/includes/components/page-header.php';
 
         if (originalCount !== dt.files.length) {
             fileInput.files = dt.files;
-            return { changed: true, hadErrors: hadErrors };
+            return { changed: true, hadErrors: hadErrors, messages: messages };
         }
 
-        return { changed: false, hadErrors: hadErrors };
+        return { changed: false, hadErrors: hadErrors, messages: messages };
     }
 
     function updatePreview() {
-        enforceUploadLimits();
+        const validation = enforceUploadLimits();
+        renderUploadErrors(validation.messages);
         filePreview.innerHTML = '';
         if (fileInput.files.length === 0) {
             filePreview.classList.add('hidden');
@@ -937,6 +963,32 @@ include BASE_PATH . '/includes/components/page-header.php';
         document.addEventListener('DOMContentLoaded', initTicketUploadZones);
     } else {
         initTicketUploadZones();
+    }
+
+    const newTicketForm = document.getElementById('new-ticket-form');
+    if (newTicketForm) {
+        newTicketForm.addEventListener('submit', function(event) {
+            const hadRenderedUploadErrors = fileUploadErrors && !fileUploadErrors.classList.contains('hidden');
+            const validation = enforceUploadLimits();
+            const shouldKeepRenderedUploadErrors = hadRenderedUploadErrors && fileInput && fileInput.files.length === 0 && validation.messages.length === 0;
+            if (!shouldKeepRenderedUploadErrors) {
+                renderUploadErrors(validation.messages);
+            }
+            const hasBlockingUploadError = hadRenderedUploadErrors || (fileUploadErrors && !fileUploadErrors.classList.contains('hidden'));
+            if ((validation.hadErrors && fileInput && fileInput.files.length === 0) || (hasBlockingUploadError && fileInput && fileInput.files.length === 0)) {
+                const submitBtn = this.querySelector('[type=submit]');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '';
+                }
+                if (fileUploadErrors) {
+                    fileUploadErrors.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+                event.preventDefault();
+                return;
+            }
+            localStorage.removeItem('foxdesk_draft_timer');
+        });
     }
 </script>
 
@@ -1085,21 +1137,6 @@ include BASE_PATH . '/includes/components/page-header.php';
     discardBtn.addEventListener('click', function() {
         if (!confirm(STR_DISCARD_CONFIRM)) return;
         setState('stopped');
-    });
-
-    // Clear localStorage on form submit — timer data goes into hidden input
-    document.getElementById('new-ticket-form').addEventListener('submit', function(event) {
-        const validation = enforceUploadLimits();
-        if (validation.hadErrors && fileInput && fileInput.files.length === 0) {
-            const submitBtn = this.querySelector('[type=submit]');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.style.opacity = '';
-            }
-            event.preventDefault();
-            return;
-        }
-        localStorage.removeItem(STORAGE_KEY);
     });
 
     // Restore from localStorage, or auto-start if ?auto_timer=1
