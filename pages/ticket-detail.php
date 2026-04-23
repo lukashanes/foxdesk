@@ -116,6 +116,8 @@ $timer_is_paused = false;
 $time_breakdown = $time_tracking_available ? get_ticket_time_breakdown($ticket_id) : ['total' => 0, 'human' => 0, 'ai' => 0];
 $total_time_minutes = $time_breakdown['total'];
 $org_billable_rate = 0.0;
+$ticket_custom_billable_rate = function_exists('get_ticket_custom_billable_rate') ? get_ticket_custom_billable_rate($ticket) : null;
+$ticket_effective_billable_rate = function_exists('get_ticket_effective_billable_rate') ? get_ticket_effective_billable_rate($ticket) : 0.0;
 $user_cost_rate = (float) ($user['cost_rate'] ?? 0);
 if (!empty($ticket['organization_id'])) {
     $org = get_organization($ticket['organization_id']);
@@ -1887,6 +1889,20 @@ require_once BASE_PATH . '/includes/header.php';
                                                     </option>
                                             <?php endforeach; ?>
                                         </select>
+                                    </div>
+                            <?php endif; ?>
+
+                            <?php if (is_admin()): ?>
+                                    <div>
+                                        <label class="block text-xs font-medium mb-1"
+                                            style="color: var(--text-muted);"><?php echo e(t('Custom billable rate (per hour)')); ?></label>
+                                        <input type="number" name="edit_custom_billable_rate" step="0.01" min="0"
+                                            value="<?php echo e($ticket_custom_billable_rate !== null ? number_format((float) $ticket_custom_billable_rate, 2, '.', '') : ''); ?>"
+                                            class="form-input w-full"
+                                            placeholder="<?php echo e(t('Leave empty to use the company default')); ?>">
+                                        <p class="mt-1 text-xs" style="color: var(--text-muted);">
+                                            <?php echo e(t('Company default rate: {rate}', ['rate' => format_money($org_billable_rate)])); ?>
+                                        </p>
                                     </div>
                             <?php endif; ?>
                         </div>

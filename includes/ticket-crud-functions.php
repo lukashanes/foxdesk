@@ -931,6 +931,10 @@ function get_ticket_timeline($ticket_id, $include_internal = false) {
  * Update ticket with history tracking
  */
 function update_ticket_with_history($ticket_id, $data, $user_id) {
+    if (function_exists('ensure_ticket_custom_billable_rate_column')) {
+        ensure_ticket_custom_billable_rate_column();
+    }
+
     // Get current ticket values
     $current = get_ticket($ticket_id);
     if (!$current) {
@@ -939,6 +943,9 @@ function update_ticket_with_history($ticket_id, $data, $user_id) {
 
     // Track changes
     $tracked_fields = ['title', 'description', 'type', 'priority_id', 'status_id', 'due_date', 'assignee_id', 'organization_id'];
+    if (function_exists('ensure_ticket_custom_billable_rate_column') && ensure_ticket_custom_billable_rate_column()) {
+        $tracked_fields[] = 'custom_billable_rate';
+    }
     if (function_exists('ticket_tags_column_exists') && ticket_tags_column_exists()) {
         $tracked_fields[] = 'tags';
     }
@@ -996,6 +1003,7 @@ function get_history_field_label($field_name) {
         'due_date' => t('Due date'),
         'assignee_id' => t('Assignee'),
         'organization_id' => t('Company'),
+        'custom_billable_rate' => t('Custom billable rate'),
         'tags' => t('Tags'),
         'comment_content' => t('Comment'),
         'comment_deleted' => t('Comment'),
@@ -1042,6 +1050,12 @@ function format_history_value($field_name, $value) {
         case 'organization_id':
             $organization = get_organization((int) $value);
             return $organization ? e((string) ($organization['name'] ?? '')) : '<em class="text-gray-400">' . t('(empty)') . '</em>';
+
+        case 'custom_billable_rate':
+            if ($value === null || $value === '') {
+                return '<em class="text-gray-400">' . t('(empty)') . '</em>';
+            }
+            return format_money((float) $value);
 
         case 'tags':
             $tags = get_ticket_tags_array($value);

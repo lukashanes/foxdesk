@@ -3,7 +3,7 @@
 Open-source helpdesk and ticketing system built with PHP, Tailwind CSS, and Alpine.js.
 
 **Website:** [foxdesk.org](https://foxdesk.org)
-**Current Version:** `0.3.108` (`2026-04-22`)
+**Current Version:** `0.3.109` (`2026-04-23`)
 
 ---
 
@@ -28,8 +28,8 @@ Open-source helpdesk and ticketing system built with PHP, Tailwind CSS, and Alpi
 - Manual time entry with descriptions
 - Billable vs. non-billable hours
 - Configurable rounding (0/15/30/60 min)
-- Cost rates per user, billing rates per organization
-- Time reports with PDF and CSV export
+- Cost rates per user, billing rates per organization, and optional custom rates per ticket
+- Time reports with optional custom report rates, PDF, and CSV export
 
 **Notifications**
 - In-app notification center with full-page view

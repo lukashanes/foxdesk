@@ -46,6 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($rounding_minutes, $allowed_rounding, true)) {
         $rounding_minutes = 15;
     }
+    $custom_billable_rate_raw = trim((string) ($_POST['custom_billable_rate'] ?? ''));
+    $custom_billable_rate = $custom_billable_rate_raw !== ''
+        ? max(0, (float) str_replace(',', '.', $custom_billable_rate_raw))
+        : null;
     $theme_color = trim((string) ($_POST['theme_color'] ?? ''));
     if ($theme_color !== '' && !preg_match('/^#[0-9a-fA-F]{6}$/', $theme_color)) {
         $theme_color = '';
@@ -69,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'show_financials' => isset($_POST['show_financials']) ? 1 : 0,
         'show_team_attribution' => isset($_POST['show_team_attribution']) ? 1 : 0,
         'show_cost_breakdown' => isset($_POST['show_cost_breakdown']) ? 1 : 0,
+        'custom_billable_rate' => $custom_billable_rate,
         'group_by' => $group_by,
         'rounding_minutes' => $rounding_minutes,
         'theme_color' => $theme_color !== '' ? $theme_color : null,
@@ -186,6 +191,9 @@ if ($editing && $_SERVER['REQUEST_METHOD'] !== 'POST') {
         'show_financials' => !empty($edit_report['show_financials']),
         'show_team_attribution' => !empty($edit_report['show_team_attribution']),
         'show_cost_breakdown' => !empty($edit_report['show_cost_breakdown']),
+        'custom_billable_rate' => isset($edit_report['custom_billable_rate']) && $edit_report['custom_billable_rate'] !== null
+            ? (float) $edit_report['custom_billable_rate']
+            : null,
         'hide_branding' => !empty($edit_report['hide_branding']),
         'schedule_enabled' => !empty($edit_report['schedule_enabled']),
         'schedule_interval' => trim((string) ($edit_report['schedule_interval'] ?? 'monthly')),
@@ -206,6 +214,9 @@ if ($editing && $_SERVER['REQUEST_METHOD'] !== 'POST') {
         'show_financials' => $_SERVER['REQUEST_METHOD'] === 'POST' ? isset($_POST['show_financials']) : true,
         'show_team_attribution' => $_SERVER['REQUEST_METHOD'] === 'POST' ? isset($_POST['show_team_attribution']) : true,
         'show_cost_breakdown' => $_SERVER['REQUEST_METHOD'] === 'POST' ? isset($_POST['show_cost_breakdown']) : false,
+        'custom_billable_rate' => ($_POST['custom_billable_rate'] ?? '') !== ''
+            ? max(0, (float) str_replace(',', '.', (string) $_POST['custom_billable_rate']))
+            : null,
         'hide_branding' => $_SERVER['REQUEST_METHOD'] === 'POST' ? isset($_POST['hide_branding']) : false,
         'schedule_enabled' => $_SERVER['REQUEST_METHOD'] === 'POST' ? isset($_POST['schedule_enabled']) : false,
         'schedule_interval' => isset($schedule_interval) ? $schedule_interval : trim((string) ($_POST['schedule_interval'] ?? 'monthly')),
@@ -400,6 +411,18 @@ include BASE_PATH . '/includes/header.php';
                             <span class="block text-xs" style="color: var(--text-muted);"><?php echo e(t('Display hourly rates and total costs')); ?></span>
                         </span>
                     </label>
+
+                    <div class="pl-7">
+                        <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                            <?php echo e(t('Custom report rate (per hour)')); ?>
+                        </label>
+                        <input type="number" name="custom_billable_rate" step="0.01" min="0" class="form-input"
+                               value="<?php echo e($form_values['custom_billable_rate'] !== null ? number_format((float) $form_values['custom_billable_rate'], 2, '.', '') : ''); ?>"
+                               placeholder="<?php echo e(t('Leave empty to use ticket or client rates')); ?>">
+                        <p class="mt-1 text-xs" style="color: var(--text-muted);">
+                            <?php echo e(t('Apply one custom hourly rate to this report without changing ticket data.')); ?>
+                        </p>
+                    </div>
 
                     <!-- Show Team Attribution -->
                     <label class="flex items-center">

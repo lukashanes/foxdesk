@@ -117,11 +117,9 @@ function api_start_timer() {
     }
 
     // Get billing rates
-    $org_billable_rate = 0.0;
-    if (!empty($ticket['organization_id'])) {
-        $org = get_organization($ticket['organization_id']);
-        $org_billable_rate = (float)($org['billable_rate'] ?? 0);
-    }
+    $ticket_billable_rate = function_exists('get_ticket_effective_billable_rate')
+        ? get_ticket_effective_billable_rate($ticket)
+        : 0.0;
     $user_cost_rate = (float)($user['cost_rate'] ?? 0);
 
     // Start the timer
@@ -132,7 +130,7 @@ function api_start_timer() {
         'ended_at' => null,
         'duration_minutes' => 0,
         'is_billable' => 1,
-        'billable_rate' => $org_billable_rate,
+        'billable_rate' => $ticket_billable_rate,
         'cost_rate' => $user_cost_rate,
         'is_manual' => 0,
         'created_at' => date('Y-m-d H:i:s')
@@ -185,11 +183,9 @@ function api_quick_start() {
 
     // Start timer (same logic as api_start_timer)
     $user_cost_rate = (float)($user['cost_rate'] ?? 0);
-    $org_billable_rate = 0.0;
-    if (!empty($ticket['organization_id'])) {
-        $org = get_organization($ticket['organization_id']);
-        $org_billable_rate = (float)($org['billable_rate'] ?? 0);
-    }
+    $ticket_billable_rate = function_exists('get_ticket_effective_billable_rate')
+        ? get_ticket_effective_billable_rate($ticket)
+        : 0.0;
 
     db_insert('ticket_time_entries', [
         'ticket_id' => $ticket_id,
@@ -198,7 +194,7 @@ function api_quick_start() {
         'ended_at' => null,
         'duration_minutes' => 0,
         'is_billable' => 1,
-        'billable_rate' => $org_billable_rate,
+        'billable_rate' => $ticket_billable_rate,
         'cost_rate' => $user_cost_rate,
         'is_manual' => 0,
         'created_at' => date('Y-m-d H:i:s')
@@ -767,11 +763,9 @@ function api_quick_log_time() {
     require_once BASE_PATH . '/includes/ticket-time-functions.php';
 
     // Resolve billable / cost rates like the form handler does.
-    $org_billable_rate = 0;
-    if (!empty($ticket['organization_id'])) {
-        $org = db_fetch_one("SELECT billable_rate FROM organizations WHERE id = ?", [$ticket['organization_id']]);
-        $org_billable_rate = $org ? (float) ($org['billable_rate'] ?? 0) : 0;
-    }
+    $ticket_billable_rate = function_exists('get_ticket_effective_billable_rate')
+        ? get_ticket_effective_billable_rate($ticket)
+        : 0.0;
     $user_cost_rate = (float) ($user['cost_rate'] ?? 0);
 
     $now = new DateTime();
@@ -798,7 +792,7 @@ function api_quick_log_time() {
         'ended_at'         => $now->format('Y-m-d H:i:s'),
         'duration_minutes' => $duration,
         'is_billable'      => 1,
-        'billable_rate'    => $org_billable_rate,
+        'billable_rate'    => $ticket_billable_rate,
         'cost_rate'        => $user_cost_rate,
         'is_manual'        => 1,
         'created_at'       => date('Y-m-d H:i:s'),

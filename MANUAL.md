@@ -1,6 +1,6 @@
 # FoxDesk — User Manual
 
-> **Version 0.3.108** | Self-hosted PHP helpdesk & time-tracking platform
+> **Version 0.3.109** | Self-hosted PHP helpdesk & time-tracking platform
 
 ---
 
@@ -207,6 +207,7 @@ Add time entries without using the timer:
 
 - Each user has a **cost rate** (internal cost per hour)
 - Each organization has a **billing rate** (charged per hour)
+- Admins can set a **custom billable rate per ticket** without changing the organization default
 - Time entries can be marked billable or non-billable
 - Time rounding is configurable: 0, 15, 30, or 60 minutes
 
@@ -309,9 +310,10 @@ Create custom reports in Admin > Reports:
 2. Set date range and filters (organization, agents, tags)
 3. Choose grouping: none, by day, by task
 4. Toggle financial columns (billable, cost, profit)
-5. Add executive summary
-6. Customize theme color and branding
-7. Save as draft or publish
+5. Optionally set a **custom report rate** for that one report only
+6. Add executive summary
+7. Customize theme color and branding
+8. Save as draft or publish
 
 ### Report Types
 

@@ -13,6 +13,7 @@
  * @return int|false Report template ID or false on failure
  */
 function create_report_template($data) {
+    ensure_report_custom_billable_rate_column();
     if (
         array_key_exists('schedule_enabled', $data) ||
         array_key_exists('schedule_interval', $data) ||
@@ -37,6 +38,7 @@ function create_report_template($data) {
         'show_financials' => $data['show_financials'] ?? 1,
         'show_team_attribution' => $data['show_team_attribution'] ?? 1,
         'show_cost_breakdown' => $data['show_cost_breakdown'] ?? 0,
+        'custom_billable_rate' => $data['custom_billable_rate'] ?? null,
         'group_by' => $data['group_by'] ?? 'none',
         'rounding_minutes' => $data['rounding_minutes'] ?? 15,
         'theme_color' => $data['theme_color'] ?? null,
@@ -80,6 +82,28 @@ function report_template_column_exists($column_name) {
         return false;
     }
     return column_exists('report_templates', $column_name);
+}
+
+/**
+ * Auto-migrate: add custom billable rate override to report templates.
+ */
+function ensure_report_custom_billable_rate_column(): void
+{
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    if (report_template_column_exists('custom_billable_rate')) {
+        return;
+    }
+
+    try {
+        db_query("ALTER TABLE report_templates ADD COLUMN custom_billable_rate DECIMAL(10,2) NULL DEFAULT NULL AFTER show_cost_breakdown");
+    } catch (Throwable $e) {
+        // Ignore duplicate/unsupported migrations.
+    }
 }
 
 /**
@@ -162,6 +186,7 @@ function get_report_template_by_uuid($uuid) {
  */
 function update_report_template($id, $data) {
     $update_data = [];
+    ensure_report_custom_billable_rate_column();
 
     if (
         array_key_exists('schedule_enabled', $data) ||
@@ -176,7 +201,7 @@ function update_report_template($id, $data) {
     $allowed_fields = [
         'organization_id', 'title', 'report_language', 'date_from', 'date_to',
         'executive_summary', 'show_financials', 'show_team_attribution',
-        'show_cost_breakdown', 'group_by', 'rounding_minutes',
+        'show_cost_breakdown', 'custom_billable_rate', 'group_by', 'rounding_minutes',
         'theme_color', 'hide_branding', 'is_draft', 'is_archived', 'expires_at',
         'schedule_enabled', 'schedule_interval', 'schedule_day', 'schedule_recipients', 'schedule_next_due'
     ];
@@ -220,6 +245,7 @@ function delete_report_template($id) {
  * @return array Time entries with ticket and user details
  */
 function get_report_time_entries($template) {
+    ensure_report_custom_billable_rate_column();
     $has_ticket_tags = report_ticket_tags_column_exists();
     $ticket_tags_select = $has_ticket_tags
         ? 't.tags as ticket_tags,'
@@ -295,6 +321,19 @@ function get_report_time_entries($template) {
 }
 
 /**
+ * Resolve the billable rate that should be used inside a report.
+ */
+function get_report_entry_billable_rate(array $entry, array $template): float
+{
+    $template_rate = $template['custom_billable_rate'] ?? null;
+    if ($template_rate !== null && trim((string) $template_rate) !== '') {
+        return max(0, (float) str_replace(',', '.', trim((string) $template_rate)));
+    }
+
+    return (float) ($entry['billable_rate'] ?? 0);
+}
+
+/**
  * Calculate report KPIs
  *
  * @param array $time_entries Time entries data
@@ -325,7 +364,7 @@ function calculate_report_kpis($time_entries, $template) {
 
         // Calculate billable amount if financials are enabled (use billable_rate for client reports)
         if ($template['show_financials']) {
-            $rate = $entry['billable_rate'] ?: 0;
+            $rate = get_report_entry_billable_rate($entry, $template);
             $total_cost += ($minutes / 60) * $rate;
         }
 
@@ -438,7 +477,7 @@ function group_report_entries($time_entries, $group_by, $template) {
             $grouped[$key]['entries'][] = $entry;
 
             if ($template['show_financials']) {
-                $rate = $entry['billable_rate'] ?: 0;
+                $rate = get_report_entry_billable_rate($entry, $template);
                 $grouped[$key]['total_cost'] += ($minutes / 60) * $rate;
             }
         }
@@ -465,7 +504,7 @@ function group_report_entries($time_entries, $group_by, $template) {
             $grouped[$key]['entries'][] = $entry;
 
             if ($template['show_financials']) {
-                $rate = $entry['billable_rate'] ?: 0;
+                $rate = get_report_entry_billable_rate($entry, $template);
                 $grouped[$key]['total_cost'] += ($minutes / 60) * $rate;
             }
         }

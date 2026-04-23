@@ -10,7 +10,7 @@
  *
  * Required variables (set by ticket-detail.php before include):
  *   $ticket, $ticket_id, $user,
- *   $organizations, $org_billable_rate, $user_cost_rate
+ *   $organizations, $org_billable_rate, $ticket_effective_billable_rate, $user_cost_rate
  */
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -142,8 +142,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $update_data['organization_id'] = $new_org_id;
         }
 
+        if (
+            is_admin()
+            && function_exists('ensure_ticket_custom_billable_rate_column')
+            && ensure_ticket_custom_billable_rate_column()
+            && array_key_exists('edit_custom_billable_rate', $_POST)
+        ) {
+            $update_data['custom_billable_rate'] = function_exists('parse_optional_rate_value')
+                ? parse_optional_rate_value($_POST['edit_custom_billable_rate'])
+                : null;
+        }
+
         // Update with history tracking
         if (update_ticket_with_history($ticket_id, $update_data, $user['id'])) {
+            if (
+                function_exists('sync_ticket_time_entry_billable_rates')
+                && (array_key_exists('organization_id', $update_data) || array_key_exists('custom_billable_rate', $update_data))
+            ) {
+                sync_ticket_time_entry_billable_rates($ticket_id);
+            }
             log_activity($ticket_id, $user['id'], 'ticket_edited', 'Ticket details updated');
             flash(t('Ticket updated.'), 'success');
         } else {
@@ -172,7 +189,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'ended_at' => null,
             'duration_minutes' => 0,
             'is_billable' => 1,
-            'billable_rate' => $org_billable_rate,
+            'billable_rate' => $ticket_effective_billable_rate ?? $org_billable_rate,
             'cost_rate' => $user_cost_rate,
             'is_manual' => 0,
             'created_at' => date('Y-m-d H:i:s')
@@ -470,7 +487,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'ended_at' => $manual_end_dt->format('Y-m-d H:i:s'),
                     'duration_minutes' => $manual_duration,
                     'is_billable' => 1,
-                    'billable_rate' => $org_billable_rate,
+                    'billable_rate' => $ticket_effective_billable_rate ?? $org_billable_rate,
                     'cost_rate' => $user_cost_rate,
                     'is_manual' => 1,
                     'created_at' => date('Y-m-d H:i:s')
@@ -660,6 +677,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (function_exists('log_ticket_history')) {
             log_ticket_history($ticket_id, $user['id'], 'organization_id', $old_org_id, $new_org_id);
         }
+        if (function_exists('sync_ticket_time_entry_billable_rates')) {
+            sync_ticket_time_entry_billable_rates($ticket_id);
+        }
         log_activity($ticket_id, $user['id'], 'company_updated', 'Company updated');
         flash(t('Company updated.'), 'success');
         redirect('ticket', ['id' => $ticket_id]);
@@ -727,6 +747,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'summary' => $summary ?: null,
                         'is_billable' => $is_billable
                     ];
+
+                    if (
+                        $is_billable
+                        && ((int) ($entry['is_billable'] ?? 0) === 0 || (float) ($entry['billable_rate'] ?? 0) <= 0)
+                        && function_exists('get_ticket_effective_billable_rate')
+                    ) {
+                        $update_data['billable_rate'] = get_ticket_effective_billable_rate($ticket_id);
+                    }
 
                     if (update_time_entry($entry_id, $update_data)) {
                         log_activity($ticket_id, $user['id'], 'time_updated', "Updated time entry to " . format_duration_minutes($duration_minutes));

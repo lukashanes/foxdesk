@@ -7,6 +7,9 @@ $page_title = t('Time report');
 $page = 'admin';
 
 $time_tracking_available = ticket_time_table_exists();
+if (function_exists('ensure_ticket_custom_billable_rate_column')) {
+    ensure_ticket_custom_billable_rate_column();
+}
 $tab = $_GET['tab'] ?? 'summary';
 $allowed_tabs = ['summary', 'detailed', 'weekly', 'worklog', 'shared'];
 if (!in_array($tab, $allowed_tabs, true)) {
@@ -92,7 +95,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_admin()) {
         $entry_id = (int) ($_POST['entry_id'] ?? 0);
         $is_billable = isset($_POST['is_billable']) && $_POST['is_billable'] === '1' ? 1 : 0;
         if ($entry_id > 0) {
-            db_update('ticket_time_entries', ['is_billable' => $is_billable], 'id = ?', [$entry_id]);
+            $update_data = ['is_billable' => $is_billable];
+            if ($is_billable && function_exists('get_ticket_effective_billable_rate')) {
+                $entry_row = db_fetch_one("SELECT ticket_id FROM ticket_time_entries WHERE id = ?", [$entry_id]);
+                if ($entry_row) {
+                    $update_data['billable_rate'] = get_ticket_effective_billable_rate((int) $entry_row['ticket_id']);
+                }
+            }
+            db_update('ticket_time_entries', $update_data, 'id = ?', [$entry_id]);
             flash(t('Settings saved.'), 'success');
         }
         header('Location: ' . ($_SERVER['REQUEST_URI'] ?? url('admin', ['section' => 'reports'])));
@@ -190,9 +200,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_admin()) {
 
         $current_entry = db_fetch_one("SELECT ticket_id FROM ticket_time_entries WHERE id = ?", [$entry_id]);
         if ($current_entry && (int) $current_entry['ticket_id'] !== $ticket_id) {
-            $org = get_organization($ticket['organization_id'] ?? 0);
             $update_data['comment_id'] = null;
-            $update_data['billable_rate'] = $org ? (float) $org['billable_rate'] : 0;
+            $update_data['billable_rate'] = function_exists('get_ticket_effective_billable_rate')
+                ? get_ticket_effective_billable_rate($ticket)
+                : 0;
         }
 
         db_update('ticket_time_entries', $update_data, 'id = ?', [$entry_id]);
@@ -242,9 +253,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_admin()) {
 
 if ($time_tracking_available && $tab !== 'shared') {
     $ticket_tags_select = $tags_supported ? ', t.tags as ticket_tags' : ', NULL as ticket_tags';
+    $ticket_custom_rate_select = (function_exists('column_exists') && column_exists('tickets', 'custom_billable_rate'))
+        ? 't.custom_billable_rate as ticket_custom_billable_rate,'
+        : 'NULL as ticket_custom_billable_rate,';
     $sql = "SELECT tte.*,
                    t.title as ticket_title,
                    t.organization_id,
+                   {$ticket_custom_rate_select}
                    t.status_id as ticket_status_id,
                    s.is_closed as ticket_is_closed,
                    s.name as ticket_status_name,
@@ -327,8 +342,13 @@ if ($time_tracking_available && $tab !== 'shared') {
         $source = function_exists('get_time_entry_source') ? get_time_entry_source($entry) : (!empty($entry['is_manual']) ? 'manual' : 'timer');
         $entry['_source'] = $source;
 
+        $ticket_custom_billable_rate = ($entry['ticket_custom_billable_rate'] ?? null);
+        $has_ticket_custom_rate = $ticket_custom_billable_rate !== null && $ticket_custom_billable_rate !== '';
+
         $billable_rate = isset($entry['billable_rate']) ? (float) $entry['billable_rate'] : 0.0;
-        if ($billable_rate <= 0 && isset($entry['org_billable_rate'])) {
+        if ($has_ticket_custom_rate) {
+            $billable_rate = (float) $ticket_custom_billable_rate;
+        } elseif ($billable_rate <= 0 && isset($entry['org_billable_rate'])) {
             $billable_rate = (float) $entry['org_billable_rate'];
         }
 

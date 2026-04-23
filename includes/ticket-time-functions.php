@@ -13,6 +13,139 @@ function ticket_time_table_exists() {
 }
 
 /**
+ * Ensure the tickets table supports a custom per-ticket billable rate override.
+ */
+function ensure_ticket_custom_billable_rate_column(): bool {
+    static $checked = false;
+    static $exists = false;
+
+    if ($checked) {
+        return $exists;
+    }
+
+    $checked = true;
+    $exists = column_exists('tickets', 'custom_billable_rate');
+    if ($exists) {
+        return true;
+    }
+
+    try {
+        db_query("ALTER TABLE tickets ADD COLUMN custom_billable_rate DECIMAL(10,2) NULL DEFAULT NULL AFTER due_date");
+    } catch (Throwable $e) {
+        // Ignore duplicate/unsupported migrations and fall back to runtime detection below.
+    }
+
+    $exists = column_exists('tickets', 'custom_billable_rate');
+    return $exists;
+}
+
+/**
+ * Parse an optional money/rate input. Empty string becomes null.
+ */
+function parse_optional_rate_value($value): ?float {
+    if ($value === null) {
+        return null;
+    }
+
+    $normalized = str_replace(',', '.', trim((string) $value));
+    if ($normalized === '') {
+        return null;
+    }
+
+    return max(0, (float) $normalized);
+}
+
+/**
+ * Return the ticket-level custom billable rate override, if any.
+ *
+ * @param int|array $ticket_or_id
+ */
+function get_ticket_custom_billable_rate($ticket_or_id): ?float {
+    if (!ensure_ticket_custom_billable_rate_column()) {
+        return null;
+    }
+
+    if (is_array($ticket_or_id)) {
+        if (array_key_exists('custom_billable_rate', $ticket_or_id)) {
+            return parse_optional_rate_value($ticket_or_id['custom_billable_rate']);
+        }
+        $ticket_id = (int) ($ticket_or_id['id'] ?? 0);
+    } else {
+        $ticket_id = (int) $ticket_or_id;
+    }
+
+    if ($ticket_id <= 0) {
+        return null;
+    }
+
+    $row = db_fetch_one("SELECT custom_billable_rate FROM tickets WHERE id = ?", [$ticket_id]);
+    return parse_optional_rate_value($row['custom_billable_rate'] ?? null);
+}
+
+/**
+ * Get the effective billable rate for a ticket.
+ *
+ * @param int|array $ticket_or_id
+ */
+function get_ticket_effective_billable_rate($ticket_or_id): float {
+    $custom_rate = get_ticket_custom_billable_rate($ticket_or_id);
+    if ($custom_rate !== null) {
+        return $custom_rate;
+    }
+
+    if (is_array($ticket_or_id)) {
+        $ticket_id = (int) ($ticket_or_id['id'] ?? 0);
+        if ($ticket_id <= 0) {
+            $organization_id = (int) ($ticket_or_id['organization_id'] ?? 0);
+            if ($organization_id > 0) {
+                $org = get_organization($organization_id);
+                return (float) ($org['billable_rate'] ?? 0);
+            }
+            return 0.0;
+        }
+    } else {
+        $ticket_id = (int) $ticket_or_id;
+    }
+
+    if ($ticket_id <= 0) {
+        return 0.0;
+    }
+
+    $row = db_fetch_one(
+        "SELECT o.billable_rate
+         FROM tickets t
+         LEFT JOIN organizations o ON t.organization_id = o.id
+         WHERE t.id = ?",
+        [$ticket_id]
+    );
+
+    return (float) ($row['billable_rate'] ?? 0);
+}
+
+/**
+ * Sync stored billable rates on time entries to the ticket's current effective rate.
+ */
+function sync_ticket_time_entry_billable_rates(int $ticket_id): bool {
+    if ($ticket_id <= 0 || !ticket_time_table_exists()) {
+        return false;
+    }
+
+    $rate = get_ticket_effective_billable_rate($ticket_id);
+
+    try {
+        db_query(
+            "UPDATE ticket_time_entries
+             SET billable_rate = ?
+             WHERE ticket_id = ? AND is_billable = 1",
+            [$rate, $ticket_id]
+        );
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
  * Get time entries for a ticket
  */
 function get_ticket_time_entries($ticket_id) {
@@ -78,23 +211,11 @@ function add_manual_time_entry($ticket_id, $user_id, $data) {
             $insert['source'] = $source;
         }
 
-        // Apply billable_rate: explicit > org rate > 0
-        if (isset($data['billable_rate']) && (float) $data['billable_rate'] > 0) {
-            $insert['billable_rate'] = (float) $data['billable_rate'];
+        // Apply billable_rate: explicit > ticket override > org rate
+        if (array_key_exists('billable_rate', $data) && $data['billable_rate'] !== null && $data['billable_rate'] !== '') {
+            $insert['billable_rate'] = max(0, (float) $data['billable_rate']);
         } else {
-            // Auto-lookup from ticket's organization
-            try {
-                $org_row = db_fetch_one(
-                    "SELECT o.billable_rate FROM tickets t
-                     LEFT JOIN organizations o ON t.organization_id = o.id
-                     WHERE t.id = ?", [$ticket_id]
-                );
-                if ($org_row && (float) ($org_row['billable_rate'] ?? 0) > 0) {
-                    $insert['billable_rate'] = (float) $org_row['billable_rate'];
-                }
-            } catch (Exception $e) {
-                // ignore
-            }
+            $insert['billable_rate'] = get_ticket_effective_billable_rate($ticket_id);
         }
 
         // Apply cost_rate: explicit > user's cost_rate > 0
@@ -510,4 +631,3 @@ function get_ticket_time_breakdown($ticket_id) {
         return ['total' => 0, 'human' => 0, 'ai' => 0];
     }
 }
-

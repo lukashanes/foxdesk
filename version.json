@@ -1,10 +1,11 @@
 {
-    "version": "0.3.108",
-    "date": "2026-04-22",
+    "version": "0.3.109",
+    "date": "2026-04-23",
     "min_php": "8.1",
     "changelog": [
-        "Fixed new ticket attachments so selecting files multiple times appends them instead of replacing the previous selection",
-        "Improved new ticket upload validation so blocked attachments show a persistent inline error and prevent silent submit without files"
+        "Admins can now set a custom hourly rate per ticket without changing the client's default billing rate",
+        "Report Builder can apply a custom hourly rate per report without modifying ticket or client data",
+        "Timers, manual entries, API time logs, and published reports now use the correct effective billing rate consistently"
     ],
     "delete_files": []
 }
