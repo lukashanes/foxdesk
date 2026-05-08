@@ -1,11 +1,16 @@
 {
-    "version": "0.3.110",
-    "date": "2026-04-29",
+    "version": "0.3.111",
+    "date": "2026-05-08",
     "min_php": "8.1",
     "changelog": [
-        "New tickets can now log time with quick minute presets or a simple minutes field, without requiring a full start/end range",
-        "Admins can update a ticket's custom hourly rate directly from the ticket sidebar and keep billable entries aligned",
-        "Translation coverage and frontend fallbacks were cleaned up across English, Czech, German, Italian, and Spanish"
+        "Private ticket attachments are now blocked from direct uploads/storage access and protected when served through image.php",
+        "Email notifications now convert rich text comments into readable plain text instead of showing raw HTML tags",
+        "Ticket quick-edit APIs now validate assignees, companies, priorities, statuses, ticket types, and on-behalf users before saving",
+        "Ticket edit permissions, tag updates, and status changes now consistently respect the user's ticket visibility scope",
+        "Report builder now pre-fills settings from the last report created for the selected company",
+        "The admin time report custom date range picker now appears correctly after selecting Custom range",
+        "Dashboard ticket counts and links now use the same visibility rules as the tickets list",
+        "Changing a ticket company now refreshes related billable rates for time entries"
     ],
     "delete_files": []
 }

@@ -26,6 +26,32 @@ function get_app_url()
 }
 
 /**
+ * Convert rich text comments from the editor into readable plain-text email.
+ */
+function email_comment_to_plain_text($content)
+{
+    $text = trim((string)$content);
+    if ($text === '') {
+        return '';
+    }
+
+    $text = str_replace(["\r\n", "\r"], "\n", $text);
+    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = preg_replace('/<\s*br\s*\/?>/i', "\n", $text);
+    $text = preg_replace('/<\s*li[^>]*>/i', "- ", $text);
+    $text = preg_replace('/<\s*\/\s*(p|div|h[1-6]|li|tr|blockquote)\s*>/i', "\n", $text);
+    $text = preg_replace('/<\s*(p|div|h[1-6]|tr|blockquote)[^>]*>/i', '', $text);
+    $text = preg_replace('/<\s*\/\s*(ul|ol|table)\s*>/i', "\n", $text);
+    $text = strip_tags($text);
+    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = preg_replace("/[ \t]+\n/", "\n", $text);
+    $text = preg_replace("/\n{3,}/", "\n\n", $text);
+    $text = preg_replace('/[ \t]{2,}/', ' ', $text);
+
+    return trim($text);
+}
+
+/**
  * Send email using configured method
  */
 function send_email($to, $subject, $body, $is_html = false, $force_delivery = false)
@@ -316,6 +342,7 @@ function send_status_change_notification($ticket, $old_status, $new_status, $com
     $app_name = $settings['app_name'] ?? (defined('APP_NAME') ? APP_NAME : 'FoxDesk');
     $ticket_url = get_app_url() . '/index.php?page=ticket&id=' . $ticket['id'];
     $recipient_name = $user['first_name'] . ' ' . $user['last_name'];
+    $comment_text = email_comment_to_plain_text($comment_text);
 
     // Format time spent
     $time_spent_text = '';
@@ -395,7 +422,7 @@ function send_new_comment_notification($ticket, $comment, $commenter, $comment_i
         $comment_url .= '#comment-' . $comment_id;
     }
 
-    $comment_text = $comment['content'] ?? '';
+    $comment_text = email_comment_to_plain_text($comment['content'] ?? '');
     $commenter_name = trim(($commenter['first_name'] ?? '') . ' ' . ($commenter['last_name'] ?? ''));
     if ($commenter_name === '') {
         $commenter_name = $commenter['email'] ?? t('System');

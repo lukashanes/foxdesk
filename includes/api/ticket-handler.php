@@ -5,12 +5,78 @@
  * Handles ticket-related API actions like status changes.
  */
 
+function api_ticket_column_exists($column) {
+    static $cache = [];
+
+    $column = (string)$column;
+    if (!preg_match('/^[A-Za-z0-9_]+$/', $column)) {
+        return false;
+    }
+
+    if (!array_key_exists($column, $cache)) {
+        $cache[$column] = function_exists('column_exists')
+            ? column_exists('tickets', $column)
+            : (bool)db_fetch_one("SHOW COLUMNS FROM tickets LIKE ?", [$column]);
+    }
+
+    return $cache[$column];
+}
+
+function api_get_active_user_by_id($user_id) {
+    $user_id = (int)$user_id;
+    if ($user_id <= 0) {
+        return null;
+    }
+
+    $sql = "SELECT * FROM users WHERE id = ? AND is_active = 1";
+    if (function_exists('users_deleted_at_column_exists') && users_deleted_at_column_exists()) {
+        $sql .= " AND deleted_at IS NULL";
+    }
+
+    return db_fetch_one($sql, [$user_id]);
+}
+
+function api_get_active_staff_user_by_id($user_id) {
+    $user = api_get_active_user_by_id($user_id);
+    if (!$user || !in_array((string)($user['role'] ?? ''), ['agent', 'admin'], true)) {
+        return null;
+    }
+
+    return $user;
+}
+
+function api_get_active_organization_by_id($organization_id) {
+    $organization_id = (int)$organization_id;
+    if ($organization_id <= 0) {
+        return null;
+    }
+
+    $sql = "SELECT * FROM organizations WHERE id = ?";
+    if (function_exists('column_exists') && column_exists('organizations', 'is_active')) {
+        $sql .= " AND is_active = 1";
+    }
+
+    return db_fetch_one($sql, [$organization_id]);
+}
+
+function api_get_active_ticket_type_by_slug($slug) {
+    $slug = trim((string)$slug);
+    if ($slug === '') {
+        return null;
+    }
+
+    $sql = "SELECT * FROM ticket_types WHERE slug = ?";
+    if (function_exists('column_exists') && column_exists('ticket_types', 'is_active')) {
+        $sql .= " AND is_active = 1";
+    }
+
+    return db_fetch_one($sql, [$slug]);
+}
+
 /**
  * Handle change ticket status
  *
- * Security: Uses can_see_ticket() for consistent permission checking
- * across the application. Only users who can view the ticket can
- * change its status.
+ * Security: only staff users who can see/edit the ticket can change status.
  */
 function api_change_status() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -32,14 +98,11 @@ function api_change_status() {
     // Check permission using centralized permission function
     $user = current_user();
 
-    if (!$user) {
+    if (!$user || (!is_agent() && !is_admin())) {
         api_error('Unauthorized', 401);
     }
 
-    // Use can_see_ticket for consistent permission checking
-    // Admin and agents with appropriate scope can change status
-    // Ticket owner can also change status on their own tickets
-    if (!can_see_ticket($ticket, $user)) {
+    if (!can_see_ticket($ticket, $user) || !can_edit_ticket($ticket, $user)) {
         // Log security event for audit trail
         if (function_exists('log_security_event')) {
             log_security_event('status_change_denied', $user['id'], json_encode([
@@ -51,13 +114,15 @@ function api_change_status() {
     }
 
     $old_status = get_status($ticket['status_id']);
+    $old_status_name = $old_status['name'] ?? t('Unknown');
+    $new_status_name = $new_status['name'] ?? t('Unknown');
 
     db_update('tickets', ['status_id' => $status_id], 'id = ?', [$ticket_id]);
     log_activity(
         $ticket_id,
         $user['id'],
         'status_changed',
-        "Status changed from '{$old_status['name']}' to '{$new_status['name']}'"
+        "Status changed from '{$old_status_name}' to '{$new_status_name}'"
     );
 
     // Send notification
@@ -67,8 +132,8 @@ function api_change_status() {
     // In-app notification for status change
     if (function_exists('dispatch_ticket_notifications')) {
         dispatch_ticket_notifications('status_changed', $ticket_id, $user['id'], [
-            'old_status' => $old_status['name'] ?? '',
-            'new_status' => $new_status['name'] ?? '',
+            'old_status' => $old_status_name,
+            'new_status' => $new_status_name,
         ]);
     }
 
@@ -451,10 +516,18 @@ function api_quick_assign() {
     $ticket_id = (int)($_POST['ticket_id'] ?? 0);
     $ticket = get_ticket($ticket_id);
     if (!$ticket) { api_error('Ticket not found', 404); }
-    if (!can_see_ticket($ticket, $user)) { api_error('Forbidden', 403); }
+    if (!can_see_ticket($ticket, $user) || !can_edit_ticket($ticket, $user)) { api_error('Forbidden', 403); }
 
     $old_assignee_id = $ticket['assignee_id'] ?? null;
-    $assignee_id = !empty($_POST['assignee_id']) ? (int)$_POST['assignee_id'] : null;
+    $assignee_raw = trim((string)($_POST['assignee_id'] ?? ''));
+    $assignee_id = $assignee_raw !== '' ? (int)$assignee_raw : null;
+    $assigned_user = null;
+    if ($assignee_id !== null) {
+        $assigned_user = api_get_active_staff_user_by_id($assignee_id);
+        if (!$assigned_user) {
+            api_error(t('Invalid assignee.'), 400);
+        }
+    }
 
     db_update('tickets', ['assignee_id' => $assignee_id], 'id = ?', [$ticket_id]);
     if (function_exists('log_ticket_history')) {
@@ -467,7 +540,6 @@ function api_quick_assign() {
             add_ticket_access($ticket_id, $assignee_id, $user['id']);
         }
 
-        $assigned_user = get_user($assignee_id);
         log_activity($ticket_id, $user['id'], 'assigned', "Ticket assigned to {$assigned_user['first_name']} {$assigned_user['last_name']}");
 
         require_once BASE_PATH . '/includes/mailer.php';
@@ -489,8 +561,7 @@ function api_quick_assign() {
 
     api_success([
         'message' => t('Ticket updated.'),
-        'due_date' => $due_date,
-        'due_date_iso' => $due_date ? date('Y-m-d', strtotime($due_date)) : '',
+        'assignee_id' => $assignee_id,
     ]);
 }
 
@@ -506,7 +577,7 @@ function api_quick_behalf() {
     $ticket_id = (int)($_POST['ticket_id'] ?? 0);
     $ticket = get_ticket($ticket_id);
     if (!$ticket) { api_error('Ticket not found', 404); }
-    if (!can_see_ticket($ticket, $user)) { api_error('Forbidden', 403); }
+    if (!can_see_ticket($ticket, $user) || !can_edit_ticket($ticket, $user)) { api_error('Forbidden', 403); }
 
     // Check if column exists (feature may not be enabled)
     try {
@@ -515,7 +586,11 @@ function api_quick_behalf() {
     } catch (Exception $e) { api_error('Feature not available', 400); }
 
     $old_value = $ticket['created_for_user_id'] ?? null;
-    $new_value = !empty($_POST['created_for_user_id']) ? (int)$_POST['created_for_user_id'] : null;
+    $behalf_raw = trim((string)($_POST['created_for_user_id'] ?? ''));
+    $new_value = $behalf_raw !== '' ? (int)$behalf_raw : null;
+    if ($new_value !== null && !api_get_active_user_by_id($new_value)) {
+        api_error(t('Invalid user.'), 400);
+    }
 
     db_update('tickets', ['created_for_user_id' => $new_value], 'id = ?', [$ticket_id]);
     if (function_exists('log_ticket_history')) {
@@ -581,10 +656,18 @@ function api_quick_priority() {
     $ticket_id = (int)($_POST['ticket_id'] ?? 0);
     $ticket = get_ticket($ticket_id);
     if (!$ticket) { api_error('Ticket not found', 404); }
-    if (!can_see_ticket($ticket, $user)) { api_error('Forbidden', 403); }
+    if (!can_see_ticket($ticket, $user) || !can_edit_ticket($ticket, $user)) { api_error('Forbidden', 403); }
 
     $old_value = $ticket['priority_id'] ?? null;
-    $new_value = !empty($_POST['priority_id']) ? (int)$_POST['priority_id'] : null;
+    $priority_raw = trim((string)($_POST['priority_id'] ?? ''));
+    $new_value = $priority_raw !== '' ? (int)$priority_raw : null;
+    $priority = null;
+    if ($new_value !== null) {
+        $priority = get_priority($new_value);
+        if (!$priority) {
+            api_error(t('Invalid priority.'), 400);
+        }
+    }
 
     db_update('tickets', ['priority_id' => $new_value], 'id = ?', [$ticket_id]);
     if (function_exists('log_ticket_history')) {
@@ -592,9 +675,8 @@ function api_quick_priority() {
     }
 
     $priority_name = '';
-    if ($new_value) {
-        $p = db_fetch_one("SELECT name FROM priorities WHERE id = ?", [$new_value]);
-        $priority_name = $p['name'] ?? '';
+    if ($priority) {
+        $priority_name = $priority['name'] ?? '';
     }
     log_activity($ticket_id, $user['id'], 'ticket_edited', 'Priority changed' . ($priority_name ? " to {$priority_name}" : ''));
 
@@ -620,14 +702,30 @@ function api_quick_type() {
     $ticket_id = (int)($_POST['ticket_id'] ?? 0);
     $ticket = get_ticket($ticket_id);
     if (!$ticket) { api_error('Ticket not found', 404); }
-    if (!can_see_ticket($ticket, $user)) { api_error('Forbidden', 403); }
+    if (!can_see_ticket($ticket, $user) || !can_edit_ticket($ticket, $user)) { api_error('Forbidden', 403); }
 
     $old_value = $ticket['type'] ?? null;
-    $new_value = !empty($_POST['type']) ? trim($_POST['type']) : null;
+    $new_value = trim((string)($_POST['type'] ?? ''));
+    $new_value = $new_value !== '' ? $new_value : null;
+    $type_row = null;
+    if ($new_value !== null) {
+        $type_row = api_get_active_ticket_type_by_slug($new_value);
+        if (!$type_row) {
+            api_error(t('Invalid ticket type.'), 400);
+        }
+    }
 
-    db_update('tickets', ['type' => $new_value], 'id = ?', [$ticket_id]);
+    $update = ['type' => $new_value];
+    if (api_ticket_column_exists('ticket_type_id')) {
+        $update['ticket_type_id'] = $type_row ? (int)$type_row['id'] : null;
+    }
+
+    db_update('tickets', $update, 'id = ?', [$ticket_id]);
     if (function_exists('log_ticket_history')) {
         log_ticket_history($ticket_id, $user['id'], 'type', $old_value, $new_value);
+        if (array_key_exists('ticket_type_id', $update)) {
+            log_ticket_history($ticket_id, $user['id'], 'ticket_type_id', $ticket['ticket_type_id'] ?? null, $update['ticket_type_id']);
+        }
     }
     log_activity($ticket_id, $user['id'], 'ticket_edited', 'Ticket type changed' . ($new_value ? " to {$new_value}" : ''));
 
@@ -654,20 +752,33 @@ function api_quick_company() {
     $ticket_id = (int)($_POST['ticket_id'] ?? 0);
     $ticket = get_ticket($ticket_id);
     if (!$ticket) { api_error('Ticket not found', 404); }
-    if (!can_see_ticket($ticket, $user)) { api_error('Forbidden', 403); }
+    if (!can_see_ticket($ticket, $user) || !can_edit_ticket($ticket, $user)) { api_error('Forbidden', 403); }
 
     $old_org_id = $ticket['organization_id'] ?? null;
     $org_input = trim((string)($_POST['organization_id'] ?? ''));
-    $new_org_id = ($org_input !== '') ? (int)$org_input : null;
+    $new_org_id = null;
+    $org = null;
+    if ($org_input !== '') {
+        $candidate_org_id = (int)$org_input;
+        if ($candidate_org_id > 0) {
+            $org = api_get_active_organization_by_id($candidate_org_id);
+            if (!$org) {
+                api_error(t('Invalid company.'), 400);
+            }
+            $new_org_id = $candidate_org_id;
+        }
+    }
 
     db_update('tickets', ['organization_id' => $new_org_id], 'id = ?', [$ticket_id]);
+    if (function_exists('sync_ticket_time_entry_billable_rates')) {
+        sync_ticket_time_entry_billable_rates($ticket_id);
+    }
     if (function_exists('log_ticket_history')) {
         log_ticket_history($ticket_id, $user['id'], 'organization_id', $old_org_id, $new_org_id);
     }
     // Get org name for notification
     $org_name = '';
-    if ($new_org_id) {
-        $org = db_fetch_one("SELECT name FROM organizations WHERE id = ?", [$new_org_id]);
+    if ($org) {
         $org_name = $org['name'] ?? '';
     }
     log_activity($ticket_id, $user['id'], 'company_updated', 'Company updated' . ($org_name ? " to {$org_name}" : ''));
@@ -711,6 +822,9 @@ function api_delete_time_entry() {
 
     $ticket = get_ticket($entry['ticket_id']);
     if (!$ticket || !can_see_ticket($ticket, $user)) {
+        api_error('Forbidden', 403);
+    }
+    if (!is_admin() && (int)($entry['user_id'] ?? 0) !== (int)$user['id']) {
         api_error('Forbidden', 403);
     }
 
@@ -879,7 +993,7 @@ function api_update_tags() {
         api_error('Ticket not found', 404);
     }
 
-    if (!can_edit_ticket($ticket, $user)) {
+    if (!can_see_ticket($ticket, $user) || !can_edit_ticket($ticket, $user)) {
         api_error('Forbidden', 403);
     }
 
@@ -1271,30 +1385,57 @@ function api_quick_create_ticket() {
     ];
 
     $type_raw = trim((string)($_POST['type'] ?? ''));
-    if ($type_raw !== '') { $data['type'] = $type_raw; }
+    if ($type_raw !== '') {
+        if (!api_get_active_ticket_type_by_slug($type_raw)) {
+            api_error(t('Invalid ticket type.'), 400);
+        }
+        $data['type'] = $type_raw;
+    }
 
-    $assignee_raw = (string)($_POST['assignee_id'] ?? '');
+    $assignee_raw = trim((string)($_POST['assignee_id'] ?? ''));
     if ($assignee_raw !== '') {
         $aid = (int)$assignee_raw;
-        if ($aid > 0) { $data['assignee_id'] = $aid; }
+        if ($aid > 0) {
+            if (!api_get_active_staff_user_by_id($aid)) {
+                api_error(t('Invalid assignee.'), 400);
+            }
+            $data['assignee_id'] = $aid;
+        }
     }
 
-    $org_raw = (string)($_POST['organization_id'] ?? '');
+    $org_raw = trim((string)($_POST['organization_id'] ?? ''));
     if ($org_raw !== '') {
         $oid = (int)$org_raw;
-        $data['organization_id'] = $oid > 0 ? $oid : null;
+        if ($oid > 0) {
+            if (!api_get_active_organization_by_id($oid)) {
+                api_error(t('Invalid company.'), 400);
+            }
+            $data['organization_id'] = $oid;
+        } else {
+            $data['organization_id'] = null;
+        }
     }
 
-    $priority_raw = (string)($_POST['priority_id'] ?? '');
+    $priority_raw = trim((string)($_POST['priority_id'] ?? ''));
     if ($priority_raw !== '') {
         $pid = (int)$priority_raw;
-        if ($pid > 0 && get_priority($pid)) { $data['priority_id'] = $pid; }
+        if ($pid > 0) {
+            if (!get_priority($pid)) {
+                api_error(t('Invalid priority.'), 400);
+            }
+            $data['priority_id'] = $pid;
+        }
     }
 
-    $status_raw = (string)($_POST['status_id'] ?? '');
+    $status_raw = trim((string)($_POST['status_id'] ?? ''));
     if ($status_raw !== '') {
         $sid = (int)$status_raw;
-        if ($sid > 0 && get_status($sid)) { $data['status_id'] = $sid; }
+        if ($sid > 0) {
+            if (!get_status($sid)) {
+                api_error(t('Invalid status.'), 400);
+            }
+            $data['status_id'] = $sid;
+        }
     }
 
     $due_raw = trim((string)($_POST['due_date'] ?? ''));

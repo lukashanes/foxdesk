@@ -972,22 +972,15 @@ function can_edit_ticket($ticket, $user) {
         return false;
     }
 
-    // Admin can edit all tickets
-    if ($user['role'] === 'admin') {
+    if (($user['role'] ?? '') === 'admin') {
         return true;
     }
 
-    // Agent can edit assigned tickets or tickets they can see
-    if ($user['role'] === 'agent') {
-        return true; // Agents can edit any ticket they can access
+    if (($user['role'] ?? '') === 'agent') {
+        return can_see_ticket($ticket, $user);
     }
 
-    // Regular user can only edit their own tickets
-    if ((int)$ticket['user_id'] === (int)$user['id']) {
-        return true;
-    }
-
-    return false;
+    return (int)($ticket['user_id'] ?? 0) === (int)($user['id'] ?? 0);
 }
 
 /**

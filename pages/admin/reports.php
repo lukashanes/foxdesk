@@ -951,7 +951,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                     <!-- Custom date range (shown only when "Custom range" selected) -->
                     <div id="report-custom-range"
-                        style="display: flex; align-items: flex-end; gap: 0.75rem; margin-top: 0.5rem; <?php echo $time_range === 'custom' ? '' : 'display: none;'; ?>">
+                        style="display: <?php echo $time_range === 'custom' ? 'flex' : 'none'; ?>; align-items: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
                         <div>
                             <label class="block text-xs mb-1 font-medium" style="color: var(--text-secondary);"><?php echo e(t('From date')); ?></label>
                             <input type="date" name="from_date" value="<?php echo e($from_date); ?>" class="form-input">
@@ -1958,7 +1958,7 @@ include BASE_PATH . '/includes/components/page-header.php';
     const reportCustomRange = document.getElementById('report-custom-range');
     if (reportRangeSelect && reportCustomRange) {
         const toggleRange = () => {
-            reportCustomRange.classList.toggle('hidden', reportRangeSelect.value !== 'custom');
+            reportCustomRange.style.display = reportRangeSelect.value === 'custom' ? 'flex' : 'none';
             // Update preset button highlights
             document.querySelectorAll('.range-preset-btn').forEach(function(btn) {
                 if (btn.dataset.range === reportRangeSelect.value) {
@@ -2240,7 +2240,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         if (fd && saved.from_date) fd.value = saved.from_date;
                         if (td && saved.to_date) td.value = saved.to_date;
                         var customRange = document.getElementById('report-custom-range');
-                        if (customRange) customRange.classList.remove('hidden');
+                        if (customRange) customRange.style.display = 'flex';
                     }
                 }
             } catch (e) {}

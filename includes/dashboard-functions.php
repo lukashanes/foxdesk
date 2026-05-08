@@ -4,6 +4,95 @@
  * Handles data aggregation and logic for the dashboard view.
  */
 
+function dashboard_ticket_scope_for_user(array $user, string $alias = 't'): array
+{
+    $alias = preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $alias) ? $alias : 't';
+    $role = (string)($user['role'] ?? '');
+    $user_id = (int)($user['id'] ?? 0);
+    $has_ticket_access = function_exists('ticket_access_table_exists') && ticket_access_table_exists();
+
+    if ($user_id <= 0) {
+        return ['0 = 1', []];
+    }
+
+    if ($role === 'admin') {
+        return ['1 = 1', []];
+    }
+
+    $own_or_shared = static function () use ($alias, $has_ticket_access, $user_id): array {
+        if ($has_ticket_access) {
+            return [
+                "({$alias}.user_id = ? OR {$alias}.assignee_id = ? OR EXISTS (SELECT 1 FROM ticket_access ta WHERE ta.ticket_id = {$alias}.id AND ta.user_id = ?))",
+                [$user_id, $user_id, $user_id],
+            ];
+        }
+
+        return [
+            "({$alias}.user_id = ? OR {$alias}.assignee_id = ?)",
+            [$user_id, $user_id],
+        ];
+    };
+
+    $permissions = function_exists('get_user_permissions') ? (get_user_permissions($user_id) ?? []) : [];
+    $scope = (string)($permissions['ticket_scope'] ?? 'own');
+
+    if ($role === 'agent') {
+        if ($scope === 'all') {
+            return ['1 = 1', []];
+        }
+
+        if ($scope === 'organization' && function_exists('get_user_organization_ids')) {
+            $org_ids = get_user_organization_ids($user_id);
+            if (!empty($org_ids)) {
+                $placeholders = implode(',', array_fill(0, count($org_ids), '?'));
+                $params = array_map('intval', $org_ids);
+                if ($has_ticket_access) {
+                    return [
+                        "({$alias}.organization_id IN ({$placeholders}) OR {$alias}.user_id = ? OR {$alias}.assignee_id = ? OR EXISTS (SELECT 1 FROM ticket_access ta WHERE ta.ticket_id = {$alias}.id AND ta.user_id = ?))",
+                        array_merge($params, [$user_id, $user_id, $user_id]),
+                    ];
+                }
+
+                return [
+                    "({$alias}.organization_id IN ({$placeholders}) OR {$alias}.user_id = ? OR {$alias}.assignee_id = ?)",
+                    array_merge($params, [$user_id, $user_id]),
+                ];
+            }
+        }
+
+        return $own_or_shared();
+    }
+
+    if ($role === 'user') {
+        if ($scope === 'all') {
+            return ['1 = 1', []];
+        }
+
+        if ($scope === 'organization' && function_exists('get_user_organization_ids')) {
+            $org_ids = get_user_organization_ids($user_id);
+            if (!empty($org_ids)) {
+                $placeholders = implode(',', array_fill(0, count($org_ids), '?'));
+                $params = array_map('intval', $org_ids);
+                if ($has_ticket_access) {
+                    return [
+                        "({$alias}.organization_id IN ({$placeholders}) OR {$alias}.user_id = ? OR {$alias}.assignee_id = ? OR EXISTS (SELECT 1 FROM ticket_access ta WHERE ta.ticket_id = {$alias}.id AND ta.user_id = ?))",
+                        array_merge($params, [$user_id, $user_id, $user_id]),
+                    ];
+                }
+
+                return [
+                    "({$alias}.organization_id IN ({$placeholders}) OR {$alias}.user_id = ? OR {$alias}.assignee_id = ?)",
+                    array_merge($params, [$user_id, $user_id]),
+                ];
+            }
+        }
+
+        return $own_or_shared();
+    }
+
+    return ['0 = 1', []];
+}
+
 function get_dashboard_data($user, $tags = [])
 {
     $is_admin = $user['role'] === 'admin';
@@ -28,17 +117,7 @@ function get_dashboard_data($user, $tags = [])
     $closed_placeholder = !empty($closed_ids) ? implode(',', array_fill(0, count($closed_ids), '?')) : '0';
     $closed_lookup = array_flip($closed_ids);
 
-    $scope_where = '';
-    $scope_params = [];
-    if ($is_admin) {
-        $scope_where = "t.assignee_id IN (SELECT id FROM users WHERE role IN ('agent', 'admin'))";
-    } elseif ($is_agent) {
-        $scope_where = 't.assignee_id = ?';
-        $scope_params[] = $user['id'];
-    } else {
-        $scope_where = 't.user_id = ?';
-        $scope_params[] = $user['id'];
-    }
+    [$scope_where, $scope_params] = dashboard_ticket_scope_for_user($user, 't');
 
     $week_start = date('Y-m-d 00:00:00', strtotime('monday this week'));
     $week_end = date('Y-m-d 23:59:59', strtotime('sunday this week'));
@@ -125,10 +204,8 @@ function get_dashboard_data($user, $tags = [])
     }
 
     // ─── Priority data ──────────────────────────────────────
-    $priority_scope_where = $is_admin
-        ? "t.assignee_id IN (SELECT id FROM users WHERE role IN ('agent', 'admin'))"
-        : ($is_agent ? 't.assignee_id = ?' : 't.user_id = ?');
-    $priority_scope_params = $is_admin ? [] : [$user['id']];
+    $priority_scope_where = $scope_where;
+    $priority_scope_params = $scope_params;
 
     $priority_counts = db_fetch_all("
         SELECT p.id, p.name, p.color, COUNT(t.id) as count
@@ -214,13 +291,7 @@ function get_dashboard_data($user, $tags = [])
     }
 
     // ─── Link Parameters ────────────────────────────────────
-    if ($is_agent && !$is_admin) {
-        $scope_link_params = ['assigned_to' => $user['id']];
-    } elseif ($is_admin) {
-        $scope_link_params = ['scope' => 'staff'];
-    } else {
-        $scope_link_params = [];
-    }
+    $scope_link_params = [];
     // Carry tag filter through to ticket list links
     if (!empty($tags)) {
         $scope_link_params['tags'] = implode(',', $tags);
@@ -237,10 +308,8 @@ function get_dashboard_data($user, $tags = [])
     $link_reports = url('admin', ['section' => 'reports']);
 
     // ─── Ticket Queries ─────────────────────────────────────
-    $ticket_scope_where = $is_admin
-        ? "t.assignee_id IN (SELECT id FROM users WHERE role IN ('agent', 'admin'))"
-        : ($is_agent ? 't.assignee_id = ?' : 't.user_id = ?');
-    $ticket_scope_params = ($is_admin) ? [] : [$user['id']];
+    $ticket_scope_where = $scope_where;
+    $ticket_scope_params = $scope_params;
 
     $recent_tickets = db_fetch_all("
         SELECT t.*,

@@ -237,6 +237,70 @@ if (!preg_match('/^#[0-9a-fA-F]{6}$/', $form_values['theme_color'])) {
     $form_values['theme_color'] = '#3B82F6';
 }
 
+$latest_report_settings_by_org = [];
+try {
+    ensure_report_custom_billable_rate_column();
+    ensure_report_schedule_columns();
+
+    $latest_rows = db_fetch_all("
+        SELECT
+            organization_id,
+            title,
+            report_language,
+            date_from,
+            date_to,
+            executive_summary,
+            show_financials,
+            show_team_attribution,
+            show_cost_breakdown,
+            custom_billable_rate,
+            group_by,
+            rounding_minutes,
+            theme_color,
+            hide_branding,
+            schedule_enabled,
+            schedule_interval,
+            schedule_day,
+            schedule_recipients
+        FROM report_templates
+        WHERE (is_archived IS NULL OR is_archived = 0)
+        ORDER BY organization_id ASC, id DESC
+    ");
+
+    foreach ($latest_rows as $row) {
+        $org_id = (int)($row['organization_id'] ?? 0);
+        if ($org_id <= 0 || isset($latest_report_settings_by_org[$org_id])) {
+            continue;
+        }
+
+        $latest_report_settings_by_org[$org_id] = [
+            'title' => (string)($row['title'] ?? ''),
+            'report_language' => (string)($row['report_language'] ?? 'en'),
+            'date_from' => (string)($row['date_from'] ?? ''),
+            'date_to' => (string)($row['date_to'] ?? ''),
+            'executive_summary' => (string)($row['executive_summary'] ?? ''),
+            'show_financials' => !empty($row['show_financials']),
+            'show_team_attribution' => !empty($row['show_team_attribution']),
+            'show_cost_breakdown' => !empty($row['show_cost_breakdown']),
+            'custom_billable_rate' => $row['custom_billable_rate'] !== null && $row['custom_billable_rate'] !== ''
+                ? number_format((float)$row['custom_billable_rate'], 2, '.', '')
+                : '',
+            'group_by' => (string)($row['group_by'] ?? 'none'),
+            'rounding_minutes' => (int)($row['rounding_minutes'] ?? 15),
+            'theme_color' => preg_match('/^#[0-9a-fA-F]{6}$/', (string)($row['theme_color'] ?? ''))
+                ? (string)$row['theme_color']
+                : '#3B82F6',
+            'hide_branding' => !empty($row['hide_branding']),
+            'schedule_enabled' => !empty($row['schedule_enabled']),
+            'schedule_interval' => (string)($row['schedule_interval'] ?? 'monthly'),
+            'schedule_day' => (int)($row['schedule_day'] ?? 1),
+            'schedule_recipients' => (string)($row['schedule_recipients'] ?? ''),
+        ];
+    }
+} catch (Throwable $e) {
+    error_log('Report builder latest settings load failed: ' . $e->getMessage());
+}
+
 include BASE_PATH . '/includes/header.php';
 ?>
 
@@ -653,6 +717,54 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Organization Searchable Dropdown -->
 <script>
+var reportBuilderLatestSettings = <?php echo json_encode($latest_report_settings_by_org, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+var reportBuilderIsEditing = <?php echo $editing ? 'true' : 'false'; ?>;
+
+function setReportBuilderInput(name, value) {
+    var input = document.querySelector('[name="' + name + '"]');
+    if (!input) return;
+    if (input.type === 'checkbox') {
+        input.checked = !!value;
+    } else {
+        input.value = value == null ? '' : value;
+    }
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function applyLastReportSettingsForOrg(orgId) {
+    if (reportBuilderIsEditing || !orgId || !reportBuilderLatestSettings) return;
+    var settings = reportBuilderLatestSettings[String(orgId)];
+    if (!settings) return;
+
+    setReportBuilderInput('title', settings.title || '');
+    setReportBuilderInput('report_language', settings.report_language || 'en');
+    setReportBuilderInput('date_from', settings.date_from || '');
+    setReportBuilderInput('date_to', settings.date_to || '');
+    setReportBuilderInput('executive_summary', settings.executive_summary || '');
+    setReportBuilderInput('show_financials', !!settings.show_financials);
+    setReportBuilderInput('show_team_attribution', !!settings.show_team_attribution);
+    setReportBuilderInput('show_cost_breakdown', !!settings.show_cost_breakdown);
+    setReportBuilderInput('custom_billable_rate', settings.custom_billable_rate || '');
+    setReportBuilderInput('group_by', settings.group_by || 'none');
+    setReportBuilderInput('rounding_minutes', settings.rounding_minutes || 15);
+    setReportBuilderInput('theme_color', settings.theme_color || '#3B82F6');
+    setReportBuilderInput('hide_branding', !!settings.hide_branding);
+    setReportBuilderInput('schedule_enabled', !!settings.schedule_enabled);
+    setReportBuilderInput('schedule_interval', settings.schedule_interval || 'monthly');
+
+    var weeklyDay = document.getElementById('schedule_day_select');
+    var numericDay = document.getElementById('schedule_day_num');
+    var scheduleDay = parseInt(settings.schedule_day || 1, 10);
+    if (weeklyDay) weeklyDay.value = String(Math.max(1, Math.min(7, scheduleDay)));
+    if (numericDay) numericDay.value = String(Math.max(1, Math.min(28, scheduleDay)));
+    setReportBuilderInput('schedule_recipients', settings.schedule_recipients || '');
+
+    var colorDisplay = document.getElementById('color_display');
+    if (colorDisplay) colorDisplay.textContent = (settings.theme_color || '#3B82F6').toUpperCase();
+    if (typeof toggleScheduleFields === 'function') toggleScheduleFields();
+    if (typeof updateScheduleDayLabel === 'function') updateScheduleDayLabel();
+}
+
 (function() {
     var searchInput = document.getElementById('org-search-input');
     var hiddenInput = document.getElementById('org-hidden-input');
@@ -719,6 +831,7 @@ function selectOrg(el) {
     searchInput.dataset.selectedName = el.dataset.name;
     dropdown.classList.add('hidden');
     if (clearBtn) clearBtn.classList.remove('hidden');
+    applyLastReportSettingsForOrg(hiddenInput.value);
 }
 
 function clearOrgSelection() {
