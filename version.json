@@ -1,8 +1,10 @@
 {
-    "version": "0.3.112",
+    "version": "0.3.113",
     "date": "2026-05-08",
     "min_php": "8.1",
     "changelog": [
+        "Update packages are now built in a legacy-compatible layout so older installations correctly detect the application payload",
+        "The updater now prefers the root version.json over payload version files, preventing package-root detection errors",
         "Update checks now compare both foxdesk.org and GitHub so a stale primary endpoint cannot hide a newer release",
         "Private ticket attachments are now blocked from direct uploads/storage access and protected when served through image.php",
         "Email notifications now convert rich text comments into readable plain text instead of showing raw HTML tags",

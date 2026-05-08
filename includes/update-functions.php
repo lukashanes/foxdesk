@@ -284,12 +284,19 @@ function find_zip_entry(ZipArchive $zip, $relative_path): ?string
         return null;
     }
 
+    // Prefer the exact package-root entry first. Without this, files/version.json
+    // can be selected before the real root version.json when ZIP entry order varies.
     for ($i = 0; $i < $zip->numFiles; $i++) {
         $name = (string) $zip->getNameIndex($i);
         $normalized = ltrim(str_replace('\\', '/', $name), '/');
         if ($normalized === $target) {
             return $name;
         }
+    }
+
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $name = (string) $zip->getNameIndex($i);
+        $normalized = ltrim(str_replace('\\', '/', $name), '/');
         if (preg_match('#(^|/)' . preg_quote($target, '#') . '$#i', $normalized)) {
             return $name;
         }
