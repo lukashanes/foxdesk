@@ -150,23 +150,19 @@ if (isset($_GET['ajax_history'])) {
 include BASE_PATH . '/includes/header.php';
 ?>
 
-<div class="p-4 lg:p-8">
-    <!-- Page Header -->
-    <div class="mb-2">
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-3xl font-bold" style="color: var(--text-primary);">
-                    <?php echo get_icon('redo', 'mr-3 inline-block'); ?><?php echo e(t('Recurring Tasks')); ?>
-                </h1>
-                <p class="mt-1 text-sm" style="color: var(--text-muted);">
-                    <?php echo e(t('Automatically create tickets on a recurring schedule')); ?>
-                </p>
-            </div>
-            <button onclick="openTaskModal()" class="btn btn-primary">
-                <?php echo get_icon('plus', 'mr-2 inline-block'); ?><?php echo e(t('Create Recurring Task')); ?>
+<div class="admin-legacy-page">
+    <section class="admin-hero">
+        <div>
+            <p class="admin-eyebrow"><?php echo e(t('Automation')); ?></p>
+            <h2><?php echo e(t('Recurring Tasks')); ?></h2>
+            <p><?php echo e(t('Automatically create tickets on a recurring schedule')); ?></p>
+        </div>
+        <div class="admin-hero-actions">
+            <button onclick="openTaskModal()" class="btn btn-primary btn-sm">
+                <?php echo get_icon('plus', 'w-3.5 h-3.5'); ?><?php echo e(t('Create task')); ?>
             </button>
         </div>
-    </div>
+    </section>
 
     <!-- Search / Filter Bar -->
     <?php if (!empty($tasks)): ?>
@@ -213,7 +209,7 @@ include BASE_PATH . '/includes/header.php';
             </button>
         </div>
     <?php else: ?>
-        <div class="card overflow-hidden">
+        <div class="admin-list-card admin-table">
             <table class="w-full">
                 <thead class="border-b" style="background: var(--surface-secondary); border-color: var(--border-light);">
                     <tr>

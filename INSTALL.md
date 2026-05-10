@@ -1,7 +1,7 @@
 # FoxDesk — Installation Guide
 
 > Fresh installation instructions for shared hosting (FTP), VPS, or dedicated servers.
-> Version: **0.3.113** | Requires: PHP 8.1+ | MySQL 5.7+ / MariaDB 10.2+
+> Version: **0.3.114** | Requires: PHP 8.1+ | MySQL 5.7+ / MariaDB 10.2+
 
 ---
 
@@ -40,9 +40,9 @@
 | `mbstring` | Yes | Multi-byte string handling (UTF-8) |
 | `json` | Yes | API & data processing |
 | `openssl` | Yes | HTTPS, token generation |
+| `zip` | Yes | Backup & update system |
 | `fileinfo` | Recommended | File upload MIME detection |
 | `imap` | Optional | Email-to-ticket ingest |
-| `zip` | Recommended | Backup & update system |
 
 ### Apache Modules
 
@@ -323,7 +323,7 @@ Notification preferences are per-user in Profile settings:
 
 1. Open **Select PHP Version** or **MultiPHP Manager**
 2. Set PHP to 8.1 or higher
-3. Ensure `pdo_mysql`, `mbstring`, `json`, `openssl` extensions are enabled
+3. Ensure `pdo_mysql`, `mbstring`, `json`, `openssl`, `zip` extensions are enabled
 
 ### Pseudo-Cron (No Cron Access Needed)
 

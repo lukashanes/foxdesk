@@ -14,6 +14,7 @@
  */
 function create_report_template($data) {
     ensure_report_custom_billable_rate_column();
+    ensure_report_expiration_column();
     if (
         array_key_exists('schedule_enabled', $data) ||
         array_key_exists('schedule_interval', $data) ||
@@ -156,6 +157,7 @@ function get_report_template($id) {
  * @return array|null Report template data
  */
 function get_report_template_by_uuid($uuid) {
+    ensure_report_expiration_column();
     $organization_logo_select = report_organization_column_exists('logo_url') ? 'o.logo_url' : 'NULL';
     $organization_theme_select = report_organization_column_exists('theme_color') ? 'o.theme_color' : 'NULL';
     $where_parts = ['rt.uuid = ?'];
@@ -164,6 +166,9 @@ function get_report_template_by_uuid($uuid) {
     }
     if (report_template_column_exists('is_archived')) {
         $where_parts[] = 'rt.is_archived = 0';
+    }
+    if (report_template_column_exists('expires_at')) {
+        $where_parts[] = '(rt.expires_at IS NULL OR rt.expires_at > NOW())';
     }
 
     return db_fetch_one("
@@ -177,6 +182,33 @@ function get_report_template_by_uuid($uuid) {
     ", [$uuid]);
 }
 
+function get_report_template_by_public_token($token) {
+    if (!function_exists('get_report_template_share_by_token')) {
+        return null;
+    }
+
+    $share = get_report_template_share_by_token($token);
+    if (!$share || !is_report_share_active($share)) {
+        return null;
+    }
+
+    $template = get_report_template((int) $share['report_template_id']);
+    if (!$template) {
+        return null;
+    }
+
+    if (function_exists('report_template_column_exists') && report_template_column_exists('is_draft') && !empty($template['is_draft'])) {
+        return null;
+    }
+
+    if (function_exists('report_template_column_exists') && report_template_column_exists('is_archived') && !empty($template['is_archived'])) {
+        return null;
+    }
+
+    mark_report_share_accessed((int) $share['id']);
+    return $template;
+}
+
 /**
  * Update report template
  *
@@ -187,6 +219,7 @@ function get_report_template_by_uuid($uuid) {
 function update_report_template($id, $data) {
     $update_data = [];
     ensure_report_custom_billable_rate_column();
+    ensure_report_expiration_column();
 
     if (
         array_key_exists('schedule_enabled', $data) ||
@@ -226,6 +259,28 @@ function update_report_template($id, $data) {
     }
 
     return $result;
+}
+
+/**
+ * Auto-migrate: add public report expiration support.
+ */
+function ensure_report_expiration_column(): void
+{
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    if (report_template_column_exists('expires_at')) {
+        return;
+    }
+
+    try {
+        db_query("ALTER TABLE report_templates ADD COLUMN expires_at DATETIME NULL DEFAULT NULL AFTER is_archived");
+    } catch (Throwable $e) {
+        // Ignore duplicate/unsupported migrations.
+    }
 }
 
 /**
@@ -599,11 +654,22 @@ function create_report_template_share($report_template_id, $organization_id, $ex
         return false;
     }
 
-    // Use report UUID directly as the public share token
-    // No need to create a report_shares record - the UUID is already unique and secure
-    // The public page uses get_report_template_by_uuid() to fetch the report
+    $expires_at = null;
+    if ($expires_days !== null) {
+        $expires_at = date('Y-m-d H:i:s', strtotime('+' . max(1, (int) $expires_days) . ' days'));
+    } elseif (!empty($template['expires_at'])) {
+        $expires_at = $template['expires_at'];
+    }
 
-    return $template['uuid'];
+    $created_by = function_exists('current_user') && current_user() ? current_user()['id'] : ($template['created_by_user_id'] ?? null);
+    $share = create_report_template_share_record(
+        (int) $report_template_id,
+        (int) $organization_id,
+        $created_by,
+        $expires_at
+    );
+
+    return $share['token'] ?? false;
 }
 
 // ── RP10/RP11: Scheduled Reports & Email Delivery ───────────────────────────
@@ -820,8 +886,13 @@ function send_scheduled_report_email(array $report, string $date_from, string $d
     $app_url = function_exists('get_app_url') ? get_app_url() : '';
     $org_name = $report['organization_name'] ?? 'Client';
     $report_title = $report['title'] ?? 'Report';
-    $uuid = $report['uuid'] ?? '';
-    $report_link = $app_url . '/index.php?page=report-public&uuid=' . urlencode($uuid);
+    $share = function_exists('get_active_report_template_share') ? get_active_report_template_share((int) ($report['id'] ?? 0)) : null;
+    if (!$share && function_exists('create_report_template_share')) {
+        $token = create_report_template_share((int) ($report['id'] ?? 0), (int) ($report['organization_id'] ?? 0));
+    } else {
+        $token = $share['token'] ?? '';
+    }
+    $report_link = $app_url . '/index.php?page=report-public&token=' . urlencode((string) $token);
 
     // Fetch latest snapshot KPIs
     $kpi_html = '';

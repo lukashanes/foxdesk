@@ -1,19 +1,15 @@
 {
-    "version": "0.3.113",
-    "date": "2026-05-08",
+    "version": "0.3.114",
+    "date": "2026-05-10",
     "min_php": "8.1",
     "changelog": [
-        "Update packages are now built in a legacy-compatible layout so older installations correctly detect the application payload",
-        "The updater now prefers the root version.json over payload version files, preventing package-root detection errors",
-        "Update checks now compare both foxdesk.org and GitHub so a stale primary endpoint cannot hide a newer release",
-        "Private ticket attachments are now blocked from direct uploads/storage access and protected when served through image.php",
-        "Email notifications now convert rich text comments into readable plain text instead of showing raw HTML tags",
-        "Ticket quick-edit APIs now validate assignees, companies, priorities, statuses, ticket types, and on-behalf users before saving",
-        "Ticket edit permissions, tag updates, and status changes now consistently respect the user's ticket visibility scope",
-        "Report builder now pre-fills settings from the last report created for the selected company",
-        "The admin time report custom date range picker now appears correctly after selecting Custom range",
-        "Dashboard ticket counts and links now use the same visibility rules as the tickets list",
-        "Changing a ticket company now refreshes related billable rates for time entries"
+        "Admin pages now use a cleaner, lighter layout across system settings, users, clients, organizations, reports, recurring tasks, and activity",
+        "Installer recovery and force-install flows now require an explicit recovery token before dangerous actions are allowed",
+        "Admin impersonation now requires POST requests with CSRF protection, and GET impersonation attempts are rejected",
+        "Update dismissal and updater actions now enforce admin sessions and CSRF validation more consistently",
+        "Update packages and backup rollback handling now validate archive paths and prune files restored from backups more safely",
+        "Public report share links now correctly reject expired tokens with a 410 response",
+        "Automated Playwright E2E coverage now validates installation, login, tickets, attachments, admin security, updates, reports, backups, and rollback"
     ],
     "delete_files": []
 }

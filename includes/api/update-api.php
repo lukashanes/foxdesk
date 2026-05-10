@@ -9,13 +9,11 @@ require_once BASE_PATH . '/includes/update-check-functions.php';
 
 /**
  * API: Check for updates (force check)
- * POST /api.php?action=check-for-updates
+ * POST index.php?page=api&action=check-for-updates
  */
 function api_check_for_updates(): void
 {
-    if (!is_admin()) {
-        api_error('Forbidden', 403);
-    }
+    require_admin_post();
 
     try {
         $result = check_for_updates(true);
@@ -42,13 +40,11 @@ function api_check_for_updates(): void
 
 /**
  * API: Download remote update package
- * POST /api.php?action=download-remote-update
+ * POST index.php?page=api&action=download-remote-update
  */
 function api_download_remote_update(): void
 {
-    if (!is_admin()) {
-        api_error('Forbidden', 403);
-    }
+    require_admin_post();
 
     $update_info = get_cached_update_info();
     if (!$update_info || empty($update_info['download_url'])) {
@@ -98,13 +94,11 @@ function api_download_remote_update(): void
 
 /**
  * API: Dismiss update notification for a specific version
- * POST /api.php?action=dismiss-update-notice
+ * POST index.php?page=api&action=dismiss-update-notice
  */
 function api_dismiss_update_notice(): void
 {
-    if (!is_admin()) {
-        api_error('Forbidden', 403);
-    }
+    require_admin_post();
 
     $input = json_decode(file_get_contents('php://input'), true);
     $version = trim((string) ($input['version'] ?? $_POST['version'] ?? ''));
@@ -120,4 +114,3 @@ function api_dismiss_update_notice(): void
         'version' => $version,
     ]);
 }
-

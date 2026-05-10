@@ -1,0 +1,14 @@
+{
+  "name": "foxdesk",
+  "private": true,
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:debug": "PWDEBUG=1 playwright test --debug",
+    "e2e:install": "playwright install chromium",
+    "lint:php": "./bin/lint-php.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
+  }
+}

@@ -238,7 +238,9 @@ if (!$check) {
             CREATE TABLE report_shares (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 organization_id INT NOT NULL,
+                report_template_id INT NULL,
                 token_hash CHAR(64) NOT NULL UNIQUE,
+                share_secret VARCHAR(64) NULL,
                 created_by INT,
                 expires_at DATETIME,
                 is_revoked TINYINT(1) DEFAULT 0,
@@ -247,6 +249,7 @@ if (!$check) {
                 FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
                 FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
                 INDEX idx_org (organization_id),
+                INDEX idx_report_template (report_template_id),
                 INDEX idx_revoked (is_revoked),
                 INDEX idx_expires (expires_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci

@@ -133,10 +133,10 @@ $page_header_subtitle = t('Manage client accounts and access.');
 include BASE_PATH . '/includes/components/page-header.php';
 ?>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+<div class="admin-two-column">
     <!-- Clients List -->
-    <div class="lg:col-span-2">
-        <div class="card overflow-hidden">
+    <div class="admin-main-column">
+        <div class="admin-list-card">
             <div class="px-6 py-3 border-b flex items-center justify-between" style="border-color: var(--border-light);">
                 <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Clients')); ?> (<?php echo count($clients); ?>)
                 </h3>
@@ -230,7 +230,7 @@ include BASE_PATH . '/includes/components/page-header.php';
     </div>
 
     <!-- Add New Client -->
-    <div>
+    <div class="admin-side-column">
         <div class="card card-body">
             <h3 class="font-semibold mb-4" style="color: var(--text-primary);"><?php echo e(t('Add client')); ?></h3>
 

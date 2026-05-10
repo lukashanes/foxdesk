@@ -122,26 +122,40 @@ $reports = db_fetch_all("
     ORDER BY rt.created_at DESC
 ");
 
+foreach ($reports as &$report) {
+    $report['share_token'] = null;
+    if (empty($report['is_draft'])) {
+        $share = function_exists('get_active_report_template_share')
+            ? get_active_report_template_share((int) $report['id'])
+            : null;
+        if (!$share && function_exists('create_report_template_share')) {
+            $token = create_report_template_share((int) $report['id'], (int) $report['organization_id']);
+            if ($token) {
+                $report['share_token'] = $token;
+            }
+        } else {
+            $report['share_token'] = $share['token'] ?? null;
+        }
+    }
+}
+unset($report);
+
 include BASE_PATH . '/includes/header.php';
 ?>
 
-<div class="p-4 lg:p-8">
-    <!-- Page Header -->
-    <div class="mb-8">
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-3xl font-bold" style="color: var(--text-primary);">
-                    <?php echo get_icon('file', 'w-6 h-6 mr-3 inline-block'); ?><?php echo e(t('Client Reports')); ?>
-                </h1>
-                <p class="mt-1 text-sm" style="color: var(--text-muted);">
-                    <?php echo e(t('Create and manage professional time tracking reports for clients')); ?>
-                </p>
-            </div>
-            <a href="<?php echo url('admin', ['section' => 'report-builder']); ?>" class="btn btn-primary">
-                <?php echo get_icon('plus', 'w-4 h-4 mr-2 inline-block'); ?><?php echo e(t('Create New Report')); ?>
+<div class="admin-legacy-page">
+    <section class="admin-hero">
+        <div>
+            <p class="admin-eyebrow"><?php echo e(t('Reports')); ?></p>
+            <h2><?php echo e(t('Client Reports')); ?></h2>
+            <p><?php echo e(t('Create and manage professional time tracking reports for clients')); ?></p>
+        </div>
+        <div class="admin-hero-actions">
+            <a href="<?php echo url('admin', ['section' => 'report-builder']); ?>" class="btn btn-primary btn-sm">
+                <?php echo get_icon('plus', 'w-3.5 h-3.5'); ?><?php echo e(t('Create report')); ?>
             </a>
         </div>
-    </div>
+    </section>
 
     <!-- Reports List -->
     <?php if (empty($reports)): ?>
@@ -157,7 +171,7 @@ include BASE_PATH . '/includes/header.php';
             </a>
         </div>
     <?php else: ?>
-        <div class="card overflow-hidden">
+        <div class="admin-list-card admin-table">
             <table class="w-full">
                 <thead style="background: var(--surface-secondary); border-color: var(--border-light);" class="border-b">
                     <tr>
@@ -235,7 +249,8 @@ include BASE_PATH . '/includes/header.php';
                                 <div class="flex items-center justify-end space-x-2">
                                     <?php if (!$report['is_draft']): ?>
                                         <!-- View Public Report -->
-                                        <a href="<?php echo url('report-public', ['token' => $report['uuid']]); ?>" target="_blank"
+                                        <?php $report_share_url = APP_URL . '/index.php?page=report-public&token=' . rawurlencode((string) ($report['share_token'] ?? '')); ?>
+                                        <a href="<?php echo e($report_share_url); ?>" target="_blank"
                                             class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                                             <?php echo get_icon('external-link', 'w-3.5 h-3.5 mr-1 inline-block'); ?>
                                             <?php echo e(t('View')); ?>
@@ -243,7 +258,7 @@ include BASE_PATH . '/includes/header.php';
 
                                         <!-- Copy Share Link -->
                                         <button
-                                            onclick="copyShareLink('<?php echo e(APP_URL . '/index.php?page=report-public&token=' . $report['uuid']); ?>', this)"
+                                            onclick="copyShareLink('<?php echo e($report_share_url); ?>', this)"
                                             class="text-green-600 hover:text-green-800 text-sm font-medium inline-flex items-center">
                                             <?php echo get_icon('link', 'w-3.5 h-3.5 mr-1 inline-block'); ?>
                                             <?php echo e(t('Share')); ?>
@@ -251,7 +266,7 @@ include BASE_PATH . '/includes/header.php';
 
                                         <!-- Download PDF -->
                                         <button
-                                            onclick="downloadPDF('<?php echo APP_URL . '/index.php?page=report-public&token=' . $report['uuid']; ?>')"
+                                            onclick="downloadPDF('<?php echo e($report_share_url); ?>')"
                                             class="text-purple-600 hover:text-purple-800 text-sm font-medium inline-flex items-center">
                                             <?php echo get_icon('file-pdf', 'w-3.5 h-3.5 mr-1 inline-block'); ?>
                                             <?php echo e(t('PDF')); ?>

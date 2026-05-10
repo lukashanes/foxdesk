@@ -190,10 +190,13 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                     <strong class="ml-1"><?php echo e($_SESSION['user_name']); ?></strong>
                 </span>
             </div>
-            <a href="<?php echo url('impersonate', ['stop' => 'true']); ?>"
-                class="text-red-600 px-3 py-1 rounded text-sm font-bold transition shadow-sm flex-shrink-0 whitespace-nowrap" style="background: var(--bg-primary);">
-                <?php echo t('Stop'); ?>
-            </a>
+            <form method="post" action="<?php echo e(url('impersonate')); ?>" class="m-0">
+                <?php echo csrf_field(); ?>
+                <button type="submit" name="stop" value="1"
+                    class="text-red-600 px-3 py-1 rounded text-sm font-bold transition shadow-sm flex-shrink-0 whitespace-nowrap" style="background: var(--bg-primary);">
+                    <?php echo t('Stop'); ?>
+                </button>
+            </form>
         </div>
     <?php endif; ?>
 
@@ -648,7 +651,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
         function dismissFoxDeskUpdate(version) {
             var bar = document.getElementById('foxdeskUpdateBar');
             if (bar) bar.style.display = 'none';
-            fetch('api.php?action=dismiss-update-notice', {
+            fetch('index.php?page=api&action=dismiss-update-notice', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRF-Token': window.csrfToken},
                 body: JSON.stringify({version: version})
@@ -1320,4 +1323,3 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
         <div class="p-2 lg:p-3 xl:p-4">
 
             <!-- JS moved to assets/js/app-header.js (defer) -->
-

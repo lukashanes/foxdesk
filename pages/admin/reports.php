@@ -599,29 +599,30 @@ $page_header_subtitle = t('User activity and ticket history.');
 include BASE_PATH . '/includes/components/page-header.php';
 ?>
 
-<div class="space-y-3">
+<div class="admin-legacy-page">
     <!-- Client Reports Module Access (admin only) -->
     <?php if (is_admin()): ?>
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem; padding: 0;">
-        <span style="font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.375rem;">
-            <?php echo get_icon('file-text', 'w-3.5 h-3.5'); ?>
-            <?php echo e(t('Client Reports')); ?>
-        </span>
-        <div style="display: flex; gap: 0.5rem;">
+    <section class="admin-hero">
+        <div>
+            <p class="admin-eyebrow"><?php echo e(t('Reports')); ?></p>
+            <h2><?php echo e(t('Time Reports')); ?></h2>
+            <p><?php echo e(t('User activity and ticket history.')); ?></p>
+        </div>
+        <div class="admin-hero-actions">
             <a href="<?php echo url('admin', ['section' => 'reports-list']); ?>"
-                class="btn btn-ghost btn-sm" style="font-size: 0.75rem; padding: 4px 10px;">
-                <?php echo get_icon('list', 'w-3.5 h-3.5 mr-1 inline-block'); ?><?php echo e(t('View Reports')); ?>
+                class="btn btn-secondary btn-sm">
+                <?php echo get_icon('list', 'w-3.5 h-3.5'); ?><?php echo e(t('Client reports')); ?>
             </a>
             <a href="<?php echo url('admin', ['section' => 'report-builder']); ?>"
-                class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 4px 10px;">
-                <?php echo get_icon('plus', 'w-3.5 h-3.5 mr-1 inline-block'); ?><?php echo e(t('Create New Report')); ?>
+                class="btn btn-primary btn-sm">
+                <?php echo get_icon('plus', 'w-3.5 h-3.5'); ?><?php echo e(t('Create report')); ?>
             </a>
         </div>
-    </div>
+    </section>
     <?php endif; ?>
 
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
-        <div style="display: flex; gap: 2px; background: var(--surface-secondary); border-radius: 8px; padding: 3px; width: fit-content;">
+        <div class="admin-tabs">
             <?php
             $tab_labels = [
                 'summary' => t('Summary'),
@@ -638,10 +639,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                 $tab_url = 'index.php?' . http_build_query($params);
                 ?>
                 <a href="<?php echo e($tab_url); ?>"
-                    style="padding: 4px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; text-decoration: none; transition: all 0.15s;
-                           <?php echo $tab === $tab_key
-                               ? 'background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.1);'
-                               : 'color: var(--text-secondary); background: transparent;'; ?>">
+                    class="admin-tab <?php echo $tab === $tab_key ? 'is-active' : ''; ?>">
                     <?php echo e($label); ?>
                 </a>
             <?php endforeach; ?>

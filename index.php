@@ -15,7 +15,7 @@ define('REMEMBER_ME_DURATION', 30 * 86400); // 30 days
 
 require_once BASE_PATH . '/includes/session-bootstrap.php';
 
-define('APP_VERSION', '0.3.113');
+define('APP_VERSION', '0.3.114');
 
 // Check if installed
 if (!file_exists(BASE_PATH . '/config.php')) {
@@ -85,7 +85,13 @@ if (defined('DB_HOST')) {
     if ($configured_db_host === 'db') {
         $resolved = gethostbyname('db');
         if ($resolved === 'db') {
-            header('Location: install.php?force=1&reason=db_host');
+            http_response_code(503);
+            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Configuration required</title></head><body style="font-family:system-ui,sans-serif;max-width:720px;margin:48px auto;padding:0 20px;color:#334155">';
+            echo '<h1>Database configuration required</h1>';
+            echo '<p>The configured database host is <code>db</code>, but that host is not resolvable on this server.</p>';
+            echo '<p>Edit <code>config.php</code> and set <code>DB_HOST</code> to your real database host, usually <code>localhost</code> on shared hosting.</p>';
+            echo '<p>If you intentionally need to rerun the installer, open <code>install.php?force=1&amp;token=FIRST_16_CHARS_OF_SECRET_KEY</code>.</p>';
+            echo '</body></html>';
             exit;
         }
     }
@@ -366,7 +372,8 @@ switch ($page) {
 
     case 'impersonate':
         // Handle stop impersonation
-        if (isset($_GET['stop'])) {
+        if (isset($_POST['stop'])) {
+            require_csrf_token();
             if (isset($_SESSION['impersonator_id'])) {
                 // Restore original session
                 $admin_id = $_SESSION['impersonator_id'];
@@ -402,6 +409,13 @@ switch ($page) {
             exit;
         }
 
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?page=dashboard');
+            exit;
+        }
+
+        require_csrf_token();
+
         // Handle start impersonation (Admin only)
         if (!is_admin()) {
             // Log unauthorized impersonation attempt
@@ -414,7 +428,7 @@ switch ($page) {
             exit;
         }
 
-        $user_id = isset($_GET['user_id']) ? (int) $_GET['user_id'] : 0;
+        $user_id = isset($_POST['user_id']) ? (int) $_POST['user_id'] : 0;
         if ($user_id > 0) {
             $target_user = get_user($user_id);
 

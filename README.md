@@ -3,7 +3,7 @@
 Open-source helpdesk and ticketing system built with PHP, Tailwind CSS, and Alpine.js.
 
 **Website:** [foxdesk.org](https://foxdesk.org)
-**Current Version:** `0.3.113` (`2026-05-08`)
+**Current Version:** `0.3.114` (`2026-05-10`)
 
 ---
 
@@ -112,7 +112,7 @@ Open-source helpdesk and ticketing system built with PHP, Tailwind CSS, and Alpi
 | MySQL       | 5.7+ / MariaDB 10.2+ |
 | Disk space  | 50 MB   |
 
-Required PHP extensions: `pdo_mysql`, `mbstring`, `json`, `openssl`
+Required PHP extensions: `pdo_mysql`, `mbstring`, `json`, `openssl`, `zip`
 
 ---
 

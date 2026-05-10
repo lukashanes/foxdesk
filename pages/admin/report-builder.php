@@ -304,21 +304,19 @@ try {
 include BASE_PATH . '/includes/header.php';
 ?>
 
-<div class="p-4 lg:p-8 max-w-5xl mx-auto">
-    <!-- Page Header -->
-    <div class="mb-8">
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-3xl font-bold" style="color: var(--text-primary);"><?php echo e($editing ? t('Edit Client Report') : t('Create Client Report')); ?></h1>
-                <p class="mt-1 text-sm" style="color: var(--text-muted);">
-                    <?php echo e($editing ? t('Update this client report') : t('Generate a professional time tracking report for your clients')); ?>
-                </p>
-            </div>
-            <a href="<?php echo url('admin', ['section' => 'reports-list']); ?>" class="btn btn-secondary">
-                <?php echo get_icon('arrow-left', 'w-4 h-4 mr-2 inline-block'); ?><?php echo e(t('Back to Reports')); ?>
+<div class="admin-legacy-page is-narrow">
+    <section class="admin-hero">
+        <div>
+            <p class="admin-eyebrow"><?php echo e(t('Reports')); ?></p>
+            <h2><?php echo e($editing ? t('Edit Client Report') : t('Create Client Report')); ?></h2>
+            <p><?php echo e($editing ? t('Update this client report') : t('Generate a professional time tracking report for your clients')); ?></p>
+        </div>
+        <div class="admin-hero-actions">
+            <a href="<?php echo url('admin', ['section' => 'reports-list']); ?>" class="btn btn-secondary btn-sm">
+                <?php echo get_icon('arrow-left', 'w-3.5 h-3.5'); ?><?php echo e(t('Back')); ?>
             </a>
         </div>
-    </div>
+    </section>
 
     <!-- Report Builder Form -->
     <form method="POST" action="" class="space-y-8">

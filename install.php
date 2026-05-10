@@ -14,8 +14,46 @@ foxdesk_bootstrap_session(false);
 ini_set('default_charset', 'UTF-8');
 header('Content-Type: text/html; charset=UTF-8');
 
-$force_install = isset($_GET['force']) && $_GET['force'] === '1';
-$force_query = $force_install ? '&force=1' : '';
+$force_install_requested = isset($_GET['force']) && $_GET['force'] === '1';
+$force_token = trim((string) ($_GET['token'] ?? ''));
+$config_exists = file_exists('config.php');
+
+function foxdesk_install_secret_from_config(): string
+{
+    $config_content = @file_get_contents('config.php');
+    if ($config_content === false) {
+        return '';
+    }
+
+    if (preg_match("/define\\(\\s*['\"]SECRET_KEY['\"]\\s*,\\s*['\"]([^'\"]+)['\"]\\s*\\)/", $config_content, $match)) {
+        return (string) $match[1];
+    }
+
+    return '';
+}
+
+function foxdesk_install_force_token_is_valid(string $token): bool
+{
+    if ($token === '' || strlen($token) < 12) {
+        return false;
+    }
+
+    $env_token = trim((string) getenv('FOXDESK_INSTALL_TOKEN'));
+    if ($env_token !== '' && hash_equals($env_token, $token)) {
+        return true;
+    }
+
+    $secret = foxdesk_install_secret_from_config();
+    if ($secret === '') {
+        return false;
+    }
+
+    return hash_equals($secret, $token) || hash_equals(substr($secret, 0, 16), $token);
+}
+
+$force_install = $force_install_requested && $config_exists && foxdesk_install_force_token_is_valid($force_token);
+$force_params = $force_install ? ['force' => '1', 'token' => $force_token] : [];
+$force_query = $force_params ? '&' . http_build_query($force_params) : '';
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -33,16 +71,26 @@ function csrf_is_valid_install() {
     return hash_equals($_SESSION['csrf_token'], $token);
 }
 
-// Check if already installed
-if (file_exists('config.php') && !$force_install) {
-    header('Location: index.php');
-    exit;
-}
-
 $step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
 $error = '';
 $success = '';
 $reason = isset($_GET['reason']) ? (string) $_GET['reason'] : '';
+
+if ($force_install_requested && !$force_install && $config_exists) {
+    http_response_code(403);
+    echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>FoxDesk Installer</title></head><body style="font-family:system-ui,sans-serif;max-width:680px;margin:48px auto;padding:0 20px">';
+    echo '<h1>Installer locked</h1>';
+    echo '<p>FoxDesk is already installed. Forced reinstall requires a valid recovery token.</p>';
+    echo '<p>Use <code>install.php?force=1&amp;token=FIRST_16_CHARS_OF_SECRET_KEY</code> or set <code>FOXDESK_INSTALL_TOKEN</code> on the server.</p>';
+    echo '</body></html>';
+    exit;
+}
+
+// Check if already installed
+if ($config_exists && !$force_install) {
+    header('Location: index.php');
+    exit;
+}
 
 if ($force_install && $reason === 'db_host') {
     $error = 'Detected invalid database host "db" from previous deployment. Enter your hosting DB host (usually localhost).';
@@ -68,6 +116,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Test database connection
             try {
+                if (!preg_match('/^[0-9]{1,5}$/', $db_port)) {
+                    throw new InvalidArgumentException('Database port must be numeric.');
+                }
+
                 $dsn = "mysql:host={$db_host};port={$db_port};charset=utf8mb4";
                 $pdo = new PDO($dsn, $db_user, $db_pass, [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
@@ -128,6 +180,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             try {
                 $db = $_SESSION['install'];
+                if (!preg_match('/^[0-9]{1,5}$/', (string) $db['db_port'])) {
+                    throw new InvalidArgumentException('Database port must be numeric.');
+                }
+
                 $dsn = "mysql:host={$db['db_host']};port={$db['db_port']};dbname={$db['db_name']};charset=utf8mb4";
                 $pdo = new PDO($dsn, $db['db_user'], $db['db_pass'], [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
@@ -239,6 +295,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Generate config file
                 $secret = bin2hex(random_bytes(32));
+                $app_url = function_exists('foxdesk_get_request_base_url')
+                    ? foxdesk_get_request_base_url($_SERVER['REQUEST_URI'] ?? '/install.php')
+                    : rtrim((isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . dirname($_SERVER['REQUEST_URI'] ?? '/install.php'), '/');
+
                 $config = "<?php
 /**
  * FoxDesk - Configuration
@@ -246,20 +306,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
  */
 
 // Database Configuration
-define('DB_HOST', '{$db['db_host']}');
-define('DB_PORT', '{$db['db_port']}');
-define('DB_NAME', '{$db['db_name']}');
-define('DB_USER', '{$db['db_user']}');
-define('DB_PASS', '{$db['db_pass']}');
+define('DB_HOST', " . var_export((string) $db['db_host'], true) . ");
+define('DB_PORT', " . var_export((string) $db['db_port'], true) . ");
+define('DB_NAME', " . var_export((string) $db['db_name'], true) . ");
+define('DB_USER', " . var_export((string) $db['db_user'], true) . ");
+define('DB_PASS', " . var_export((string) $db['db_pass'], true) . ");
 
 // Security
-define('SECRET_KEY', '{$secret}');
+define('SECRET_KEY', " . var_export($secret, true) . ");
 
 // Application Settings
-define('APP_NAME', '" . addslashes($app_name) . "');
-define('APP_URL', '" . addslashes(function_exists('foxdesk_get_request_base_url')
-                    ? foxdesk_get_request_base_url($_SERVER['REQUEST_URI'] ?? '/install.php')
-                    : rtrim((isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']), '/')) . "');
+define('APP_NAME', " . var_export($app_name, true) . ");
+define('APP_URL', " . var_export($app_url, true) . ");
 
 // Upload Settings
 define('UPLOAD_DIR', 'uploads/');

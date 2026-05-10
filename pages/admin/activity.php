@@ -160,14 +160,15 @@ require_once BASE_PATH . '/includes/header.php';
     .act-spark-bar:hover { opacity: 1; }
 </style>
 
-<div style="max-width: 1100px; margin: 0 auto; padding: 0 16px;">
+<div class="admin-legacy-page is-narrow">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <h2 class="text-lg font-bold" style="color: var(--text-primary);">
-            <?php echo get_icon('bar-chart', 'w-5 h-5 mr-1 inline-block opacity-60'); ?>
-            <?php echo e(t('User Activity')); ?>
-        </h2>
-        <div class="flex items-center gap-3">
+    <section class="admin-hero">
+        <div>
+            <p class="admin-eyebrow"><?php echo e(t('Activity')); ?></p>
+            <h2><?php echo e(t('User Activity')); ?></h2>
+            <p><?php echo e(t('Page views, access history, and tracking controls.')); ?></p>
+        </div>
+        <div class="admin-hero-actions">
             <!-- Range selector -->
             <div class="act-range">
                 <?php foreach ([1 => t('Today'), 7 => t('7 days'), 30 => t('30 days'), 90 => t('90 days')] as $d => $label): ?>
@@ -176,16 +177,16 @@ require_once BASE_PATH . '/includes/header.php';
                 <?php endforeach; ?>
             </div>
         </div>
-    </div>
+    </section>
 
     <!-- Tabs -->
-    <div class="act-tabs">
+    <div class="admin-tabs">
         <a href="<?php echo url('admin', ['section' => 'activity', 'range' => $range]); ?>"
-           class="act-tab <?php echo $tab === 'overview' ? 'active' : ''; ?>"><?php echo e(t('Overview')); ?></a>
+           class="admin-tab <?php echo $tab === 'overview' ? 'is-active' : ''; ?>"><?php echo e(t('Overview')); ?></a>
         <a href="<?php echo url('admin', ['section' => 'activity', 'tab' => 'log', 'range' => $range]); ?>"
-           class="act-tab <?php echo $tab === 'log' ? 'active' : ''; ?>"><?php echo e(t('Access Log')); ?></a>
+           class="admin-tab <?php echo $tab === 'log' ? 'is-active' : ''; ?>"><?php echo e(t('Access Log')); ?></a>
         <a href="<?php echo url('admin', ['section' => 'activity', 'tab' => 'manage']); ?>"
-           class="act-tab <?php echo $tab === 'manage' ? 'active' : ''; ?>"><?php echo e(t('Manage')); ?></a>
+           class="admin-tab <?php echo $tab === 'manage' ? 'is-active' : ''; ?>"><?php echo e(t('Manage')); ?></a>
     </div>
 
     <?php if ($tab === 'overview'): ?>

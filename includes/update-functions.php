@@ -306,6 +306,40 @@ function find_zip_entry(ZipArchive $zip, $relative_path): ?string
 }
 
 /**
+ * Validate all ZIP entry names before extraction.
+ */
+function validate_zip_entry_names(ZipArchive $zip): array
+{
+    $errors = [];
+
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $name = (string) $zip->getNameIndex($i);
+        $normalized = str_replace('\\', '/', $name);
+        $trimmed = trim($normalized, '/');
+
+        if ($trimmed === '' || str_contains($normalized, "\0")) {
+            $errors[] = t('Update package contains an invalid file path.');
+            continue;
+        }
+
+        if (str_starts_with($normalized, '/') || preg_match('/^[a-z]:\//i', $normalized) === 1) {
+            $errors[] = t('Update package contains an absolute file path: {path}', ['path' => $name]);
+            continue;
+        }
+
+        $segments = explode('/', $trimmed);
+        foreach ($segments as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                $errors[] = t('Update package contains an unsafe file path: {path}', ['path' => $name]);
+                break;
+            }
+        }
+    }
+
+    return array_values(array_unique($errors));
+}
+
+/**
  * Determine package root prefix from matched version.json path.
  */
 function get_package_root_prefix($version_entry): string
@@ -589,6 +623,14 @@ function validate_update_package($zip_path): array
     if ($zip->open($zip_path) !== true) {
         $result['errors'][] = t('Invalid ZIP file.');
         $result['error'] = t('Invalid ZIP file.');
+        return $result;
+    }
+
+    $path_errors = validate_zip_entry_names($zip);
+    if (!empty($path_errors)) {
+        $zip->close();
+        $result['errors'] = array_merge($result['errors'], $path_errors);
+        $result['error'] = implode(' | ', $path_errors);
         return $result;
     }
 
@@ -1233,10 +1275,10 @@ function rollback_update($backup_id, $restore_database = false): array
         'messages' => []
     ];
 
-    $backup_path = BACKUP_DIR . '/' . $backup_id;
+    $backup_path = resolve_backup_path($backup_id);
 
     // Check backup exists
-    if (!is_dir($backup_path)) {
+    if ($backup_path === null || !is_dir($backup_path)) {
         $result['errors'][] = t('Backup not found: {id}', ['id' => $backup_id]);
         return $result;
     }
@@ -1259,17 +1301,30 @@ function rollback_update($backup_id, $restore_database = false): array
         if (file_exists($files_zip)) {
             $zip = new ZipArchive();
             if ($zip->open($files_zip) === true) {
+                $path_errors = validate_zip_entry_names($zip);
+                if (!empty($path_errors)) {
+                    $zip->close();
+                    $result['errors'] = array_merge($result['errors'], $path_errors);
+                    throw new RuntimeException(t('Backup archive contains unsafe file paths.'));
+                }
+
                 // Extract to temp first
                 $temp_dir = sys_get_temp_dir() . '/foxdesk_restore_' . uniqid();
                 mkdir($temp_dir, 0755, true);
+                $backup_files = get_zip_file_manifest($zip);
                 $zip->extractTo($temp_dir);
                 $zip->close();
 
-                // Copy files
+                // Remove files added after the backup was taken, then copy
+                // the backed-up files over the remaining tree.
+                $removed = prune_files_not_in_manifest(BASE_PATH, $backup_files);
                 $copied = copy_directory($temp_dir, BASE_PATH);
                 delete_directory($temp_dir);
 
                 $result['messages'][] = t('{count} files restored.', ['count' => $copied]);
+                if ($removed > 0) {
+                    $result['messages'][] = t('{count} files added after the backup were removed.', ['count' => $removed]);
+                }
             } else {
                 $result['errors'][] = t('Failed to open backup archive.');
             }
@@ -1681,6 +1736,73 @@ function copy_directory($source, $dest, array $exclude_top_level = []): int
     }
 
     return $count;
+}
+
+/**
+ * Build a normalized manifest of file entries in a ZIP archive.
+ */
+function get_zip_file_manifest(ZipArchive $zip): array
+{
+    $files = [];
+
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $name = $zip->getNameIndex($i);
+        if (!is_string($name)) {
+            continue;
+        }
+
+        $name = trim(str_replace('\\', '/', $name), '/');
+        if ($name === '' || str_ends_with($name, '/')) {
+            continue;
+        }
+
+        $files[$name] = true;
+    }
+
+    return $files;
+}
+
+/**
+ * Remove app-managed files that are not present in the backup manifest.
+ */
+function prune_files_not_in_manifest(string $base_path, array $manifest): int
+{
+    $removed = 0;
+    $exclude = ['backups', 'uploads', '.git', 'node_modules', 'vendor', 'build'];
+    $exclude_lookup = array_fill_keys($exclude, true);
+
+    if (!is_dir($base_path)) {
+        return 0;
+    }
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($base_path, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+
+    foreach ($iterator as $item) {
+        $relative = str_replace('\\', '/', substr($item->getPathname(), strlen($base_path) + 1));
+        $top_level = strtok($relative, '/');
+        if ($top_level !== false && isset($exclude_lookup[$top_level])) {
+            continue;
+        }
+
+        if ($item->isFile() && !isset($manifest[$relative])) {
+            if (@unlink($item->getPathname())) {
+                $removed++;
+            }
+            continue;
+        }
+
+        if ($item->isDir()) {
+            $children = @scandir($item->getPathname());
+            if (is_array($children) && count($children) === 2) {
+                @rmdir($item->getPathname());
+            }
+        }
+    }
+
+    return $removed;
 }
 
 /**

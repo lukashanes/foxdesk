@@ -308,16 +308,16 @@ $page_header_subtitle = t('Manage organizations and visibility.');
 include BASE_PATH . '/includes/components/page-header.php';
 ?>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+<div class="admin-two-column">
     <!-- Organizations List -->
-    <div class="lg:col-span-2">
-    <div class="card overflow-hidden">
+    <div class="admin-main-column">
+    <div class="admin-list-card">
         <div class="px-6 py-3 border-b flex items-center justify-between">
             <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Organization list')); ?></h3>
             <span class="text-sm" style="color: var(--text-muted);"><?php echo e(t('Click row to expand members')); ?></span>
         </div>
 
-        <div class="px-6 py-3 border-b" style="background: var(--surface-secondary);">
+        <div class="admin-filter-bar">
             <form method="get" class="flex flex-wrap items-end gap-3">
                 <input type="hidden" name="page" value="admin">
                 <input type="hidden" name="section" value="organizations">
@@ -522,6 +522,7 @@ include BASE_PATH . '/includes/components/page-header.php';
     </div>
 
     <!-- Add Organization Form (Sidebar) -->
+    <div class="admin-side-column">
     <div class="card card-body h-fit">
         <h3 class="font-semibold mb-4" style="color: var(--text-primary);"><?php echo e(t('Add organization')); ?></h3>
 
@@ -580,6 +581,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                 <?php echo e(t('Add organization')); ?>
             </button>
         </form>
+    </div>
     </div>
 </div>
 

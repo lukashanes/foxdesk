@@ -1,7 +1,7 @@
 <?php
 /**
  * Public Report View - Client-Facing Time Report
- * Accessible via shareable link with UUID token
+ * Accessible via shareable link token
  */
 
 // Increase timeout for data-heavy reports
@@ -10,7 +10,7 @@ set_time_limit(60);
 // Enable output buffering to prevent partial output
 ob_start();
 
-// Get report UUID from token parameter
+// Get report share token parameter
 $token = $_GET['token'] ?? '';
 
 if (empty($token)) {
@@ -19,7 +19,7 @@ if (empty($token)) {
 }
 
 // Fetch report template
-$template = get_report_template_by_uuid($token);
+$template = get_report_template_by_public_token($token);
 
 if (!$template) {
     http_response_code(404);

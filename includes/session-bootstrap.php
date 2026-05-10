@@ -22,6 +22,10 @@ if (!function_exists('foxdesk_request_is_https')) {
             return true;
         }
 
+        if (!foxdesk_request_uses_trusted_proxy()) {
+            return false;
+        }
+
         $forwarded_proto = strtolower(trim((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
         if ($forwarded_proto === 'https') {
             return true;
@@ -41,6 +45,36 @@ if (!function_exists('foxdesk_request_is_https')) {
     }
 }
 
+if (!function_exists('foxdesk_request_uses_trusted_proxy')) {
+    function foxdesk_request_uses_trusted_proxy(): bool
+    {
+        if (defined('TRUST_PROXY') && TRUST_PROXY) {
+            return true;
+        }
+
+        $remote = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+        if ($remote === '') {
+            return false;
+        }
+
+        if ($remote === '127.0.0.1' || $remote === '::1' || str_starts_with($remote, '10.') || str_starts_with($remote, '192.168.')) {
+            return true;
+        }
+
+        if (preg_match('/^172\.(1[6-9]|2[0-9]|3[0-1])\./', $remote) === 1) {
+            return true;
+        }
+
+        $trusted = trim((string) getenv('FOXDESK_TRUSTED_PROXIES'));
+        if ($trusted === '') {
+            return false;
+        }
+
+        $proxies = array_filter(array_map('trim', explode(',', $trusted)));
+        return in_array($remote, $proxies, true);
+    }
+}
+
 if (!function_exists('foxdesk_request_scheme')) {
     function foxdesk_request_scheme(): string
     {
@@ -51,15 +85,42 @@ if (!function_exists('foxdesk_request_scheme')) {
 if (!function_exists('foxdesk_request_host')) {
     function foxdesk_request_host(): string
     {
-        $forwarded_host = trim((string) ($_SERVER['HTTP_X_FORWARDED_HOST'] ?? ''));
+        $forwarded_host = foxdesk_request_uses_trusted_proxy()
+            ? trim((string) ($_SERVER['HTTP_X_FORWARDED_HOST'] ?? ''))
+            : '';
         if ($forwarded_host !== '') {
             $parts = array_values(array_filter(array_map('trim', explode(',', $forwarded_host))));
             if (!empty($parts[0])) {
-                return $parts[0];
+                return foxdesk_sanitize_request_host($parts[0]);
             }
         }
 
-        return $_SERVER['HTTP_HOST'] ?? 'localhost';
+        return foxdesk_sanitize_request_host($_SERVER['HTTP_HOST'] ?? 'localhost');
+    }
+}
+
+if (!function_exists('foxdesk_sanitize_request_host')) {
+    function foxdesk_sanitize_request_host(string $host): string
+    {
+        $host = trim($host);
+        if ($host === '') {
+            return 'localhost';
+        }
+
+        $host = preg_replace('/[\r\n\t\0].*/', '', $host);
+        if (strpos($host, ',') !== false) {
+            $host = trim(explode(',', $host)[0]);
+        }
+
+        if (preg_match('/^\[[0-9a-f:.]+\](?::[0-9]{1,5})?$/i', $host) === 1) {
+            return $host;
+        }
+
+        if (preg_match('/^[a-z0-9.-]+(?::[0-9]{1,5})?$/i', $host) === 1) {
+            return $host;
+        }
+
+        return 'localhost';
     }
 }
 

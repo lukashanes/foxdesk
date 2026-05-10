@@ -813,16 +813,14 @@ include BASE_PATH . '/includes/components/page-header.php';
 
 <?php if ($ai_agent_col_exists): ?>
         <!-- Tab navigation -->
-        <div class="flex flex-wrap gap-0.5 mb-3 p-0.5 rounded-lg w-fit" style="background: var(--surface-secondary);">
+        <div class="admin-tabs mb-3">
             <a href="<?php echo url('admin', ['section' => 'users']); ?>"
-                class="px-4 py-1.5 rounded-md text-sm font-medium transition-colors <?php echo $tab === 'users' ? 'shadow text-blue-600 dark:text-blue-400' : ''; ?>"
-                style="<?php echo $tab === 'users' ? 'background: var(--bg-primary);' : 'color: var(--text-secondary);'; ?>">
-                <?php echo get_icon('users', 'w-4 h-4 inline mr-1'); ?>         <?php echo e(t('Users')); ?>
+                class="admin-tab <?php echo $tab === 'users' ? 'is-active' : ''; ?>">
+                <?php echo get_icon('users', 'w-3.5 h-3.5'); ?><span><?php echo e(t('Users')); ?></span>
             </a>
             <a href="<?php echo url('admin', ['section' => 'users', 'tab' => 'ai_agents']); ?>"
-                class="px-4 py-1.5 rounded-md text-sm font-medium transition-colors <?php echo $tab === 'ai_agents' ? 'shadow text-purple-600 dark:text-purple-400' : ''; ?>"
-                style="<?php echo $tab === 'ai_agents' ? 'background: var(--bg-primary);' : 'color: var(--text-secondary);'; ?>">
-                <?php echo get_icon('bot', 'w-4 h-4 inline mr-1'); ?>         <?php echo e(t('AI agents')); ?>
+                class="admin-tab <?php echo $tab === 'ai_agents' ? 'is-active' : ''; ?>">
+                <?php echo get_icon('magic', 'w-3.5 h-3.5'); ?><span><?php echo e(t('AI agents')); ?></span>
             </a>
         </div>
 <?php endif; ?>
@@ -849,10 +847,10 @@ include BASE_PATH . '/includes/components/page-header.php';
                 </div>
         <?php endif; ?>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div class="admin-two-column">
             <!-- AI Agents List -->
-            <div class="lg:col-span-2">
-                <div class="card overflow-hidden">
+            <div class="admin-main-column">
+                <div class="admin-list-card">
                     <div class="card-header">
                         <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('AI agents')); ?>
                             (<?php echo count($ai_agents); ?>)</h3>
@@ -972,7 +970,7 @@ include BASE_PATH . '/includes/components/page-header.php';
             </div>
 
             <!-- Add AI Agent Form -->
-            <div>
+            <div class="admin-side-column">
                 <div class="card card-body">
                     <h3 class="font-semibold mb-4" style="color: var(--text-primary);"><?php echo e(t('Add AI agent')); ?></h3>
                     <form method="post" class="space-y-4">
@@ -1162,16 +1160,16 @@ include BASE_PATH . '/includes/components/page-header.php';
         <!-- USERS TAB (existing) -->
         <!-- ============================================= -->
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div class="admin-two-column">
             <!-- Users List -->
-            <div class="lg:col-span-2">
-                <div class="card overflow-hidden">
+            <div class="admin-main-column">
+                <div class="admin-list-card">
                     <div class="card-header">
                         <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Users')); ?>
                             (<?php echo count($users); ?>)</h3>
                     </div>
 
-                    <div class="card-header" style="background: var(--surface-secondary);">
+                    <div class="admin-filter-bar">
                         <form method="get" class="flex flex-wrap items-end gap-3">
                             <input type="hidden" name="page" value="admin">
                             <input type="hidden" name="section" value="users">
@@ -1367,7 +1365,8 @@ include BASE_PATH . '/includes/components/page-header.php';
                                             <td class="px-4 py-2.5 text-right">
                                                 <div class="flex items-center justify-end gap-1 relative z-10">
                                                     <?php if ($u['id'] != $_SESSION['user_id'] && (int) ($u['is_active'] ?? 0) === 1): ?>
-                                                            <form method="get" action="index.php" class="inline">
+                                                            <form method="post" action="index.php?page=impersonate" class="inline">
+                                                                <?php echo csrf_field(); ?>
                                                                 <input type="hidden" name="page" value="impersonate">
                                                                 <input type="hidden" name="user_id" value="<?php echo $u['id']; ?>">
                                                                 <button type="submit"
@@ -1417,7 +1416,7 @@ include BASE_PATH . '/includes/components/page-header.php';
             </div>
 
             <!-- Add New User -->
-            <div>
+            <div class="admin-side-column">
                 <div class="card card-body">
                     <h3 class="font-semibold mb-4" style="color: var(--text-primary);"><?php echo e(t('Add user')); ?></h3>
 
