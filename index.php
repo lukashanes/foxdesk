@@ -15,7 +15,7 @@ define('REMEMBER_ME_DURATION', 30 * 86400); // 30 days
 
 require_once BASE_PATH . '/includes/session-bootstrap.php';
 
-define('APP_VERSION', '0.3.114');
+define('APP_VERSION', '0.3.115');
 
 // Check if installed
 if (!file_exists(BASE_PATH . '/config.php')) {
@@ -352,6 +352,9 @@ switch ($page) {
                 break;
             case 'activity':
                 require_once BASE_PATH . '/pages/admin/activity.php';
+                break;
+            case 'migration-export':
+                require_once BASE_PATH . '/pages/admin/migration-export.php';
                 break;
             default:
                 require_once BASE_PATH . '/pages/admin/statuses.php';
