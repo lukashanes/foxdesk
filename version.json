@@ -1,8 +1,10 @@
 {
-    "version": "0.3.117",
+    "version": "0.3.118",
     "date": "2026-05-22",
     "min_php": "8.1",
     "changelog": [
+        "Incoming HTML emails now keep readable paragraphs, line breaks, lists, and table spacing when creating tickets or comments",
+        "Email ingest now prefers the better formatted HTML-derived body when plain text is collapsed into one line",
         "Existing admin dashboard layouts now show the Team widget so agent activity is discoverable after update",
         "Added missing translations for the new dashboard agent activity detail",
         "Added clickable Team dashboard agents with a detailed activity view",

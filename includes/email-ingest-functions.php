@@ -410,12 +410,10 @@ function email_ingest_process_uid($imap, $uid, $cfg, $dry_run = false)
     }
 
     $message_payload = email_ingest_extract_message_payload($imap, $uid);
-    $body_text = trim($message_payload['text']);
+    $body_text = email_ingest_normalize_plain_text((string) $message_payload['text']);
     $body_html_raw = trim($message_payload['html']);
     $body_html = email_ingest_sanitize_html($body_html_raw);
-    if ($body_text === '' && $body_html !== '') {
-        $body_text = email_ingest_html_to_text($body_html);
-    }
+    $body_text = email_ingest_select_display_body($body_text, $body_html);
     if ($body_text === '') {
         $body_text = '(No content)';
     }
@@ -1711,10 +1709,24 @@ function email_ingest_sanitize_html($html)
     $clean = preg_replace('/<style\b[^>]*>(.*?)<\/style>/is', '', $clean);
     $clean = preg_replace('/\s*on\w+\s*=\s*(".*?"|\'.*?\'|[^\s>]+)/i', '', $clean);
     $clean = preg_replace('/\s*javascript:/i', '', $clean);
-    $allowed_tags = '<p><br><strong><b><em><i><u><s><ul><ol><li><a><blockquote><pre><code><div><span><h1><h2><h3><h4><h5><h6>';
+    $allowed_tags = '<p><br><strong><b><em><i><u><s><ul><ol><li><a><blockquote><pre><code><div><span><h1><h2><h3><h4><h5><h6><table><thead><tbody><tfoot><tr><td><th>';
     $clean = strip_tags($clean, $allowed_tags);
 
     return trim($clean);
+}
+
+/**
+ * Normalize plain-text mail bodies while preserving intentional line breaks.
+ */
+function email_ingest_normalize_plain_text($text)
+{
+    $text = html_entity_decode((string) $text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = preg_replace("/\r\n|\r/", "\n", $text);
+    $text = preg_replace("/[ \t]+\n/", "\n", $text);
+    $text = preg_replace("/\n[ \t]+/", "\n", $text);
+    $text = preg_replace("/[ \t]{2,}/", ' ', $text);
+    $text = preg_replace("/\n{3,}/", "\n\n", $text);
+    return trim($text);
 }
 
 /**
@@ -1722,10 +1734,47 @@ function email_ingest_sanitize_html($html)
  */
 function email_ingest_html_to_text($html)
 {
-    $text = html_entity_decode(strip_tags((string) $html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    $text = preg_replace("/\r\n|\r/", "\n", $text);
-    $text = preg_replace("/\n{3,}/", "\n\n", $text);
-    return trim($text);
+    $html = (string) $html;
+    if ($html === '') {
+        return '';
+    }
+
+    $html = preg_replace('/<(script|style|head)\b[^>]*>.*?<\/\1>/is', '', $html);
+    $html = preg_replace('/<\s*br\s*\/?>/i', "\n", $html);
+    $html = preg_replace('/<\/\s*(p|div|section|article|header|footer|blockquote|pre|h[1-6])\s*>/i', "\n\n", $html);
+    $html = preg_replace('/<\s*li\b[^>]*>/i', "\n- ", $html);
+    $html = preg_replace('/<\/\s*li\s*>/i', "\n", $html);
+    $html = preg_replace('/<\/\s*(ul|ol)\s*>/i', "\n", $html);
+    $html = preg_replace('/<\/\s*(tr|table)\s*>/i', "\n", $html);
+    $html = preg_replace('/<\/\s*t[dh]\s*>/i', " ", $html);
+    $html = preg_replace('/<\s*hr\s*\/?>/i', "\n---\n", $html);
+
+    return email_ingest_normalize_plain_text(strip_tags($html));
+}
+
+/**
+ * Pick the body variant that will read best in ticket descriptions/comments.
+ */
+function email_ingest_select_display_body($plain_text, $html)
+{
+    $plain_text = email_ingest_normalize_plain_text($plain_text);
+    $html_text = email_ingest_html_to_text($html);
+
+    if ($plain_text === '') {
+        return $html_text;
+    }
+    if ($html_text === '') {
+        return $plain_text;
+    }
+
+    $plain_breaks = substr_count($plain_text, "\n");
+    $html_breaks = substr_count($html_text, "\n");
+
+    if ($html_breaks > $plain_breaks + 1) {
+        return $html_text;
+    }
+
+    return $plain_text;
 }
 
 /**
@@ -1784,5 +1833,4 @@ function email_ingest_try_move($imap, $uid, $cfg, $folder)
     imap_setflag_full($imap, (string) $uid, '\\Seen', ST_UID);
     return false;
 }
-
 
