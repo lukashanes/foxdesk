@@ -1,11 +1,12 @@
 {
-    "version": "0.3.115",
-    "date": "2026-05-16",
+    "version": "0.3.116",
+    "date": "2026-05-22",
     "min_php": "8.1",
     "changelog": [
+        "Added clickable Team dashboard agents with a detailed activity view",
+        "Agent activity now shows recent ticket work, when it happened, source, and tracked duration",
+        "Team time is visible by default for admins so activity details are easier to discover",
         "Added a self-hosted to FoxDesk Cloud migration export page for admins",
-        "Added migration package generation with users, clients, tickets, reports, settings, and attachments",
-        "Added admin navigation entry for Cloud migration so transfer to SaaS can start",
         "Admin pages now use a cleaner, lighter layout across system settings, users, clients, organizations, reports, recurring tasks, and activity",
         "Installer recovery and force-install flows now require an explicit recovery token before dangerous actions are allowed",
         "Admin impersonation now requires POST requests with CSRF protection, and GET impersonation attempts are rejected",

@@ -450,9 +450,8 @@ function get_dashboard_data($user, $tags = [])
     } catch (Exception $e) {
     }
 
-    // Clean default layout: essential widgets first, secondary available via Customize
-    //   Visible: overview → focus → my_time → due_week
-    //   Hidden (toggle via Customize): notifications, new_tickets, deadlines, team_time, completed, status_chart, timers
+    // Clean default layout: essential widgets first, secondary available via Customize.
+    // Admins see Team by default so agent activity is directly discoverable.
     if ($is_admin) {
         $default_order = ['overview', 'focus', 'my_time', 'due_week', 'notifications', 'new_tickets', 'deadlines', 'team_time', 'completed', 'status_chart', 'timers'];
     } elseif ($is_agent) {
@@ -490,10 +489,11 @@ function get_dashboard_data($user, $tags = [])
         $section_order = $dashboard_layout;
     } else {
         $section_order = $default_order;
-        // Clean default: hide secondary widgets for first-time users
-        // They see only: Overview → Focus (assigned tickets) → My Time → Due this week
-        if ($is_staff) {
-            $hidden_sections = ['notifications', 'new_tickets', 'deadlines', 'team_time', 'completed', 'status_chart', 'timers'];
+        // Clean default: hide secondary widgets for first-time users.
+        if ($is_admin) {
+            $hidden_sections = ['notifications', 'new_tickets', 'deadlines', 'completed', 'status_chart', 'timers'];
+        } elseif ($is_staff) {
+            $hidden_sections = ['notifications', 'new_tickets', 'deadlines', 'completed', 'status_chart', 'timers'];
         }
     }
 
