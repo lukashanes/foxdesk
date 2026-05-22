@@ -1197,6 +1197,11 @@ return [
     'due date' => 'Fälligkeitsdatum',
     'type' => 'Typ',
     'company' => 'Firma',
+    'Close' => 'Schließen',
+    'What' => 'Was',
+    'Time entry' => 'Zeiteintrag',
+    'No time entries in the last 30 days.' => 'Keine Zeiteinträge in den letzten 30 Tagen.',
+    'Agent was not found or is not available in this workspace.' => 'Der Agent wurde nicht gefunden oder ist in diesem Workspace nicht verfügbar.',
 
     // Link preview cards
     'Google Drive file' => 'Google Drive Datei',

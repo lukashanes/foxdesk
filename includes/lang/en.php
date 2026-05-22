@@ -1196,6 +1196,11 @@ return [
     'due date' => 'due date',
     'type' => 'type',
     'company' => 'company',
+    'Close' => 'Close',
+    'What' => 'What',
+    'Time entry' => 'Time entry',
+    'No time entries in the last 30 days.' => 'No time entries in the last 30 days.',
+    'Agent was not found or is not available in this workspace.' => 'Agent was not found or is not available in this workspace.',
 
     // Link preview cards
     'Google Drive file' => 'Google Drive file',

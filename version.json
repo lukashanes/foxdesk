@@ -1,8 +1,10 @@
 {
-    "version": "0.3.116",
+    "version": "0.3.117",
     "date": "2026-05-22",
     "min_php": "8.1",
     "changelog": [
+        "Existing admin dashboard layouts now show the Team widget so agent activity is discoverable after update",
+        "Added missing translations for the new dashboard agent activity detail",
         "Added clickable Team dashboard agents with a detailed activity view",
         "Agent activity now shows recent ticket work, when it happened, source, and tracked duration",
         "Team time is visible by default for admins so activity details are easier to discover",

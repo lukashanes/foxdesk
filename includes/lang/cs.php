@@ -1196,6 +1196,11 @@ return [
     'due date' => 'termín',
     'type' => 'typ',
     'company' => 'firma',
+    'Close' => 'Zavřít',
+    'What' => 'Co',
+    'Time entry' => 'Záznam času',
+    'No time entries in the last 30 days.' => 'Za posledních 30 dní nejsou žádné záznamy času.',
+    'Agent was not found or is not available in this workspace.' => 'Agent nebyl nalezen nebo není dostupný v tomto workspace.',
 
     // Link preview cards
     'Google Drive file' => 'Soubor Google Drive',

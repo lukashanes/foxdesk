@@ -523,6 +523,10 @@ function get_dashboard_data($user, $tags = [])
     $section_order = array_values(array_filter($section_order, fn($s) => !in_array($s, ['charts', 'pulse', 'time'], true)));
     $section_order = array_values(array_unique($section_order));
 
+    if ($is_admin && in_array('team_time', $section_order, true)) {
+        $hidden_sections = array_values(array_diff($hidden_sections, ['team_time']));
+    }
+
     foreach ($default_order as $s) {
         if (!in_array($s, $section_order, true))
             $section_order[] = $s;
