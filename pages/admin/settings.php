@@ -770,6 +770,7 @@ $imap_view = [
     'allow_unknown_senders' => $settings['imap_allow_unknown_senders'] ?? '0',
     'storage_base' => $settings['imap_storage_base'] ?? (defined('IMAP_STORAGE_BASE') ? (string) IMAP_STORAGE_BASE : 'storage/tickets'),
 ];
+$imap_extension_loaded = extension_loaded('imap') && function_exists('imap_open');
 
 if ($tab === 'email') {
     require_once BASE_PATH . '/includes/email-ingest-functions.php';
@@ -1225,6 +1226,20 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <p class="text-xs ml-8 mt-1" style="color: var(--text-muted);">
                                 <?php echo e(t('When enabled, the system will automatically create tickets from incoming emails. Requires a cron job or background tasks to be active.')); ?>
                             </p>
+                            <?php if (!$imap_extension_loaded): ?>
+                                <div class="mt-4 rounded-lg border p-4 text-sm" style="border-color: rgba(217, 119, 6, 0.35); background: rgba(217, 119, 6, 0.08); color: var(--text-secondary);">
+                                    <div class="font-semibold mb-1" style="color: var(--text-primary);">
+                                        <?php echo e(t('PHP IMAP extension is not loaded.')); ?>
+                                    </div>
+                                    <p class="mb-2">
+                                        <?php echo e(t('Incoming email processing cannot run until the php-imap extension is installed and PHP is restarted.')); ?>
+                                    </p>
+                                    <code class="block text-xs p-2 rounded" style="background: var(--surface-secondary); color: var(--text-primary);">sudo apt install php-imap &amp;&amp; sudo systemctl restart apache2</code>
+                                    <p class="mt-2 text-xs" style="color: var(--text-muted);">
+                                        <?php echo e(t('On shared hosting, ask your provider to enable the PHP IMAP extension for this domain.')); ?>
+                                    </p>
+                                </div>
+                            <?php endif; ?>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
