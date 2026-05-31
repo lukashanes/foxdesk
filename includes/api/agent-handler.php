@@ -152,6 +152,7 @@ function api_agent_list_users()
         api_error('Forbidden — agent or admin role required', 403);
     }
 
+    $current = current_user();
     $role_filter = $_GET['role'] ?? '';
     if ($role_filter === 'user') {
         $users = get_clients();
@@ -160,10 +161,24 @@ function api_agent_list_users()
     }
 
     $exclude_ai = !empty($_GET['exclude_ai']);
+    $allowed_orgs = ($current && !is_admin()) ? get_user_organization_ids((int) $current['id']) : [];
+    $permissions = ($current && !is_admin()) ? (get_user_permissions((int) $current['id']) ?? []) : [];
+    $can_list_all = (($permissions['ticket_scope'] ?? 'own') === 'all');
     $out = [];
     foreach ($users as $u) {
         if (!empty($role_filter) && $role_filter !== 'user' && $u['role'] !== $role_filter) {
             continue;
+        }
+        if (!is_admin() && !$can_list_all) {
+            $role = (string) ($u['role'] ?? '');
+            $same_user = (int) ($u['id'] ?? 0) === (int) ($current['id'] ?? 0);
+            $is_staff = in_array($role, ['admin', 'agent'], true);
+            $user_orgs = get_user_organization_ids((int) ($u['id'] ?? 0));
+            $same_org = !empty(array_intersect($allowed_orgs, $user_orgs));
+
+            if (!$same_user && !$is_staff && !$same_org) {
+                continue;
+            }
         }
         $is_ai = !empty($u['is_ai_agent']);
         if ($exclude_ai && $is_ai) {
@@ -203,21 +218,40 @@ function api_agent_create_ticket()
     }
 
     $user = current_user();
+    $owner_id = !empty($input['user_id']) ? (int) $input['user_id'] : (int) $user['id'];
+    $owner = get_user($owner_id);
+    if (!$owner || !can_user_create_ticket_for($owner, $user)) {
+        api_error('Forbidden — invalid ticket owner for this token', 403);
+    }
+
     $data = [
         'title' => trim($input['title']),
         'description' => $input['description'] ?? '',
-        'user_id' => !empty($input['user_id']) ? (int) $input['user_id'] : $user['id'],
+        'user_id' => $owner_id,
         'type' => $input['type'] ?? 'general',
     ];
 
     if (!empty($input['status_id'])) {
+        if (!get_status((int) $input['status_id'])) {
+            api_error('Status not found', 404);
+        }
         $data['status_id'] = (int) $input['status_id'];
     }
     if (!empty($input['priority_id'])) {
+        if (!get_priority((int) $input['priority_id'])) {
+            api_error('Priority not found', 404);
+        }
         $data['priority_id'] = (int) $input['priority_id'];
     }
     if (array_key_exists('organization_id', $input)) {
-        $data['organization_id'] = $input['organization_id'] ? (int) $input['organization_id'] : null;
+        $organization_id = $input['organization_id'] ? (int) $input['organization_id'] : null;
+        if ($organization_id !== null) {
+            $org = function_exists('get_organization') ? get_organization($organization_id) : null;
+            if (!$org || !can_user_use_organization($organization_id, $user)) {
+                api_error('Forbidden — invalid organization for this token', 403);
+            }
+        }
+        $data['organization_id'] = $organization_id;
     }
     if (!empty($input['due_date'])) {
         $normalized_due_date = normalize_due_date_input($input['due_date']);
@@ -227,9 +261,15 @@ function api_agent_create_ticket()
         $data['due_date'] = $normalized_due_date;
     }
     if (!empty($input['tags'])) {
-        $data['tags'] = $input['tags'];
+        $data['tags'] = function_exists('normalize_ticket_tags')
+            ? normalize_ticket_tags((string) $input['tags'])
+            : (string) $input['tags'];
     }
     if (!empty($input['assignee_id'])) {
+        $assignee = get_user((int) $input['assignee_id']);
+        if (!$assignee || !can_user_assign_to_staff($assignee, $user)) {
+            api_error('Forbidden — invalid assignee for this token', 403);
+        }
         $data['assignee_id'] = (int) $input['assignee_id'];
     }
 

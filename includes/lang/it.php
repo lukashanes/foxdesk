@@ -1197,6 +1197,11 @@ return [
     'due date' => 'scadenza',
     'type' => 'tipo',
     'company' => 'azienda',
+    'Close' => 'Chiudi',
+    'What' => 'Cosa',
+    'Time entry' => 'Voce di tempo',
+    'No time entries in the last 30 days.' => 'Nessuna voce di tempo negli ultimi 30 giorni.',
+    'Agent was not found or is not available in this workspace.' => 'Agente non trovato o non disponibile in questo workspace.',
 
     // Link preview cards
     'Google Drive file' => 'File Google Drive',

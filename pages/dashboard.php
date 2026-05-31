@@ -37,6 +37,95 @@ extract($dashboard_data);
 // Max items displayed per widget list (default 5). "View all" shown when exceeded.
 $db_list_limit = 5;
 
+$selected_agent_id = $is_admin ? max(0, (int) ($_GET['agent_id'] ?? 0)) : 0;
+$selected_agent = null;
+$selected_agent_totals = ['today' => 0, 'week' => 0, 'month' => 0];
+$selected_agent_entries = [];
+
+if ($selected_agent_id > 0 && function_exists('ticket_time_table_exists') && ticket_time_table_exists()) {
+    $tenant_id = function_exists('current_tenant_id') ? (int) current_tenant_id() : 0;
+    $user_tenant_where = '';
+    $user_params = [$selected_agent_id];
+    if ($tenant_id > 0 && function_exists('column_exists') && column_exists('users', 'tenant_id')) {
+        $user_tenant_where = ' AND (u.tenant_id = ? OR u.tenant_id IS NULL)';
+        $user_params[] = $tenant_id;
+    }
+
+    $selected_agent = db_fetch_one("
+        SELECT u.id, u.first_name, u.last_name, u.email, u.role, u.avatar
+        FROM users u
+        WHERE u.id = ?
+          AND u.role IN ('agent', 'admin')
+          AND u.is_active = 1
+          AND u.deleted_at IS NULL
+          {$user_tenant_where}
+        LIMIT 1
+    ", $user_params);
+
+    if ($selected_agent) {
+        $dur_expr = function_exists('sql_timer_duration_minutes') ? sql_timer_duration_minutes('tte.') : 'tte.duration_minutes';
+        $ticket_tenant_where = '';
+        $ticket_params = [$selected_agent_id];
+        if ($tenant_id > 0 && function_exists('column_exists') && column_exists('tickets', 'tenant_id')) {
+            $ticket_tenant_where = ' AND (t.tenant_id = ? OR t.tenant_id IS NULL)';
+            $ticket_params[] = $tenant_id;
+        }
+
+        $selected_agent_entries = db_fetch_all("
+            SELECT
+                tte.id,
+                tte.ticket_id,
+                tte.started_at,
+                tte.ended_at,
+                tte.duration_minutes,
+                tte.summary,
+                tte.is_billable,
+                " . (function_exists('time_entry_source_column_exists') && time_entry_source_column_exists() ? 'tte.source' : "'manual' AS source") . ",
+                {$dur_expr} AS actual_minutes,
+                t.title AS ticket_title,
+                t.hash AS ticket_hash,
+                s.name AS status_name
+            FROM ticket_time_entries tte
+            JOIN tickets t ON t.id = tte.ticket_id
+            LEFT JOIN statuses s ON s.id = t.status_id
+            WHERE tte.user_id = ?
+              AND tte.started_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+              {$ticket_tenant_where}
+            ORDER BY tte.started_at DESC
+            LIMIT 20
+        ", $ticket_params);
+
+        $week_start = date('Y-m-d 00:00:00', strtotime('monday this week'));
+        $week_end = date('Y-m-d 23:59:59', strtotime('sunday this week'));
+        $month_start = date('Y-m-01 00:00:00');
+        $month_end = date('Y-m-t 23:59:59');
+        $totals_params = [$week_start, $week_end, $month_start, $month_end, $selected_agent_id];
+        if ($tenant_id > 0 && function_exists('column_exists') && column_exists('tickets', 'tenant_id')) {
+            $totals_tenant_where = ' AND (t.tenant_id = ? OR t.tenant_id IS NULL)';
+            $totals_params[] = $tenant_id;
+        } else {
+            $totals_tenant_where = '';
+        }
+
+        $totals = db_fetch_one("
+            SELECT
+                SUM(CASE WHEN DATE(tte.started_at) = CURDATE() THEN ({$dur_expr}) ELSE 0 END) AS today,
+                SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_expr}) ELSE 0 END) AS week,
+                SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_expr}) ELSE 0 END) AS month
+            FROM ticket_time_entries tte
+            JOIN tickets t ON t.id = tte.ticket_id
+            WHERE tte.user_id = ?
+              {$totals_tenant_where}
+        ", $totals_params);
+
+        $selected_agent_totals = [
+            'today' => (int) ($totals['today'] ?? 0),
+            'week' => (int) ($totals['week'] ?? 0),
+            'month' => (int) ($totals['month'] ?? 0),
+        ];
+    }
+}
+
 require_once BASE_PATH . '/includes/header.php';
 ?>
 
@@ -783,6 +872,119 @@ require_once BASE_PATH . '/includes/header.php';
             border-left-color: var(--border-light, #e2e8f0);
         }
     }
+    .db-agent-activity {
+        border: 1px solid var(--border-light);
+        border-radius: 8px;
+        background: var(--surface-primary);
+        margin-bottom: 16px;
+        overflow: hidden;
+    }
+    .db-agent-activity__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px;
+        border-bottom: 1px solid var(--border-light);
+    }
+    .db-agent-activity__person {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+    .db-agent-activity__title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    .db-agent-activity__meta {
+        margin-top: 2px;
+        font-size: .75rem;
+        color: var(--text-muted);
+    }
+    .db-agent-activity__totals {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(90px, 1fr));
+        gap: 8px;
+        min-width: 300px;
+    }
+    .db-agent-activity__total {
+        padding: 9px 10px;
+        border: 1px solid var(--border-light);
+        border-radius: 8px;
+        background: var(--surface-secondary);
+    }
+    .db-agent-activity__total span {
+        display: block;
+        font-size: .68rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+    .db-agent-activity__total strong {
+        display: block;
+        margin-top: 3px;
+        font-size: .95rem;
+        color: var(--text-primary);
+    }
+    .db-agent-activity__table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .db-agent-activity__table th,
+    .db-agent-activity__table td {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border-light);
+        text-align: left;
+        vertical-align: top;
+        font-size: .8125rem;
+    }
+    .db-agent-activity__table th {
+        color: var(--text-muted);
+        font-size: .68rem;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        font-weight: 700;
+    }
+    .db-agent-activity__table tr:last-child td {
+        border-bottom: 0;
+    }
+    .db-agent-activity__ticket {
+        color: var(--text-primary);
+        font-weight: 700;
+        text-decoration: none;
+    }
+    .db-agent-activity__ticket:hover,
+    .db-team-name:hover {
+        color: var(--primary);
+        text-decoration: underline;
+    }
+    .db-agent-activity__summary {
+        margin-top: 2px;
+        color: var(--text-muted);
+        font-size: .75rem;
+        line-height: 1.35;
+    }
+    .db-agent-activity__empty {
+        padding: 16px;
+        color: var(--text-muted);
+        font-size: .875rem;
+    }
+    @media (max-width: 720px) {
+        .db-agent-activity__head {
+            display: grid;
+        }
+        .db-agent-activity__totals {
+            grid-template-columns: 1fr;
+            min-width: 0;
+        }
+        .db-agent-activity__table {
+            min-width: 720px;
+        }
+    }
 </style>
 
 <div class="flex items-center justify-between mb-3">
@@ -858,6 +1060,89 @@ require_once BASE_PATH . '/includes/header.php';
             </a>
         </div>
     </div>
+<?php endif; ?>
+
+<?php if ($is_admin && $selected_agent_id > 0): ?>
+    <section class="db-agent-activity" id="agent-activity">
+        <?php if ($selected_agent): ?>
+            <?php
+            $agent_name = trim((string) (($selected_agent['first_name'] ?? '') . ' ' . ($selected_agent['last_name'] ?? '')));
+            $agent_name = $agent_name !== '' ? $agent_name : (string) ($selected_agent['email'] ?? t('Agent'));
+            $agent_initials = mb_substr((string) ($selected_agent['first_name'] ?? $agent_name), 0, 1) . mb_substr((string) ($selected_agent['last_name'] ?? ''), 0, 1);
+            $agent_initials = trim($agent_initials) !== '' ? $agent_initials : mb_substr($agent_name, 0, 1);
+            ?>
+            <div class="db-agent-activity__head">
+                <div class="db-agent-activity__person">
+                    <?php if (!empty($selected_agent['avatar'])): ?>
+                        <img src="<?php echo e(upload_url($selected_agent['avatar'])); ?>" alt="" class="db-avatar object-cover">
+                    <?php else: ?>
+                        <div class="db-avatar"><?php echo e($agent_initials); ?></div>
+                    <?php endif; ?>
+                    <div class="min-w-0">
+                        <h2 class="db-agent-activity__title"><?php echo e($agent_name); ?></h2>
+                        <div class="db-agent-activity__meta">
+                            <?php echo e($selected_agent['email'] ?? ''); ?> · <?php echo e(ucfirst((string) ($selected_agent['role'] ?? 'agent'))); ?>
+                            · <a href="<?php echo e(url('dashboard')); ?>" style="color: var(--primary);"><?php echo e(t('Close')); ?></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="db-agent-activity__totals">
+                    <div class="db-agent-activity__total"><span><?php echo e(t('Today')); ?></span><strong><?php echo format_duration_minutes($selected_agent_totals['today']); ?></strong></div>
+                    <div class="db-agent-activity__total"><span><?php echo e(t('This week')); ?></span><strong><?php echo format_duration_minutes($selected_agent_totals['week']); ?></strong></div>
+                    <div class="db-agent-activity__total"><span><?php echo e(t('This Month')); ?></span><strong><?php echo format_duration_minutes($selected_agent_totals['month']); ?></strong></div>
+                </div>
+            </div>
+            <?php if (!empty($selected_agent_entries)): ?>
+                <div class="overflow-x-auto">
+                    <table class="db-agent-activity__table">
+                        <thead>
+                            <tr>
+                                <th><?php echo e(t('What')); ?></th>
+                                <th><?php echo e(t('Time')); ?></th>
+                                <th><?php echo e(t('When')); ?></th>
+                                <th><?php echo e(t('Source')); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($selected_agent_entries as $entry): ?>
+                                <?php
+                                $started_ts = strtotime((string) ($entry['started_at'] ?? ''));
+                                $ended_ts = !empty($entry['ended_at']) ? strtotime((string) $entry['ended_at']) : null;
+                                $ticket_link = ticket_url(['id' => (int) $entry['ticket_id'], 'hash' => $entry['ticket_hash'] ?? null]);
+                                $summary = trim((string) ($entry['summary'] ?? ''));
+                                ?>
+                                <tr>
+                                    <td>
+                                        <a class="db-agent-activity__ticket" href="<?php echo e($ticket_link); ?>">
+                                            <?php echo e($entry['ticket_title'] ?? ('#' . (int) $entry['ticket_id'])); ?>
+                                        </a>
+                                        <div class="db-agent-activity__summary">
+                                            <?php echo e($summary !== '' ? $summary : ($entry['status_name'] ?? t('Time entry'))); ?>
+                                        </div>
+                                    </td>
+                                    <td><?php echo format_duration_minutes((int) ($entry['actual_minutes'] ?? $entry['duration_minutes'] ?? 0)); ?></td>
+                                    <td>
+                                        <?php echo $started_ts ? e(date('d.m.Y H:i', $started_ts)) : '—'; ?>
+                                        <div class="db-agent-activity__summary">
+                                            <?php echo $ended_ts ? e(date('H:i', $ended_ts)) : e(t('Running')); ?>
+                                        </div>
+                                    </td>
+                                    <td><?php echo e(ucfirst((string) ($entry['source'] ?? 'manual'))); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div class="db-agent-activity__empty"><?php echo e(t('No time entries in the last 30 days.')); ?></div>
+            <?php endif; ?>
+        <?php else: ?>
+            <div class="db-agent-activity__empty">
+                <?php echo e(t('Agent was not found or is not available in this workspace.')); ?>
+                <a href="<?php echo e(url('dashboard')); ?>" style="color: var(--primary);"><?php echo e(t('Back to dashboard')); ?></a>
+            </div>
+        <?php endif; ?>
+    </section>
 <?php endif; ?>
 
 
@@ -1289,7 +1574,7 @@ require_once BASE_PATH . '/includes/header.php';
                                         $m_week = (int) ($member['week_mins'] ?? 0);
                                         $m_month = (int) ($member['month_mins'] ?? 0);
                                         $role_class = $member['role'] === 'admin' ? 'db-role-badge--admin' : 'db-role-badge--agent';
-                                        $member_link = url('admin', ['section' => 'reports']);
+                                        $member_link = url('dashboard', ['agent_id' => (int) $member['id']]) . '#agent-activity';
                                         ?>
                                         <tr>
                                             <td class="db-avatar-cell">

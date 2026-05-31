@@ -1197,6 +1197,11 @@ return [
     'due date' => 'fecha límite',
     'type' => 'tipo',
     'company' => 'empresa',
+    'Close' => 'Cerrar',
+    'What' => 'Qué',
+    'Time entry' => 'Entrada de tiempo',
+    'No time entries in the last 30 days.' => 'No hay entradas de tiempo en los últimos 30 días.',
+    'Agent was not found or is not available in this workspace.' => 'No se encontró el agente o no está disponible en este espacio de trabajo.',
 
     // Link preview cards
     'Google Drive file' => 'Archivo de Google Drive',

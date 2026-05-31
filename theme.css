@@ -3713,29 +3713,26 @@ opacity: 1;
 .workflow-grid {
 display: grid;
 grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-gap: 1.5rem;
+gap: 1rem;
 margin-bottom: 1rem;
 }
 .workflow-card {
 display: flex;
 flex-direction: column;
 min-height: 500px;
-border-radius: var(--radius-xl);
+border-radius: 8px;
 border: 1px solid var(--border-light);
 overflow: hidden;
-box-shadow: var(--shadow-md);
-transition: box-shadow 150ms ease, transform 150ms ease;
-}
-.workflow-card:hover {
-box-shadow: var(--shadow-lg);
-transform: translateY(-1px);
+background: var(--surface-primary);
 }
 .workflow-card-header {
-padding: 1rem;
+padding: 0.875rem 1rem;
 display: flex;
 flex-direction: column;
 gap: 0.25rem;
 flex-shrink: 0;
+background: var(--surface-primary);
+border-bottom: 1px solid var(--border-light);
 }
 .workflow-card-header span {
 display: flex;
