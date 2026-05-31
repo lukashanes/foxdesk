@@ -319,10 +319,13 @@ function get_report_time_entries($template) {
             te.cost_rate,
             te.is_manual,
             t.id as ticket_id,
+            t.organization_id,
             t.hash as ticket_number,
             t.title as ticket_title,
+            t.custom_billable_rate as ticket_custom_billable_rate,
             {$ticket_tags_select}
             tt.name as ticket_type,
+            o.billable_rate as org_billable_rate,
             u.first_name,
             u.last_name,
             u.cost_rate as user_cost_rate,
@@ -330,6 +333,7 @@ function get_report_time_entries($template) {
         FROM ticket_time_entries te
         INNER JOIN tickets t ON te.ticket_id = t.id
         LEFT JOIN ticket_types tt ON t.type = tt.id
+        LEFT JOIN organizations o ON t.organization_id = o.id
         LEFT JOIN users u ON te.user_id = u.id
         WHERE t.organization_id = ?
           AND DATE(te.started_at) >= ?
@@ -380,9 +384,8 @@ function get_report_time_entries($template) {
  */
 function get_report_entry_billable_rate(array $entry, array $template): float
 {
-    $template_rate = $template['custom_billable_rate'] ?? null;
-    if ($template_rate !== null && trim((string) $template_rate) !== '') {
-        return max(0, (float) str_replace(',', '.', trim((string) $template_rate)));
+    if (function_exists('get_time_entry_effective_billable_rate')) {
+        return get_time_entry_effective_billable_rate($entry, $template);
     }
 
     return (float) ($entry['billable_rate'] ?? 0);

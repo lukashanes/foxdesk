@@ -189,6 +189,24 @@ CREATE TABLE IF NOT EXISTS ticket_time_entries (
     INDEX idx_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Per-agent/client billable rate overrides for time reports
+CREATE TABLE IF NOT EXISTS agent_client_billable_rates (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    organization_id INT NOT NULL,
+    user_id INT NOT NULL,
+    billable_rate DECIMAL(10,2) NOT NULL DEFAULT 0,
+    notes TEXT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_agent_client_rate (organization_id, user_id),
+    INDEX idx_organization (organization_id),
+    INDEX idx_user (user_id),
+    INDEX idx_active (is_active),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Attachments table
 CREATE TABLE IF NOT EXISTS attachments (
     id INT AUTO_INCREMENT PRIMARY KEY,

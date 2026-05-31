@@ -55,6 +55,108 @@ function parse_optional_rate_value($value): ?float {
     return max(0, (float) $normalized);
 }
 
+function ensure_agent_client_billable_rates_table(): bool {
+    static $checked = false;
+    static $exists = false;
+
+    if ($checked) {
+        return $exists;
+    }
+
+    $checked = true;
+    if (table_exists('agent_client_billable_rates')) {
+        $exists = true;
+        return true;
+    }
+
+    try {
+        db_query("
+            CREATE TABLE IF NOT EXISTS agent_client_billable_rates (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                organization_id INT NOT NULL,
+                user_id INT NOT NULL,
+                billable_rate DECIMAL(10,2) NOT NULL DEFAULT 0,
+                notes TEXT NULL,
+                is_active TINYINT(1) NOT NULL DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uniq_agent_client_rate (organization_id, user_id),
+                INDEX idx_organization (organization_id),
+                INDEX idx_user (user_id),
+                INDEX idx_active (is_active)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    } catch (Throwable $e) {
+        // Keep the app usable on partially migrated installs.
+    }
+
+    $exists = table_exists('agent_client_billable_rates');
+    return $exists;
+}
+
+function get_agent_client_billable_rates(): array {
+    if (!ensure_agent_client_billable_rates_table()) {
+        return [];
+    }
+
+    return db_fetch_all(
+        "SELECT acr.*, o.name AS organization_name, u.first_name, u.last_name, u.email
+         FROM agent_client_billable_rates acr
+         JOIN organizations o ON acr.organization_id = o.id
+         JOIN users u ON acr.user_id = u.id
+         ORDER BY o.name, u.first_name, u.last_name, u.email"
+    );
+}
+
+function get_agent_client_billable_rate(int $organization_id, int $user_id): ?float {
+    if ($organization_id <= 0 || $user_id <= 0 || !ensure_agent_client_billable_rates_table()) {
+        return null;
+    }
+
+    $row = db_fetch_one(
+        "SELECT billable_rate
+         FROM agent_client_billable_rates
+         WHERE organization_id = ? AND user_id = ? AND is_active = 1
+         LIMIT 1",
+        [$organization_id, $user_id]
+    );
+
+    if (!$row || $row['billable_rate'] === null || $row['billable_rate'] === '') {
+        return null;
+    }
+
+    return max(0, (float) $row['billable_rate']);
+}
+
+function save_agent_client_billable_rate(int $organization_id, int $user_id, float $billable_rate, string $notes = ''): bool {
+    if ($organization_id <= 0 || $user_id <= 0 || !ensure_agent_client_billable_rates_table()) {
+        return false;
+    }
+
+    db_query(
+        "INSERT INTO agent_client_billable_rates
+            (organization_id, user_id, billable_rate, notes, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 1, NOW(), NOW())
+         ON DUPLICATE KEY UPDATE
+            billable_rate = VALUES(billable_rate),
+            notes = VALUES(notes),
+            is_active = 1,
+            updated_at = NOW()",
+        [$organization_id, $user_id, max(0, $billable_rate), trim($notes)]
+    );
+
+    return true;
+}
+
+function delete_agent_client_billable_rate(int $rate_id): bool {
+    if ($rate_id <= 0 || !ensure_agent_client_billable_rates_table()) {
+        return false;
+    }
+
+    db_query("DELETE FROM agent_client_billable_rates WHERE id = ?", [$rate_id]);
+    return true;
+}
+
 /**
  * Return the ticket-level custom billable rate override, if any.
  *
@@ -87,17 +189,24 @@ function get_ticket_custom_billable_rate($ticket_or_id): ?float {
  *
  * @param int|array $ticket_or_id
  */
-function get_ticket_effective_billable_rate($ticket_or_id): float {
+function get_ticket_effective_billable_rate($ticket_or_id, ?int $user_id = null): float {
     $custom_rate = get_ticket_custom_billable_rate($ticket_or_id);
     if ($custom_rate !== null) {
         return $custom_rate;
     }
 
+    $organization_id = 0;
     if (is_array($ticket_or_id)) {
         $ticket_id = (int) ($ticket_or_id['id'] ?? 0);
+        $organization_id = (int) ($ticket_or_id['organization_id'] ?? 0);
         if ($ticket_id <= 0) {
-            $organization_id = (int) ($ticket_or_id['organization_id'] ?? 0);
             if ($organization_id > 0) {
+                if ($user_id !== null) {
+                    $agent_rate = get_agent_client_billable_rate($organization_id, $user_id);
+                    if ($agent_rate !== null) {
+                        return $agent_rate;
+                    }
+                }
                 $org = get_organization($organization_id);
                 return (float) ($org['billable_rate'] ?? 0);
             }
@@ -112,14 +221,50 @@ function get_ticket_effective_billable_rate($ticket_or_id): float {
     }
 
     $row = db_fetch_one(
-        "SELECT o.billable_rate
+        "SELECT t.organization_id, o.billable_rate
          FROM tickets t
          LEFT JOIN organizations o ON t.organization_id = o.id
          WHERE t.id = ?",
         [$ticket_id]
     );
 
+    $organization_id = (int) ($row['organization_id'] ?? $organization_id);
+    if ($organization_id > 0 && $user_id !== null) {
+        $agent_rate = get_agent_client_billable_rate($organization_id, $user_id);
+        if ($agent_rate !== null) {
+            return $agent_rate;
+        }
+    }
+
     return (float) ($row['billable_rate'] ?? 0);
+}
+
+function get_time_entry_effective_billable_rate(array $entry, array $template = []): float {
+    $template_rate = $template['custom_billable_rate'] ?? null;
+    if ($template_rate !== null && trim((string) $template_rate) !== '') {
+        return max(0, (float) str_replace(',', '.', trim((string) $template_rate)));
+    }
+
+    $stored_rate = isset($entry['billable_rate']) ? (float) $entry['billable_rate'] : 0.0;
+    if ($stored_rate > 0) {
+        return $stored_rate;
+    }
+
+    $ticket_custom_billable_rate = $entry['ticket_custom_billable_rate'] ?? null;
+    if ($ticket_custom_billable_rate !== null && trim((string) $ticket_custom_billable_rate) !== '') {
+        return max(0, (float) $ticket_custom_billable_rate);
+    }
+
+    $organization_id = (int) ($entry['organization_id'] ?? 0);
+    $user_id = (int) ($entry['user_id'] ?? 0);
+    if ($organization_id > 0 && $user_id > 0) {
+        $agent_rate = get_agent_client_billable_rate($organization_id, $user_id);
+        if ($agent_rate !== null) {
+            return $agent_rate;
+        }
+    }
+
+    return (float) ($entry['org_billable_rate'] ?? 0);
 }
 
 /**
@@ -130,15 +275,13 @@ function sync_ticket_time_entry_billable_rates(int $ticket_id): bool {
         return false;
     }
 
-    $rate = get_ticket_effective_billable_rate($ticket_id);
-
     try {
-        db_query(
-            "UPDATE ticket_time_entries
-             SET billable_rate = ?
-             WHERE ticket_id = ? AND is_billable = 1",
-            [$rate, $ticket_id]
-        );
+        $entries = db_fetch_all("SELECT id, user_id FROM ticket_time_entries WHERE ticket_id = ? AND is_billable = 1", [$ticket_id]);
+        foreach ($entries as $entry) {
+            db_update('ticket_time_entries', [
+                'billable_rate' => get_ticket_effective_billable_rate($ticket_id, (int) $entry['user_id'])
+            ], 'id = ?', [(int) $entry['id']]);
+        }
         return true;
     } catch (Throwable $e) {
         return false;
@@ -211,11 +354,11 @@ function add_manual_time_entry($ticket_id, $user_id, $data) {
             $insert['source'] = $source;
         }
 
-        // Apply billable_rate: explicit > ticket override > org rate
+        // Apply billable_rate: explicit > ticket override > agent/client rate > org rate
         if (array_key_exists('billable_rate', $data) && $data['billable_rate'] !== null && $data['billable_rate'] !== '') {
             $insert['billable_rate'] = max(0, (float) $data['billable_rate']);
         } else {
-            $insert['billable_rate'] = get_ticket_effective_billable_rate($ticket_id);
+            $insert['billable_rate'] = get_ticket_effective_billable_rate($ticket_id, (int) $user_id);
         }
 
         // Apply cost_rate: explicit > user's cost_rate > 0
