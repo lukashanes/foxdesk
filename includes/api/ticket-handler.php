@@ -45,6 +45,21 @@ function api_get_active_staff_user_by_id($user_id) {
     return $user;
 }
 
+function api_require_staff_post() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        api_error('Method not allowed', 405);
+    }
+
+    require_csrf_token(true);
+
+    $user = current_user();
+    if (!$user || (!is_agent() && !is_admin())) {
+        api_error('Unauthorized', 401);
+    }
+
+    return $user;
+}
+
 function api_get_active_organization_by_id($organization_id) {
     $organization_id = (int)$organization_id;
     if ($organization_id <= 0) {
@@ -183,7 +198,7 @@ function api_start_timer() {
 
     // Get billing rates
     $ticket_billable_rate = function_exists('get_ticket_effective_billable_rate')
-        ? get_ticket_effective_billable_rate($ticket)
+        ? get_ticket_effective_billable_rate($ticket, (int) $user['id'])
         : 0.0;
     $user_cost_rate = (float)($user['cost_rate'] ?? 0);
 
@@ -219,12 +234,7 @@ function api_start_timer() {
  * Quick start — instantly create a ticket and start a timer
  */
 function api_quick_start() {
-    require_admin_post();
-
-    $user = current_user();
-    if (!$user || (!is_agent() && !is_admin())) {
-        api_error('Unauthorized', 401);
-    }
+    $user = api_require_staff_post();
 
     if (!ticket_time_table_exists()) {
         api_error(t('Time tracking is not available.'), 400);
@@ -249,7 +259,7 @@ function api_quick_start() {
     // Start timer (same logic as api_start_timer)
     $user_cost_rate = (float)($user['cost_rate'] ?? 0);
     $ticket_billable_rate = function_exists('get_ticket_effective_billable_rate')
-        ? get_ticket_effective_billable_rate($ticket)
+        ? get_ticket_effective_billable_rate($ticket, (int) $user['id'])
         : 0.0;
 
     db_insert('ticket_time_entries', [
@@ -878,7 +888,7 @@ function api_quick_log_time() {
 
     // Resolve billable / cost rates like the form handler does.
     $ticket_billable_rate = function_exists('get_ticket_effective_billable_rate')
-        ? get_ticket_effective_billable_rate($ticket)
+        ? get_ticket_effective_billable_rate($ticket, (int) $user['id'])
         : 0.0;
     $user_cost_rate = (float) ($user['cost_rate'] ?? 0);
 
@@ -944,9 +954,24 @@ function api_get_tags() {
         return;
     }
 
-    $rows = db_fetch_all(
-        "SELECT DISTINCT tags FROM tickets WHERE tags IS NOT NULL AND tags != ''"
-    );
+    $filters = [];
+    if (function_exists('build_ticket_visibility_filters_for_user')) {
+        $filters = build_ticket_visibility_filters_for_user($user, $filters);
+    }
+    if (function_exists('column_exists') && column_exists('tickets', 'is_archived')) {
+        $filters['is_archived'] = 0;
+    }
+
+    $params = [];
+    $sql = "SELECT DISTINCT t.tags FROM tickets t";
+    if (function_exists('build_ticket_where_clause')) {
+        $sql .= build_ticket_where_clause($filters, $params);
+        $sql .= " AND t.tags IS NOT NULL AND t.tags != ''";
+    } else {
+        $sql .= " WHERE t.tags IS NOT NULL AND t.tags != ''";
+    }
+
+    $rows = db_fetch_all($sql, $params);
 
     $all_tags = [];
     $seen = [];
@@ -1231,53 +1256,43 @@ function api_search_tickets() {
     }
 
     $user = current_user();
-    $user_id = $user['id'] ?? 0;
-    $is_staff = is_admin() || is_agent();
+    if (!$user) {
+        api_error('Unauthorized', 401);
+    }
 
-    // Build search: title LIKE + optional ticket-code-to-ID lookup
-    $like = '%' . $q . '%';
-    $params = [$like];
+    $filters = ['search' => $q, 'sort' => 'ticket_number', 'limit' => 8];
+    if (function_exists('column_exists') && column_exists('tickets', 'is_archived')) {
+        $filters['is_archived'] = 0;
+    }
+    if (function_exists('build_ticket_visibility_filters_for_user')) {
+        $filters = build_ticket_visibility_filters_for_user($user, $filters);
+    }
 
-    // Check if query looks like a ticket code (e.g. "TK-10001" or just "10001")
+    try {
+        $rows = get_tickets($filters);
+    } catch (Exception $e) {
+        $rows = [];
+    }
+
     $code_id = null;
     if (function_exists('parse_ticket_code')) {
         $code_id = parse_ticket_code(strtoupper($q));
     }
     if ($code_id === null && preg_match('/^\d+$/', $q)) {
-        // Bare number — could be ticket ID offset
-        $code_id = (int)$q - 10000;
+        $code_id = (int) $q - 10000;
     }
-
-    $code_sql = '';
     if ($code_id !== null && $code_id > 0) {
-        $code_sql = ' OR t.id = ?';
-        $params[] = $code_id;
-    }
-
-    // Scope: staff sees all, users see only own
-    $scope_sql = '';
-    if (!$is_staff) {
-        $scope_sql = ' AND t.user_id = ?';
-        $params[] = $user_id;
-    }
-
-    // Exclude archived tickets when the archive flag exists.
-    $archive_sql = column_exists('tickets', 'is_archived') ? ' AND t.is_archived = 0' : '';
-
-    $sql = "SELECT t.id, t.title,
-                   s.name AS status_name, s.color AS status_color
-            FROM tickets t
-            LEFT JOIN statuses s ON s.id = t.status_id
-            WHERE (t.title LIKE ?{$code_sql})
-            {$scope_sql}
-            {$archive_sql}
-            ORDER BY t.id DESC
-            LIMIT 8";
-
-    try {
-        $rows = db_fetch_all($sql, $params);
-    } catch (Exception $e) {
-        $rows = [];
+        $code_ticket = get_ticket($code_id);
+        $code_visible = $code_ticket
+            && (empty($code_ticket['is_archived']) || !function_exists('column_exists') || !column_exists('tickets', 'is_archived'))
+            && (!function_exists('can_user_access_ticket_in_listing_scope') || can_user_access_ticket_in_listing_scope((int) $code_ticket['id'], $user));
+        if ($code_visible) {
+            $rows = array_values(array_filter($rows, static function ($row) use ($code_ticket) {
+                return (int) ($row['id'] ?? 0) !== (int) $code_ticket['id'];
+            }));
+            array_unshift($rows, $code_ticket);
+            $rows = array_slice($rows, 0, 8);
+        }
     }
 
     $tickets = [];
@@ -1396,7 +1411,8 @@ function api_quick_create_ticket() {
     if ($assignee_raw !== '') {
         $aid = (int)$assignee_raw;
         if ($aid > 0) {
-            if (!api_get_active_staff_user_by_id($aid)) {
+            $assignee = api_get_active_staff_user_by_id($aid);
+            if (!$assignee || !can_user_assign_to_staff($assignee, $user)) {
                 api_error(t('Invalid assignee.'), 400);
             }
             $data['assignee_id'] = $aid;
@@ -1409,6 +1425,9 @@ function api_quick_create_ticket() {
         if ($oid > 0) {
             if (!api_get_active_organization_by_id($oid)) {
                 api_error(t('Invalid company.'), 400);
+            }
+            if (!can_user_use_organization($oid, $user)) {
+                api_error(t('Selected organization is not available.'), 403);
             }
             $data['organization_id'] = $oid;
         } else {
