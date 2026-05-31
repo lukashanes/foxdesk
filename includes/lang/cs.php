@@ -1131,6 +1131,8 @@ return [
     'Update package downloaded and validated. Please confirm to apply.' => 'Balíček stažen a ověřen. Potvrďte instalaci.',
     'Update check failed: {error}' => 'Kontrola aktualizací selhala: {error}',
     'Dismiss' => 'Zavřít',
+    'Collapse sidebar' => 'Zmenšit menu',
+    'Expand sidebar' => 'Rozbalit menu',
 
     // Pseudo-cron (background tasks)
     'Background tasks' => 'Úlohy na pozadí',

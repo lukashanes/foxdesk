@@ -1131,6 +1131,8 @@ return [
     'Update package downloaded and validated. Please confirm to apply.' => 'Update package downloaded and validated. Please confirm to apply.',
     'Update check failed: {error}' => 'Update check failed: {error}',
     'Dismiss' => 'Dismiss',
+    'Collapse sidebar' => 'Collapse sidebar',
+    'Expand sidebar' => 'Expand sidebar',
 
     // Pseudo-cron (background tasks)
     'Background tasks' => 'Background tasks',

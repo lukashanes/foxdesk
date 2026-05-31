@@ -1061,6 +1061,9 @@ width: 280px;
 background: var(--surface-primary);
 color: var(--text-primary);
 border-right: 1px solid var(--border-light);
+transition:
+width 0.2s ease,
+transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sidebar .nav-item {
 color: var(--text-secondary);
@@ -1123,6 +1126,19 @@ color: #5a6a80;
 }
 .main-content {
 margin-left: 280px;
+transition: margin-left 0.2s ease;
+}
+.sidebar-collapse-btn {
+display: none;
+}
+@media (min-width: 1025px) {
+#sidebar.is-compact {
+width: 76px !important;
+overflow: visible;
+}
+#sidebar.is-compact ~ #main-content {
+margin-left: 76px !important;
+}
 }
 @media (max-width: 1024px) {
 .sidebar {
@@ -1150,6 +1166,83 @@ display: none !important;
 }
 .sidebar-overlay {
 display: none !important;
+}
+.sidebar-collapse-btn {
+display: flex;
+}
+body.sidebar-compact .sidebar,
+body.sidebar-compact #sidebar {
+width: 76px !important;
+overflow: visible;
+}
+body.sidebar-compact .main-content,
+body.sidebar-compact #main-content {
+margin-left: 76px !important;
+}
+body.sidebar-compact .sidebar-brand-row {
+justify-content: center;
+padding-left: 0.5rem;
+padding-right: 0.5rem;
+position: relative;
+}
+body.sidebar-compact .sidebar-brand-link {
+justify-content: center;
+}
+body.sidebar-compact .sidebar-brand-label,
+body.sidebar-compact #sidebar .nav-item > span:not(.notif-sidebar-badge):not(.sidebar-timer-count),
+body.sidebar-compact #sidebar #help-panel-btn > span,
+body.sidebar-compact #sidebar #sidebar-user-btn .flex-1,
+body.sidebar-compact #sidebar .sidebar-user-chevron,
+body.sidebar-compact #sidebar-timers p,
+body.sidebar-compact #sidebar-timers-list,
+body.sidebar-compact #sidebar .nav-item-flyout {
+display: none !important;
+}
+body.sidebar-compact #sidebar-collapse-btn {
+position: absolute;
+right: -1rem;
+top: 1rem;
+z-index: 60;
+background: var(--surface-primary);
+border: 1px solid var(--border-light);
+box-shadow: var(--shadow-sm);
+}
+body.sidebar-compact .sidebar-nav {
+padding-left: 0.5rem;
+padding-right: 0.5rem;
+overflow-x: visible;
+}
+body.sidebar-compact #sidebar .nav-item,
+body.sidebar-compact #sidebar #help-panel-btn,
+body.sidebar-compact #sidebar #sidebar-user-btn {
+justify-content: center;
+gap: 0;
+padding-left: 0.75rem;
+padding-right: 0.75rem;
+min-height: 44px;
+position: relative;
+}
+body.sidebar-compact #sidebar .nav-item.active::before {
+left: 0.125rem;
+}
+body.sidebar-compact #sidebar .notif-sidebar-badge,
+body.sidebar-compact #sidebar .sidebar-timer-count {
+position: absolute;
+top: 0.25rem;
+right: 0.25rem;
+min-width: 1rem;
+height: 1rem;
+font-size: 0.625rem;
+}
+body.sidebar-compact #sidebar .px-2\.5 {
+padding-left: 0.5rem;
+padding-right: 0.5rem;
+}
+body.sidebar-compact #sidebar-user-menu {
+left: 4.75rem;
+right: auto;
+bottom: 0;
+width: 15rem;
 }
 }
 .sidebar-overlay {
