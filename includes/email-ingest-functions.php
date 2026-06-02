@@ -1304,7 +1304,15 @@ function email_ingest_send_requester_notifications($ticket_id, $ticket_created, 
     $subject = str_replace(array_keys($placeholders), array_values($placeholders), $subject);
     $body = str_replace(array_keys($placeholders), array_values($placeholders), $body);
 
-    if (function_exists('send_email')) {
+    if (function_exists('send_ticket_notification_email')) {
+        @send_ticket_notification_email($user['email'], $subject, $body, [
+            'eyebrow' => 'Ticket received',
+            'title' => (string) ($ticket['title'] ?? $subject),
+            'cta_label' => 'View ticket',
+            'cta_url' => $ticket_url,
+            'reason' => 'You are receiving this confirmation because your email created a new ticket.',
+        ]);
+    } elseif (function_exists('send_email')) {
         @send_email($user['email'], $subject, $body);
     }
 }
@@ -1721,12 +1729,98 @@ function email_ingest_sanitize_html($html)
 function email_ingest_normalize_plain_text($text)
 {
     $text = html_entity_decode((string) $text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = str_replace("\xc2\xa0", ' ', $text);
+    $without_zero_width = @preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $text);
+    if (is_string($without_zero_width)) {
+        $text = $without_zero_width;
+    }
     $text = preg_replace("/\r\n|\r/", "\n", $text);
     $text = preg_replace("/[ \t]+\n/", "\n", $text);
     $text = preg_replace("/\n[ \t]+/", "\n", $text);
     $text = preg_replace("/[ \t]{2,}/", ' ', $text);
     $text = preg_replace("/\n{3,}/", "\n\n", $text);
     return trim($text);
+}
+
+/**
+ * Detect an Outlook-style forwarded/replied header block.
+ */
+function email_ingest_is_reply_header_block(array $lines, int $index): bool
+{
+    $line = trim((string) ($lines[$index] ?? ''));
+    if (!preg_match('/^(From|Sent|To|Subject|Cc|Date):\s.+/i', $line)) {
+        return false;
+    }
+
+    $matches = 1;
+    for ($i = $index + 1; $i < min(count($lines), $index + 7); $i++) {
+        $candidate = trim((string) $lines[$i]);
+        if ($candidate === '') {
+            continue;
+        }
+        if (preg_match('/^(From|Sent|To|Subject|Cc|Date):\s.+/i', $candidate)) {
+            $matches++;
+        }
+    }
+
+    return $matches >= 2;
+}
+
+/**
+ * Remove quoted previous replies and signatures while keeping the new message.
+ */
+function email_ingest_strip_quoted_reply($text)
+{
+    $normalized = email_ingest_normalize_plain_text($text);
+    if ($normalized === '') {
+        return '';
+    }
+
+    $lines = explode("\n", $normalized);
+    $kept = [];
+    $kept_non_empty = 0;
+
+    foreach ($lines as $index => $line) {
+        $trimmed = trim($line);
+
+        if ($kept_non_empty > 0) {
+            if ($trimmed === '--') {
+                break;
+            }
+            if (preg_match('/^[-_]{2,}\s*(Original Message|Forwarded message)\s*[-_]{2,}$/i', $trimmed)) {
+                break;
+            }
+            if (preg_match('/^(On .+ wrote:|Dne .+ napsal(?:\(a\))?:|Am .+ schrieb .+:|Le .+ a écrit\s*:|El .+ escribió:)$/iu', $trimmed)) {
+                break;
+            }
+            if (email_ingest_is_reply_header_block($lines, $index)) {
+                break;
+            }
+        }
+
+        if ($kept_non_empty > 0 && preg_match('/^>+/', $trimmed)) {
+            continue;
+        }
+
+        $kept[] = $line;
+        if ($trimmed !== '') {
+            $kept_non_empty++;
+        }
+    }
+
+    $cleaned = email_ingest_normalize_plain_text(implode("\n", $kept));
+    return $cleaned !== '' ? $cleaned : $normalized;
+}
+
+/**
+ * Final display cleanup for inbound ticket descriptions/comments.
+ */
+function email_ingest_cleanup_display_body($text)
+{
+    $text = email_ingest_strip_quoted_reply($text);
+    $text = preg_replace('/^\s*\[(cid|image):[^\]]+\]\s*$/mi', '', $text);
+    $text = preg_replace('/^\s*Sent from my (iPhone|iPad|Android).*$/mi', '', $text);
+    return email_ingest_normalize_plain_text($text);
 }
 
 /**
@@ -1740,16 +1834,19 @@ function email_ingest_html_to_text($html)
     }
 
     $html = preg_replace('/<(script|style|head)\b[^>]*>.*?<\/\1>/is', '', $html);
+    $html = preg_replace('/<\s*wbr\s*\/?>/i', '', $html);
     $html = preg_replace('/<\s*br\s*\/?>/i', "\n", $html);
+    $html = preg_replace('/<\s*(p|div|section|article|header|footer|blockquote|pre|h[1-6])\b[^>]*>/i', "\n", $html);
     $html = preg_replace('/<\/\s*(p|div|section|article|header|footer|blockquote|pre|h[1-6])\s*>/i', "\n\n", $html);
     $html = preg_replace('/<\s*li\b[^>]*>/i', "\n- ", $html);
     $html = preg_replace('/<\/\s*li\s*>/i', "\n", $html);
     $html = preg_replace('/<\/\s*(ul|ol)\s*>/i', "\n", $html);
     $html = preg_replace('/<\/\s*(tr|table)\s*>/i', "\n", $html);
+    $html = preg_replace('/<\s*t[dh]\b[^>]*>/i', ' ', $html);
     $html = preg_replace('/<\/\s*t[dh]\s*>/i', " ", $html);
     $html = preg_replace('/<\s*hr\s*\/?>/i', "\n---\n", $html);
 
-    return email_ingest_normalize_plain_text(strip_tags($html));
+    return email_ingest_cleanup_display_body(strip_tags($html));
 }
 
 /**
@@ -1757,7 +1854,7 @@ function email_ingest_html_to_text($html)
  */
 function email_ingest_select_display_body($plain_text, $html)
 {
-    $plain_text = email_ingest_normalize_plain_text($plain_text);
+    $plain_text = email_ingest_cleanup_display_body($plain_text);
     $html_text = email_ingest_html_to_text($html);
 
     if ($plain_text === '') {
@@ -1774,7 +1871,7 @@ function email_ingest_select_display_body($plain_text, $html)
         return $html_text;
     }
 
-    return $plain_text;
+    return email_ingest_cleanup_display_body($plain_text);
 }
 
 /**
@@ -1833,4 +1930,3 @@ function email_ingest_try_move($imap, $uid, $cfg, $folder)
     imap_setflag_full($imap, (string) $uid, '\\Seen', ST_UID);
     return false;
 }
-

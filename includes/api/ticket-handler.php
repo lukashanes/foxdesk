@@ -1313,6 +1313,31 @@ function api_search_tickets() {
 }
 
 /**
+ * Global Spotlight search.
+ * Returns grouped sections so UI can show open work, completed history, and clients.
+ */
+function api_global_search() {
+    $q = trim((string) ($_GET['q'] ?? ''));
+    $limit = (int) ($_GET['limit'] ?? 6);
+
+    $user = current_user();
+    if (!$user) {
+        api_error('Unauthorized', 401);
+    }
+
+    if (!function_exists('global_search')) {
+        api_error('Global search is not available.', 500);
+    }
+
+    try {
+        api_success(global_search($q, $user, $limit));
+    } catch (Throwable $e) {
+        error_log('api_global_search failed: ' . $e->getMessage());
+        api_error(t('Search failed.'), 500);
+    }
+}
+
+/**
  * Get ticket activity timeline (AJAX)
  */
 function api_get_timeline() {

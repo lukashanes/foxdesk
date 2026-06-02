@@ -391,7 +391,12 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 <!-- Organization Info -->
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-3">
-                                        <span class="font-medium" style="color: var(--text-primary);"><?php echo e($org['name']); ?></span>
+                                        <a href="<?php echo url('client', ['id' => (int) $org['id']]); ?>"
+                                           class="font-medium hover:underline"
+                                           style="color: var(--text-primary);"
+                                           onclick="event.stopPropagation();">
+                                            <?php echo e($org['name']); ?>
+                                        </a>
                                         <?php if ($org['is_active']): ?>
                                             <span class="badge bg-green-100 text-green-800 text-xs"><?php echo e(t('Active')); ?></span>
                                         <?php else: ?>

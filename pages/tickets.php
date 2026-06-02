@@ -4,7 +4,7 @@
  */
 
 $user = current_user();
-$is_archive = isset($_GET['archived']) && $_GET['archived'] === '1';
+$is_archive = (isset($_GET['archived']) && $_GET['archived'] === '1') || (($_GET['work_view'] ?? '') === 'archived');
 
 // Strict Access Control: Only admins can view Archive
 if ($is_archive && !is_admin()) {
@@ -17,7 +17,7 @@ $page = 'tickets';
 
 // Preserve current filter params for redirects after bulk actions
 $_redirect_params = [];
-foreach (['archived', 'status', 'priority', 'assignee', 'type', 'search', 'sort', 'view', 'tag', 'organization'] as $_fk) {
+foreach (['archived', 'work_view', 'status', 'priority', 'assignee', 'type', 'search', 'sort', 'view', 'tag', 'organization'] as $_fk) {
     if (isset($_GET[$_fk]) && $_GET[$_fk] !== '') $_redirect_params[$_fk] = $_GET[$_fk];
 }
 
@@ -368,6 +368,13 @@ if ($staff_scope) {
     $filters['assigned_to_staff'] = true;
 }
 
+$ticket_list_include_archive = is_admin();
+$ticket_list_view = ticket_list_view_from_request($_GET, $is_archive, $ticket_list_include_archive);
+$ticket_list_view_definitions = ticket_list_view_definitions($ticket_list_include_archive);
+$ticket_list_count_filters = $filters;
+$ticket_list_view_counts = ticket_list_view_counts($ticket_list_count_filters, $ticket_list_include_archive);
+$filters = ticket_list_view_apply_filters($filters, $ticket_list_view);
+
 $total_tickets = get_tickets_count($filters);
 
 $tickets = get_tickets($filters);
@@ -630,6 +637,52 @@ include BASE_PATH . '/includes/components/page-header.php';
 ?>
 
 <style>
+.ticket-view-tabs {
+    display: flex;
+    gap: 0.375rem;
+    overflow-x: auto;
+    padding: 0 0.25rem 0.75rem;
+    margin-top: -0.25rem;
+    -webkit-overflow-scrolling: touch;
+}
+.ticket-view-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border-light);
+    border-radius: 0.75rem;
+    color: var(--text-secondary);
+    background: var(--surface-primary);
+    text-decoration: none;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.ticket-view-tab:hover {
+    color: var(--text-primary);
+    background: var(--surface-secondary);
+}
+.ticket-view-tab.is-active {
+    color: var(--primary);
+    border-color: color-mix(in srgb, var(--primary) 35%, var(--border-light));
+    background: var(--primary-soft);
+}
+.ticket-view-tab__count {
+    min-width: 1.55rem;
+    padding: 0.125rem 0.4rem;
+    border-radius: 999px;
+    background: var(--surface-secondary);
+    color: var(--text-muted);
+    text-align: center;
+    font-size: 0.6875rem;
+    font-weight: 800;
+}
+.ticket-view-tab.is-active .ticket-view-tab__count {
+    background: var(--surface-primary);
+    color: var(--primary);
+}
 /* Ticket ID — plain text, no pill */
 .ticket-code {
     font-size: 0.75rem;
@@ -1373,6 +1426,23 @@ foreach ($board_closed_statuses as $status_item) {
 ?>
 
 <!-- Tickets Table/List with Inline Filters -->
+<nav class="ticket-view-tabs" aria-label="<?php echo e(t('Ticket views')); ?>">
+    <?php foreach ($ticket_list_view_definitions as $view_key => $view_definition): ?>
+        <?php
+        $view_url = ticket_list_view_url($view_key, $_GET, $ticket_list_include_archive);
+        $is_active_view = $ticket_list_view === $view_key;
+        $view_count = (int) ($ticket_list_view_counts[$view_key] ?? 0);
+        ?>
+        <a href="<?php echo e($view_url); ?>"
+           class="ticket-view-tab <?php echo $is_active_view ? 'is-active' : ''; ?>"
+           aria-current="<?php echo $is_active_view ? 'page' : 'false'; ?>"
+           title="<?php echo e(t($view_definition['description'])); ?>">
+            <span><?php echo e(t($view_definition['label'])); ?></span>
+            <span class="ticket-view-tab__count"><?php echo e((string) $view_count); ?></span>
+        </a>
+    <?php endforeach; ?>
+</nav>
+
 <div class="card overflow-hidden <?php echo $ticket_view === 'board' ? 'kanban-board-wrapper' : ''; ?>">
     <?php if (empty($tickets)): ?>
         <?php
@@ -1586,6 +1656,9 @@ foreach ($board_closed_statuses as $status_item) {
         <div class="block lg:hidden border-b px-4 py-3 glass" style="border-color: var(--border-light);">
             <form method="get" action="index.php" class="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="page" value="tickets">
+                <?php if (!$is_archive && $ticket_list_view !== 'open'): ?>
+                    <input type="hidden" name="work_view" value="<?php echo e($ticket_list_view); ?>">
+                <?php endif; ?>
                 <?php if ($is_archive): ?>
                     <input type="hidden" name="archived" value="1">
                 <?php endif; ?>
@@ -1762,6 +1835,9 @@ foreach ($board_closed_statuses as $status_item) {
         <!-- Desktop Table View with Inline Filters -->
         <form method="get" action="index.php" id="filter-form">
                 <input type="hidden" name="page" value="tickets">
+                <?php if (!$is_archive && $ticket_list_view !== 'open'): ?>
+                    <input type="hidden" name="work_view" value="<?php echo e($ticket_list_view); ?>">
+                <?php endif; ?>
                 <?php if ($is_archive): ?>
                     <input type="hidden" name="archived" value="1">
                 <?php endif; ?>

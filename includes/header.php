@@ -211,7 +211,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
     <aside id="sidebar" class="sidebar fixed top-0 left-0 h-full z-50 flex flex-col" role="complementary" aria-label="<?php echo e(t('Sidebar navigation')); ?>">
         <!-- Logo - Fixed at top -->
         <div class="sidebar-brand-row p-3 flex-shrink-0 flex items-center justify-between">
-            <a href="<?php echo url('dashboard'); ?>" class="sidebar-brand-link flex items-center space-x-3 group" title="<?php echo e($app_name); ?>">
+            <a href="<?php echo url('work'); ?>" class="sidebar-brand-link flex items-center space-x-3 group" title="<?php echo e($app_name); ?>">
                 <?php $app_logo = get_setting('app_logo', ''); ?>
                 <?php if ($app_logo): ?>
                     <img src="<?php echo e(upload_url($app_logo)); ?>" alt="<?php echo e($app_name); ?>"
@@ -258,12 +258,32 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
         <div class="sidebar-nav flex-1 px-2.5 pb-1">
             <!-- Main Navigation -->
             <nav class="space-y-1.5" aria-label="<?php echo e(t('Main navigation')); ?>">
+                <?php $is_work = ($page ?? '') === 'work'; ?>
+                <a href="<?php echo url('work'); ?>"
+                    class="nav-item <?php echo $is_work ? 'active' : ''; ?>"
+                    title="<?php echo e(t('Work')); ?>"
+                    <?php echo $is_work ? 'aria-current="page"' : ''; ?>>
+                    <?php echo get_icon('home', 'nav-item__icon'); ?>
+                    <span><?php echo e(t('Work')); ?></span>
+                </a>
+
+                <?php if (is_admin() || is_agent()): ?>
+                <?php $is_inbox = ($page ?? '') === 'inbox'; ?>
+                <a href="<?php echo url('inbox'); ?>"
+                    class="nav-item <?php echo $is_inbox ? 'active' : ''; ?>"
+                    title="<?php echo e(t('Inbox')); ?>"
+                    <?php echo $is_inbox ? 'aria-current="page"' : ''; ?>>
+                    <?php echo get_icon('inbox', 'nav-item__icon'); ?>
+                    <span><?php echo e(t('Inbox')); ?></span>
+                </a>
+                <?php endif; ?>
+
                 <?php $is_dashboard = ($page ?? '') === 'dashboard'; ?>
                 <a href="<?php echo url('dashboard'); ?>"
                     class="nav-item <?php echo $is_dashboard ? 'active' : ''; ?>"
                     title="<?php echo e(t('Dashboard')); ?>"
                     <?php echo $is_dashboard ? 'aria-current="page"' : ''; ?>>
-                    <?php echo get_icon('home', 'nav-item__icon'); ?>
+                    <?php echo get_icon('chart-bar', 'nav-item__icon'); ?>
                     <span><?php echo e(t('Dashboard')); ?></span>
                 </a>
 
@@ -522,10 +542,10 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                     </button>
                 </div>
 
-                <a href="<?php echo url('tickets'); ?>" class="p-2 rounded-xl transition-all sidebar-hover" style="color: var(--text-secondary);"
-                    aria-label="<?php echo e(t('Search tickets')); ?>">
+                <button type="button" id="mobile-header-search" class="p-2 rounded-xl transition-all sidebar-hover" style="color: var(--text-secondary);"
+                    aria-label="<?php echo e(t('Search')); ?>">
                     <?php echo get_icon('search'); ?>
-                </a>
+                </button>
 
                 <!-- Mobile User Dropdown -->
                 <div class="relative">

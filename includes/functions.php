@@ -8,6 +8,7 @@ require_once BASE_PATH . '/includes/security-helpers.php';
 require_once BASE_PATH . '/includes/settings-functions.php';
 require_once BASE_PATH . '/includes/user-functions.php';
 require_once BASE_PATH . '/includes/ticket-functions.php';
+require_once BASE_PATH . '/includes/modules/bootstrap.php';
 require_once BASE_PATH . '/includes/email-functions.php';
 require_once BASE_PATH . '/includes/report-functions.php';
 require_once BASE_PATH . '/includes/recurring-task-functions.php';
@@ -41,8 +42,8 @@ function safe_html($html)
         $attrs = $matches[1];
         if (preg_match('/src\s*=\s*["\']([^"\']+)["\']/i', $attrs, $srcMatch)) {
             $src = $srcMatch[1];
-            // Allow relative URLs (image.php?f=...) and https:// URLs, block data: URIs
-            if (preg_match('/^(https?:|image\.php|uploads\/)/i', $src)) {
+            // Allow proxied local images and https URLs; block direct uploads/ paths and data URIs.
+            if (preg_match('/^(https:|image\.php|attachment\.php)/i', $src)) {
                 $alt = '';
                 if (preg_match('/alt\s*=\s*["\']([^"\']*)["\']/i', $attrs, $altMatch)) {
                     $alt = $altMatch[1];

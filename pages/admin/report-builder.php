@@ -224,6 +224,21 @@ if ($editing && $_SERVER['REQUEST_METHOD'] !== 'POST') {
         'schedule_recipients' => trim((string) ($_POST['schedule_recipients'] ?? '')),
     ];
 }
+if (!$editing && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+    $prefill_org_id = (int) ($_GET['organization_id'] ?? 0);
+    $prefill_date_from = trim((string) ($_GET['date_from'] ?? ''));
+    $prefill_date_to = trim((string) ($_GET['date_to'] ?? ''));
+
+    if ($prefill_org_id > 0) {
+        $form_values['organization_id'] = $prefill_org_id;
+    }
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $prefill_date_from)) {
+        $form_values['date_from'] = $prefill_date_from;
+    }
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $prefill_date_to)) {
+        $form_values['date_to'] = $prefill_date_to;
+    }
+}
 if (!in_array($form_values['report_language'], $allowed_report_languages, true)) {
     $form_values['report_language'] = 'en';
 }

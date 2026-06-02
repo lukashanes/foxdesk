@@ -15,7 +15,7 @@ define('REMEMBER_ME_DURATION', 30 * 86400); // 30 days
 
 require_once BASE_PATH . '/includes/session-bootstrap.php';
 
-define('APP_VERSION', '0.3.124');
+define('APP_VERSION', '0.3.125');
 
 // Check if installed
 if (!file_exists(BASE_PATH . '/config.php')) {
@@ -101,8 +101,13 @@ require_once BASE_PATH . '/includes/functions.php';
 require_once BASE_PATH . '/includes/auth.php';
 send_security_headers();
 
+function foxdesk_authenticated_home_page(): string
+{
+    return 'work';
+}
+
 // Get current page
-$page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
+$page = isset($_GET['page']) ? $_GET['page'] : foxdesk_authenticated_home_page();
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 // Shared-hosting fallback scheduler: check early so public/login page loads can
@@ -286,8 +291,20 @@ switch ($page) {
         require_once BASE_PATH . '/pages/dashboard.php';
         break;
 
+    case 'work':
+        require_once BASE_PATH . '/pages/work.php';
+        break;
+
+    case 'inbox':
+        require_once BASE_PATH . '/pages/inbox.php';
+        break;
+
     case 'tickets':
         require_once BASE_PATH . '/pages/tickets.php';
+        break;
+
+    case 'client':
+        require_once BASE_PATH . '/pages/client.php';
         break;
 
     case 'ticket':

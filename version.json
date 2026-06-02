@@ -1,12 +1,14 @@
 {
-    "version": "0.3.120",
-    "date": "2026-05-25",
+    "version": "0.3.125",
+    "date": "2026-06-02",
     "min_php": "8.1",
     "changelog": [
-        "IMAP email ingest now has a shared-hosting fallback that can run after a normal app page load when cron or loopback HTTP requests are unavailable",
-        "Pseudo-cron is enabled by default for new self-hosted installations and remains throttled to avoid repeated background runs",
+        "Cloud migration export now opens reliably in the self-hosted admin and downloads a valid SaaS migration package",
+        "Migration export no longer loads full tables just to show counts, reducing memory pressure on large helpdesks",
+        "Migration packages now tolerate invalid legacy text encoding and show clear server readiness diagnostics for ZipArchive and backups",
+        "IMAP email ingest includes the shared-hosting pseudo-cron fallback for servers without reliable cron or loopback requests",
         "New ticket forms no longer carry over the previous company or assignee selection after a ticket is created",
-        "New ticket company and assignee values are still preserved on validation errors so users do not lose an in-progress form"
+        "Work, inbox, global search, client overview, reporting, billable item adjustments, and compact sidebar flows are included"
     ],
     "delete_files": []
 }

@@ -141,6 +141,10 @@ $timer_state = 'stopped';
 if ($active_timer) {
     $timer_state = $timer_is_paused ? 'paused' : 'running';
 }
+$ticket_primary_actions = ticket_detail_primary_actions($ticket, $user, $statuses, [
+    'time_tracking_available' => $time_tracking_available,
+    'timer_state' => $timer_state,
+]);
 
 // Filter internal comments for non-agents (for display only)
 $comments = $all_comments;
@@ -665,14 +669,122 @@ require_once BASE_PATH . '/includes/header.php';
     [data-theme="dark"] #agent-cc-toggle:hover {
         background: var(--corp-slate-600) !important;
     }
+
+    .ticket-work-panel {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .ticket-work-panel__title {
+        margin: 0.25rem 0 0;
+        color: var(--text-primary);
+        font-size: clamp(1.25rem, 2vw, 1.75rem);
+        line-height: 1.15;
+        font-weight: 750;
+        letter-spacing: 0;
+    }
+
+    .ticket-work-panel__meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        color: var(--text-muted);
+        font-size: 0.75rem;
+    }
+
+    .ticket-work-panel__actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        flex-shrink: 0;
+    }
+
+    .ticket-primary-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        min-height: 2.25rem;
+        padding: 0.5rem 0.8rem;
+        border: 1px solid var(--border-light);
+        border-radius: 0.625rem;
+        color: var(--text-primary);
+        background: var(--surface-primary);
+        font-size: 0.875rem;
+        font-weight: 700;
+        line-height: 1;
+        white-space: nowrap;
+        transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+    }
+
+    .ticket-primary-action:hover {
+        transform: translateY(-1px);
+        border-color: var(--primary);
+        text-decoration: none;
+    }
+
+    .ticket-primary-action--primary {
+        border-color: var(--primary);
+        background: var(--primary);
+        color: #fff;
+    }
+
+    .ticket-primary-action--success {
+        border-color: rgba(16, 185, 129, 0.35);
+        background: rgba(16, 185, 129, 0.12);
+        color: #047857;
+    }
+
+    .ticket-primary-action--warning {
+        border-color: rgba(245, 158, 11, 0.35);
+        background: rgba(245, 158, 11, 0.12);
+        color: #92400e;
+    }
+
+    .ticket-primary-action--ghost {
+        color: var(--text-secondary);
+        background: transparent;
+    }
+
+    .ticket-side-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+        color: var(--text-primary);
+        font-size: 0.8125rem;
+        font-weight: 750;
+    }
+
+    @media (max-width: 768px) {
+        .ticket-work-panel {
+            flex-direction: column;
+        }
+
+        .ticket-work-panel__actions {
+            justify-content: flex-start;
+            width: 100%;
+        }
+
+        .ticket-primary-action {
+            flex: 1 1 auto;
+        }
+    }
 </style>
 
 <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
     <!-- Main Content -->
     <div class="md:col-span-2 lg:col-span-3 space-y-3">
-        <!-- Ticket Toolbar - compact icon bar -->
-        <div class="card px-2 py-1.5">
-            <div class="flex items-center gap-1">
+        <!-- Ticket Work Panel -->
+        <div class="card ticket-work-panel">
+            <div class="min-w-0">
                 <?php
                 $back_ref = $_GET['ref'] ?? '';
                 if ($back_ref === 'dashboard') {
@@ -683,42 +795,56 @@ require_once BASE_PATH . '/includes/header.php';
                     $back_url = url('tickets');
                 }
                 ?>
-                <a href="<?php echo $back_url; ?>" class="td-tool-btn" title="<?php echo e(t('Back')); ?>">
-                    <?php echo get_icon('arrow-left', 'w-3.5 h-3.5'); ?>
-                </a>
-                <span class="td-tool-sep"></span>
-                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold"
-                    style="background-color: <?php echo e($ticket['status_color']); ?>15; color: <?php echo e($ticket['status_color']); ?>; border: 1px solid <?php echo e($ticket['status_color']); ?>30;">
-                    <?php echo e($ticket['status_name']); ?>
-                </span>
-                <?php if (!empty($ticket['is_archived'])): ?>
-                    <span class="px-1.5 py-0.5 rounded text-[11px] font-medium"
-                        style="background: var(--surface-tertiary); color: var(--text-secondary);"><?php echo e(t('Archived')); ?></span>
-                <?php endif; ?>
-                <span class="td-tool-sep"></span>
-                <?php if (can_edit_ticket($ticket, $user)): ?>
-                    <button type="button" onclick="openEditTicketModal()" class="td-tool-btn"
-                        title="<?php echo e(t('Edit')); ?>">
-                        <?php echo get_icon('edit', 'w-3.5 h-3.5'); ?>
-                    </button>
-                <?php endif; ?>
-                <a href="#comment-form" class="td-tool-btn" title="<?php echo e(t('Comment')); ?>">
-                    <?php echo get_icon('comment', 'w-3.5 h-3.5'); ?>
-                </a>
-                <?php if (is_agent() && $time_tracking_available): ?>
-                    <span class="td-tool-sep"></span>
-                    <button type="button" id="toolbar-timer-btn"
-                        class="td-tool-btn <?php echo $timer_state === 'running' ? 'td-tool-btn--active-timer' : ''; ?>"
-                        title="<?php echo $timer_state === 'running' ? e(t('Pause timer')) : ($timer_state === 'paused' ? e(t('Resume timer')) : e(t('Start timer'))); ?>">
-                        <?php echo get_icon($timer_state === 'running' ? 'pause' : 'play', 'w-3.5 h-3.5'); ?>
-                    </button>
-                    <?php if ($timer_state !== 'stopped'): ?>
-                        <span id="toolbar-timer-elapsed" class="text-xs tabular-nums"
-                            style="color: <?php echo $timer_state === 'running' ? 'var(--warning)' : 'var(--success)'; ?>;">
-                            <?php echo format_duration_minutes($active_timer_elapsed); ?>
-                        </span>
+                <div class="ticket-work-panel__meta">
+                    <a href="<?php echo $back_url; ?>" class="inline-flex items-center gap-1 hover:underline" style="color: var(--text-muted);">
+                        <?php echo get_icon('arrow-left', 'w-3.5 h-3.5'); ?>
+                        <?php echo e(t('Back')); ?>
+                    </a>
+                    <span><?php echo get_ticket_code($ticket_id); ?></span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold"
+                        style="background-color: <?php echo e($ticket['status_color']); ?>15; color: <?php echo e($ticket['status_color']); ?>; border: 1px solid <?php echo e($ticket['status_color']); ?>30;">
+                        <?php echo e($ticket['status_name']); ?>
+                    </span>
+                    <?php if (!empty($ticket['is_archived'])): ?>
+                        <span class="px-1.5 py-0.5 rounded text-[11px] font-medium"
+                            style="background: var(--surface-tertiary); color: var(--text-secondary);"><?php echo e(t('Archived')); ?></span>
                     <?php endif; ?>
-                <?php endif; ?>
+                    <?php if (!empty($ticket['organization_name'])): ?>
+                        <span><?php echo e($ticket['organization_name']); ?></span>
+                    <?php endif; ?>
+                </div>
+                <h1 class="ticket-work-panel__title"><?php echo e($ticket['title']); ?></h1>
+            </div>
+            <div class="ticket-work-panel__actions" aria-label="<?php echo e(t('Primary actions')); ?>">
+                <?php foreach ($ticket_primary_actions as $action): ?>
+                    <?php $action_class = 'ticket-primary-action ticket-primary-action--' . e($action['style'] ?? 'secondary'); ?>
+                    <?php if ($action['type'] === 'anchor'): ?>
+                        <a href="<?php echo e($action['href']); ?>" class="<?php echo $action_class; ?>">
+                            <?php echo get_icon($action['icon'], 'w-4 h-4'); ?>
+                            <span><?php echo e(t($action['label'])); ?></span>
+                        </a>
+                    <?php elseif ($action['type'] === 'submit'): ?>
+                        <form method="post" class="inline-flex">
+                            <?php echo csrf_field(); ?>
+                            <input type="hidden" name="status_id" value="<?php echo (int) $action['status_id']; ?>">
+                            <button type="submit" name="<?php echo e($action['name']); ?>" class="<?php echo $action_class; ?>">
+                                <?php echo get_icon($action['icon'], 'w-4 h-4'); ?>
+                                <span><?php echo e(t($action['label'])); ?></span>
+                            </button>
+                        </form>
+                    <?php else: ?>
+                        <button type="button"
+                            <?php if (!empty($action['id'])): ?>id="<?php echo e($action['id']); ?>"<?php endif; ?>
+                            <?php if (!empty($action['onclick'])): ?>onclick="<?php echo e($action['onclick']); ?>"<?php endif; ?>
+                            class="<?php echo $action_class; ?>">
+                            <?php echo get_icon($action['icon'], 'w-4 h-4'); ?>
+                            <span><?php echo e(t($action['label'])); ?></span>
+                            <?php if (($action['key'] ?? '') === 'start_work' && $timer_state !== 'stopped'): ?>
+                                <span id="toolbar-timer-elapsed" class="tabular-nums"><?php echo format_duration_minutes($active_timer_elapsed); ?></span>
+                            <?php endif; ?>
+                        </button>
+                    <?php endif; ?>
+                <?php endforeach; ?>
             </div>
         </div>
 
@@ -1398,9 +1524,13 @@ require_once BASE_PATH . '/includes/header.php';
         $_sidebar_types = db_fetch_all("SELECT slug, name FROM ticket_types WHERE is_active = 1 ORDER BY sort_order");
     }
     ?>
-    <div class="ticket-sidebar">
+    <div class="ticket-sidebar" id="ticket-side-panel">
         <!-- Details -->
         <div class="card card-body">
+            <div class="ticket-side-heading">
+                <span><?php echo e(t('Ticket properties')); ?></span>
+                <span class="font-mono text-xs" style="color: var(--text-muted);"><?php echo get_ticket_code($ticket_id); ?></span>
+            </div>
             <?php if (!empty($ticket['organization_name'])): ?>
                     <div class="flex items-center gap-2 px-2.5 py-2 -mx-1 mb-2 rounded-lg"
                         style="background: var(--primary-soft);">

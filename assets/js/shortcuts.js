@@ -76,7 +76,7 @@
 
         paletteInput = document.createElement('input');
         paletteInput.type = 'text';
-        paletteInput.placeholder = 'Search tickets, navigate...';
+        paletteInput.placeholder = 'Search tickets, clients, history...';
         paletteInput.style.cssText = 'flex:1;border:none;outline:none;font-size:15px;background:transparent;color:var(--text-primary);';
         paletteInput.addEventListener('input', onPaletteInput);
         paletteInput.addEventListener('keydown', onPaletteKeydown);
@@ -101,7 +101,9 @@
 
     function getDefaultItems() {
         var items = [
-            { type: 'nav', label: 'Dashboard', desc: 'Go to Dashboard', icon: '\u2302', action: function() { navigateTo('dashboard'); } },
+            { type: 'nav', label: 'Work', desc: 'Open work queues', icon: '\u2302', action: function() { navigateTo('work'); } },
+            { type: 'nav', label: 'Inbox', desc: 'Triage tickets that need a decision', icon: 'I', action: function() { navigateTo('inbox'); } },
+            { type: 'nav', label: 'Dashboard', desc: 'View analytics dashboard', icon: 'D', action: function() { navigateTo('dashboard'); } },
             { type: 'nav', label: 'Tickets', desc: 'View all tickets', icon: '\uD83C\uDF9F', action: function() { navigateTo('tickets'); } },
             { type: 'action', label: 'New Ticket', desc: 'Create a new ticket', icon: '\u2795', action: function() { navigateTo('new-ticket'); } },
             { type: 'nav', label: 'My Profile', desc: 'Edit your profile', icon: '\uD83D\uDC64', action: function() { navigateTo('profile'); } }
@@ -114,6 +116,23 @@
         }
         items.push({ type: 'action', label: 'Toggle Dark Mode', desc: 'Switch light/dark theme', icon: '\uD83C\uDF13', action: function() { if (typeof toggleTheme === 'function') toggleTheme(); } });
         return items;
+    }
+
+    function getItemTypeLabel(item) {
+        if (item.type === 'ticket') return 'ticket';
+        if (item.type === 'client') return 'client';
+        if (item.type === 'contact') return 'contact';
+        if (item.type === 'report') return 'report';
+        if (item.type === 'action') return 'action';
+        return 'go to';
+    }
+
+    function renderPaletteSection(title) {
+        var header = document.createElement('div');
+        header.className = 'cmd-palette-section';
+        header.textContent = title;
+        header.style.cssText = 'padding:10px 12px 5px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);';
+        paletteResults.appendChild(header);
     }
 
     function renderPaletteItems(items) {
@@ -129,7 +148,13 @@
             return;
         }
 
+        var previousSection = '';
         items.forEach(function(item, i) {
+            if (item.section && item.section !== previousSection) {
+                renderPaletteSection(item.section);
+                previousSection = item.section;
+            }
+
             var row = document.createElement('div');
             row.className = 'cmd-palette-item';
             row.dataset.index = i;
@@ -162,13 +187,59 @@
 
             var badge = document.createElement('span');
             badge.style.cssText = 'font-size:10px;padding:2px 6px;border-radius:4px;background:var(--surface-secondary, #f1f5f9);color:var(--text-muted);flex-shrink:0;text-transform:uppercase;';
-            badge.textContent = item.type === 'ticket' ? 'ticket' : (item.type === 'action' ? 'action' : 'go to');
+            badge.textContent = getItemTypeLabel(item);
 
             row.appendChild(icon);
             row.appendChild(texts);
             row.appendChild(badge);
             paletteResults.appendChild(row);
         });
+    }
+
+    function getGlobalSearchSectionLabels() {
+        return {
+            open_tickets: 'Open tickets',
+            done_tickets: 'Done tickets',
+            archived_tickets: 'Archived tickets',
+            clients: 'Clients',
+            contacts: 'Contacts',
+            reports: 'Reports'
+        };
+    }
+
+    function resultToPaletteItem(result, sectionLabel) {
+        var badge = result.status_label || result.type_label || '';
+        var title = result.title || '';
+        var subtitle = result.subtitle || '';
+        return {
+            type: result.type || 'ticket',
+            label: title,
+            desc: subtitle || badge,
+            section: sectionLabel,
+            icon: result.type === 'client' ? 'C' : (result.type === 'contact' ? '@' : (result.type === 'report' ? 'R' : '#')),
+            action: function() {
+                if (result.url) {
+                    window.location.href = result.url;
+                }
+            }
+        };
+    }
+
+    function globalSearchToPaletteItems(data) {
+        var items = [];
+        var labels = getGlobalSearchSectionLabels();
+        var sections = data && data.sections ? data.sections : {};
+
+        ['open_tickets', 'done_tickets', 'archived_tickets', 'clients', 'contacts', 'reports'].forEach(function(key) {
+            var section = sections[key];
+            if (!section || !Array.isArray(section.items)) return;
+            var label = ((section.definition && section.definition.label) || section.label || labels[key] || key);
+            section.items.forEach(function(result) {
+                items.push(resultToPaletteItem(result, label));
+            });
+        });
+
+        return items;
     }
 
     function highlightItem(index) {
@@ -198,26 +269,15 @@
             return item.label.toLowerCase().indexOf(q) !== -1 || (item.desc && item.desc.toLowerCase().indexOf(q) !== -1);
         });
 
-        // Search tickets via API (debounced)
+        // Search the global index via API (debounced)
         clearTimeout(searchTimeout);
         if (q.length >= 2 && cfg.apiUrl) {
             searchTimeout = setTimeout(function() {
-                fetch(cfg.apiUrl + '&action=search-tickets&q=' + encodeURIComponent(q))
+                fetch(cfg.apiUrl + '&action=global-search&q=' + encodeURIComponent(q))
                     .then(function(r) { return r.json(); })
                     .then(function(data) {
-                        if (!data.success || !data.tickets) return;
-                        var ticketItems = data.tickets.map(function(t) {
-                            return {
-                                type: 'ticket',
-                                label: (t.ticket_code || '#' + t.id) + ' ' + t.title,
-                                desc: t.status_name || '',
-                                icon: '\uD83C\uDF9F',
-                                action: function() {
-                                    window.location.href = t.url || ('index.php?page=ticket-detail&id=' + t.id);
-                                }
-                            };
-                        });
-                        renderPaletteItems(ticketItems.concat(filtered));
+                        if (!data.success || !data.sections) return;
+                        renderPaletteItems(globalSearchToPaletteItems(data).concat(filtered));
                     })
                     .catch(function(err) { console.warn('Command palette search failed:', err.message || err); });
             }, 300);
@@ -249,13 +309,47 @@
         }
     }
 
-    function openPalette() {
+    function openPalette(initialQuery) {
         buildPalette();
         paletteEl.style.display = 'flex';
         paletteVisible = true;
-        paletteInput.value = '';
-        renderPaletteItems(getDefaultItems());
-        setTimeout(function() { paletteInput.focus(); }, 50);
+        paletteInput.value = initialQuery || '';
+        if (paletteInput.value.trim()) {
+            onPaletteInput();
+        } else {
+            renderPaletteItems(getDefaultItems());
+        }
+        setTimeout(function() {
+            paletteInput.focus();
+            paletteInput.select();
+        }, 50);
+    }
+
+    function bindHeaderSearchToPalette() {
+        var search = document.getElementById('header-search');
+        var mobileSearch = document.getElementById('mobile-header-search');
+
+        if (search) {
+            var form = search.closest('form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    openPalette(search.value);
+                    search.value = '';
+                });
+            }
+
+            search.addEventListener('focus', function() {
+                openPalette(search.value);
+                search.value = '';
+            });
+        }
+
+        if (mobileSearch) {
+            mobileSearch.addEventListener('click', function() {
+                openPalette();
+            });
+        }
     }
 
     function closePalette() {
@@ -308,6 +402,8 @@
             clearTimeout(gTimeout);
             pendingG = false;
             if (e.key === 'd') { navigateTo('dashboard'); return; }
+            if (e.key === 'w') { navigateTo('work'); return; }
+            if (e.key === 'i') { navigateTo('inbox'); return; }
             if (e.key === 't') { navigateTo('tickets'); return; }
             if (e.key === 'r') { navigateTo('admin', {section:'reports'}); return; }
             if (e.key === 'o') { navigateTo('admin', {section:'organizations'}); return; }
@@ -332,7 +428,7 @@
         if (e.key === '/') {
             e.preventDefault();
             var search = document.getElementById('header-search');
-            if (search) search.focus();
+            if (search) search.focus(); else openPalette();
             return;
         }
 
@@ -342,6 +438,12 @@
             return;
         }
     });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindHeaderSearchToPalette);
+    } else {
+        bindHeaderSearchToPalette();
+    }
 })();
 
 /* =============================

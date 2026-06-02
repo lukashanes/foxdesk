@@ -254,6 +254,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         $has_attachments = $has_uploadable_attachments;
+
+        $pending_is_internal = isset($_POST['is_internal']) && is_agent() ? 1 : 0;
+        $pending_content = $pending_is_internal && !empty($_POST['internal_text'])
+            ? trim((string) $_POST['internal_text'])
+            : trim((string) ($_POST['comment'] ?? ''));
+        $pending_public_comment_text = trim(html_entity_decode(strip_tags($pending_content), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $will_send_public_comment_notification = !$pending_is_internal
+            && $pending_public_comment_text !== ''
+            && !$skip_notification;
+
         // Handle status change first (if agent)
         if (isset($_POST['change_status_with_comment']) && is_agent()) {
             $new_status_id = (int) ($_POST['status_id'] ?? $ticket['status_id']);
@@ -267,13 +277,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 log_activity($ticket_id, $user['id'], 'status_changed', "Status changed from '{$old_status['name']}' to '{$new_status['name']}'");
 
                 // Send status change notification (unless skipped)
-                if (!$skip_notification) {
+                if (!$skip_notification && !$will_send_public_comment_notification) {
                     require_once BASE_PATH . '/includes/mailer.php';
                     send_status_change_notification($ticket, $old_status, $new_status, '', 0);
                 }
 
                 // In-app notification for status change
-                if (function_exists('dispatch_ticket_notifications')) {
+                if (!$will_send_public_comment_notification && function_exists('dispatch_ticket_notifications')) {
                     dispatch_ticket_notifications('status_changed', $ticket_id, $user['id'], [
                         'old_status' => $old_status['name'] ?? '',
                         'new_status' => $new_status['name'] ?? '',
@@ -287,14 +297,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        $is_internal = isset($_POST['is_internal']) && is_agent() ? 1 : 0;
-
-        // Use internal_text if internal comment is checked, otherwise use regular comment
-        if ($is_internal && !empty($_POST['internal_text'])) {
-            $content = trim($_POST['internal_text']);
-        } else {
-            $content = trim($_POST['comment'] ?? '');
-        }
+        $is_internal = $pending_is_internal;
+        $content = $pending_content;
 
         $cc_users = isset($_POST['cc_users']) ? array_map('intval', $_POST['cc_users']) : [];
         $stop_timer = is_agent() && isset($_POST['stop_timer']);

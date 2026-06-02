@@ -244,6 +244,103 @@ function get_permissions_organization_ids($permissions)
 }
 
 /**
+ * Check whether a user can use the given organization in create/edit flows.
+ */
+function can_user_use_organization($organization_id, $user = null): bool
+{
+    $organization_id = (int) $organization_id;
+    if ($organization_id <= 0) {
+        return true;
+    }
+
+    if ($user === null) {
+        $user = current_user();
+    }
+
+    if (!$user) {
+        return false;
+    }
+
+    if (($user['role'] ?? '') === 'admin') {
+        return true;
+    }
+
+    $permissions = get_user_permissions((int) $user['id']) ?? [];
+    if (($user['role'] ?? '') === 'agent' && ($permissions['ticket_scope'] ?? 'own') === 'all') {
+        return true;
+    }
+
+    return in_array($organization_id, get_user_organization_ids((int) $user['id']), true);
+}
+
+/**
+ * Check whether a user can create a ticket on behalf of another user.
+ */
+function can_user_create_ticket_for($target_user, $actor = null): bool
+{
+    if ($actor === null) {
+        $actor = current_user();
+    }
+
+    if (!$actor || !$target_user) {
+        return false;
+    }
+
+    if ((int) ($target_user['id'] ?? 0) === (int) ($actor['id'] ?? 0)) {
+        return true;
+    }
+
+    if (($actor['role'] ?? '') === 'admin') {
+        return true;
+    }
+
+    if (($actor['role'] ?? '') !== 'agent') {
+        return false;
+    }
+
+    $permissions = get_user_permissions((int) $actor['id']) ?? [];
+    if (($permissions['ticket_scope'] ?? 'own') === 'all') {
+        return true;
+    }
+
+    $target_orgs = get_user_organization_ids((int) $target_user['id']);
+    if (empty($target_orgs) && !empty($target_user['organization_id'])) {
+        $target_orgs = [(int) $target_user['organization_id']];
+    }
+
+    $actor_orgs = get_user_organization_ids((int) $actor['id']);
+    return !empty(array_intersect($actor_orgs, $target_orgs));
+}
+
+/**
+ * Check whether a user can assign a ticket to the given staff user.
+ */
+function can_user_assign_to_staff($assignee, $actor = null): bool
+{
+    if ($actor === null) {
+        $actor = current_user();
+    }
+
+    if (!$actor || !$assignee) {
+        return false;
+    }
+
+    if (!in_array((string) ($assignee['role'] ?? ''), ['agent', 'admin'], true)) {
+        return false;
+    }
+
+    if (($actor['role'] ?? '') === 'admin') {
+        return true;
+    }
+
+    if (($actor['role'] ?? '') !== 'agent') {
+        return false;
+    }
+
+    return true;
+}
+
+/**
  * Save user organization memberships.
  * Primary organization is synced to users.organization_id.
  */
@@ -487,4 +584,3 @@ function get_user_organization_ids($user_id)
 
     return normalize_organization_ids($org_ids);
 }
-

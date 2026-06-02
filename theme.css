@@ -1643,6 +1643,77 @@ gap: 0.5rem;
 flex-wrap: wrap;
 justify-content: flex-end;
 }
+.reporting-flow-card {
+display: grid;
+grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+gap: 1rem;
+padding: 1rem;
+border: 1px solid var(--border-light);
+border-radius: 8px;
+background: var(--surface-primary);
+}
+.reporting-flow-main,
+.reporting-flow-side {
+display: flex;
+flex-direction: column;
+gap: 0.875rem;
+min-width: 0;
+}
+.reporting-flow-heading h2 {
+margin: 0;
+font-size: 1.125rem;
+line-height: 1.25;
+font-weight: 750;
+color: var(--text-primary);
+}
+.reporting-flow-form {
+display: grid;
+grid-template-columns: minmax(180px, 1fr) minmax(150px, 220px) auto;
+gap: 0.625rem;
+align-items: end;
+}
+.reporting-flow-form label {
+display: flex;
+flex-direction: column;
+gap: 0.25rem;
+min-width: 0;
+font-size: 0.75rem;
+font-weight: 650;
+color: var(--text-secondary);
+}
+.reporting-flow-steps {
+display: grid;
+grid-template-columns: repeat(2, minmax(0, 1fr));
+gap: 0.5rem;
+}
+.reporting-flow-step {
+display: flex;
+align-items: center;
+gap: 0.5rem;
+padding: 0.5rem;
+border: 1px solid var(--border-light);
+border-radius: 8px;
+background: var(--surface-secondary);
+min-width: 0;
+}
+.reporting-flow-step span {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+width: 1.25rem;
+height: 1.25rem;
+border-radius: 999px;
+background: var(--primary);
+color: white;
+font-size: 0.6875rem;
+font-weight: 750;
+flex: 0 0 auto;
+}
+.reporting-flow-step strong {
+font-size: 0.75rem;
+line-height: 1.2;
+color: var(--text-primary);
+}
 .admin-metric-grid {
 display: grid;
 grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -1968,6 +2039,7 @@ grid-template-columns: 1fr;
 width: 100%;
 }
 .admin-hero,
+.reporting-flow-card,
 .admin-panel-header,
 .admin-callout,
 .admin-upload-zone,
@@ -1975,6 +2047,11 @@ width: 100%;
 .admin-history-row {
 align-items: stretch;
 flex-direction: column;
+}
+.reporting-flow-card,
+.reporting-flow-form,
+.reporting-flow-steps {
+grid-template-columns: 1fr;
 }
 .admin-hero-actions,
 .admin-row-actions {
@@ -3806,29 +3883,26 @@ opacity: 1;
 .workflow-grid {
 display: grid;
 grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-gap: 1.5rem;
+gap: 1rem;
 margin-bottom: 1rem;
 }
 .workflow-card {
 display: flex;
 flex-direction: column;
 min-height: 500px;
-border-radius: var(--radius-xl);
+border-radius: 8px;
 border: 1px solid var(--border-light);
 overflow: hidden;
-box-shadow: var(--shadow-md);
-transition: box-shadow 150ms ease, transform 150ms ease;
-}
-.workflow-card:hover {
-box-shadow: var(--shadow-lg);
-transform: translateY(-1px);
+background: var(--surface-primary);
 }
 .workflow-card-header {
-padding: 1rem;
+padding: 0.875rem 1rem;
 display: flex;
 flex-direction: column;
 gap: 0.25rem;
 flex-shrink: 0;
+background: var(--surface-primary);
+border-bottom: 1px solid var(--border-light);
 }
 .workflow-card-header span {
 display: flex;

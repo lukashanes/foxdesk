@@ -74,8 +74,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ticket_owner_id = $user['id'];
         if ($on_behalf_of) {
             $behalf_user = get_user($on_behalf_of);
-            if ($behalf_user) {
+            if ($behalf_user && can_user_create_ticket_for($behalf_user, $user)) {
                 $ticket_owner_id = (int) $behalf_user['id'];
+            } else {
+                $error = t('Selected user is not available.');
+            }
+        }
+
+        if ($assignee_id) {
+            $assignee_user = get_user($assignee_id);
+            if (!$assignee_user || !can_user_assign_to_staff($assignee_user, $user)) {
+                $error = t('Invalid assignee.');
             }
         }
 

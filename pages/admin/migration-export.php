@@ -1,33 +1,77 @@
 <?php
-require_admin();
+if (!is_admin()) {
+    flash(t('Access denied.'), 'error');
+    redirect('dashboard');
+}
 
 $page_title = t('Cloud migration');
+$page = 'admin';
 $tenant_name = get_setting('app_name', 'FoxDesk');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['migration_action'] ?? '') === 'download_export') {
-    migration_download_export_package();
+    try {
+        migration_download_export_package();
+    } catch (Throwable $e) {
+        if (function_exists('debug_log')) {
+            debug_log('Migration export failed', ['error' => $e->getMessage()], 'error', 'migration');
+        }
+        flash(t('Migration export failed: {error}', ['error' => $e->getMessage()]), 'error');
+        redirect('admin', ['section' => 'migration-export']);
+    }
 }
 
+$readiness = migration_export_readiness();
 $counts = [];
+$count_errors = [];
 foreach (migration_export_tables() as $table) {
     if (!table_exists($table)) {
         continue;
     }
 
     try {
-        $counts[$table] = count(migration_select_rows($table));
+        $counts[$table] = migration_count_rows($table);
     } catch (Throwable $e) {
         $counts[$table] = 0;
+        $count_errors[$table] = $e->getMessage();
     }
 }
 
 $attachment_count = (int) ($counts['attachments'] ?? 0);
-$storage_bytes = table_exists('attachments')
-    ? (int) (db_fetch_one("SELECT COALESCE(SUM(file_size), 0) AS bytes FROM attachments")['bytes'] ?? 0)
-    : 0;
+$storage_bytes = 0;
+if (table_exists('attachments') && column_exists('attachments', 'file_size')) {
+    try {
+        $storage_bytes = (int) (db_fetch_one("SELECT COALESCE(SUM(file_size), 0) AS bytes FROM attachments")['bytes'] ?? 0);
+    } catch (Throwable $e) {
+        $storage_bytes = 0;
+        $count_errors['attachments_storage'] = $e->getMessage();
+    }
+}
+
+require_once BASE_PATH . '/includes/header.php';
 ?>
 
 <div class="max-w-6xl mx-auto space-y-6">
+    <?php if (!$readiness['ready']): ?>
+        <div class="bg-red-50 border border-red-200 rounded-lg p-5 text-sm text-red-900">
+            <div class="font-semibold mb-2">Migration export is not ready on this server.</div>
+            <ul class="list-disc pl-5 space-y-1">
+                <?php if (!$readiness['zip_available']): ?>
+                    <li>PHP extension <code>ZipArchive</code> is missing. Enable/install PHP zip support first.</li>
+                <?php endif; ?>
+                <?php if (empty($readiness['backup_dir']['writable'])): ?>
+                    <li>Backup directory is not writable: <code><?php echo e($readiness['backup_dir']['path']); ?></code></li>
+                <?php endif; ?>
+            </ul>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($count_errors): ?>
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-5 text-sm text-amber-900">
+            <div class="font-semibold mb-2">Some export counts could not be read.</div>
+            <div>The export can still run, but check the server log if the package is incomplete.</div>
+        </div>
+    <?php endif; ?>
+
     <div class="bg-white border border-gray-200 rounded-lg p-6">
         <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div>
@@ -42,7 +86,9 @@ $storage_bytes = table_exists('attachments')
             <form method="post">
                 <?php echo csrf_field(); ?>
                 <input type="hidden" name="migration_action" value="download_export">
-                <button type="submit" class="btn btn-primary whitespace-nowrap">Download migration package</button>
+                <button type="submit" class="btn btn-primary whitespace-nowrap" <?php echo $readiness['ready'] ? '' : 'disabled'; ?>>
+                    Download migration package
+                </button>
             </form>
         </div>
     </div>
@@ -82,3 +128,5 @@ $storage_bytes = table_exists('attachments')
         upload this ZIP under Import self-hosted FoxDesk, and verify the hosted workspace before switching DNS.
     </div>
 </div>
+
+<?php require_once BASE_PATH . '/includes/footer.php'; ?>

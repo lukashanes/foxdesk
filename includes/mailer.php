@@ -51,6 +51,43 @@ function email_comment_to_plain_text($content)
     return trim($text);
 }
 
+function mailer_load_email_renderer(): void
+{
+    if (function_exists('foxdesk_render_ticket_email_html')) {
+        return;
+    }
+
+    if (defined('BASE_PATH') && file_exists(BASE_PATH . '/includes/modules/email/email-renderer.php')) {
+        require_once BASE_PATH . '/includes/modules/email/email-renderer.php';
+    }
+}
+
+/**
+ * Send a polished ticket-related email while preserving legacy text templates.
+ */
+function send_ticket_notification_email($to, $subject, $body, array $payload = [], $force_delivery = false)
+{
+    mailer_load_email_renderer();
+
+    if (function_exists('foxdesk_render_ticket_email_html')) {
+        $settings = function_exists('get_settings') ? get_settings() : [];
+        $app_name = $settings['app_name'] ?? (defined('APP_NAME') ? APP_NAME : 'FoxDesk');
+        $html = foxdesk_render_ticket_email_html(array_merge([
+            'app_name' => $app_name,
+            'eyebrow' => 'Ticket update',
+            'title' => $subject,
+            'body' => $body,
+            'cta_label' => 'Open ticket',
+            'cta_url' => '',
+            'reason' => 'You are receiving this because you are connected to this ticket.',
+        ], $payload));
+
+        return send_email($to, $subject, $html, true, $force_delivery);
+    }
+
+    return send_email($to, $subject, $body, false, $force_delivery);
+}
+
 /**
  * Send email using configured method
  */
@@ -333,6 +370,16 @@ function send_status_change_notification($ticket, $old_status, $new_status, $com
         return false;
     }
 
+    if (function_exists('should_send_ticket_email') && !should_send_ticket_email('ticket.status_changed', (array) $ticket, [], [
+        'old_status' => (array) $old_status,
+        'new_status' => (array) $new_status,
+        'comment_text' => (string) $comment_text,
+        'time_spent' => (int) $time_spent,
+    ])) {
+        error_log('Ticket status email suppressed: ' . ticket_email_suppression_reason('ticket.status_changed'));
+        return false;
+    }
+
     $user = get_user($ticket['user_id']);
     if (!$user)
         return false;
@@ -398,7 +445,13 @@ function send_status_change_notification($ticket, $old_status, $new_status, $com
         $body = str_replace($key, $value, $body);
     }
 
-    return send_email($user['email'], $subject, $body, false);
+    return send_ticket_notification_email($user['email'], $subject, $body, [
+        'eyebrow' => 'Status changed',
+        'title' => (string) ($ticket['title'] ?? $subject),
+        'cta_label' => 'View ticket',
+        'cta_url' => $ticket_url,
+        'reason' => 'This email is sent only for customer-facing status changes or updates with a comment/time entry.',
+    ]);
 }
 
 /**
@@ -545,7 +598,13 @@ function send_new_comment_notification($ticket, $comment, $commenter, $comment_i
         $subject = str_replace(array_keys($replacements), array_values($replacements), $subject);
         $body = str_replace(array_keys($replacements), array_values($replacements), $body);
 
-        if (send_email($recipient['email'], $subject, $body, false)) {
+        if (send_ticket_notification_email($recipient['email'], $subject, $body, [
+            'eyebrow' => 'New comment',
+            'title' => (string) ($ticket['title'] ?? $subject),
+            'cta_label' => 'View comment',
+            'cta_url' => $comment_url,
+            'reason' => 'You are receiving this because you created, are assigned to, commented on, or were copied on this ticket.',
+        ])) {
             $any_sent = true;
         } else {
             $all_ok = false;
@@ -638,7 +697,13 @@ function send_new_ticket_notification($ticket)
             $body = str_replace($key, $value, $body);
         }
 
-        if (!send_email($admin['email'], $subject, $body, false)) {
+        if (!send_ticket_notification_email($admin['email'], $subject, $body, [
+            'eyebrow' => 'New ticket',
+            'title' => (string) ($ticket['title'] ?? $subject),
+            'cta_label' => 'Open ticket',
+            'cta_url' => $ticket_url,
+            'reason' => 'You are receiving this because you are a staff member for this FoxDesk.',
+        ])) {
             $result = false;
         }
     }
@@ -1134,7 +1199,13 @@ function send_ticket_assignment_notification($ticket, $assigned_agent, $assigner
     $subject = str_replace(array_keys($placeholders), array_values($placeholders), $template['subject']);
     $body = str_replace(array_keys($placeholders), array_values($placeholders), $template['body']);
 
-    send_email($assigned_agent['email'], $subject, $body);
+    send_ticket_notification_email($assigned_agent['email'], $subject, $body, [
+        'eyebrow' => 'Assigned to you',
+        'title' => (string) ($ticket['title'] ?? $subject),
+        'cta_label' => 'Open ticket',
+        'cta_url' => $ticket_url,
+        'reason' => 'You are receiving this because this ticket was assigned to you.',
+    ]);
 }
 
 /**
@@ -1237,7 +1308,13 @@ function send_due_date_reminder($ticket, $is_overdue = false)
     $body .= $i18n['label_status'] . ': ' . ($ticket['status_name'] ?? '') . "\n\n";
     $body .= $i18n['label_view_ticket'] . ': ' . $ticket_url . "\n";
 
-    send_email($assigned_user['email'], $subject, $body);
+    send_ticket_notification_email($assigned_user['email'], $subject, $body, [
+        'eyebrow' => $is_overdue ? 'Overdue ticket' : 'Due soon',
+        'title' => (string) ($ticket['title'] ?? $subject),
+        'cta_label' => 'Open ticket',
+        'cta_url' => $ticket_url,
+        'reason' => 'You are receiving this because you are assigned to this ticket.',
+    ]);
 }
 
 /**
@@ -1300,5 +1377,11 @@ function send_long_timer_alert($user, $time_entry, $ticket)
         $body = str_replace($key, $value, $body);
     }
 
-    return send_email($user['email'], $subject, $body, false);
+    return send_ticket_notification_email($user['email'], $subject, $body, [
+        'eyebrow' => 'Timer reminder',
+        'title' => (string) ($ticket['title'] ?? $subject),
+        'cta_label' => 'Open ticket',
+        'cta_url' => $ticket_url,
+        'reason' => 'You are receiving this because your timer has been running for a long time.',
+    ]);
 }

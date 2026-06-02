@@ -31,4 +31,27 @@ $selected = email_ingest_select_display_body('Hello Lukas, we need these items: 
 assert_email_format_contains($selected, "Hello Lukas,\n\nwe need these items:");
 assert_email_format_contains($selected, "- first task");
 
+$reply = "Thanks, this works now.\n\nOn Mon, Jun 1, 2026 at 10:00 AM Support wrote:\n> Old message\n> Old footer";
+$clean_reply = email_ingest_cleanup_display_body($reply);
+assert_email_format_contains($clean_reply, 'Thanks, this works now.');
+if (strpos($clean_reply, 'Old message') !== false) {
+    fwrite(STDERR, "Quoted reply was not stripped:\n{$clean_reply}\n");
+    exit(1);
+}
+
+$outlook_reply = "Please check the invoice total.\n\nFrom: Support <support@example.com>\nSent: Monday, June 1, 2026 10:00\nTo: Client <client@example.com>\nSubject: Re: Invoice\n\nOld thread text";
+$clean_outlook = email_ingest_cleanup_display_body($outlook_reply);
+assert_email_format_contains($clean_outlook, 'Please check the invoice total.');
+if (strpos($clean_outlook, 'Old thread text') !== false) {
+    fwrite(STDERR, "Outlook quoted header block was not stripped:\n{$clean_outlook}\n");
+    exit(1);
+}
+
+$signature = "Message body\n\n-- \nSent from my iPhone";
+$clean_signature = email_ingest_cleanup_display_body($signature);
+if ($clean_signature !== 'Message body') {
+    fwrite(STDERR, "Signature was not stripped:\n{$clean_signature}\n");
+    exit(1);
+}
+
 echo "Email formatting tests passed\n";

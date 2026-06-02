@@ -43,7 +43,8 @@ if ($now - $last_email >= 300) {
     try {
         require_once BASE_PATH . '/includes/email-ingest-functions.php';
         $cfg = email_ingest_config();
-        $enabled = trim((string) ($cfg['host'] ?? '')) !== ''
+        $enabled = !empty($cfg['enabled'])
+            && trim((string) ($cfg['host'] ?? '')) !== ''
             && trim((string) ($cfg['username'] ?? '')) !== ''
             && trim((string) ($cfg['password'] ?? '')) !== '';
 

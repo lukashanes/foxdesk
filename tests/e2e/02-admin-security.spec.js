@@ -83,6 +83,31 @@ test('update dismiss API requires auth and CSRF', async ({ page }) => {
   expect(await ok.json()).toMatchObject({ success: true, dismissed: true });
 });
 
+test('cloud migration export page renders and downloads a package', async ({ page }) => {
+  await login(page);
+  await page.goto('/index.php?page=admin&section=migration-export');
+
+  await expect(page.locator('body')).toContainText('Export this self-hosted FoxDesk');
+  await expect(page.locator('body')).toContainText('Package contents');
+  await expect(page.locator('body')).not.toContainText('Migration export is not ready');
+
+  const csrf = await getCsrf(page);
+  const response = await page.request.post('/index.php?page=admin&section=migration-export', {
+    form: {
+      csrf_token: csrf,
+      migration_action: 'download_export'
+    }
+  });
+
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toContain('application/zip');
+  expect(response.headers()['x-foxdesk-migration-sha256']).toMatch(/^[a-f0-9]{64}$/);
+
+  const body = await response.body();
+  expect(body.length).toBeGreaterThan(100);
+  expect(body.subarray(0, 2).toString()).toBe('PK');
+});
+
 test('force installer cannot be accessed without a recovery token', async ({ page }) => {
   const response = await page.request.get('/install.php?force=1', { maxRedirects: 0 });
   expect([403, 404]).toContain(response.status());

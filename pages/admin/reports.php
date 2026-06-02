@@ -177,6 +177,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_admin()) {
                 header('Location: ' . ($_SERVER['REQUEST_URI'] ?? url('admin', ['section' => 'reports', 'tab' => 'detailed'])));
                 exit;
             }
+        } elseif ($bulk_action === 'discount_amount') {
+            $discount_amount = parse_optional_rate_value($_POST['bulk_discount_amount'] ?? null);
+            if ($discount_amount === null || $discount_amount < 0) {
+                flash(t('Enter a valid discount amount.'), 'error');
+                header('Location: ' . ($_SERVER['REQUEST_URI'] ?? url('admin', ['section' => 'reports', 'tab' => 'detailed'])));
+                exit;
+            }
         } elseif ($bulk_action === 'target_total') {
             $target_total = parse_optional_rate_value($_POST['bulk_target_total'] ?? null);
             if ($target_total === null || $target_total < 0) {
@@ -200,7 +207,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_admin()) {
                 header('Location: ' . ($_SERVER['REQUEST_URI'] ?? url('admin', ['section' => 'reports', 'tab' => 'detailed'])));
                 exit;
             }
-            $new_rate = $target_total / ($total_billable_minutes / 60);
+            $new_rate = function_exists('billing_review_rate_from_target_amount')
+                ? billing_review_rate_from_target_amount($target_total, $total_billable_minutes)
+                : ($target_total / ($total_billable_minutes / 60));
         } else {
             flash(t('Invalid bulk action.'), 'error');
             header('Location: ' . ($_SERVER['REQUEST_URI'] ?? url('admin', ['section' => 'reports', 'tab' => 'detailed'])));
@@ -215,6 +224,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_admin()) {
                     ? get_time_entry_effective_billable_rate($entry)
                     : (float) ($entry['billable_rate'] ?? 0);
                 $entry_rate = $current_rate * (1 - ($discount / 100));
+            } elseif ($bulk_action === 'discount_amount') {
+                $entry_rate = function_exists('billing_review_adjusted_rate')
+                    ? billing_review_adjusted_rate($entry, 'discount_amount', $discount_amount, $rounding)
+                    : null;
+                if ($entry_rate === null) {
+                    continue;
+                }
             }
 
             db_update('ticket_time_entries', [
@@ -277,6 +293,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_admin()) {
                 ? get_time_entry_effective_billable_rate($entry)
                 : (float) ($entry['billable_rate'] ?? 0);
             $entry_rate = $current_rate * (1 - ($adjust_value / 100));
+        } elseif ($adjust_action === 'discount_amount') {
+            $entry_rate = function_exists('billing_review_adjusted_rate')
+                ? billing_review_adjusted_rate($entry, 'discount_amount', $adjust_value, $rounding)
+                : null;
+            if ($entry_rate === null) {
+                flash(t('Selected item has no billable time.'), 'error');
+                header('Location: ' . ($_SERVER['REQUEST_URI'] ?? url('admin', ['section' => 'reports', 'tab' => 'detailed'])));
+                exit;
+            }
         } elseif ($adjust_action === 'target_total') {
             if ($adjust_value < 0) {
                 flash(t('Enter a valid target total.'), 'error');
@@ -294,7 +319,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_admin()) {
                 header('Location: ' . ($_SERVER['REQUEST_URI'] ?? url('admin', ['section' => 'reports', 'tab' => 'detailed'])));
                 exit;
             }
-            $entry_rate = $adjust_value / ($billable_minutes / 60);
+            $entry_rate = function_exists('billing_review_rate_from_target_amount')
+                ? billing_review_rate_from_target_amount($adjust_value, $billable_minutes)
+                : ($adjust_value / ($billable_minutes / 60));
         } else {
             flash(t('Invalid billing adjustment.'), 'error');
             header('Location: ' . ($_SERVER['REQUEST_URI'] ?? url('admin', ['section' => 'reports', 'tab' => 'detailed'])));
@@ -736,8 +763,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && in_array($tab, ['deta
     if ($tab === 'detailed') {
         $h = [t('Ticket'), t('Company')];
         if ($tags_supported) $h[] = t('Tags');
-        $h = array_merge($h, [t('Duration'), t('Duration (min)'), t('Billable'), t('Agent'), t('Source'), t('Start time'), t('End time')]);
-        if ($show_money) $h[] = t('Amount');
+        $h = array_merge($h, [t('Duration'), t('Duration (min)'), t('Billable'), t('Billable (min)'), t('Agent'), t('Source'), t('Start time'), t('End time')]);
+        if ($show_money) $h = array_merge($h, [t('Rate'), t('Amount')]);
         if ($show_money && $has_cost_data) $h = array_merge($h, [t('Cost'), t('Profit')]);
         fputcsv($csv, $h);
 
@@ -747,11 +774,13 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && in_array($tab, ['deta
             $r[] = format_duration_minutes($e['actual_minutes']);
             $r[] = $e['actual_minutes'];
             $r[] = !empty($e['is_billable']) ? t('Yes') : t('No');
+            $r[] = (int) ($e['billable_minutes'] ?? 0);
             $r[] = trim($e['first_name'] . ' ' . $e['last_name']);
             $r[] = $e['_source'] ?? '';
             $r[] = $e['started_at'];
             $r[] = $e['ended_at'] ?: '';
             if ($show_money) {
+                $r[] = number_format((float) ($e['billable_rate'] ?? 0), 2, '.', '');
                 $r[] = number_format($e['billable_amount'], 2, '.', '');
             }
             if ($show_money && $has_cost_data) {
@@ -814,23 +843,72 @@ include BASE_PATH . '/includes/components/page-header.php';
 ?>
 
 <div class="admin-legacy-page">
-    <!-- Client Reports Module Access (admin only) -->
     <?php if (is_admin()): ?>
-    <section class="admin-hero">
-        <div>
-            <p class="admin-eyebrow"><?php echo e(t('Reports')); ?></p>
-            <h2><?php echo e(t('Time Reports')); ?></h2>
-            <p><?php echo e(t('User activity and ticket history.')); ?></p>
+    <section class="reporting-flow-card">
+        <div class="reporting-flow-main">
+            <div class="reporting-flow-heading">
+                <p class="admin-eyebrow"><?php echo e(t('Billing review')); ?></p>
+                <h2><?php echo e(t('Review client work before publishing')); ?></h2>
+            </div>
+            <form method="GET" action="index.php" class="reporting-flow-form">
+                <input type="hidden" name="page" value="admin">
+                <input type="hidden" name="section" value="reports">
+                <input type="hidden" name="tab" value="detailed">
+                <input type="hidden" name="show_money" value="1">
+                <label>
+                    <span><?php echo e(t('Client')); ?></span>
+                    <select name="organizations[]" class="form-select" required>
+                        <option value="" disabled <?php echo empty($selected_orgs) ? 'selected' : ''; ?>>
+                            <?php echo e(t('Choose client')); ?>
+                        </option>
+                        <?php foreach ($organizations as $org): ?>
+                            <option value="<?php echo (int) $org['id']; ?>"
+                                <?php echo in_array((int) $org['id'], $selected_orgs, true) ? 'selected' : ''; ?>>
+                                <?php echo e($org['name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label>
+                    <span><?php echo e(t('Period')); ?></span>
+                    <select name="time_range" class="form-select">
+                        <?php foreach (reporting_flow_time_presets() as $preset => $label): ?>
+                            <option value="<?php echo e($preset); ?>" <?php echo $time_range === $preset ? 'selected' : ''; ?>>
+                                <?php echo e($label); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <?php echo get_icon('search', 'w-3.5 h-3.5'); ?><?php echo e(t('Review items')); ?>
+                </button>
+            </form>
         </div>
-        <div class="admin-hero-actions">
+        <div class="reporting-flow-side">
+            <div class="reporting-flow-steps">
+                <?php foreach (reporting_flow_steps() as $index => $step): ?>
+                    <div class="reporting-flow-step">
+                        <span><?php echo (int) $index + 1; ?></span>
+                        <strong><?php echo e($step['label']); ?></strong>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <?php
+            $selected_positive_orgs = array_values(array_filter($selected_orgs, static function ($id) {
+                return (int) $id > 0;
+            }));
+            $selected_flow_org = count($selected_positive_orgs) === 1 ? (int) $selected_positive_orgs[0] : null;
+            ?>
+            <div class="admin-hero-actions">
             <a href="<?php echo url('admin', ['section' => 'reports-list']); ?>"
                 class="btn btn-secondary btn-sm">
                 <?php echo get_icon('list', 'w-3.5 h-3.5'); ?><?php echo e(t('Client reports')); ?>
             </a>
-            <a href="<?php echo url('admin', ['section' => 'report-builder']); ?>"
+            <a href="<?php echo reporting_flow_builder_url($selected_flow_org, $time_range); ?>"
                 class="btn btn-primary btn-sm">
                 <?php echo get_icon('plus', 'w-3.5 h-3.5'); ?><?php echo e(t('Create report')); ?>
             </a>
+            </div>
         </div>
     </section>
     <?php endif; ?>
@@ -1720,9 +1798,9 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <div class="min-w-[180px]">
                             <label class="block text-xs font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Bulk billing adjustments')); ?></label>
                             <select name="bulk_action" class="form-select text-sm">
-                                <option value="set_rate"><?php echo e(t('Set hourly rate')); ?></option>
-                                <option value="discount_percent"><?php echo e(t('Discount hourly rate')); ?></option>
-                                <option value="target_total"><?php echo e(t('Set target total')); ?></option>
+                                <?php foreach (billing_review_bulk_adjustment_actions() as $action_key => $action_label): ?>
+                                    <option value="<?php echo e($action_key); ?>"><?php echo e($action_label); ?></option>
+                                <?php endforeach; ?>
                             </select>
                         </div>
                         <div class="w-32">
@@ -1732,6 +1810,10 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <div class="w-32">
                             <label class="block text-xs font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Discount (%)')); ?></label>
                             <input type="number" step="0.01" min="0" max="100" name="bulk_discount_percent" class="form-input text-sm" placeholder="10">
+                        </div>
+                        <div class="w-36">
+                            <label class="block text-xs font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Discount amount')); ?></label>
+                            <input type="number" step="0.01" min="0" name="bulk_discount_amount" class="form-input text-sm" placeholder="500">
                         </div>
                         <div class="w-36">
                             <label class="block text-xs font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Target total')); ?></label>
@@ -1854,10 +1936,10 @@ include BASE_PATH . '/includes/components/page-header.php';
                                             <form method="post" class="entry-billing-form mt-1 flex items-center gap-1" data-entry-id="<?php echo $entry['id']; ?>">
                                                 <?php echo csrf_field(); ?>
                                                 <input type="hidden" name="entry_id" value="<?php echo $entry['id']; ?>">
-                                                <select name="entry_adjust_action" class="form-select text-[11px] py-1" style="width: 76px;">
-                                                    <option value="set_rate"><?php echo e(t('Rate')); ?></option>
-                                                    <option value="discount_percent"><?php echo e(t('Discount')); ?></option>
-                                                    <option value="target_total"><?php echo e(t('Total')); ?></option>
+                                                <select name="entry_adjust_action" class="form-select text-[11px] py-1" style="width: 104px;">
+                                                    <?php foreach (billing_review_adjustment_actions() as $action_key => $action_label): ?>
+                                                        <option value="<?php echo e($action_key); ?>"><?php echo e($action_label); ?></option>
+                                                    <?php endforeach; ?>
                                                 </select>
                                                 <input type="number" name="entry_adjust_value" step="0.01" min="0" class="form-input text-[11px] py-1" style="width: 70px;" placeholder="<?php echo e(t('Value')); ?>">
                                                 <button type="submit" name="adjust_billable_entry" class="btn btn-ghost btn-sm py-1 px-2 shrink-0" title="<?php echo e(t('Save billing')); ?>">
@@ -2668,6 +2750,9 @@ include BASE_PATH . '/includes/components/page-header.php';
                     } else if (action && action.value === 'discount_percent') {
                         rate = originalRate * (1 - Math.min(Math.max(value, 0), 100) / 100);
                         amount = billableMinutes > 0 ? (billableMinutes / 60) * rate : 0;
+                    } else if (action && action.value === 'discount_amount') {
+                        amount = Math.max(0, originalAmount - Math.max(0, value));
+                        rate = billableMinutes > 0 ? amount / (billableMinutes / 60) : 0;
                     } else if (action && action.value === 'target_total') {
                         amount = Math.max(0, value);
                         rate = billableMinutes > 0 ? amount / (billableMinutes / 60) : originalRate;
@@ -2708,6 +2793,13 @@ include BASE_PATH . '/includes/components/page-header.php';
                 if (value === null) return null;
                 var discountedRate = originalRate * (1 - Math.min(Math.max(value, 0), 100) / 100);
                 return { rate: discountedRate, amount: billableMinutes > 0 ? (billableMinutes / 60) * discountedRate : 0 };
+            }
+            if (selectedAction === 'discount_amount') {
+                value = numberValue(form.querySelector('[name="bulk_discount_amount"]')?.value);
+                if (value === null) return null;
+                var discountedAmount = Math.max(0, (billableMinutes > 0 ? (billableMinutes / 60) * originalRate : 0) - Math.max(0, value));
+                var discountedAmountRate = billableMinutes > 0 ? discountedAmount / (billableMinutes / 60) : 0;
+                return { rate: discountedAmountRate, amount: discountedAmount };
             }
             if (selectedAction === 'target_total') {
                 value = numberValue(form.querySelector('[name="bulk_target_total"]')?.value);

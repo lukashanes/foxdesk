@@ -178,6 +178,32 @@ function build_ticket_where_clause($filters, &$params)
         $params[] = $filters['status_id'];
     }
 
+    if (!empty($filters['status_group']) && function_exists('work_status_ids_for_group')) {
+        $status_ids = work_status_ids_for_group((string) $filters['status_group']);
+        if (empty($status_ids)) {
+            $sql .= " AND 1 = 0";
+        } else {
+            $sql .= " AND t.status_id IN (" . implode(',', array_fill(0, count($status_ids), '?')) . ")";
+            foreach ($status_ids as $status_id) {
+                $params[] = (int) $status_id;
+            }
+        }
+    }
+
+    if (!empty($filters['status_group_not']) && function_exists('work_status_ids_for_group')) {
+        $excluded_status_ids = [];
+        foreach ((array) $filters['status_group_not'] as $excluded_group) {
+            $excluded_status_ids = array_merge($excluded_status_ids, work_status_ids_for_group((string) $excluded_group));
+        }
+        $excluded_status_ids = array_values(array_unique(array_filter(array_map('intval', $excluded_status_ids))));
+        if (!empty($excluded_status_ids)) {
+            $sql .= " AND t.status_id NOT IN (" . implode(',', array_fill(0, count($excluded_status_ids), '?')) . ")";
+            foreach ($excluded_status_ids as $status_id) {
+                $params[] = $status_id;
+            }
+        }
+    }
+
     if (!empty($filters['user_id'])) {
         $sql .= " AND t.user_id = ?";
         $params[] = $filters['user_id'];
@@ -212,9 +238,37 @@ function build_ticket_where_clause($filters, &$params)
         $params[] = $filters['type_id'];
     }
 
+    if (!empty($filters['source'])) {
+        $sql .= " AND t.source = ?";
+        $params[] = (string) $filters['source'];
+    }
+
     if (!empty($filters['assigned_to'])) {
         $sql .= " AND t.assignee_id = ?";
         $params[] = $filters['assigned_to'];
+    }
+
+    if (!empty($filters['assignee_unassigned'])) {
+        $sql .= " AND t.assignee_id IS NULL";
+    }
+
+    if (!empty($filters['last_public_comment_role'])) {
+        $role = (string) $filters['last_public_comment_role'];
+        $sql .= " AND EXISTS (
+            SELECT 1
+            FROM comments lc
+            JOIN users lcu ON lcu.id = lc.user_id
+            WHERE lc.ticket_id = t.id
+              AND lc.is_internal = 0
+              AND lcu.role = ?
+              AND lc.created_at = (
+                  SELECT MAX(lc2.created_at)
+                  FROM comments lc2
+                  WHERE lc2.ticket_id = t.id
+                    AND lc2.is_internal = 0
+              )
+        )";
+        $params[] = $role;
     }
 
     if (!empty($filters['user_search'])) {
@@ -246,6 +300,24 @@ function build_ticket_where_clause($filters, &$params)
         }
         $sql .= " AND t.created_at <= ?";
         $params[] = $created_to;
+    }
+
+    if (!empty($filters['updated_from'])) {
+        $updated_from = trim((string) $filters['updated_from']);
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $updated_from)) {
+            $updated_from .= ' 00:00:00';
+        }
+        $sql .= " AND t.updated_at >= ?";
+        $params[] = $updated_from;
+    }
+
+    if (!empty($filters['updated_to'])) {
+        $updated_to = trim((string) $filters['updated_to']);
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $updated_to)) {
+            $updated_to .= ' 23:59:59';
+        }
+        $sql .= " AND t.updated_at <= ?";
+        $params[] = $updated_to;
     }
 
     if (ticket_tags_column_exists()) {

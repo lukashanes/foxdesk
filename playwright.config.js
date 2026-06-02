@@ -1,6 +1,7 @@
 const { defineConfig, devices } = require('@playwright/test');
 
-const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:8090';
+const e2ePort = process.env.E2E_PORT || '8090';
+const baseURL = process.env.E2E_BASE_URL || `http://127.0.0.1:${e2ePort}`;
 
 module.exports = defineConfig({
   testDir: './tests/e2e',

@@ -19,6 +19,7 @@ require_once __DIR__ . '/update-api.php';
 require_once __DIR__ . '/notification-handler.php';
 require_once __DIR__ . '/allowed-senders-handler.php';
 require_once __DIR__ . '/push-handler.php';
+require_once __DIR__ . '/app-handler.php';
 
 /**
  * Route API requests to appropriate handlers
@@ -102,6 +103,11 @@ function route_api_request($action) {
 
         // Search (command palette)
         'search-tickets' => 'api_search_tickets',
+        'global-search' => 'api_global_search',
+
+        // App shell contract for web/native clients
+        'app-shell' => 'api_app_shell',
+        'app-home' => 'api_app_home',
 
         // Dashboard layout
         'save-dashboard-layout' => 'api_save_dashboard_layout',
@@ -159,4 +165,3 @@ function route_api_request($action) {
 
     api_error('Unknown action', 404);
 }
-

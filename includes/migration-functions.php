@@ -75,6 +75,50 @@ function migration_select_rows(string $table): array
     return db_fetch_all("SELECT * FROM {$table}{$order}");
 }
 
+function migration_count_rows(string $table): int
+{
+    validate_sql_identifier($table);
+    if (!table_exists($table)) {
+        return 0;
+    }
+
+    $row = db_fetch_one("SELECT COUNT(*) AS row_count FROM {$table}");
+    return (int) ($row['row_count'] ?? 0);
+}
+
+function migration_json_encode($value, int $flags = 0): string
+{
+    $json_flags = $flags | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR;
+    return json_encode($value, $json_flags);
+}
+
+function migration_backup_directory_status(): array
+{
+    $dir = BASE_PATH . '/backups';
+    $exists = is_dir($dir);
+    if (!$exists) {
+        @mkdir($dir, 0755, true);
+        $exists = is_dir($dir);
+    }
+
+    return [
+        'path' => $dir,
+        'exists' => $exists,
+        'writable' => $exists && is_writable($dir),
+    ];
+}
+
+function migration_export_readiness(): array
+{
+    $backup_dir = migration_backup_directory_status();
+
+    return [
+        'zip_available' => class_exists('ZipArchive'),
+        'backup_dir' => $backup_dir,
+        'ready' => class_exists('ZipArchive') && !empty($backup_dir['writable']),
+    ];
+}
+
 function migration_attachment_absolute_path(array $attachment): ?string
 {
     $filename = basename((string) ($attachment['filename'] ?? ''));
@@ -122,11 +166,9 @@ function migration_create_export_package(): array
     $safe_name = trim((string) $safe_name, '-') ?: 'foxdesk';
     $filename = 'foxdesk-cloud-migration-' . strtolower($safe_name) . '-' . $export_id . '.zip';
 
-    $dir = BASE_PATH . '/backups';
-    if (!is_dir($dir)) {
-        @mkdir($dir, 0755, true);
-    }
-    if (!is_dir($dir) || !is_writable($dir)) {
+    $backup_dir = migration_backup_directory_status();
+    $dir = (string) $backup_dir['path'];
+    if (empty($backup_dir['writable'])) {
         throw new RuntimeException('Backup directory is not writable.');
     }
 
@@ -160,7 +202,7 @@ function migration_create_export_package(): array
 
         $rows = migration_select_rows($table);
         $manifest['tables'][$table] = count($rows);
-        $zip->addFromString('tables/' . $table . '.json', json_encode($rows, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $zip->addFromString('tables/' . $table . '.json', migration_json_encode($rows));
     }
 
     if (table_exists('attachments')) {
@@ -186,7 +228,7 @@ function migration_create_export_package(): array
         }
     }
 
-    $zip->addFromString('manifest.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    $zip->addFromString('manifest.json', migration_json_encode($manifest, JSON_PRETTY_PRINT));
     $zip->close();
 
     return [
@@ -200,7 +242,11 @@ function migration_create_export_package(): array
 
 function migration_download_export_package(): void
 {
-    require_admin();
+    if (!is_admin()) {
+        http_response_code(403);
+        exit;
+    }
+
     require_csrf_token();
 
     $package = migration_create_export_package();
