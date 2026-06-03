@@ -7,6 +7,10 @@ if (!is_admin()) {
 $page_title = t('Cloud migration');
 $page = 'admin';
 $tenant_name = get_setting('app_name', 'FoxDesk');
+$cloud_url = trim((string) get_setting('migration_cloud_url', 'https://app.foxdesk.net'));
+$stored_token = trim((string) get_setting('migration_cloud_token', ''));
+$cutover_target = trim((string) get_setting('migration_cloud_target_url', ''));
+$migration_response = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['migration_action'] ?? '') === 'download_export') {
     try {
@@ -17,6 +21,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['migration_action'] ?? '') 
         }
         flash(t('Migration export failed: {error}', ['error' => $e->getMessage()]), 'error');
         redirect('admin', ['section' => 'migration-export']);
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['migration_action'] ?? '') === 'connect_cloud') {
+    require_csrf_token();
+    $cloud_url = trim((string) ($_POST['cloud_url'] ?? $cloud_url));
+    $token = trim((string) ($_POST['migration_token'] ?? $stored_token));
+    try {
+        $migration_response = migration_cloud_connect($cloud_url, $token);
+        $stored_token = $token;
+        flash('FoxDesk Cloud connection verified.', 'success');
+    } catch (Throwable $e) {
+        flash('Cloud connection failed: ' . $e->getMessage(), 'error');
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['migration_action'] ?? '') === 'analyze_cloud') {
+    require_csrf_token();
+    $cloud_url = trim((string) ($_POST['cloud_url'] ?? $cloud_url));
+    $token = trim((string) ($_POST['migration_token'] ?? $stored_token));
+    try {
+        $migration_response = migration_cloud_plan($cloud_url, $token);
+        $stored_token = $token;
+        flash('Migration plan refreshed.', 'success');
+    } catch (Throwable $e) {
+        flash('Migration analysis failed: ' . $e->getMessage(), 'error');
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['migration_action'] ?? '') === 'mark_cutover') {
+    require_csrf_token();
+    $target = trim((string) ($_POST['cutover_target_url'] ?? ''));
+    if ($target === '') {
+        flash('Cloud workspace URL is required before cutover.', 'error');
+    } else {
+        migration_cloud_mark_cutover($target, ['source' => 'admin_page']);
+        flash('Cutover completed. This self-hosted FoxDesk is no longer the active instance.', 'success');
+        header('Location: ' . $target);
+        exit;
     }
 }
 
@@ -47,10 +90,94 @@ if (table_exists('attachments') && column_exists('attachments', 'file_size')) {
     }
 }
 
+$inventory = migration_inventory();
+$last_plan = json_decode((string) get_setting('migration_cloud_last_plan_json', ''), true);
+$last_plan = is_array($last_plan) ? $last_plan : null;
+$display_plan = is_array($migration_response) && isset($migration_response['plan']) ? $migration_response : $last_plan;
+
 require_once BASE_PATH . '/includes/header.php';
 ?>
 
 <div class="max-w-6xl mx-auto space-y-6">
+    <div class="bg-white border border-gray-200 rounded-lg p-6">
+        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+            <div>
+                <p class="text-sm font-semibold text-blue-600 mb-2">FoxDesk Cloud sync</p>
+                <h1 class="text-2xl font-bold text-gray-900 mb-2">Sync to SaaS, then cut over once</h1>
+                <p class="text-gray-600 max-w-3xl">
+                    Use this bridge for a controlled one-way migration. This self-hosted FoxDesk stays active during sync.
+                    After final cutover, it redirects users to FoxDesk Cloud and disables local IMAP/email notification processing
+                    so only one instance remains active.
+                </p>
+            </div>
+            <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-700">
+                Mode: <?php echo e(migration_cloud_mode()); ?>
+            </span>
+        </div>
+
+        <form method="post" class="grid lg:grid-cols-[1fr_1fr_auto_auto] gap-3 mt-6 items-end">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="migration_action" value="analyze_cloud">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">FoxDesk Cloud URL</label>
+                <input class="form-input" name="cloud_url" value="<?php echo e($cloud_url); ?>" placeholder="https://app.foxdesk.net">
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Migration token</label>
+                <input class="form-input" name="migration_token" value="<?php echo e($stored_token); ?>" placeholder="fdmig_..." autocomplete="off">
+            </div>
+            <button class="btn btn-secondary" type="submit" name="migration_action" value="connect_cloud">Connect</button>
+            <button class="btn btn-primary" type="submit" name="migration_action" value="analyze_cloud">Analyze sync</button>
+        </form>
+
+        <?php if ($display_plan && !empty($display_plan['plan'])): ?>
+            <?php $plan = $display_plan['plan']; ?>
+            <div class="grid md:grid-cols-4 gap-3 mt-6">
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="text-xs uppercase font-semibold text-gray-500">Rows</div>
+                    <div class="text-2xl font-bold text-gray-900"><?php echo (int) ($plan['total_rows'] ?? 0); ?></div>
+                </div>
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="text-xs uppercase font-semibold text-gray-500">Attachments</div>
+                    <div class="text-2xl font-bold text-gray-900"><?php echo (int) ($plan['attachments']['rows'] ?? 0); ?></div>
+                    <div class="text-sm text-gray-500"><?php echo e(format_file_size((int) ($plan['attachments']['bytes'] ?? 0))); ?></div>
+                </div>
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="text-xs uppercase font-semibold text-gray-500">Direction</div>
+                    <div class="text-base font-bold text-gray-900">Self-hosted → SaaS</div>
+                </div>
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="text-xs uppercase font-semibold text-gray-500">Cutover</div>
+                    <div class="text-base font-bold text-gray-900">Single active instance</div>
+                </div>
+            </div>
+            <div class="mt-4 bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-900">
+                Core data and attachments can be synced from CLI with
+                <code>php bin/sync-to-cloud.php --cloud-url=<?php echo e($cloud_url); ?> --token=TOKEN</code>.
+                Files are streamed over the migration API and stored through the SaaS storage driver. ZIP export remains available below as a fallback.
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-5 text-sm text-amber-900">
+        <div class="font-semibold mb-2">Final cutover is destructive operationally.</div>
+        <p class="mb-3">
+            Use this only after the final sync is complete and the SaaS workspace has been verified. It disables local IMAP/email
+            processing and redirects users to the cloud workspace.
+        </p>
+        <form method="post" class="grid md:grid-cols-[1fr_auto] gap-3 items-end">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="migration_action" value="mark_cutover">
+            <div>
+                <label class="block text-sm font-semibold mb-1">Cloud workspace URL</label>
+                <input class="form-input" name="cutover_target_url" value="<?php echo e($cutover_target); ?>" placeholder="https://app.foxdesk.net/">
+            </div>
+            <button class="btn btn-secondary" type="submit" onclick="return confirm('Final cutover will stop this self-hosted FoxDesk from acting as the active instance. Continue?')">
+                Final cutover
+            </button>
+        </form>
+    </div>
+
     <?php if (!$readiness['ready']): ?>
         <div class="bg-red-50 border border-red-200 rounded-lg p-5 text-sm text-red-900">
             <div class="font-semibold mb-2">Migration export is not ready on this server.</div>
@@ -75,10 +202,10 @@ require_once BASE_PATH . '/includes/header.php';
     <div class="bg-white border border-gray-200 rounded-lg p-6">
         <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div>
-                <p class="text-sm font-semibold text-blue-600 mb-2">FoxDesk Cloud migration</p>
+                <p class="text-sm font-semibold text-blue-600 mb-2">Fallback package</p>
                 <h1 class="text-2xl font-bold text-gray-900 mb-2">Export this self-hosted FoxDesk</h1>
                 <p class="text-gray-600 max-w-3xl">
-                    This creates a migration ZIP that the FoxDesk SaaS platform admin can import into a new hosted workspace.
+                    This creates a migration ZIP that the FoxDesk SaaS platform admin can import into a new hosted workspace if API sync is not available.
                     It includes <?php echo e($tenant_name); ?> users, clients, tickets, comments, time entries, reports,
                     notification metadata, settings, and attachment files.
                 </p>
@@ -124,8 +251,8 @@ require_once BASE_PATH . '/includes/header.php';
     </div>
 
     <div class="bg-blue-50 border border-blue-100 rounded-lg p-5 text-sm text-blue-900">
-        <strong>Next step:</strong> log in to the FoxDesk SaaS platform admin, open Platform console,
-        upload this ZIP under Import self-hosted FoxDesk, and verify the hosted workspace before switching DNS.
+        <strong>Fallback path:</strong> if API sync is unavailable, log in to the FoxDesk SaaS platform admin,
+        import this ZIP, verify the hosted workspace, then return here for final cutover.
     </div>
 </div>
 

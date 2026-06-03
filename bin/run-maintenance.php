@@ -71,6 +71,25 @@ $result = [
 
 cli_scheduler_log('scheduler', 'info', 'Maintenance run started');
 
+if (function_exists('migration_cloud_cutover_active') && migration_cloud_cutover_active()) {
+    $result['recurring_processed'] = 0;
+    $result['email_ingest'] = [
+        'checked' => 0,
+        'processed' => 0,
+        'skipped' => 0,
+        'failed' => 0,
+        'status' => 'disabled',
+        'reason' => 'cloud_cutover_complete',
+    ];
+    $result['update_check'] = ['status' => 'disabled', 'reason' => 'cloud_cutover_complete'];
+    if ($json) {
+        echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        exit(0);
+    }
+    echo '[maintenance] disabled: cloud cutover complete' . PHP_EOL;
+    exit(0);
+}
+
 try {
     $result['recurring_processed'] = (int) process_recurring_tasks();
 } catch (Throwable $e) {

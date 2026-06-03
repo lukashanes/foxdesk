@@ -197,6 +197,12 @@ function email_ingest_run($options = [])
         'details' => [],
     ];
 
+    if (function_exists('migration_cloud_cutover_active') && migration_cloud_cutover_active()) {
+        $result['disabled'] = true;
+        $result['reason'] = 'cloud_cutover_complete';
+        return $result;
+    }
+
     $cfg = email_ingest_config();
     if (empty($cfg['enabled'])) {
         $result['disabled'] = true;

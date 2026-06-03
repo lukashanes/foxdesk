@@ -22,6 +22,8 @@ if (!file_exists(BASE_PATH . '/config.php')) {
 
 require_once BASE_PATH . '/config.php';
 require_once BASE_PATH . '/includes/database.php';
+require_once BASE_PATH . '/includes/settings-functions.php';
+require_once BASE_PATH . '/includes/migration-functions.php';
 require_once BASE_PATH . '/includes/email-ingest-functions.php';
 
 function cli_scheduler_log($channel, $level, $message, $context = [])
@@ -130,4 +132,3 @@ cli_scheduler_log('scheduler', 'info', 'Incoming email ingest completed', [
     'skipped' => (int) ($result['skipped'] ?? 0),
     'failed' => (int) ($result['failed'] ?? 0),
 ]);
-
