@@ -34,6 +34,69 @@ function should_send_ticket_email(string $event, array $ticket = [], array $acto
     return false;
 }
 
+function ticket_notification_user_id(array $user): int
+{
+    return (int) ($user['id'] ?? 0);
+}
+
+function ticket_notification_is_staff_user(array $user): bool
+{
+    return in_array((string) ($user['role'] ?? ''), ['admin', 'agent'], true);
+}
+
+function should_send_new_ticket_admin_email(array $ticket, array $admin, array $requester = [], array $context = []): bool
+{
+    if (empty($admin['email'])) {
+        return false;
+    }
+
+    $admin_id = ticket_notification_user_id($admin);
+    $requester_id = ticket_notification_user_id($requester);
+    $ticket_user_id = (int) ($ticket['user_id'] ?? 0);
+
+    if ($admin_id > 0 && ($admin_id === $requester_id || $admin_id === $ticket_user_id)) {
+        return false;
+    }
+
+    if (!empty($requester['email']) && strcasecmp((string) $admin['email'], (string) $requester['email']) === 0) {
+        return false;
+    }
+
+    return should_send_ticket_email('ticket.created', $ticket, $requester, $context);
+}
+
+function should_send_ticket_confirmation_email(array $ticket, array $requester, array $actor = [], array $context = []): bool
+{
+    if (empty($requester['email'])) {
+        return false;
+    }
+
+    if (ticket_notification_is_staff_user($requester)) {
+        return false;
+    }
+
+    return should_send_ticket_email('ticket.created', $ticket, $actor, $context);
+}
+
+function should_send_ticket_assignment_email(array $ticket, array $assigned_agent, array $assigner, array $context = []): bool
+{
+    if (empty($assigned_agent['email'])) {
+        return false;
+    }
+
+    $assigned_id = ticket_notification_user_id($assigned_agent);
+    $assigner_id = ticket_notification_user_id($assigner);
+    if ($assigned_id <= 0) {
+        return false;
+    }
+
+    if ($assigner_id > 0 && $assigner_id === $assigned_id) {
+        return false;
+    }
+
+    return should_send_ticket_email('ticket.assigned', $ticket, $assigner, $context);
+}
+
 function should_send_status_change_email(array $ticket, array $actor, array $context): bool
 {
     $comment = trim(strip_tags((string) ($context['comment_text'] ?? '')));

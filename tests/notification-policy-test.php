@@ -49,4 +49,18 @@ assert_policy(!should_send_ticket_email('ticket.updated', $ticket, $actor, [
 
 assert_policy(should_send_ticket_email('ticket.assigned', $ticket, $actor), 'Assignment should email.');
 
+$admin = ['id' => 10, 'role' => 'admin', 'email' => 'admin@example.com'];
+$other_admin = ['id' => 11, 'role' => 'admin', 'email' => 'other-admin@example.com'];
+$agent = ['id' => 12, 'role' => 'agent', 'email' => 'agent@example.com'];
+$customer = ['id' => 13, 'role' => 'user', 'email' => 'customer@example.com'];
+$self_ticket = ['id' => 2, 'title' => 'Self ticket', 'user_id' => 10];
+$customer_ticket = ['id' => 3, 'title' => 'Customer ticket', 'user_id' => 13];
+
+assert_policy(!should_send_new_ticket_admin_email($self_ticket, $admin, $admin), 'New-ticket admin email should skip the ticket creator.');
+assert_policy(should_send_new_ticket_admin_email($self_ticket, $other_admin, $admin), 'New-ticket admin email should still notify other admins.');
+assert_policy(!should_send_ticket_confirmation_email($self_ticket, $admin, $admin), 'Internal staff should not receive customer ticket confirmations.');
+assert_policy(should_send_ticket_confirmation_email($customer_ticket, $customer, $admin), 'Customer ticket confirmation should still be sent.');
+assert_policy(!should_send_ticket_assignment_email($self_ticket, $admin, $admin), 'Self-assignment should not send an assignment email.');
+assert_policy(should_send_ticket_assignment_email($customer_ticket, $agent, $admin), 'Assignment to another agent should still send an email.');
+
 echo "Notification policy tests passed\n";

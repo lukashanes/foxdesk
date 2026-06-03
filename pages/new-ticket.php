@@ -255,7 +255,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($assignee_id && function_exists('send_ticket_assignment_notification')) {
                 $assigned_agent = get_user($assignee_id);
                 if ($assigned_agent) {
-                    send_ticket_assignment_notification($ticket, $assigned_agent, $user);
+                    send_ticket_assignment_notification($ticket, $assigned_agent, $user, [
+                        'created_with_ticket' => true,
+                    ]);
                 }
             }
 

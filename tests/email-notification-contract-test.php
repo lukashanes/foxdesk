@@ -16,6 +16,11 @@ $cron = file_get_contents(BASE_PATH . '/pages/cron.php');
 
 assert_contract(strpos($mailer, 'function send_ticket_notification_email') !== false, 'Ticket notification email renderer wrapper is missing.');
 assert_contract(strpos($mailer, 'foxdesk_render_ticket_email_html') !== false, 'Ticket notifications should use the shared HTML renderer when available.');
+assert_contract(strpos($mailer, 'should_send_new_ticket_admin_email') !== false, 'New-ticket admin emails must use notification policy suppression.');
+assert_contract(strpos($mailer, 'should_send_ticket_confirmation_email') !== false, 'Ticket confirmations must use notification policy suppression.');
+assert_contract(strpos($mailer, 'should_send_ticket_assignment_email') !== false, 'Assignment emails must use notification policy suppression.');
+assert_contract(strpos($mailer, "'eyebrow' => 'Ticket received'") !== false, 'Ticket confirmation should use the shared ticket email renderer payload.');
+assert_contract(strpos($mailer, 'send_email($user[\'email\'], $subject, $body)') === false, 'Ticket confirmation must not use the legacy plain-text send_email path.');
 assert_contract(strpos($ticket_handler, '$will_send_public_comment_notification') !== false, 'Ticket form should detect public comment notifications before status dispatch.');
 assert_contract(strpos($ticket_handler, '!$will_send_public_comment_notification') !== false, 'Status notifications should be suppressed when the same submit sends a public comment.');
 assert_contract(strpos($pseudo_cron, 'pseudo_cron_schedule_inline_email_ingest') !== false, 'Inline email ingest fallback is missing.');

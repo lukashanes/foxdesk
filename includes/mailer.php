@@ -654,6 +654,10 @@ function send_new_ticket_notification($ticket)
 
     $result = true;
     foreach ($admins as $admin) {
+        if (function_exists('should_send_new_ticket_admin_email') && !should_send_new_ticket_admin_email((array) $ticket, (array) $admin, (array) ($user ?: []))) {
+            continue;
+        }
+
         $lang = $admin['language'] ?? 'en';
         $template = get_email_template('new_ticket', $lang);
         if (!$template) {
@@ -1123,7 +1127,12 @@ function send_ticket_confirmation_to_user($ticket)
     // Get user to determine language
     $user = get_user($ticket['user_id']);
     if (!$user) {
-        return;
+        return false;
+    }
+
+    $actor = function_exists('current_user') ? (current_user() ?: []) : [];
+    if (function_exists('should_send_ticket_confirmation_email') && !should_send_ticket_confirmation_email((array) $ticket, (array) $user, (array) $actor)) {
+        return false;
     }
 
     $lang = $user['language'] ?? 'en';
@@ -1160,24 +1169,34 @@ function send_ticket_confirmation_to_user($ticket)
         $body = str_replace($key, $value, $body);
     }
 
-    send_email($user['email'], $subject, $body);
+    return send_ticket_notification_email($user['email'], $subject, $body, [
+        'eyebrow' => 'Ticket received',
+        'title' => (string) ($ticket['title'] ?? $subject),
+        'cta_label' => 'Open ticket',
+        'cta_url' => $ticket_url,
+        'reason' => 'You are receiving this because this ticket was submitted for you.',
+    ]);
 }
 
 /**
  * Send ticket assignment notification to agent
  */
-function send_ticket_assignment_notification($ticket, $assigned_agent, $assigner)
+function send_ticket_assignment_notification($ticket, $assigned_agent, $assigner, array $context = [])
 {
     $settings = get_settings();
 
     if (empty($settings['email_notifications_enabled']) || $settings['email_notifications_enabled'] != '1') {
-        return; // Notifications disabled
+        return false; // Notifications disabled
+    }
+
+    if (function_exists('should_send_ticket_assignment_email') && !should_send_ticket_assignment_email((array) $ticket, (array) $assigned_agent, (array) $assigner, $context)) {
+        return false;
     }
 
     $lang = $assigned_agent['language'] ?? 'en';
     $template = get_email_template('ticket_assignment', $lang);
     if (!$template) {
-        return; // Template not found or not active
+        return false; // Template not found or not active
     }
 
     $app_name = !empty($settings['app_name']) ? $settings['app_name'] : 'FoxDesk';
@@ -1199,7 +1218,7 @@ function send_ticket_assignment_notification($ticket, $assigned_agent, $assigner
     $subject = str_replace(array_keys($placeholders), array_values($placeholders), $template['subject']);
     $body = str_replace(array_keys($placeholders), array_values($placeholders), $template['body']);
 
-    send_ticket_notification_email($assigned_agent['email'], $subject, $body, [
+    return send_ticket_notification_email($assigned_agent['email'], $subject, $body, [
         'eyebrow' => 'Assigned to you',
         'title' => (string) ($ticket['title'] ?? $subject),
         'cta_label' => 'Open ticket',
