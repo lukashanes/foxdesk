@@ -21,6 +21,9 @@ if (!function_exists('url')) {
 assert_ticket_list_view(ticket_list_view_normalize('waiting') === 'waiting', 'Known view should normalize to itself.');
 assert_ticket_list_view(ticket_list_view_normalize('unknown') === 'open', 'Unknown view should fall back to open.');
 assert_ticket_list_view(ticket_list_view_from_request(['work_view' => 'done'], false) === 'done', 'Request work_view should be honored.');
+assert_ticket_list_view(ticket_list_view_from_request(['search' => 'router'], false) === 'all', 'Ticket search without a view should search all non-archived tickets.');
+assert_ticket_list_view(ticket_list_view_from_request(['work_view' => 'waiting', 'search' => 'router', 'search_scope' => 'all'], false) === 'all', 'Ticket search form should override the current agenda view.');
+assert_ticket_list_view(ticket_list_view_from_request(['work_view' => 'done', 'search' => 'router'], false) === 'done', 'Explicit view tabs should still allow scoped searching.');
 assert_ticket_list_view(ticket_list_view_from_request(['work_view' => 'done'], true) === 'archived', 'Archive mode should override work_view.');
 
 $base = ['is_archived' => 0, 'search' => 'router', 'status_group' => 'done'];
@@ -52,6 +55,7 @@ assert_ticket_list_view(($archived['is_archived'] ?? null) === 1, 'Archive view 
 $url = ticket_list_view_url('done', ['page' => 'tickets', 'p' => 3, 'search' => 'router'], true);
 assert_ticket_list_view(strpos($url, 'work_view=done') !== false, 'Done view URL should include work_view.');
 assert_ticket_list_view(strpos($url, 'p=3') === false, 'View URL should reset pagination.');
+assert_ticket_list_view(strpos($url, 'search_scope=') === false, 'View URL should remove one-shot search scope.');
 
 $open_url = ticket_list_view_url('open', ['page' => 'tickets', 'work_view' => 'done'], true);
 assert_ticket_list_view(strpos($open_url, 'work_view=') === false, 'Open view URL should be the clean default.');
@@ -69,6 +73,7 @@ $tickets_page = file_get_contents($root . '/pages/tickets.php');
 assert_ticket_list_view($tickets_page !== false, 'Tickets page must be readable.');
 assert_ticket_list_view(str_contains($tickets_page, '$ticket_show_all_url'), 'Tickets page should use a real All view URL for Show all.');
 assert_ticket_list_view(str_contains($tickets_page, '$ticket_clear_url'), 'Tickets page should preserve the current view when clearing filters.');
+assert_ticket_list_view(substr_count($tickets_page, 'name="search_scope" value="all"') >= 2, 'Ticket search forms should request all-ticket search by default.');
 assert_ticket_list_view(str_contains($tickets_page, 'ticket_list_view_shows_closed_inline'), 'Tickets page must use the closed visibility helper.');
 assert_ticket_list_view(str_contains($tickets_page, 'if (!$show_closed_tickets_inline'), 'Board closed-ticket hiding must follow the same closed visibility helper.');
 

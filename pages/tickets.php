@@ -1663,6 +1663,7 @@ foreach ($board_closed_statuses as $status_item) {
         <div class="block lg:hidden border-b px-4 py-3 glass" style="border-color: var(--border-light);">
             <form method="get" action="index.php" class="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="page" value="tickets">
+                <input type="hidden" name="search_scope" value="all">
                 <?php if (!$is_archive && $ticket_list_view !== 'open'): ?>
                     <input type="hidden" name="work_view" value="<?php echo e($ticket_list_view); ?>">
                 <?php endif; ?>
@@ -1842,6 +1843,7 @@ foreach ($board_closed_statuses as $status_item) {
         <!-- Desktop Table View with Inline Filters -->
         <form method="get" action="index.php" id="filter-form">
                 <input type="hidden" name="page" value="tickets">
+                <input type="hidden" name="search_scope" value="all">
                 <?php if (!$is_archive && $ticket_list_view !== 'open'): ?>
                     <input type="hidden" name="work_view" value="<?php echo e($ticket_list_view); ?>">
                 <?php endif; ?>

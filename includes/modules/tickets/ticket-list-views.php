@@ -26,6 +26,13 @@ function ticket_list_view_from_request(array $request, bool $is_archive = false,
     if ($is_archive) {
         return 'archived';
     }
+
+    $search = trim((string) ($request['search'] ?? ''));
+    $search_scope = strtolower(trim((string) ($request['search_scope'] ?? '')));
+    if ($search !== '' && ($search_scope === 'all' || !array_key_exists('work_view', $request))) {
+        return 'all';
+    }
+
     return ticket_list_view_normalize($request['work_view'] ?? 'open', $include_archive);
 }
 
@@ -108,7 +115,7 @@ function ticket_list_view_url(string $view, array $request, bool $include_archiv
 {
     $view = ticket_list_view_normalize($view, $include_archive);
     $params = $request;
-    unset($params['page'], $params['p'], $params['status_group'], $params['status_group_not']);
+    unset($params['page'], $params['p'], $params['search_scope'], $params['status_group'], $params['status_group_not']);
 
     if ($view === 'archived') {
         $params['archived'] = '1';
