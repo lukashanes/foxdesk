@@ -1,14 +1,13 @@
 {
-    "version": "0.3.125",
-    "date": "2026-06-02",
+    "version": "0.3.126",
+    "date": "2026-06-03",
     "min_php": "8.1",
     "changelog": [
-        "Cloud migration export now opens reliably in the self-hosted admin and downloads a valid SaaS migration package",
-        "Migration export no longer loads full tables just to show counts, reducing memory pressure on large helpdesks",
-        "Migration packages now tolerate invalid legacy text encoding and show clear server readiness diagnostics for ZipArchive and backups",
-        "IMAP email ingest includes the shared-hosting pseudo-cron fallback for servers without reliable cron or loopback requests",
-        "New ticket forms no longer carry over the previous company or assignee selection after a ticket is created",
-        "Work, inbox, global search, client overview, reporting, billable item adjustments, and compact sidebar flows are included"
+        "The Complete ticket action now selects a real completed status instead of cancel/reject terminal statuses, including Czech status names with accents",
+        "Closed tickets are visible inline in All, Done, archived, and explicit closed-status views instead of disappearing into a hidden closed bucket",
+        "Explicit status filters no longer conflict with Open/Done work views",
+        "Show all and clear-filter links now keep users in the expected ticket view",
+        "Authenticated fallback redirects now use the Work home instead of the old Dashboard route"
     ],
     "delete_files": []
 }

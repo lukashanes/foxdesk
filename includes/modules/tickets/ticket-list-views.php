@@ -29,6 +29,15 @@ function ticket_list_view_from_request(array $request, bool $is_archive = false,
     return ticket_list_view_normalize($request['work_view'] ?? 'open', $include_archive);
 }
 
+function ticket_list_view_shows_closed_inline(string $view, bool $is_closed_filter_active = false): bool
+{
+    if ($is_closed_filter_active) {
+        return true;
+    }
+
+    return in_array(ticket_list_view_normalize($view, true), ['done', 'all', 'archived'], true);
+}
+
 function ticket_list_view_definitions(bool $include_archive = true): array
 {
     $views = [
@@ -84,7 +93,11 @@ function ticket_list_view_apply_filters(array $filters, string $view): array
         $filters['is_archived'] = 0;
     }
 
+    $has_explicit_status_filter = !empty($filters['status_id']);
     foreach ($view_filters as $key => $value) {
+        if ($has_explicit_status_filter && in_array($key, ['status_group', 'status_group_not'], true)) {
+            continue;
+        }
         $filters[$key] = $value;
     }
 

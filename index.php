@@ -15,7 +15,7 @@ define('REMEMBER_ME_DURATION', 30 * 86400); // 30 days
 
 require_once BASE_PATH . '/includes/session-bootstrap.php';
 
-define('APP_VERSION', '0.3.125');
+define('APP_VERSION', '0.3.126');
 
 // Check if installed
 if (!file_exists(BASE_PATH . '/config.php')) {
@@ -333,7 +333,7 @@ switch ($page) {
         // Agents can access reports section; everything else requires admin
         $agent_allowed_sections = ['reports'];
         if (!is_admin() && !(is_agent() && in_array($admin_page, $agent_allowed_sections, true))) {
-            header('Location: index.php?page=dashboard');
+            header('Location: index.php?page=' . foxdesk_authenticated_home_page());
             exit;
         }
 
@@ -437,7 +437,7 @@ switch ($page) {
         }
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: index.php?page=dashboard');
+            header('Location: index.php?page=' . foxdesk_authenticated_home_page());
             exit;
         }
 
@@ -451,7 +451,7 @@ switch ($page) {
                 'reason' => 'not_admin'
             ]));
             flash(t('Access denied.'), 'error');
-            header('Location: index.php?page=dashboard');
+            header('Location: index.php?page=' . foxdesk_authenticated_home_page());
             exit;
         }
 
@@ -504,7 +504,7 @@ switch ($page) {
                 if (ob_get_level() > 0) {
                     ob_clean(); // Clean any accidental output before headers
                 }
-                header('Location: index.php?page=dashboard');
+                header('Location: index.php?page=' . foxdesk_authenticated_home_page());
                 exit;
             }
         }

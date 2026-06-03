@@ -31,4 +31,52 @@ $assert(str_contains($page, "document.getElementById('toolbar-timer-btn')"), 'Ex
 $assert(str_contains($page, 'id="ticket-side-panel"'), 'Assign action must target the side properties panel.');
 $assert(str_contains($page, "t('Ticket properties')"), 'Side panel must have a clear properties heading.');
 
+if (!function_exists('ticket_status_group_from_status')) {
+    function ticket_status_group_from_status(array $status): string
+    {
+        if (isset($status['status_group']) && trim((string) $status['status_group']) !== '') {
+            return (string) $status['status_group'];
+        }
+
+        return !empty($status['is_closed']) ? 'done' : 'active';
+    }
+}
+
+if (!function_exists('ticket_status_group_for_status_id')) {
+    function ticket_status_group_for_status_id(?int $status_id): string
+    {
+        return 'active';
+    }
+}
+
+require_once $root . '/includes/modules/tickets/ticket-detail-actions.php';
+
+$statuses_with_canceled_first = [
+    ['id' => 4, 'name' => 'Canceled', 'is_closed' => 1],
+    ['id' => 5, 'name' => 'Done', 'is_closed' => 1],
+    ['id' => 6, 'name' => 'Resolved', 'is_closed' => 1],
+];
+
+$assert(
+    ticket_detail_first_done_status_id($statuses_with_canceled_first) === 5,
+    'Complete must prefer a real done status over canceled even when canceled is the first closed status.'
+);
+
+$complete_actions = array_values(array_filter(
+    ticket_detail_primary_actions(['status_id' => 1, 'is_closed' => 0], ['role' => 'admin'], $statuses_with_canceled_first),
+    static fn (array $action): bool => ($action['key'] ?? '') === 'complete'
+));
+
+$assert(!empty($complete_actions), 'Complete action should be visible for active agent tickets.');
+$assert((int) $complete_actions[0]['status_id'] === 5, 'Complete action must submit the Done status id, not Canceled.');
+$assert(ticket_detail_first_done_status_id([
+    ['id' => 4, 'name' => 'Canceled', 'is_closed' => 1],
+    ['id' => 7, 'name' => 'Rejected', 'is_closed' => 1],
+]) === null, 'Complete action must not appear when only canceled-like terminal statuses exist.');
+
+$assert(ticket_detail_first_done_status_id([
+    ['id' => 8, 'name' => 'Zrušeno', 'is_closed' => 1],
+    ['id' => 9, 'name' => 'Dokončeno', 'is_closed' => 1],
+]) === 9, 'Complete must prefer accented Czech done statuses over canceled terminal statuses.');
+
 echo "Ticket detail action contract OK\n";

@@ -5,7 +5,8 @@
 
 // Redirect if already logged in
 if (is_logged_in()) {
-    header('Location: index.php?page=dashboard');
+    $redirect_page = function_exists('foxdesk_authenticated_home_page') ? foxdesk_authenticated_home_page() : 'dashboard';
+    header('Location: index.php?page=' . $redirect_page);
     exit;
 }
 
@@ -165,4 +166,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </body>
 
 </html>
-

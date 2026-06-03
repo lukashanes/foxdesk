@@ -1,7 +1,7 @@
 <?php
 if (!is_admin()) {
     flash(t('Access denied.'), 'error');
-    redirect('dashboard');
+    redirect(function_exists('foxdesk_authenticated_home_page') ? foxdesk_authenticated_home_page() : 'dashboard');
 }
 
 $page_title = t('Cloud migration');

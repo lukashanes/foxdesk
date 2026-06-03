@@ -5,14 +5,16 @@
 
 // Redirect if already logged in
 if (is_logged_in()) {
-    header('Location: index.php?page=dashboard');
+    $redirect_page = function_exists('foxdesk_authenticated_home_page') ? foxdesk_authenticated_home_page() : 'dashboard';
+    header('Location: index.php?page=' . $redirect_page);
     exit;
 }
 
 // If the PHP session was lost (for example after an app/container restart),
 // restore the user from the persistent remember-me cookie before showing login.
 if (empty($_SESSION['2fa_pending']) && !empty($_COOKIE['foxdesk_remember']) && validate_remember_token()) {
-    header('Location: index.php?page=dashboard');
+    $redirect_page = function_exists('foxdesk_authenticated_home_page') ? foxdesk_authenticated_home_page() : 'dashboard';
+    header('Location: index.php?page=' . $redirect_page);
     exit;
 }
 
@@ -94,7 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_2fa'])) {
                         set_remember_token($pending['user_id']);
                     }
                     log_security_event('2fa_verified', $pending['user_id']);
-                    header('Location: index.php?page=dashboard');
+                    $redirect_page = function_exists('foxdesk_authenticated_home_page') ? foxdesk_authenticated_home_page() : 'dashboard';
+                    header('Location: index.php?page=' . $redirect_page);
                     exit;
                 } else {
                     rate_limit_record($rate_key_2fa, 300);
@@ -174,7 +177,8 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
                     set_remember_token($_SESSION['user_id']);
                 }
                 rate_limit_clear($rate_key);
-                header('Location: index.php?page=dashboard');
+                $redirect_page = function_exists('foxdesk_authenticated_home_page') ? foxdesk_authenticated_home_page() : 'dashboard';
+                header('Location: index.php?page=' . $redirect_page);
                 exit;
             }
         } else {

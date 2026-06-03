@@ -112,7 +112,7 @@ function require_csrf_token($json = false)
         }
 
         flash($post_size_error, 'error');
-        $fallback = url('dashboard');
+        $fallback = url(function_exists('foxdesk_authenticated_home_page') ? foxdesk_authenticated_home_page() : 'dashboard');
         $redirect = trim((string) ($_SERVER['HTTP_REFERER'] ?? ''));
 
         if ($redirect !== '') {
@@ -152,7 +152,7 @@ function require_csrf_token($json = false)
     }
 
     flash(t('Security check failed. Please try again.'), 'error');
-    $fallback = url('dashboard');
+    $fallback = url(function_exists('foxdesk_authenticated_home_page') ? foxdesk_authenticated_home_page() : 'dashboard');
     $redirect = trim((string) ($_SERVER['HTTP_REFERER'] ?? ''));
 
     if ($redirect !== '') {

@@ -6,7 +6,7 @@
 // Check if user is admin or agent
 if (!is_agent() && !is_admin()) {
     flash(t('You do not have permission to view this profile.'), 'error');
-    redirect('dashboard');
+    redirect(function_exists('foxdesk_authenticated_home_page') ? foxdesk_authenticated_home_page() : 'dashboard');
 }
 
 $user_id = (int) ($_GET['id'] ?? 0);

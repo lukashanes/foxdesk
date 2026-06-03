@@ -9,7 +9,7 @@ $current_user = current_user();
 
 if (!is_admin() && (!function_exists('can_view_time') || !can_view_time($current_user))) {
     flash(t('Access denied.'), 'error');
-    redirect('dashboard');
+    redirect(function_exists('foxdesk_authenticated_home_page') ? foxdesk_authenticated_home_page() : 'dashboard');
 }
 
 $time_tracking_available = ticket_time_table_exists();

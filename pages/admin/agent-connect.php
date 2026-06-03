@@ -9,7 +9,8 @@
  */
 
 if (!is_admin()) {
-    header('Location: index.php?page=dashboard');
+    $redirect_page = function_exists('foxdesk_authenticated_home_page') ? foxdesk_authenticated_home_page() : 'dashboard';
+    header('Location: index.php?page=' . $redirect_page);
     exit;
 }
 

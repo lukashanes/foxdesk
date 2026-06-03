@@ -606,7 +606,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                 <?php endif; ?>
             </div>
             <div class="flex items-center gap-3">
-                <a href="<?php echo url('dashboard'); ?>" class="btn btn-ghost flex items-center">
+                <a href="<?php echo url(function_exists('foxdesk_authenticated_home_page') ? foxdesk_authenticated_home_page() : 'dashboard'); ?>" class="btn btn-ghost flex items-center">
                     <?php echo e(t('Cancel')); ?>
                 </a>
                 <button type="submit" class="btn btn-primary flex items-center">

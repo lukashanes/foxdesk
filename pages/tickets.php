@@ -371,6 +371,12 @@ if ($staff_scope) {
 $ticket_list_include_archive = is_admin();
 $ticket_list_view = ticket_list_view_from_request($_GET, $is_archive, $ticket_list_include_archive);
 $ticket_list_view_definitions = ticket_list_view_definitions($ticket_list_include_archive);
+$ticket_show_all_url = $is_archive
+    ? url('tickets', ['archived' => '1'])
+    : ticket_list_view_url('all', [], $ticket_list_include_archive);
+$ticket_clear_url = $is_archive
+    ? url('tickets', ['archived' => '1'])
+    : ticket_list_view_url($ticket_list_view, [], $ticket_list_include_archive);
 $ticket_list_count_filters = $filters;
 $ticket_list_view_counts = ticket_list_view_counts($ticket_list_count_filters, $ticket_list_include_archive);
 $filters = ticket_list_view_apply_filters($filters, $ticket_list_view);
@@ -1319,11 +1325,12 @@ foreach ($statuses as $status_item) {
         $is_closed_filter_active = true;
     }
 }
+$show_closed_tickets_inline = ticket_list_view_shows_closed_inline($ticket_list_view, $is_closed_filter_active);
 
 $active_statuses = [];
 $closed_statuses = [];
 foreach ($statuses as $status_item) {
-    if (!$is_closed_filter_active && !empty($status_item['is_closed'])) {
+    if (!$show_closed_tickets_inline && !empty($status_item['is_closed'])) {
         $closed_statuses[] = $status_item;
     } else {
         $active_statuses[] = $status_item;
@@ -1334,7 +1341,7 @@ $active_tickets = [];
 $closed_tickets = [];
 foreach ($tickets as $ticket_item) {
     $ticket_status = $statuses_by_id[(int) ($ticket_item['status_id'] ?? 0)] ?? null;
-    if (!$is_closed_filter_active && !empty($ticket_status['is_closed'])) {
+    if (!$show_closed_tickets_inline && !empty($ticket_status['is_closed'])) {
         $closed_tickets[] = $ticket_item;
     } else {
         $active_tickets[] = $ticket_item;
@@ -1390,7 +1397,7 @@ foreach ($tickets as $ticket_item) {
     $ticket_status = $statuses_by_id[$status_key] ?? null;
     $ticket_is_closed = !empty($ticket_item['is_closed']) || !empty($ticket_status['is_closed']);
 
-    if (!$is_closed_filter_active
+    if (!$show_closed_tickets_inline
         && $ticket_is_closed
         && function_exists('should_hide_closed_ticket_in_board')
         && should_hide_closed_ticket_in_board($ticket_item, $kanban_hide_closed_after_days)
@@ -1459,8 +1466,8 @@ foreach ($board_closed_statuses as $status_item) {
         ?>
         <?php if ($empty_has_filters): ?>
             <div class="text-center mt-4">
-                <a href="<?php echo url('tickets', $is_archive ? ['archived' => '1'] : []); ?>"
-                   class="btn btn-outline btn-sm inline-flex items-center gap-1.5">
+                                <a href="<?php echo e($ticket_show_all_url); ?>"
+                                   class="btn btn-outline btn-sm inline-flex items-center gap-1.5">
                     <?php echo get_icon('list', 'w-4 h-4'); ?>
                     <?php echo e(t('Show all tickets')); ?>
                 </a>
@@ -1701,7 +1708,7 @@ foreach ($board_closed_statuses as $status_item) {
                 </select>
                 <button type="submit" class="btn btn-primary btn-xs"><?php echo get_icon('search', 'w-3 h-3'); ?></button>
                 <?php if ($has_filters): ?>
-                <a href="<?php echo url('tickets', $is_archive ? ['archived' => '1'] : []); ?>" class="btn btn-secondary btn-xs">
+                <a href="<?php echo e($ticket_clear_url); ?>" class="btn btn-secondary btn-xs">
                     <?php echo get_icon('x', 'w-3 h-3'); ?>
                 </a>
                 <?php endif; ?>
@@ -1866,7 +1873,7 @@ foreach ($board_closed_statuses as $status_item) {
                                         <div class="ticket-search-suggestions" id="ticket-search-suggestions"></div>
                                     </div>
                                     <?php if ($has_filters): ?>
-                                    <a href="<?php echo url('tickets', $is_archive ? ['archived' => '1'] : []); ?>"
+                                    <a href="<?php echo e($ticket_clear_url); ?>"
                                        class="inline-flex items-center justify-center w-6 h-6 rounded hover:text-red-500 hover:bg-red-50 transition-colors" style="color: var(--text-muted);" title="<?php echo e(t('Clear')); ?>">
                                         <?php echo get_icon('x', 'w-3.5 h-3.5'); ?>
                                     </a>
