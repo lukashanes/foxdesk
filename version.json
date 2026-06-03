@@ -1,13 +1,13 @@
 {
-    "version": "0.3.127",
+    "version": "0.3.128",
     "date": "2026-06-03",
     "min_php": "8.1",
     "changelog": [
-        "Automatic IMAP email ingest now tracks attempts separately from successful runs so failed background runs do not hide future retries",
-        "Shared-hosting pseudo-cron now retries email ingest after a short failed-attempt throttle instead of waiting as if ingest completed",
-        "The cron endpoint, inline fallback, and CLI maintenance command now store the last email ingest source, result, success time, and error",
-        "The admin System background task panel now shows email ingest success, attempts, source, last result, and last error",
-        "Background tasks now display as enabled by default when no explicit setting has been saved"
+        "Ticket creation no longer sends duplicate internal emails when an admin or agent assigns a ticket to themselves",
+        "Customer ticket receipt emails now use the same formatted email layout as other ticket notifications",
+        "Internal staff no longer receive customer receipt confirmations for tickets they create",
+        "Ticket search now looks across all non-archived tickets by default instead of only the current view",
+        "Ticket view tabs still support scoped search after a specific view is selected"
     ],
     "delete_files": []
 }
