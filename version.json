@@ -1,13 +1,13 @@
 {
-    "version": "0.3.127",
+    "version": "0.3.129",
     "date": "2026-06-03",
     "min_php": "8.1",
     "changelog": [
-        "Automatic IMAP email ingest now tracks attempts separately from successful runs so failed background runs do not hide future retries",
-        "Shared-hosting pseudo-cron now retries email ingest after a short failed-attempt throttle instead of waiting as if ingest completed",
-        "The cron endpoint, inline fallback, and CLI maintenance command now store the last email ingest source, result, success time, and error",
-        "The admin System background task panel now shows email ingest success, attempts, source, last result, and last error",
-        "Background tasks now display as enabled by default when no explicit setting has been saved"
+        "Self-hosted FoxDesk can now sync data to FoxDesk Cloud through a token-protected migration bridge",
+        "The migration sync includes core tables, object mapping, and attachment upload to the SaaS storage driver",
+        "Admins can connect to FoxDesk Cloud, analyze the migration plan, and keep ZIP export as an offline fallback",
+        "Final cutover can disable local IMAP/email processing and redirect users to the cloud workspace",
+        "CLI maintenance now skips update checks, email ingest, and recurring tasks after cloud cutover"
     ],
     "delete_files": []
 }

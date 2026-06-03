@@ -8,7 +8,7 @@ The ZIP export is still available as an offline fallback.
 
 ## API sync path
 
-1. Update the self-hosted FoxDesk to version `0.3.115` or newer.
+1. Update the self-hosted FoxDesk to version `0.3.129` or newer.
 2. In the FoxDesk SaaS Platform console, open the target workspace and create a
    **Migration bridge** token.
 3. Log in to the self-hosted FoxDesk as an admin.
