@@ -283,8 +283,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 // In-app notification for status change
-                if (!$will_send_public_comment_notification && function_exists('dispatch_ticket_notifications')) {
-                    dispatch_ticket_notifications('status_changed', $ticket_id, $user['id'], [
+                if (!$will_send_public_comment_notification && function_exists('ticket_event_dispatch_in_app')) {
+                    ticket_event_dispatch_in_app('ticket.status_changed', $ticket_id, $user['id'], [
                         'old_status' => $old_status['name'] ?? '',
                         'new_status' => $new_status['name'] ?? '',
                     ]);
@@ -404,7 +404,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             // Touch ticket so "Last updated" sorting works
-            db_query("UPDATE tickets SET updated_at = NOW() WHERE id = ?", [$ticket_id]);
+            db_update('tickets', ['updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$ticket_id]);
 
             log_activity($ticket_id, $user['id'], 'commented', 'Comment added');
         }
@@ -516,9 +516,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // In-app notification for new comment
-        if ($comment_id && !$is_internal && !empty($content) && function_exists('dispatch_ticket_notifications')) {
+        if ($comment_id && !$is_internal && !empty($content) && function_exists('ticket_event_dispatch_in_app')) {
             $preview = mb_strlen($content) > 80 ? mb_substr($content, 0, 77) . '...' : $content;
-            dispatch_ticket_notifications('new_comment', $ticket_id, $user['id'], [
+            ticket_event_dispatch_in_app(ticket_event_comment_name($user, false), $ticket_id, $user['id'], [
                 'comment_preview' => strip_tags($preview),
                 'comment_id' => $comment_id,
             ]);
@@ -574,7 +574,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             // Touch ticket so "Last updated" sorting works
-            db_query("UPDATE tickets SET updated_at = NOW() WHERE id = ?", [$ticket_id]);
+            db_update('tickets', ['updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$ticket_id]);
         }
 
         // Send notification
@@ -582,8 +582,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         send_status_change_notification($ticket, $old_status, $new_status, $status_comment, 0);
 
         // In-app notification for status change
-        if (function_exists('dispatch_ticket_notifications')) {
-            dispatch_ticket_notifications('status_changed', $ticket_id, $user['id'], [
+        if (function_exists('ticket_event_dispatch_in_app')) {
+            ticket_event_dispatch_in_app('ticket.status_changed', $ticket_id, $user['id'], [
                 'old_status' => $old_status['name'] ?? '',
                 'new_status' => $new_status['name'] ?? '',
             ]);
@@ -623,8 +623,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             send_ticket_assignment_notification($ticket, $assigned_user, $user);
 
             // In-app notification for assignment
-            if (function_exists('dispatch_ticket_notifications')) {
-                dispatch_ticket_notifications('assigned_to_you', $ticket_id, $user['id'], [
+            if (function_exists('ticket_event_dispatch_in_app')) {
+                ticket_event_dispatch_in_app('ticket.assigned', $ticket_id, $user['id'], [
                     'assignee_id' => $assignee_id,
                 ]);
             }

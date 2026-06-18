@@ -35,7 +35,8 @@ async function login(page) {
   await page.goto('/index.php?page=login');
   const emailInput = page.locator('input[name="email"]');
   if (!(await emailInput.isVisible({ timeout: 5000 }).catch(() => false))) {
-    if ((await page.locator('body').textContent()).includes('Dashboard')) {
+    const bodyText = await page.locator('body').textContent();
+    if (bodyText.includes('Work') || bodyText.includes('Dashboard')) {
       return;
     }
     throw new Error(`Login form not visible at ${page.url()}`);
@@ -43,7 +44,7 @@ async function login(page) {
   await emailInput.fill(admin.email);
   await page.locator('input[name="password"]').fill(admin.password);
   await page.locator('button[type="submit"]').click();
-  await page.waitForURL(/page=dashboard|dashboard/);
+  await page.waitForURL(/page=work|page=dashboard|dashboard/);
 }
 
 async function getCsrf(page) {

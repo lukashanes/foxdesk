@@ -5,8 +5,9 @@ $root = dirname(__DIR__);
 $module = file_get_contents($root . '/includes/modules/tickets/ticket-detail-actions.php');
 $bootstrap = file_get_contents($root . '/includes/modules/bootstrap.php');
 $page = file_get_contents($root . '/pages/ticket-detail.php');
+$sidebar = file_get_contents($root . '/includes/components/ticket-detail-sidebar.php');
 
-if ($module === false || $bootstrap === false || $page === false) {
+if ($module === false || $bootstrap === false || $page === false || $sidebar === false) {
     fwrite(STDERR, "Unable to read ticket detail action files.\n");
     exit(1);
 }
@@ -28,8 +29,9 @@ $assert(str_contains($page, 'ticket_detail_primary_actions('), 'Ticket detail pa
 $assert(str_contains($page, 'class="card ticket-work-panel"'), 'Ticket detail must render the work panel.');
 $assert(str_contains($module, "'id' => 'toolbar-timer-btn'"), 'Timer button id must stay stable in the action model.');
 $assert(str_contains($page, "document.getElementById('toolbar-timer-btn')"), 'Existing timer JS must still target toolbar-timer-btn.');
-$assert(str_contains($page, 'id="ticket-side-panel"'), 'Assign action must target the side properties panel.');
-$assert(str_contains($page, "t('Ticket properties')"), 'Side panel must have a clear properties heading.');
+$assert(str_contains($page, "/includes/components/ticket-detail-sidebar.php"), 'Ticket detail page must include the side properties panel component.');
+$assert(str_contains($sidebar, 'id="ticket-side-panel"'), 'Assign action must target the side properties panel.');
+$assert(str_contains($sidebar, "t('Ticket properties')"), 'Side panel must have a clear properties heading.');
 
 if (!function_exists('ticket_status_group_from_status')) {
     function ticket_status_group_from_status(array $status): string
@@ -69,6 +71,13 @@ $complete_actions = array_values(array_filter(
 
 $assert(!empty($complete_actions), 'Complete action should be visible for active agent tickets.');
 $assert((int) $complete_actions[0]['status_id'] === 5, 'Complete action must submit the Done status id, not Canceled.');
+
+$done_actions = array_values(array_filter(
+    ticket_detail_primary_actions(['status_id' => 5, 'is_closed' => 1], ['role' => 'admin'], $statuses_with_canceled_first),
+    static fn (array $action): bool => ($action['key'] ?? '') === 'complete'
+));
+$assert(empty($done_actions), 'Complete action must not be visible after the ticket is already done.');
+
 $assert(ticket_detail_first_done_status_id([
     ['id' => 4, 'name' => 'Canceled', 'is_closed' => 1],
     ['id' => 7, 'name' => 'Rejected', 'is_closed' => 1],

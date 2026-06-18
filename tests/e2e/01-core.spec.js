@@ -16,10 +16,11 @@ function rowObject(output) {
   return Object.fromEntries(headers.map((header, index) => [header, values[index]]));
 }
 
-test('admin can log in and see dashboard', async ({ page }) => {
+test('admin can log in and see the work surface', async ({ page }) => {
   await login(page);
-  await expect(page).toHaveURL(/page=dashboard|dashboard/);
-  await expect(page.locator('body')).toContainText('Dashboard');
+  await expect(page).toHaveURL(/page=work|page=dashboard|dashboard/);
+  const bodyText = await page.locator('body').textContent();
+  expect(bodyText).toMatch(/Work|Dashboard/);
 });
 
 test('admin can create a ticket, upload an attachment, and download it', async ({ page }) => {
@@ -56,7 +57,8 @@ test('logout and login flow works', async ({ browser }) => {
   await page.goto('/index.php?page=logout');
   await expect(page).toHaveURL(/page=login/);
   await login(page);
-  await expect(page.locator('body')).toContainText('Dashboard');
+  const bodyText = await page.locator('body').textContent();
+  expect(bodyText).toMatch(/Work|Dashboard/);
   await context.close();
 });
 
@@ -65,6 +67,8 @@ test('page load triggers throttled pseudo-cron email fallback', async ({ page })
     INSERT INTO settings (setting_key, setting_value) VALUES
       ('pseudo_cron_enabled', '1'),
       ('pseudo_cron_last_email', '0'),
+      ('pseudo_cron_last_email_attempt', '0'),
+      ('pseudo_cron_last_email_started', '0'),
       ('pseudo_cron_email_inline_lock', '0'),
       ('imap_enabled', '0')
     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
@@ -72,8 +76,14 @@ test('page load triggers throttled pseudo-cron email fallback', async ({ page })
 
   await page.goto('/index.php?page=login');
 
-  const output = dbQuery("SELECT setting_value FROM settings WHERE setting_key = 'pseudo_cron_last_email' LIMIT 1;");
-  const lastRun = Number(output.trim().split('\n').pop());
+  let lastRun = 0;
+  const started = Date.now();
+  while (Date.now() - started < 5000) {
+    const output = dbQuery("SELECT setting_value FROM settings WHERE setting_key = 'pseudo_cron_last_email' LIMIT 1;");
+    lastRun = Number(output.trim().split('\n').pop());
+    if (lastRun > 0) break;
+    await page.waitForTimeout(250);
+  }
   expect(lastRun).toBeGreaterThan(0);
 });
 

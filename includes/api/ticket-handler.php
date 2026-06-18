@@ -80,12 +80,16 @@ function api_get_active_ticket_type_by_slug($slug) {
         return null;
     }
 
+    $params = [$slug];
     $sql = "SELECT * FROM ticket_types WHERE slug = ?";
     if (function_exists('column_exists') && column_exists('ticket_types', 'is_active')) {
         $sql .= " AND is_active = 1";
     }
+    if (function_exists('workflow_reference_sql_filter')) {
+        $sql .= workflow_reference_sql_filter('ticket_types', $params);
+    }
 
-    return db_fetch_one($sql, [$slug]);
+    return db_fetch_one($sql, $params);
 }
 
 /**
@@ -145,8 +149,8 @@ function api_change_status() {
     send_status_change_notification($ticket, $old_status, $new_status);
 
     // In-app notification for status change
-    if (function_exists('dispatch_ticket_notifications')) {
-        dispatch_ticket_notifications('status_changed', $ticket_id, $user['id'], [
+    if (function_exists('ticket_event_dispatch_in_app')) {
+        ticket_event_dispatch_in_app('ticket.status_changed', $ticket_id, $user['id'], [
             'old_status' => $old_status_name,
             'new_status' => $new_status_name,
         ]);
@@ -247,6 +251,7 @@ function api_quick_start() {
         'title' => t('Quick ticket'),
         'description' => '',
         'user_id' => $user['id'],
+        'organization_id' => null,
         'assignee_id' => $user['id'],
     ]);
 
@@ -555,8 +560,8 @@ function api_quick_assign() {
         require_once BASE_PATH . '/includes/mailer.php';
         send_ticket_assignment_notification($ticket, $assigned_user, $user);
 
-        if (function_exists('dispatch_ticket_notifications')) {
-            dispatch_ticket_notifications('assigned_to_you', $ticket_id, $user['id'], [
+        if (function_exists('ticket_event_dispatch_in_app')) {
+            ticket_event_dispatch_in_app('ticket.assigned', $ticket_id, $user['id'], [
                 'assignee_id' => $assignee_id,
             ]);
         }
@@ -644,8 +649,8 @@ function api_quick_due_date() {
     }
 
     // Notify ticket participants about due date change
-    if (function_exists('dispatch_ticket_notifications')) {
-        dispatch_ticket_notifications('ticket_updated', $ticket_id, $user['id'], [
+    if (function_exists('ticket_event_dispatch_in_app')) {
+        ticket_event_dispatch_in_app('ticket.updated', $ticket_id, $user['id'], [
             'field' => 'due_date',
             'detail' => $due_date ? format_date($due_date) : '',
         ]);
@@ -691,8 +696,8 @@ function api_quick_priority() {
     log_activity($ticket_id, $user['id'], 'ticket_edited', 'Priority changed' . ($priority_name ? " to {$priority_name}" : ''));
 
     // Notify ticket participants about priority change
-    if (function_exists('dispatch_ticket_notifications')) {
-        dispatch_ticket_notifications('priority_changed', $ticket_id, $user['id'], [
+    if (function_exists('ticket_event_dispatch_in_app')) {
+        ticket_event_dispatch_in_app('ticket.priority_changed', $ticket_id, $user['id'], [
             'new_priority' => $priority_name,
         ]);
     }
@@ -740,8 +745,8 @@ function api_quick_type() {
     log_activity($ticket_id, $user['id'], 'ticket_edited', 'Ticket type changed' . ($new_value ? " to {$new_value}" : ''));
 
     // Notify ticket participants about type change
-    if (function_exists('dispatch_ticket_notifications')) {
-        dispatch_ticket_notifications('ticket_updated', $ticket_id, $user['id'], [
+    if (function_exists('ticket_event_dispatch_in_app')) {
+        ticket_event_dispatch_in_app('ticket.updated', $ticket_id, $user['id'], [
             'field' => 'type',
             'detail' => $new_value ?? '',
         ]);
@@ -794,8 +799,8 @@ function api_quick_company() {
     log_activity($ticket_id, $user['id'], 'company_updated', 'Company updated' . ($org_name ? " to {$org_name}" : ''));
 
     // Notify ticket participants about company change
-    if (function_exists('dispatch_ticket_notifications')) {
-        dispatch_ticket_notifications('ticket_updated', $ticket_id, $user['id'], [
+    if (function_exists('ticket_event_dispatch_in_app')) {
+        ticket_event_dispatch_in_app('ticket.updated', $ticket_id, $user['id'], [
             'field' => 'company',
             'detail' => $org_name,
         ]);
@@ -905,7 +910,7 @@ function api_quick_log_time() {
             'time_spent' => $duration,
             'created_at' => date('Y-m-d H:i:s'),
         ]);
-        db_query("UPDATE tickets SET updated_at = NOW() WHERE id = ?", [$ticket_id]);
+        db_update('tickets', ['updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$ticket_id]);
     }
 
     $insert = [
@@ -1394,8 +1399,8 @@ function api_quick_subject() {
     }
     log_activity($ticket_id, $user['id'], 'ticket_edited', 'Subject updated');
 
-    if (function_exists('dispatch_ticket_notifications')) {
-        dispatch_ticket_notifications('ticket_updated', $ticket_id, $user['id'], [
+    if (function_exists('ticket_event_dispatch_in_app')) {
+        ticket_event_dispatch_in_app('ticket.updated', $ticket_id, $user['id'], [
             'field' => 'title',
             'detail' => $new_title,
         ]);
@@ -1509,8 +1514,8 @@ function api_quick_create_ticket() {
             if ($new_ticket) {
                 send_ticket_assignment_notification($new_ticket, $assigned_user, $user);
             }
-            if (function_exists('dispatch_ticket_notifications')) {
-                dispatch_ticket_notifications('assigned_to_you', $new_id, $user['id'], [
+            if (function_exists('ticket_event_dispatch_in_app')) {
+                ticket_event_dispatch_in_app('ticket.assigned', $new_id, $user['id'], [
                     'assignee_id' => (int)$data['assignee_id'],
                 ]);
             }

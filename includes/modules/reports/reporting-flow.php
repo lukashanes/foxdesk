@@ -12,22 +12,22 @@ function reporting_flow_steps(): array
         [
             'key' => 'client',
             'label' => t('Choose client'),
-            'description' => t('Start with one client and one billing period.'),
+            'description' => t('Pick a client and period.'),
         ],
         [
             'key' => 'review',
             'label' => t('Review billable items'),
-            'description' => t('Open the detailed report with money columns visible.'),
+            'description' => t('Check billable rows.'),
         ],
         [
             'key' => 'adjust',
             'label' => t('Adjust rates or discounts'),
-            'description' => t('Edit individual rows before sharing the result.'),
+            'description' => t('Tune rates, discounts, or totals.'),
         ],
         [
             'key' => 'share',
             'label' => t('Share or export'),
-            'description' => t('Create a client-facing report when the numbers are final.'),
+            'description' => t('Send the final report.'),
         ],
     ];
 }

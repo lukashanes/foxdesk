@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($_FILES['org_logo_create']['name']) && $_FILES['org_logo_create']['error'] === UPLOAD_ERR_OK) {
                 try {
                     $allowed_logo = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                    $logo_result = upload_file($_FILES['org_logo_create'], $allowed_logo, 2 * 1024 * 1024);
+                    $logo_result = upload_file($_FILES['org_logo_create'], $allowed_logo, 2 * 1024 * 1024, 'public');
                     $org_data['logo'] = UPLOAD_DIR . $logo_result['filename'];
                 } catch (Exception $e) {
                     // Logo upload failed, continue without logo
@@ -148,10 +148,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($org && $_FILES['org_logo']['error'] === UPLOAD_ERR_OK) {
             try {
                 $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                $result = upload_file($_FILES['org_logo'], $allowed, 2 * 1024 * 1024);
+                $result = upload_file($_FILES['org_logo'], $allowed, 2 * 1024 * 1024, 'public');
                 // Delete old logo file if exists
-                if (!empty($org['logo']) && file_exists(BASE_PATH . '/' . $org['logo'])) {
-                    @unlink(BASE_PATH . '/' . $org['logo']);
+                $old_logo_path = !empty($org['logo']) && function_exists('upload_absolute_path') ? upload_absolute_path($org['logo']) : (!empty($org['logo']) ? BASE_PATH . '/' . $org['logo'] : null);
+                if ($old_logo_path && file_exists($old_logo_path)) {
+                    @unlink($old_logo_path);
                 }
                 db_update('organizations', ['logo' => UPLOAD_DIR . $result['filename']], 'id = ?', [$org_id]);
                 flash(t('Logo uploaded.'), 'success');
@@ -166,8 +167,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['remove_org_logo'])) {
         $org_id = (int) $_POST['org_id'];
         $org = get_organization($org_id);
-        if ($org && !empty($org['logo']) && file_exists(BASE_PATH . '/' . $org['logo'])) {
-            @unlink(BASE_PATH . '/' . $org['logo']);
+        $old_logo_path = $org && !empty($org['logo']) && function_exists('upload_absolute_path') ? upload_absolute_path($org['logo']) : ($org && !empty($org['logo']) ? BASE_PATH . '/' . $org['logo'] : null);
+        if ($old_logo_path && file_exists($old_logo_path)) {
+            @unlink($old_logo_path);
         }
         if ($org) {
             db_update('organizations', ['logo' => null], 'id = ?', [$org_id]);

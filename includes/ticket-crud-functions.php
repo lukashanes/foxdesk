@@ -118,15 +118,19 @@ function ticket_hash_column_exists() {
 }
 
 /**
- * Normalize tag list to a stable, comma-separated string.
+ * Normalize tag list to a stable list or comma-separated string.
  */
-function normalize_ticket_tags($value) {
-    $raw = (string) $value;
-    if ($raw === '') {
-        return '';
+function normalize_ticket_tags($value, $as_array = false) {
+    if (is_array($value)) {
+        $parts = $value;
+    } else {
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return $as_array ? [] : '';
+        }
+        $parts = preg_split('/[,;\n\r]+/', $raw);
     }
 
-    $parts = preg_split('/[,;\n\r]+/', $raw);
     $seen = [];
     $clean = [];
     foreach ((array) $parts as $part) {
@@ -148,6 +152,10 @@ function normalize_ticket_tags($value) {
         }
         $seen[$key] = true;
         $clean[] = $tag;
+    }
+
+    if ($as_array) {
+        return $clean;
     }
 
     return implode(', ', $clean);
@@ -396,9 +404,13 @@ function create_ticket($data) {
     $default_status = get_default_status();
     $default_priority = get_default_priority();
 
-    // Default to user's primary organization unless explicitly provided.
+    // Client-created tickets can inherit the client's primary organization.
+    // Staff-created tickets must choose a client explicitly to avoid accidental
+    // assignment to the creator's own/default company.
     $user = get_user($data['user_id']);
-    $organization_id = !empty($user['organization_id']) ? (int) $user['organization_id'] : null;
+    $organization_id = (!empty($user['organization_id']) && ($user['role'] ?? '') === 'user')
+        ? (int) $user['organization_id']
+        : null;
     if (array_key_exists('organization_id', $data)) {
         $candidate_org = (int) ($data['organization_id'] ?? 0);
         $organization_id = $candidate_org > 0 ? $candidate_org : null;
@@ -446,7 +458,12 @@ function create_ticket($data) {
 
     // Set ticket_type_id from the type slug
     if (!empty($ticket_data['type'])) {
-        $type_row = db_fetch_one("SELECT id FROM ticket_types WHERE slug = ?", [$ticket_data['type']]);
+        $params = [$ticket_data['type']];
+        $sql = "SELECT id FROM ticket_types WHERE slug = ?";
+        if (function_exists('workflow_reference_sql_filter')) {
+            $sql .= workflow_reference_sql_filter('ticket_types', $params);
+        }
+        $type_row = db_fetch_one($sql, $params);
         if ($type_row) {
             $ticket_data['ticket_type_id'] = $type_row['id'];
         }
@@ -618,7 +635,7 @@ function add_comment($ticket_id, $user_id, $content, $is_internal = 0) {
     ]);
 
     // Update ticket's updated_at so "Last updated" sorting works
-    db_query("UPDATE tickets SET updated_at = ? WHERE id = ?", [date('Y-m-d H:i:s'), $ticket_id]);
+    db_update('tickets', ['updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$ticket_id]);
 
     return $id;
 }

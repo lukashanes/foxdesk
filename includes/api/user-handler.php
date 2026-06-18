@@ -338,11 +338,7 @@ function api_save_dashboard_layout() {
         $save = json_encode(['order' => $order, 'hidden' => [], 'sizes' => []]);
     }
 
-    db_query("UPDATE users SET dashboard_layout = ? WHERE id = ?", [
-        $save,
-        $user['id']
-    ]);
+    db_update('users', ['dashboard_layout' => $save], 'id = ?', [$user['id']]);
 
     api_success(['saved' => true]);
 }
-

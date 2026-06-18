@@ -118,6 +118,8 @@
         formData.append('csrf_token', csrfToken);
         if (ticketId) {
             formData.append('ticket_id', ticketId);
+        } else {
+            formData.append('purpose', 'editor-image');
         }
 
         fetch(uploadUrl, {

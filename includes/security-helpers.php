@@ -197,6 +197,7 @@ function send_security_headers()
 
     // Control referrer information
     header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
 
     // Content Security Policy - Only enable in production
     // For development on localhost, CSP can interfere with Tailwind CDN
@@ -204,12 +205,14 @@ function send_security_headers()
 
     if (!$is_localhost) {
         header("Content-Security-Policy: default-src 'self'; " .
+            "base-uri 'self'; object-src 'none'; form-action 'self'; " .
             "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.quilljs.com https://cdn.jsdelivr.net; " .
             "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.quilljs.com https://cdn.jsdelivr.net; " .
             "font-src 'self' https://cdnjs.cloudflare.com data:; " .
             "img-src 'self' data: https:; " .
             "connect-src 'self'; " .
             "frame-ancestors 'self'");
+        header("Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'");
     }
 
     // HTTP Strict Transport Security - Force HTTPS (only if using HTTPS)
@@ -434,6 +437,17 @@ function rate_limit_is_blocked($key, $limit, $window_seconds)
     }
 
     return ((int) $row['attempts'] >= (int) $limit);
+}
+
+function rate_limit_key(string $scope, string $subject = ''): string
+{
+    $scope = preg_replace('/[^a-z0-9_.:-]/i', '_', $scope) ?: 'default';
+    $subject = strtolower(trim($subject));
+    if ($subject === '') {
+        return $scope;
+    }
+
+    return $scope . ':' . substr(hash('sha256', $subject), 0, 32);
 }
 
 function rate_limit_record($key, $window_seconds)

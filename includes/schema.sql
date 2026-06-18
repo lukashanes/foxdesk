@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
     notes TEXT,
     role ENUM('user', 'agent', 'admin') DEFAULT 'user',
     cost_rate DECIMAL(10,2) DEFAULT 0,
+    billable_rate DECIMAL(10,2) DEFAULT 0,
     permissions TEXT,
     dashboard_layout TEXT NULL,
     organization_id INT,

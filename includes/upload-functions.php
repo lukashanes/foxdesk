@@ -140,10 +140,49 @@ function get_upload_error_message(int $error_code, ?int $fallback_limit = null):
     }
 }
 
+function upload_base_dir(): string
+{
+    return rtrim((defined('UPLOAD_DIR') ? UPLOAD_DIR : 'uploads/'), '/\\') . '/';
+}
+
+function normalize_upload_relative_path(string $path): string
+{
+    $path = trim(str_replace('\\', '/', explode('?', $path)[0]));
+    $path = ltrim($path, '/');
+    $upload_dir = trim(upload_base_dir(), '/');
+
+    if ($upload_dir !== '' && str_starts_with($path, $upload_dir . '/')) {
+        $path = substr($path, strlen($upload_dir) + 1);
+    }
+
+    $parts = [];
+    foreach (explode('/', $path) as $part) {
+        if ($part === '' || $part === '.') {
+            continue;
+        }
+        if ($part === '..') {
+            return '';
+        }
+        $parts[] = $part;
+    }
+
+    return implode('/', $parts);
+}
+
+function upload_absolute_path(string $path): ?string
+{
+    $relative = normalize_upload_relative_path($path);
+    if ($relative === '' || !preg_match('/^[A-Za-z0-9._\/-]+$/', $relative)) {
+        return null;
+    }
+
+    return BASE_PATH . '/' . upload_base_dir() . $relative;
+}
+
 /**
  * Handle file upload
  */
-function upload_file($file, $allowed_types = null, $max_size = null) {
+function upload_file($file, $allowed_types = null, $max_size = null, string $visibility = 'private') {
     if ($allowed_types === null) {
         $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp',
                           'application/pdf', 'application/msword',
@@ -175,8 +214,9 @@ function upload_file($file, $allowed_types = null, $max_size = null) {
         throw new Exception(t('This file type is not allowed.'));
     }
 
-    $upload_dir = defined('UPLOAD_DIR') ? UPLOAD_DIR : 'uploads/';
-    $upload_path = BASE_PATH . '/' . $upload_dir;
+    $upload_dir = upload_base_dir();
+    $subdir = $visibility === 'public' ? 'public/' : '';
+    $upload_path = BASE_PATH . '/' . $upload_dir . $subdir;
 
     if (!is_dir($upload_path)) {
         mkdir($upload_path, 0755, true);
@@ -190,7 +230,9 @@ function upload_file($file, $allowed_types = null, $max_size = null) {
         throw new Exception(t('This file type is not allowed.'));
     }
 
-    $filename = uniqid() . '_' . time() . '.' . $ext;
+    $random = bin2hex(random_bytes(16));
+    $filename = $random . '_' . time() . '.' . $ext;
+    $relative_filename = $subdir . $filename;
     $filepath = $upload_path . $filename;
 
     if (!move_uploaded_file($file['tmp_name'], $filepath)) {
@@ -198,7 +240,7 @@ function upload_file($file, $allowed_types = null, $max_size = null) {
     }
 
     return [
-        'filename' => $filename,
+        'filename' => $relative_filename,
         'original_name' => $file['name'],
         'mime_type' => $mime_type,
         'file_size' => $file['size']
@@ -209,10 +251,9 @@ function upload_file($file, $allowed_types = null, $max_size = null) {
  * Delete an attachment file
  */
 function delete_attachment_file($filename) {
-    $upload_dir = defined('UPLOAD_DIR') ? UPLOAD_DIR : 'uploads/';
-    $filepath = BASE_PATH . '/' . $upload_dir . $filename;
+    $filepath = upload_absolute_path((string) $filename);
 
-    if (file_exists($filepath)) {
+    if ($filepath && file_exists($filepath)) {
         return unlink($filepath);
     }
     return false;

@@ -17,13 +17,17 @@ function api_upload() {
     }
 
     require_csrf_token(true);
+    $user = current_user();
+    if (!$user) {
+        api_error('Unauthorized', 401);
+    }
 
     // Validate ticket permission if ticket_id is provided
     $ticket_id = isset($_POST['ticket_id']) ? (int)$_POST['ticket_id'] : 0;
+    $allowed_types = null;
 
     if ($ticket_id > 0) {
         $ticket = get_ticket($ticket_id);
-        $user = current_user();
 
         if (!$ticket) {
             api_error('Ticket not found', 404);
@@ -39,6 +43,12 @@ function api_upload() {
             }
             api_error('You do not have permission to upload files to this ticket', 403);
         }
+    } else {
+        $purpose = trim((string) ($_POST['purpose'] ?? ''));
+        if ($purpose !== 'editor-image') {
+            api_error('Ticket ID is required for attachment uploads.', 400);
+        }
+        $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     }
 
     if (!isset($_FILES['file'])) {
@@ -46,11 +56,10 @@ function api_upload() {
     }
 
     try {
-        $result = upload_file($_FILES['file']);
+        $visibility = $ticket_id > 0 ? 'private' : 'public';
+        $result = upload_file($_FILES['file'], $allowed_types, null, $visibility);
         api_success(['file' => $result]);
     } catch (Exception $e) {
         api_error($e->getMessage());
     }
 }
-
-

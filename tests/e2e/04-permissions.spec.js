@@ -12,7 +12,7 @@ async function loginAs(page, email, password) {
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill(password);
   await page.locator('button[type="submit"]').click();
-  await page.waitForURL(/page=dashboard|dashboard/);
+  await page.waitForURL(/page=work|page=dashboard|dashboard/);
 }
 
 function rowObject(output) {

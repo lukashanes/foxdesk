@@ -37,14 +37,20 @@ function setSidebarCompact(isCompact, persist) {
     var mainContent = document.getElementById('main-content');
     var button = document.getElementById('sidebar-collapse-btn');
     var shouldCompact = !!isCompact && window.innerWidth >= 1025;
+    var compactWidth = '76px';
+    if (window.getAppShellVar) {
+        compactWidth = window.getAppShellVar('--app-sidebar-compact-width', compactWidth);
+    } else {
+        compactWidth = getComputedStyle(document.documentElement).getPropertyValue('--app-sidebar-compact-width').trim() || compactWidth;
+    }
 
     document.body.classList.toggle('sidebar-compact', shouldCompact);
     if (sidebar) {
         sidebar.classList.toggle('is-compact', shouldCompact);
-        sidebar.style.width = shouldCompact ? '76px' : '';
+        sidebar.style.width = shouldCompact ? compactWidth : '';
     }
     if (mainContent) {
-        mainContent.style.marginLeft = shouldCompact ? '76px' : '';
+        mainContent.style.marginLeft = shouldCompact ? compactWidth : '';
     }
     if (window.syncSidebarCompactLayout) window.syncSidebarCompactLayout();
 

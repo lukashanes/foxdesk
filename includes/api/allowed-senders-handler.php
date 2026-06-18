@@ -74,7 +74,7 @@ function api_allowed_senders_delete() {
         api_error(t('Invalid ID'));
     }
 
-    db_query("DELETE FROM allowed_senders WHERE id = ?", [$id]);
+    db_delete('allowed_senders', 'id = ?', [$id]);
 
     api_success(['message' => t('Sender deleted')]);
 }
@@ -92,7 +92,12 @@ function api_allowed_senders_toggle() {
         api_error(t('Invalid ID'));
     }
 
-    db_query("UPDATE allowed_senders SET active = NOT active WHERE id = ?", [$id]);
+    $sender = db_fetch_one("SELECT id, active FROM allowed_senders WHERE id = ? LIMIT 1", [$id]);
+    if (!$sender) {
+        api_error(t('Sender not found'), 404);
+    }
+
+    db_update('allowed_senders', ['active' => empty($sender['active']) ? 1 : 0], 'id = ?', [$id]);
 
     api_success(['message' => t('Saved')]);
 }

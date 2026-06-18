@@ -8,12 +8,14 @@ $page = 'admin';
 
 // Tab: 'users' (default) or 'ai_agents'
 $tab = ($_GET['tab'] ?? '') === 'ai_agents' ? 'ai_agents' : 'users';
-$ai_agent_col_exists = column_exists('users', 'is_ai_agent');
+$user_table_capabilities = team_users_table_capabilities();
+$ai_agent_col_exists = $user_table_capabilities['ai_agent'];
 
 // Filter parameters
-$filter_search = trim($_GET['search'] ?? '');
-$filter_role = $_GET['role'] ?? '';
-$filter_status = $_GET['status'] ?? '';
+$filter_state = team_users_filter_state($_GET);
+$filter_search = $filter_state['search'];
+$filter_role = $filter_state['role'];
+$filter_status = $filter_state['status'];
 
 $time_range = $_GET['time_range'] ?? 'all';
 $from_date = $_GET['from_date'] ?? '';
@@ -31,14 +33,15 @@ try {
 } catch (Exception $e) {
     $organizations = [];
 }
+$valid_organization_ids = team_users_valid_organization_ids($organizations);
 
-$email_pref_column_exists = column_exists('users', 'email_notifications_enabled');
-$in_app_pref_column_exists = column_exists('users', 'in_app_notifications_enabled');
-$in_app_sound_column_exists = column_exists('users', 'in_app_sound_enabled');
+$email_pref_column_exists = $user_table_capabilities['email_notifications'];
+$in_app_pref_column_exists = $user_table_capabilities['in_app_notifications'];
+$in_app_sound_column_exists = $user_table_capabilities['in_app_sound'];
 $notification_preferences_available = $email_pref_column_exists && $in_app_pref_column_exists && $in_app_sound_column_exists;
-$contact_phone_column_exists = column_exists('users', 'contact_phone');
-$notes_column_exists = column_exists('users', 'notes');
-$deleted_at_column_exists = column_exists('users', 'deleted_at');
+$contact_phone_column_exists = $user_table_capabilities['contact_phone'];
+$notes_column_exists = $user_table_capabilities['notes'];
+$deleted_at_column_exists = $user_table_capabilities['deleted_at'];
 
 $get_user_fk_references = function () {
     try {
@@ -72,20 +75,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $last_name = trim($_POST['last_name'] ?? '');
         $password = $_POST['password'] ?? '';
         $role = $_POST['role'] ?? 'user';
-        $organization_id = !empty($_POST['organization_id']) ? (int) $_POST['organization_id'] : null;
-        $organization_membership_ids = normalize_organization_ids($_POST['organization_membership_ids'] ?? []);
+        $organization_assignment = team_users_normalize_organization_assignment(
+            $_POST['organization_id'] ?? null,
+            $_POST['organization_membership_ids'] ?? [],
+            $valid_organization_ids
+        );
+        $organization_id = $organization_assignment['organization_id'];
+        $organization_membership_ids = $organization_assignment['organization_membership_ids'];
         $contact_phone = trim($_POST['contact_phone'] ?? '');
         $notes = trim($_POST['notes'] ?? '');
         $cost_rate_input = trim($_POST['cost_rate'] ?? '');
         $cost_rate = $cost_rate_input !== '' ? (float) str_replace(',', '.', $cost_rate_input) : 0;
-
-        if ($organization_id && !in_array($organization_id, $organization_membership_ids, true)) {
-            $organization_membership_ids[] = $organization_id;
-        }
-        $organization_membership_ids = normalize_organization_ids($organization_membership_ids);
-        if (!$organization_id && !empty($organization_membership_ids)) {
-            $organization_id = (int) $organization_membership_ids[0];
-        }
 
         if (empty($email) || empty($first_name) || empty($password)) {
             flash(t('Please fill in all required fields.'), 'error');
@@ -119,51 +119,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $updates['notes'] = $notes !== '' ? $notes : null;
                     }
 
-                    // Set default permissions for agents AND users
-                    $permissions_data = null;
-
-                    if ($role === 'agent' || $role === 'user') {
-                        $ticket_scope = $_POST['ticket_scope'] ?? 'all';
-                        $scope_organization_ids = [];
-
-                        // Both agents and users can have multi-org selection via 'organization' scope
-                        if (($role === 'agent' || $role === 'user') && $ticket_scope === 'organization' && !empty($_POST['scope_organization_ids'])) {
-                            $scope_organization_ids = array_map('intval', (array) $_POST['scope_organization_ids']);
-                        }
-                        $scope_organization_ids = normalize_organization_ids($scope_organization_ids);
-
-                        // Default scope for users if not set or invalid
-                        if ($role === 'user' && !in_array($ticket_scope, ['organization', 'own', 'all'])) {
-                            // Default to 'organization' if they have one, else 'own'
-                            $ticket_scope = $organization_id ? 'organization' : 'own';
-                        }
-
-                        $effective_organization_ids = normalize_organization_ids(array_merge(
-                            $organization_membership_ids,
-                            $scope_organization_ids
-                        ));
-
-                        $permissions_data = [
-                            'ticket_scope' => $ticket_scope,
-                            'organization_ids' => $effective_organization_ids,
-                            'can_archive' => ($role === 'agent' && isset($_POST['can_archive'])) ? true : false,
-                            'can_view_edit_history' => isset($_POST['can_view_edit_history']) ? true : false,
-                            'can_import_md' => ($role === 'agent' && isset($_POST['can_import_md'])) ? true : false,
-                            'can_view_time' => isset($_POST['can_view_time']) ? true : false,
-                            'can_view_timeline' => isset($_POST['can_view_timeline']) ? true : false
-                        ];
-
+                    $permissions_data = team_users_permission_payload(
+                        $role,
+                        $organization_id,
+                        $organization_membership_ids,
+                        $_POST,
+                        $valid_organization_ids
+                    );
+                    if ($permissions_data !== null) {
                         $updates['permissions'] = json_encode($permissions_data);
-                    } elseif ($role === 'admin' && !empty($organization_membership_ids)) {
-                        $updates['permissions'] = json_encode([
-                            'ticket_scope' => 'all',
-                            'organization_ids' => $organization_membership_ids,
-                            'can_archive' => true,
-                            'can_view_edit_history' => true,
-                            'can_import_md' => true,
-                            'can_view_time' => true,
-                            'can_view_timeline' => true
-                        ]);
                     }
 
                     if ($notification_preferences_available) {
@@ -228,20 +192,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $last_name = trim($_POST['last_name'] ?? '');
         $role = $_POST['role'] ?? 'user';
         $is_active = isset($_POST['is_active']) ? 1 : 0;
-        $organization_id = !empty($_POST['organization_id']) ? (int) $_POST['organization_id'] : null;
-        $organization_membership_ids = normalize_organization_ids($_POST['organization_membership_ids'] ?? []);
+        $organization_assignment = team_users_normalize_organization_assignment(
+            $_POST['organization_id'] ?? null,
+            $_POST['organization_membership_ids'] ?? [],
+            $valid_organization_ids
+        );
+        $organization_id = $organization_assignment['organization_id'];
+        $organization_membership_ids = $organization_assignment['organization_membership_ids'];
         $contact_phone = trim($_POST['contact_phone'] ?? '');
         $notes = trim($_POST['notes'] ?? '');
         $cost_rate_input = trim($_POST['cost_rate'] ?? '');
         $cost_rate = $cost_rate_input !== '' ? (float) str_replace(',', '.', $cost_rate_input) : 0;
-
-        if ($organization_id && !in_array($organization_id, $organization_membership_ids, true)) {
-            $organization_membership_ids[] = $organization_id;
-        }
-        $organization_membership_ids = normalize_organization_ids($organization_membership_ids);
-        if (!$organization_id && !empty($organization_membership_ids)) {
-            $organization_id = (int) $organization_membership_ids[0];
-        }
 
         if ($email === '') {
             flash(t('Enter a valid email address.'), 'error');
@@ -274,48 +235,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Permissions (for agents and users)
-        $permissions = null;
-        if ($role === 'agent' || $role === 'user') {
-            $ticket_scope = $_POST['ticket_scope'] ?? 'all';
-            $scope_organization_ids = [];
-
-            // Both agents and users can have multi-org selection
-            if (($role === 'agent' || $role === 'user') && $ticket_scope === 'organization' && !empty($_POST['scope_organization_ids'])) {
-                $scope_organization_ids = array_map('intval', (array) $_POST['scope_organization_ids']);
-            }
-            $scope_organization_ids = normalize_organization_ids($scope_organization_ids);
-
-            // Validate user scope - allow 'all' for users too
-            if ($role === 'user' && !in_array($ticket_scope, ['organization', 'own', 'all'])) {
-                $ticket_scope = $organization_id ? 'organization' : 'own';
-            }
-
-            $effective_organization_ids = normalize_organization_ids(array_merge(
-                $organization_membership_ids,
-                $scope_organization_ids
-            ));
-
-            $permissions = json_encode([
-                'ticket_scope' => $ticket_scope,
-                'organization_ids' => $effective_organization_ids,
-                'can_archive' => ($role === 'agent' && isset($_POST['can_archive'])) ? true : false,
-                'can_view_edit_history' => isset($_POST['can_view_edit_history']) ? true : false,
-                'can_import_md' => ($role === 'agent' && isset($_POST['can_import_md'])) ? true : false,
-                'can_view_time' => isset($_POST['can_view_time']) ? true : false,
-                'can_view_timeline' => isset($_POST['can_view_timeline']) ? true : false
-            ]);
-        } elseif ($role === 'admin') {
-            $permissions = json_encode([
-                'ticket_scope' => 'all',
-                'organization_ids' => $organization_membership_ids,
-                'can_archive' => true,
-                'can_view_edit_history' => true,
-                'can_import_md' => true,
-                'can_view_time' => true,
-                'can_view_timeline' => true
-            ]);
-        }
+        $permission_payload = team_users_permission_payload(
+            $role,
+            $organization_id,
+            $organization_membership_ids,
+            $_POST,
+            $valid_organization_ids
+        );
+        $permissions = $permission_payload !== null ? json_encode($permission_payload) : null;
 
         $language = $_POST['language'] ?? 'en';
 
@@ -668,11 +595,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($target_user && $_FILES['user_avatar']['error'] === UPLOAD_ERR_OK) {
             try {
                 $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                $result = upload_file($_FILES['user_avatar'], $allowed, 2 * 1024 * 1024);
+                $result = upload_file($_FILES['user_avatar'], $allowed, 2 * 1024 * 1024, 'public');
                 // Delete old avatar file if exists
                 if (!empty($target_user['avatar']) && strpos($target_user['avatar'], 'data:') !== 0) {
-                    $old_path = BASE_PATH . '/' . UPLOAD_DIR . basename($target_user['avatar']);
-                    if (file_exists($old_path)) {
+                    $old_path = function_exists('upload_absolute_path') ? upload_absolute_path($target_user['avatar']) : (BASE_PATH . '/' . UPLOAD_DIR . basename($target_user['avatar']));
+                    if ($old_path && file_exists($old_path)) {
                         @unlink($old_path);
                     }
                 }
@@ -694,8 +621,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $target_user = db_fetch_one("SELECT * FROM users WHERE id = ?", [$target_user_id]);
         if ($target_user && !empty($target_user['avatar'])) {
             if (strpos($target_user['avatar'], 'data:') !== 0) {
-                $old_path = BASE_PATH . '/' . UPLOAD_DIR . basename($target_user['avatar']);
-                if (file_exists($old_path)) {
+                $old_path = function_exists('upload_absolute_path') ? upload_absolute_path($target_user['avatar']) : (BASE_PATH . '/' . UPLOAD_DIR . basename($target_user['avatar']));
+                if ($old_path && file_exists($old_path)) {
                     @unlink($old_path);
                 }
             }
@@ -709,92 +636,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get users with organization info - sorted by role (users first, then agents, then admins)
-$sql = "SELECT u.*, o.name as organization_name
-        FROM users u
-        LEFT JOIN organizations o ON u.organization_id = o.id
-        WHERE 1=1";
-$params = [];
-// Hide purged users also on old databases without deleted_at.
-$sql .= " AND u.email NOT LIKE 'deleted-user-%@invalid.local'";
-if ($deleted_at_column_exists) {
-    $sql .= " AND u.deleted_at IS NULL";
-}
-// Exclude AI agents from normal user list
-if ($ai_agent_col_exists) {
-    $sql .= " AND (u.is_ai_agent = 0 OR u.is_ai_agent IS NULL)";
-}
-
-if ($filter_search !== '') {
-    $search_parts = [
-        "u.first_name LIKE ?",
-        "u.last_name LIKE ?",
-        "u.email LIKE ?"
-    ];
-    if ($contact_phone_column_exists) {
-        $search_parts[] = "u.contact_phone LIKE ?";
-    }
-    if ($notes_column_exists) {
-        $search_parts[] = "u.notes LIKE ?";
-    }
-    $sql .= " AND (" . implode(' OR ', $search_parts) . ")";
-    $search_term = '%' . $filter_search . '%';
-    foreach ($search_parts as $_) {
-        $params[] = $search_term;
-    }
-}
-if ($filter_role !== '') {
-    $sql .= " AND u.role = ?";
-    $params[] = $filter_role;
-}
-if ($filter_status !== '') {
-    $sql .= " AND u.is_active = ?";
-    $params[] = ($filter_status === 'active') ? 1 : 0;
-}
-
-$sql .= " ORDER BY FIELD(u.role, 'user', 'agent', 'admin'), u.first_name, u.last_name";
-$users = db_fetch_all($sql, $params);
-
-if ($time_tracking_available) {
-    $dur = sql_timer_duration_minutes();
-    $sql = "SELECT user_id, SUM({$dur}) as total_minutes FROM ticket_time_entries";
-    $params = [];
-    if ($range_start && $range_end) {
-        $sql .= " WHERE started_at >= ? AND started_at <= ?";
-        $params[] = $range_start;
-        $params[] = $range_end;
-    }
-    $sql .= " GROUP BY user_id";
-    $rows = db_fetch_all($sql, $params);
-    foreach ($rows as $row) {
-        $time_totals[(int) $row['user_id']] = (int) $row['total_minutes'];
-    }
-}
+$users = team_users_fetch($filter_state, $user_table_capabilities);
+$time_totals = $time_tracking_available ? team_users_time_totals($range_start, $range_end) : [];
 
 // Fetch AI agents
 $ai_agents = [];
 $ai_agent_tokens = [];
 if ($ai_agent_col_exists) {
-    $ai_sql = "SELECT u.* FROM users u WHERE u.is_ai_agent = 1";
-    if ($deleted_at_column_exists) {
-        $ai_sql .= " AND u.deleted_at IS NULL";
-    }
-    $ai_sql .= " ORDER BY u.is_active DESC, u.first_name";
-    $ai_agents = db_fetch_all($ai_sql);
-
-    // Fetch tokens for AI agents
-    if (!empty($ai_agents)) {
-        $ai_ids = array_column($ai_agents, 'id');
-        $placeholders = implode(',', array_fill(0, count($ai_ids), '?'));
-        try {
-            $ai_agent_tokens = db_fetch_all(
-                "SELECT * FROM api_tokens WHERE user_id IN ($placeholders) ORDER BY created_at DESC",
-                $ai_ids
-            );
-        } catch (Throwable $e) {
-            $ai_agent_tokens = [];
-        }
-    }
+    $ai_agents = team_ai_agents_fetch($deleted_at_column_exists);
+    $ai_agent_tokens = team_ai_agent_tokens_fetch($ai_agents);
 }
 
 // Show new AI agent token if just generated

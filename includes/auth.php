@@ -185,15 +185,26 @@ function login($email, $password)
 function logout()
 {
     $user_id = $_SESSION['user_id'] ?? null;
-    $_SESSION = [];
-    session_destroy();
 
-    // Clear remember-me token from DB + cookie
     if ($user_id) {
         clear_remember_token($user_id);
     } else {
-        // Session was already gone — still clear the cookie
         clear_remember_cookie();
+    }
+
+    $_SESSION = [];
+
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', [
+            'expires' => time() - 3600,
+            'path' => $params['path'] ?: '/',
+            'domain' => $params['domain'] ?? '',
+            'secure' => (bool) ($params['secure'] ?? false),
+            'httponly' => (bool) ($params['httponly'] ?? true),
+            'samesite' => $params['samesite'] ?? 'Lax',
+        ]);
+        session_destroy();
     }
 }
 

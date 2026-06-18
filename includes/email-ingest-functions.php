@@ -1426,7 +1426,7 @@ function email_ingest_add_inbound_comment($ticket_id, $user_id, $body_text)
     ]);
 
     // Touch ticket so "Last updated" sorting works
-    db_query("UPDATE tickets SET updated_at = NOW() WHERE id = ?", [$ticket_id]);
+    db_update('tickets', ['updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$ticket_id]);
 
     return $id;
 }
@@ -1840,6 +1840,19 @@ function email_ingest_html_to_text($html)
     }
 
     $html = preg_replace('/<(script|style|head)\b[^>]*>.*?<\/\1>/is', '', $html);
+    $html = preg_replace_callback('/<a\b[^>]*\bhref\s*=\s*([\'"])(.*?)\1[^>]*>(.*?)<\/a>/is', static function (array $match): string {
+        $href = html_entity_decode(trim((string) $match[2]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $label = trim(strip_tags((string) $match[3]));
+        $label = html_entity_decode($label, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if ($href === '' || !preg_match('/^(https?:\/\/|mailto:)/i', $href)) {
+            return $label;
+        }
+        if ($label === '' || strcasecmp($label, $href) === 0) {
+            return $href;
+        }
+
+        return $label . ' (' . $href . ')';
+    }, $html);
     $html = preg_replace('/<\s*wbr\s*\/?>/i', '', $html);
     $html = preg_replace('/<\s*br\s*\/?>/i', "\n", $html);
     $html = preg_replace('/<\s*(p|div|section|article|header|footer|blockquote|pre|h[1-6])\b[^>]*>/i', "\n", $html);

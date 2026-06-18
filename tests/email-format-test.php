@@ -15,6 +15,7 @@ $html = '
         <p>Hello Lukas,</p>
         <p>we need these items:</p>
         <ul><li>first task</li><li>second task</li></ul>
+        <p>Open <a href="https://example.com/invoice/123">the invoice</a>.</p>
         <table><tr><td>Status</td><td>Open</td></tr></table>
         <p>Regards<br>Support</p>
     </body></html>
@@ -24,6 +25,7 @@ $converted = email_ingest_html_to_text(email_ingest_sanitize_html($html));
 assert_email_format_contains($converted, "Hello Lukas,\n\nwe need these items:");
 assert_email_format_contains($converted, "- first task");
 assert_email_format_contains($converted, "- second task");
+assert_email_format_contains($converted, "Open the invoice (https://example.com/invoice/123).");
 assert_email_format_contains($converted, "Status Open");
 assert_email_format_contains($converted, "Regards\nSupport");
 

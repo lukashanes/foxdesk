@@ -833,6 +833,10 @@ function dispatch_ticket_notifications(string $event_type, int $ticket_id, int $
         case 'new_ticket':
             // Notify all staff (agents + admins)
             $recipients = get_staff_user_ids($actor_id);
+            $assignee_id = !empty($ticket['assignee_id']) ? (int) $ticket['assignee_id'] : 0;
+            if ($assignee_id > 0 && $assignee_id !== $actor_id) {
+                $recipients = array_filter($recipients, static fn($id) => (int) $id !== $assignee_id);
+            }
             break;
 
         case 'new_comment':

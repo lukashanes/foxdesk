@@ -23,6 +23,10 @@ function should_send_ticket_email(string $event, array $ticket = [], array $acto
         case 'ticket.mentioned':
             return true;
 
+        case 'ticket.internal_note':
+        case 'ticket.created.confirmation':
+            return false;
+
         case 'ticket.status_changed':
             return should_send_status_change_email($ticket, $actor, $context);
 
@@ -32,6 +36,75 @@ function should_send_ticket_email(string $event, array $ticket = [], array $acto
     }
 
     return false;
+}
+
+function ticket_email_action_plan(array $events, array $context = []): array
+{
+    $normalized = [];
+    foreach ($events as $event) {
+        $event = function_exists('ticket_event_normalize')
+            ? ticket_event_normalize((string) $event)
+            : strtolower(trim((string) $event));
+        if ($event !== '') {
+            $normalized[] = $event;
+        }
+    }
+
+    $has_public_reply = in_array('ticket.customer_replied', $normalized, true)
+        || in_array('ticket.agent_replied', $normalized, true);
+    $email_events = [];
+    $suppressed = [];
+
+    foreach ($normalized as $event) {
+        if (in_array($event, $email_events, true)) {
+            $suppressed[$event] = 'duplicate_event';
+            continue;
+        }
+
+        if ($event === 'ticket.internal_note') {
+            $suppressed[$event] = 'internal_note_no_email';
+            continue;
+        }
+
+        if ($event === 'ticket.created.confirmation') {
+            if (!empty($context['requester_is_staff'])) {
+                $suppressed[$event] = 'internal_requester_confirmation';
+                continue;
+            }
+            $email_events[] = $event;
+            continue;
+        }
+
+        if ($event === 'ticket.assigned' && !empty($context['assignment_is_self'])) {
+            $suppressed[$event] = 'self_assignment';
+            continue;
+        }
+
+        if ($event === 'ticket.status_changed' && $has_public_reply) {
+            $suppressed[$event] = 'status_change_covered_by_reply';
+            continue;
+        }
+
+        if ($event === 'ticket.created' && !empty($context['created_by_staff']) && !empty($context['actor_is_only_staff_recipient'])) {
+            $suppressed[$event] = 'staff_creator_has_no_staff_recipient';
+            continue;
+        }
+
+        $ticket = is_array($context['ticket'] ?? null) ? $context['ticket'] : [];
+        $actor = is_array($context['actor'] ?? null) ? $context['actor'] : [];
+        if (should_send_ticket_email($event, $ticket, $actor, $context)) {
+            $email_events[] = $event;
+            continue;
+        }
+
+        $suppressed[$event] = ticket_email_suppression_reason($event, $context);
+    }
+
+    return [
+        'email_events' => $email_events,
+        'email_count' => count($email_events),
+        'suppressed' => $suppressed,
+    ];
 }
 
 function ticket_notification_user_id(array $user): int
@@ -59,6 +132,11 @@ function should_send_new_ticket_admin_email(array $ticket, array $admin, array $
     }
 
     if (!empty($requester['email']) && strcasecmp((string) $admin['email'], (string) $requester['email']) === 0) {
+        return false;
+    }
+
+    $assignee_id = (int) ($ticket['assignee_id'] ?? 0);
+    if ($assignee_id > 0 && $admin_id > 0 && $admin_id === $assignee_id) {
         return false;
     }
 

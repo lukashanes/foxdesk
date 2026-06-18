@@ -410,6 +410,7 @@ $upgrades = [
 
     // Users - cost_rate
     ['users', 'cost_rate', "ALTER TABLE users ADD COLUMN cost_rate DECIMAL(10,2) DEFAULT 0 AFTER role"],
+    ['users', 'billable_rate', "ALTER TABLE users ADD COLUMN billable_rate DECIMAL(10,2) DEFAULT 0 AFTER cost_rate"],
 
     // Priorities - icon
     ['priorities', 'icon', "ALTER TABLE priorities ADD COLUMN icon VARCHAR(50) DEFAULT 'fa-flag' AFTER color"],

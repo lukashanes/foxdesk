@@ -305,6 +305,9 @@ function get_report_time_entries($template) {
     $ticket_tags_select = $has_ticket_tags
         ? 't.tags as ticket_tags,'
         : 'NULL as ticket_tags,';
+    $user_billable_rate_select = (function_exists('column_exists') && column_exists('users', 'billable_rate'))
+        ? 'u.billable_rate as user_billable_rate,'
+        : 'NULL as user_billable_rate,';
 
     $sql = "
         SELECT
@@ -328,6 +331,7 @@ function get_report_time_entries($template) {
             o.billable_rate as org_billable_rate,
             u.first_name,
             u.last_name,
+            {$user_billable_rate_select}
             u.cost_rate as user_cost_rate,
             DATE(te.started_at) as entry_date
         FROM ticket_time_entries te

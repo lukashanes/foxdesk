@@ -55,6 +55,62 @@ function parse_optional_rate_value($value): ?float {
     return max(0, (float) $normalized);
 }
 
+function ensure_user_billable_rate_column(): bool {
+    static $checked = false;
+    static $exists = false;
+
+    if ($checked) {
+        return $exists;
+    }
+
+    $checked = true;
+    $exists = column_exists('users', 'billable_rate');
+    if ($exists) {
+        return true;
+    }
+
+    try {
+        db_query("ALTER TABLE users ADD COLUMN billable_rate DECIMAL(10,2) DEFAULT 0 AFTER cost_rate");
+    } catch (Throwable $e) {
+        // Keep existing installs running if the runtime cannot migrate.
+    }
+
+    $exists = column_exists('users', 'billable_rate');
+    return $exists;
+}
+
+function get_user_default_billable_rate(int $user_id): ?float {
+    if ($user_id <= 0 || !ensure_user_billable_rate_column()) {
+        return null;
+    }
+
+    $row = db_fetch_one("SELECT billable_rate FROM users WHERE id = ?", [$user_id]);
+    $rate = parse_optional_rate_value($row['billable_rate'] ?? null);
+    return $rate !== null && $rate > 0 ? $rate : null;
+}
+
+function get_agent_default_billable_rates(): array {
+    if (!ensure_user_billable_rate_column()) {
+        return [];
+    }
+
+    return db_fetch_all(
+        "SELECT id, first_name, last_name, email, billable_rate
+         FROM users
+         WHERE role IN ('agent', 'admin') AND is_active = 1
+         ORDER BY first_name, last_name, email"
+    );
+}
+
+function save_agent_default_billable_rate(int $user_id, float $billable_rate): bool {
+    if ($user_id <= 0 || !ensure_user_billable_rate_column()) {
+        return false;
+    }
+
+    db_update('users', ['billable_rate' => max(0, $billable_rate)], 'id = ?', [$user_id]);
+    return true;
+}
+
 function ensure_agent_client_billable_rates_table(): bool {
     static $checked = false;
     static $exists = false;
@@ -206,6 +262,10 @@ function get_ticket_effective_billable_rate($ticket_or_id, ?int $user_id = null)
                     if ($agent_rate !== null) {
                         return $agent_rate;
                     }
+                    $user_rate = get_user_default_billable_rate($user_id);
+                    if ($user_rate !== null) {
+                        return $user_rate;
+                    }
                 }
                 $org = get_organization($organization_id);
                 return (float) ($org['billable_rate'] ?? 0);
@@ -236,6 +296,13 @@ function get_ticket_effective_billable_rate($ticket_or_id, ?int $user_id = null)
         }
     }
 
+    if ($user_id !== null) {
+        $user_rate = get_user_default_billable_rate($user_id);
+        if ($user_rate !== null) {
+            return $user_rate;
+        }
+    }
+
     return (float) ($row['billable_rate'] ?? 0);
 }
 
@@ -261,6 +328,18 @@ function get_time_entry_effective_billable_rate(array $entry, array $template = 
         $agent_rate = get_agent_client_billable_rate($organization_id, $user_id);
         if ($agent_rate !== null) {
             return $agent_rate;
+        }
+    }
+
+    $entry_user_rate = parse_optional_rate_value($entry['user_billable_rate'] ?? null);
+    if ($entry_user_rate !== null && $entry_user_rate > 0) {
+        return $entry_user_rate;
+    }
+
+    if ($user_id > 0) {
+        $user_rate = get_user_default_billable_rate($user_id);
+        if ($user_rate !== null) {
+            return $user_rate;
         }
     }
 

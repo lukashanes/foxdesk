@@ -832,7 +832,7 @@ function create_files_backup($zip_path): bool
     }
 
     $base = BASE_PATH;
-    $exclude = ['backups', 'uploads', '.git', 'node_modules', 'vendor', 'build'];
+    $exclude = ['backups', 'uploads', 'storage', '.git', 'node_modules', 'vendor', 'build'];
 
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($base, RecursiveDirectoryIterator::SKIP_DOTS),
@@ -843,16 +843,14 @@ function create_files_backup($zip_path): bool
         $path = $file->getPathname();
         $relative = substr($path, strlen($base) + 1);
 
-        // Skip excluded directories
-        $skip = false;
-        foreach ($exclude as $ex) {
-            if (strpos($relative, $ex) === 0 || strpos($relative, DIRECTORY_SEPARATOR . $ex) !== false) {
-                $skip = true;
-                break;
-            }
+        // Skip only top-level runtime/dependency directories. Do not skip files
+        // such as includes/storage-functions.php just because their filename
+        // contains an excluded directory name.
+        $normalized_relative = str_replace('\\', '/', $relative);
+        $top_level = strtok($normalized_relative, '/');
+        if ($top_level !== false && in_array($top_level, $exclude, true)) {
+            continue;
         }
-
-        if ($skip) continue;
 
         if ($file->isDir()) {
             $zip->addEmptyDir($relative);
@@ -1320,6 +1318,7 @@ function rollback_update($backup_id, $restore_database = false): array
                 $removed = prune_files_not_in_manifest(BASE_PATH, $backup_files);
                 $copied = copy_directory($temp_dir, BASE_PATH);
                 delete_directory($temp_dir);
+                ensure_runtime_directories();
 
                 $result['messages'][] = t('{count} files restored.', ['count' => $copied]);
                 if ($removed > 0) {
@@ -1768,7 +1767,7 @@ function get_zip_file_manifest(ZipArchive $zip): array
 function prune_files_not_in_manifest(string $base_path, array $manifest): int
 {
     $removed = 0;
-    $exclude = ['backups', 'uploads', '.git', 'node_modules', 'vendor', 'build'];
+    $exclude = ['backups', 'uploads', 'storage', '.git', 'node_modules', 'vendor', 'build'];
     $exclude_lookup = array_fill_keys($exclude, true);
 
     if (!is_dir($base_path)) {
@@ -1803,6 +1802,25 @@ function prune_files_not_in_manifest(string $base_path, array $manifest): int
     }
 
     return $removed;
+}
+
+function ensure_runtime_directories(): void
+{
+    $upload_dir = defined('UPLOAD_DIR') ? trim((string) UPLOAD_DIR, '/\\') : 'uploads';
+    $paths = [
+        $upload_dir,
+        'storage',
+        'storage/sessions',
+        defined('IMAP_STORAGE_BASE') ? trim((string) IMAP_STORAGE_BASE, '/\\') : 'storage/tickets',
+        'backups',
+    ];
+
+    foreach (array_unique(array_filter($paths)) as $relative) {
+        $path = BASE_PATH . '/' . $relative;
+        if (!is_dir($path)) {
+            @mkdir($path, 0755, true);
+        }
+    }
 }
 
 /**

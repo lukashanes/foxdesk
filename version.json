@@ -1,13 +1,13 @@
 {
-    "version": "0.3.130",
-    "date": "2026-06-03",
+    "version": "0.3.131",
+    "date": "2026-06-18",
     "min_php": "8.1",
     "changelog": [
-        "Cloud migration can now be run directly from the admin browser without PHP CLI or server SSH access",
-        "Migration progress is saved between short batches so shared hosting timeouts do not interrupt the transfer",
-        "The browser-safe sync runner streams core data first, attachments second, and post-attachment links last",
-        "Admins can inspect the current stage, table offset, attachment offset, sent rows, upload counts, and sync warnings",
-        "The existing CLI sync command remains available for servers that can run long-running PHP commands"
+        "Work, Inbox, Tickets, Clients, Reports, and Search now use the shared helpdesk flow contracts",
+        "Ticket detail layout, long headings, timeline modals, and primary actions were tightened for a more stable workspace UI",
+        "Reports gained shared rate, adjustment, export, and live-total modules for billing review parity",
+        "Email notification policy and formatting were consolidated to reduce duplicate ticket emails",
+        "Self-hosted update packaging now builds a structured files/ update archive from the release script"
     ],
     "delete_files": []
 }

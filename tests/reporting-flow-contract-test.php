@@ -6,6 +6,7 @@ $module = file_get_contents($root . '/includes/modules/reports/reporting-flow.ph
 $billing = file_get_contents($root . '/includes/modules/reports/billing-review.php');
 $bootstrap = file_get_contents($root . '/includes/modules/bootstrap.php');
 $reports = file_get_contents($root . '/pages/admin/reports.php');
+$billing_js = file_get_contents($root . '/assets/js/report-billing-review.js');
 $builder = file_get_contents($root . '/pages/admin/report-builder.php');
 $theme = file_get_contents($root . '/theme.css');
 
@@ -40,7 +41,7 @@ $assert(str_contains($reports, 'billing_review_bulk_adjustment_actions()'), 'Bul
 $assert(str_contains($reports, 'name="bulk_discount_amount"'), 'Bulk billing review must allow amount discounts.');
 $assert(str_contains($reports, 'data-entry-amount'), 'Detailed rows must expose row amounts for live totals.');
 $assert(str_contains($reports, 'detail-billable-amount'), 'Detailed report must expose a live billable total.');
-$assert(str_contains($reports, "selectedAction === 'discount_amount'"), 'Live totals must handle amount discounts.');
+$assert($billing_js !== false && str_contains($billing_js, "selectedAction === 'discount_amount'"), 'Live totals must handle amount discounts.');
 $assert(str_contains($builder, '$_GET[\'organization_id\']'), 'Report builder must accept a prefilled organization.');
 $assert(str_contains($builder, '$_GET[\'date_from\']'), 'Report builder must accept a prefilled start date.');
 $assert(str_contains($builder, '$_GET[\'date_to\']'), 'Report builder must accept a prefilled end date.');

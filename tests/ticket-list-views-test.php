@@ -71,6 +71,7 @@ assert_ticket_list_view(ticket_list_view_shows_closed_inline('open', true), 'Exp
 
 $tickets_page = file_get_contents($root . '/pages/tickets.php');
 assert_ticket_list_view($tickets_page !== false, 'Tickets page must be readable.');
+assert_ticket_list_view(str_contains($tickets_page, 'ticket_registry_render_view_tabs'), 'Tickets page should render view tabs through the registry surface component.');
 assert_ticket_list_view(str_contains($tickets_page, '$ticket_show_all_url'), 'Tickets page should use a real All view URL for Show all.');
 assert_ticket_list_view(str_contains($tickets_page, '$ticket_clear_url'), 'Tickets page should preserve the current view when clearing filters.');
 assert_ticket_list_view(substr_count($tickets_page, 'name="search_scope" value="all"') >= 2, 'Ticket search forms should request all-ticket search by default.');

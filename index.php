@@ -15,7 +15,7 @@ define('REMEMBER_ME_DURATION', 30 * 86400); // 30 days
 
 require_once BASE_PATH . '/includes/session-bootstrap.php';
 
-define('APP_VERSION', '0.3.130');
+define('APP_VERSION', '0.3.131');
 
 // Check if installed
 if (!file_exists(BASE_PATH . '/config.php')) {
@@ -36,8 +36,9 @@ $debug = defined('APP_DEBUG') ? APP_DEBUG : (
     strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false ||
     ($_SERVER['HTTP_HOST'] ?? '') === '127.0.0.1'
 );
+$is_health_request = ($_GET['page'] ?? '') === 'health';
 error_reporting(E_ALL);
-ini_set('display_errors', $debug ? '1' : '0');
+ini_set('display_errors', (!$is_health_request && $debug) ? '1' : '0');
 ini_set('log_errors', '1');
 
 require_once BASE_PATH . '/includes/database.php';

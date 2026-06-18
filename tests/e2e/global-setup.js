@@ -182,7 +182,7 @@ async function saveAdminStorageState() {
   await page.locator('input[name="email"]').fill(admin.email);
   await page.locator('input[name="password"]').fill(admin.password);
   await page.locator('button[type="submit"]').click();
-  await page.waitForURL(/page=dashboard|dashboard/);
+  await page.waitForURL(/page=work|page=dashboard|dashboard/);
   await page.context().storageState({ path: path.join(authDir, 'admin.json') });
   await browser.close();
 }

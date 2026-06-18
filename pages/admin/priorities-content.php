@@ -17,17 +17,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tab === 'workflow') {
         if (empty($name)) {
             flash(t('Priority name is required.'), 'error');
         } else {
-            $slug = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $name));
-            $slug = trim($slug, '_');
-
-            $existing = db_fetch_one("SELECT id FROM priorities WHERE slug = ?", [$slug]);
-            if ($existing) $slug .= '_' . time();
-
-            $max = db_fetch_one("SELECT MAX(sort_order) as max_order FROM priorities");
-            $sort_order = ($max['max_order'] ?? 0) + 1;
+            $slug = admin_crud_unique_slug('priorities', $name);
+            $sort_order = admin_crud_next_sort_order('priorities');
 
             if ($is_default) {
-                db_query("UPDATE priorities SET is_default = 0");
+                admin_crud_clear_default('priorities');
             }
 
             db_insert('priorities', [
@@ -51,9 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tab === 'workflow') {
             flash(t('Priority name is required.'), 'error');
         } else {
             if ($is_default) {
-                db_query("UPDATE priorities SET is_default = 0");
+                admin_crud_clear_default('priorities');
             }
-            db_update('priorities', ['name' => $name, 'color' => $color, 'icon' => $icon, 'is_default' => $is_default], 'id = ?', [$id]);
+            admin_crud_update_record('priorities', $id, ['name' => $name, 'color' => $color, 'icon' => $icon, 'is_default' => $is_default]);
             flash(t('Priority updated.'), 'success');
         }
         redirect('admin', ['section' => 'settings', 'tab' => 'workflow']);
@@ -62,11 +56,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tab === 'workflow') {
     // Delete priority
     if (isset($_POST['delete_priority'])) {
         $id = (int)$_POST['id'];
-        $tickets_count = db_fetch_one("SELECT COUNT(*) as c FROM tickets WHERE priority_id = ?", [$id]);
-        if ($tickets_count && $tickets_count['c'] > 0) {
+        $usage_params = [$id];
+        $usage_sql = "SELECT COUNT(*) as c FROM tickets WHERE priority_id = ?";
+        $usage_sql .= admin_crud_tenant_filter('tickets', $usage_params);
+
+        if (!admin_crud_delete_if_unused('priorities', $id, $usage_sql, $usage_params)) {
             flash(t('Cannot delete a priority that is used by tickets.'), 'error');
         } else {
-            db_query("DELETE FROM priorities WHERE id = ?", [$id]);
             flash(t('Priority deleted.'), 'success');
         }
         redirect('admin', ['section' => 'settings', 'tab' => 'workflow']);

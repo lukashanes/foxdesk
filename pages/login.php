@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_2fa'])) {
                 if ($valid) {
                     // 2FA passed — complete login
                     rate_limit_clear($rate_key_2fa);
-                    rate_limit_clear('login');
+                    rate_limit_clear(function_exists('rate_limit_key') ? rate_limit_key('login', $pending['user_email'] ?? '') : 'login');
                     session_regenerate_id(true);
                     $_SESSION = [];
                     $_SESSION['user_id']    = $pending['user_id'];
@@ -117,7 +117,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
     } else {
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
-        $rate_key = 'login';
+        $rate_key = function_exists('rate_limit_key') ? rate_limit_key('login', $email) : 'login';
 
         if (rate_limit_is_blocked($rate_key, 5, 900)) {
             $error = t('Too many attempts. Please wait and try again.');

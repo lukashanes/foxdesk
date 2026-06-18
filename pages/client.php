@@ -31,10 +31,11 @@ require_once BASE_PATH . '/includes/header.php';
 
 <style>
     .client-center { display: grid; gap: 0.875rem; }
-    .client-hero { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding:1rem; }
+    .client-hero { display:grid; grid-template-columns:minmax(0, 1fr); gap:0.875rem; padding:1rem; }
+    .client-hero__summary { min-width:0; max-width:min(100%, 60rem); }
     .client-hero__meta { display:flex; flex-wrap:wrap; gap:0.5rem; color:var(--text-muted); font-size:0.8125rem; }
-    .client-title { margin:0.25rem 0 0; color:var(--text-primary); font-size:1.625rem; line-height:1.15; font-weight:750; letter-spacing:0; }
-    .client-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:0.5rem; }
+    .client-title { display:-webkit-box; margin:0.3rem 0 0; color:var(--text-primary); font-size:var(--type-2xl); line-height:1.1; font-weight:750; letter-spacing:0; overflow:hidden; overflow-wrap:anywhere; text-wrap:balance; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+    .client-actions { display:flex; flex-wrap:wrap; justify-content:flex-start; gap:0.5rem; min-width:0; padding-top:0.75rem; border-top:1px solid var(--border-light); }
     .client-stats { display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:0.75rem; }
     .client-stat { padding:0.875rem; border:1px solid var(--border-light); border-radius:0.75rem; background:var(--surface-primary); }
     .client-stat__label { color:var(--text-muted); font-size:0.75rem; font-weight:700; text-transform:uppercase; }
@@ -48,14 +49,13 @@ require_once BASE_PATH . '/includes/header.php';
     @media (max-width: 980px) {
         .client-grid { grid-template-columns:1fr; }
         .client-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .client-hero { flex-direction:column; }
         .client-actions { justify-content:flex-start; }
     }
 </style>
 
 <div class="client-center">
     <div class="card client-hero">
-        <div class="min-w-0">
+        <div class="client-hero__summary min-w-0">
             <div class="client-hero__meta">
                 <a href="<?php echo url('admin', ['section' => 'organizations']); ?>" class="inline-flex items-center gap-1 hover:underline" style="color:var(--text-muted);">
                     <?php echo get_icon('arrow-left', 'w-3.5 h-3.5'); ?>
@@ -66,7 +66,7 @@ require_once BASE_PATH . '/includes/header.php';
                     <span><?php echo e($org['contact_email']); ?></span>
                 <?php endif; ?>
             </div>
-            <h1 class="client-title"><?php echo e($org['name']); ?></h1>
+            <h1 class="client-title" title="<?php echo e($org['name']); ?>"><?php echo e($org['name']); ?></h1>
         </div>
         <div class="client-actions">
             <a href="<?php echo url('tickets', ['organization_id' => (int) $org['id']]); ?>" class="btn btn-secondary">

@@ -179,7 +179,9 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
     </script>
 </head>
 
-<body class="antialiased font-sans" style="background-color: var(--bg-primary); color: var(--text-primary);">
+<body class="app-shell-page antialiased font-sans"
+      data-app-page="<?php echo e((string) ($page ?? '')); ?>"
+      data-app-shell="self-hosted">
     <!-- Impersonation Warning Banner -->
     <?php if (function_exists('is_impersonating') && is_impersonating()): ?>
         <div class="bg-red-600 text-white px-4 py-2 flex items-center justify-end gap-4 shadow-md relative z-50">
@@ -193,7 +195,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
             <form method="post" action="<?php echo e(url('impersonate')); ?>" class="m-0">
                 <?php echo csrf_field(); ?>
                 <button type="submit" name="stop" value="1"
-                    class="text-red-600 px-3 py-1 rounded text-sm font-bold transition shadow-sm flex-shrink-0 whitespace-nowrap" style="background: var(--bg-primary);">
+                    class="text-red-600 px-3 py-1 rounded text-sm font-bold transition shadow-sm flex-shrink-0 whitespace-nowrap bg-theme-app">
                     <?php echo t('Stop'); ?>
                 </button>
             </form>
@@ -223,8 +225,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 <span class="sidebar-brand-label text-xl font-bold text-gradient"><?php echo e($app_name); ?></span>
             </a>
             <button onclick="toggleSidebarCompact(); if (window.syncSidebarCompactLayout) window.syncSidebarCompactLayout();" id="sidebar-collapse-btn"
-                class="sidebar-collapse-btn items-center justify-center w-8 h-8 rounded-xl transition-all sidebar-hover"
-                style="color: var(--text-muted);"
+                class="sidebar-collapse-btn items-center justify-center w-8 h-8 rounded-xl transition-all sidebar-hover text-theme-muted"
                 aria-label="<?php echo e(t('Collapse sidebar')); ?>"
                 aria-pressed="false"
                 aria-controls="sidebar"
@@ -235,19 +236,24 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 <span class="sidebar-collapse-icon-collapsed hidden"><?php echo get_icon('chevron-right', 'w-4 h-4'); ?></span>
             </button>
             <!-- Close button for mobile -->
-            <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-xl transition-all" style="color: var(--text-muted);"
+            <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-xl transition-all text-theme-muted"
                 aria-label="<?php echo e(t('Close menu')); ?>" aria-controls="sidebar">
                 <?php echo get_icon('times', 'text-xl'); ?>
             </button>
         </div>
 
         <script>
+            window.getAppShellVar = window.getAppShellVar || function(name, fallback) {
+                var value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+                return value || fallback;
+            };
             window.syncSidebarCompactLayout = function() {
                 var compact = document.body.classList.contains('sidebar-compact') && window.innerWidth >= 1025;
                 var sidebar = document.getElementById('sidebar');
                 var mainContent = document.getElementById('main-content');
-                if (sidebar) sidebar.style.width = compact ? '76px' : '';
-                if (mainContent) mainContent.style.marginLeft = compact ? '76px' : '';
+                var compactWidth = window.getAppShellVar('--app-sidebar-compact-width', '76px');
+                if (sidebar) sidebar.style.width = compact ? compactWidth : '';
+                if (mainContent) mainContent.style.marginLeft = compact ? compactWidth : '';
             };
             document.addEventListener('DOMContentLoaded', function() {
                 window.syncSidebarCompactLayout();
@@ -524,25 +530,25 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
     <!-- Main Content -->
     <main id="main-content" class="main-content min-h-screen">
         <!-- Mobile Header -->
-        <header class="mobile-header bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
-            <button onclick="toggleSidebar()" id="mobile-menu-btn" class="p-2 rounded-xl transition-all sidebar-hover" style="color: var(--text-secondary);" aria-label="<?php echo e(t('Open menu')); ?>" aria-expanded="false" aria-controls="sidebar">
+        <header class="app-topbar mobile-header bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+            <button onclick="toggleSidebar()" id="mobile-menu-btn" class="p-2 rounded-xl transition-all sidebar-hover text-theme-secondary" aria-label="<?php echo e(t('Open menu')); ?>" aria-expanded="false" aria-controls="sidebar">
                 <?php echo get_icon('bars', 'text-xl'); ?>
             </button>
-            <h1 class="text-lg font-semibold truncate flex-1 mx-4" style="color: var(--text-primary);">
+            <h1 class="text-lg font-semibold truncate flex-1 mx-4 text-theme-primary">
                 <?php echo e($page_title ?? t('Dashboard')); ?>
             </h1>
             <div class="flex items-center space-x-2">
                 <!-- Notification Bell (Mobile) -->
                 <div class="relative">
                     <button onclick="toggleNotificationPanel()" id="mobile-notif-btn"
-                        class="p-2 rounded-xl transition-all sidebar-hover relative" style="color: var(--text-secondary);"
+                        class="p-2 rounded-xl transition-all sidebar-hover relative text-theme-secondary"
                         aria-label="<?php echo e(t('Notifications')); ?>" aria-expanded="false">
                         <?php echo get_icon('bell', 'w-5 h-5'); ?>
                         <span id="notif-badge-mobile" class="notif-badge hidden">0</span>
                     </button>
                 </div>
 
-                <button type="button" id="mobile-header-search" class="p-2 rounded-xl transition-all sidebar-hover" style="color: var(--text-secondary);"
+                <button type="button" id="mobile-header-search" class="p-2 rounded-xl transition-all sidebar-hover text-theme-secondary"
                     aria-label="<?php echo e(t('Search')); ?>">
                     <?php echo get_icon('search'); ?>
                 </button>
@@ -550,17 +556,17 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 <!-- Mobile User Dropdown -->
                 <div class="relative">
                     <button onclick="toggleUserDropdownMobile()" id="mobile-user-btn"
-                        class="p-1 rounded-xl transition-all sidebar-hover" style="color: var(--text-secondary);"
+                        class="p-1 rounded-xl transition-all sidebar-hover text-theme-secondary"
                         aria-label="<?php echo e(t('User menu')); ?>" aria-expanded="false" aria-controls="user-dropdown-mobile" aria-haspopup="true">
                         <?php if (!empty($user['avatar']) && is_safe_avatar_url($user['avatar'])): ?>
                             <img src="<?php echo e(upload_url($user['avatar'])); ?>" alt="Avatar"
                                 class="w-8 h-8 rounded-full object-cover ring-2 ring-blue-500/20"
-                                onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-                            <div class="avatar avatar-sm" style="border-radius: 10px; display: none;">
+                                onerror="this.classList.add('is-hidden');this.nextElementSibling.classList.remove('is-hidden')">
+                            <div class="avatar avatar-sm avatar-fallback avatar-fallback--sm is-hidden">
                                 <?php echo strtoupper(substr($user['first_name'], 0, 1)); ?>
                             </div>
                         <?php else: ?>
-                            <div class="avatar avatar-sm" style="border-radius: 10px;">
+                            <div class="avatar avatar-sm avatar-fallback avatar-fallback--sm">
                                 <?php echo strtoupper(substr($user['first_name'], 0, 1)); ?>
                             </div>
                         <?php endif; ?>
@@ -569,14 +575,14 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                     <!-- Mobile Dropdown Menu -->
                     <div id="user-dropdown-mobile" role="menu" aria-label="<?php echo e(t('User menu')); ?>"
                         class="hidden absolute right-0 mt-2 w-52 glass py-2 z-50 animate-scale-in rounded-xl">
-                        <div class="px-4 py-3 border-b" style="border-color: var(--border-light);">
-                            <p class="font-semibold truncate" style="color: var(--text-primary);">
+                        <div class="px-4 py-3 border-b border-theme-light">
+                            <p class="font-semibold truncate text-theme-primary">
                                 <?php echo e($user['first_name'] . ' ' . $user['last_name']); ?>
                             </p>
-                            <p class="text-xs truncate" style="color: var(--text-muted);"><?php echo e($user['email']); ?></p>
+                            <p class="text-xs truncate text-theme-muted"><?php echo e($user['email']); ?></p>
                         </div>
                         <a href="<?php echo url('profile'); ?>" role="menuitem"
-                            class="flex items-center space-x-3 px-4 py-2.5 text-sm transition-colors sidebar-hover" style="color: var(--text-secondary);">
+                            class="sidebar-user-menu__item flex items-center space-x-3 px-4 py-2.5 text-sm transition-colors sidebar-hover">
                             <?php echo get_icon('user', 'w-4 opacity-70'); ?>
                             <span><?php echo e(t('My profile')); ?></span>
                         </a>
@@ -591,14 +597,17 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
         </header>
 
         <!-- Desktop Header -->
-        <header class="desktop-header bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-3 flex items-center justify-between sticky top-0 z-30 w-full">
-            <h1 class="text-lg font-semibold" style="color: var(--text-primary);"><?php echo e($page_title ?? t('Dashboard')); ?></h1>
+        <header class="app-topbar desktop-header bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-3 flex items-center justify-between sticky top-0 z-30 w-full">
+            <div class="app-topbar-title">
+                <h1 class="text-lg font-semibold text-theme-primary"><?php echo e($page_title ?? t('Dashboard')); ?></h1>
+                <span class="app-shell-context"><?php echo e(t('Workspace')); ?></span>
+            </div>
             <div class="flex items-center space-x-4">
                 <form action="<?php echo url('tickets'); ?>" method="get" class="relative">
                     <input type="hidden" name="page" value="tickets">
                     <input type="text" name="search" id="header-search" placeholder="<?php echo e(t('Search...')); ?>"
-                        class="form-input pr-4 header-search-input" style="width: clamp(200px, 25vw, 320px); border-radius: 10px; padding-left: 2.25rem;">
-                    <span class="absolute top-1/2 transform -translate-y-1/2" style="left: 1rem; color: var(--text-muted); pointer-events: none;">
+                        class="form-input pr-4 header-search-input">
+                    <span class="header-search-icon absolute top-1/2 transform -translate-y-1/2">
                         <?php echo get_icon('search', 'w-4 h-4'); ?>
                     </span>
                 </form>
@@ -606,7 +615,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 <!-- Notification Bell (Desktop) -->
                 <div class="relative">
                     <button onclick="toggleNotificationPanel()" id="desktop-notif-btn"
-                        class="p-2 rounded-xl transition-all sidebar-hover relative" style="color: var(--text-secondary);"
+                        class="p-2 rounded-xl transition-all sidebar-hover relative text-theme-secondary"
                         aria-label="<?php echo e(t('Notifications')); ?>" aria-expanded="false">
                         <?php echo get_icon('bell', 'w-5 h-5'); ?>
                         <span id="notif-badge-desktop" class="notif-badge hidden">0</span>
@@ -869,9 +878,10 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
             function avatarUrl(path) {
                 if (!path) return '';
                 if (path.indexOf('data:') === 0 || path.indexOf('http') === 0) return path;
-                // Use image.php proxy — extract filename from e.g. "uploads/avatar_emily.png"
-                var filename = path.split('/').pop().split('?')[0];
-                return 'image.php?f=' + encodeURIComponent(filename);
+                var clean = String(path).replace(/\\/g, '/').split('?')[0].replace(/^\/+/, '');
+                clean = clean.replace(/^uploads\//, '');
+                if (clean.indexOf('..') !== -1) return '';
+                return 'image.php?f=' + encodeURIComponent(clean);
             }
 
             function avatarHtml(n) {
@@ -1375,6 +1385,6 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
         <?php endif; ?>
 
         <!-- Page Content -->
-        <div class="p-2 lg:p-3 xl:p-4">
+        <div class="app-content">
 
             <!-- JS moved to assets/js/app-header.js (defer) -->

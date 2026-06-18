@@ -14,117 +14,18 @@ $is_staff = $is_admin || $is_agent;
 
 require_once BASE_PATH . '/includes/dashboard-functions.php';
 
-// Parse tag filter from URL
-$dashboard_tags = [];
-if (!empty($_GET['tags'])) {
-    $raw = explode(',', (string) $_GET['tags']);
-    $seen = [];
-    foreach ($raw as $t) {
-        $t = trim($t);
-        $t = ltrim($t, '#');
-        $t = preg_replace('/\s+/', ' ', $t);
-        if ($t === '') continue;
-        $key = function_exists('mb_strtolower') ? mb_strtolower($t, 'UTF-8') : strtolower($t);
-        if (isset($seen[$key])) continue;
-        $seen[$key] = true;
-        $dashboard_tags[] = $t;
-    }
-}
-
+$dashboard_tags = dashboard_tags_from_query($_GET);
 $dashboard_data = get_dashboard_data($user, $dashboard_tags);
 extract($dashboard_data);
 
 // Max items displayed per widget list (default 5). "View all" shown when exceeded.
 $db_list_limit = 5;
 
-$selected_agent_id = $is_admin ? max(0, (int) ($_GET['agent_id'] ?? 0)) : 0;
-$selected_agent = null;
-$selected_agent_totals = ['today' => 0, 'week' => 0, 'month' => 0];
-$selected_agent_entries = [];
-
-if ($selected_agent_id > 0 && function_exists('ticket_time_table_exists') && ticket_time_table_exists()) {
-    $tenant_id = function_exists('current_tenant_id') ? (int) current_tenant_id() : 0;
-    $user_tenant_where = '';
-    $user_params = [$selected_agent_id];
-    if ($tenant_id > 0 && function_exists('column_exists') && column_exists('users', 'tenant_id')) {
-        $user_tenant_where = ' AND (u.tenant_id = ? OR u.tenant_id IS NULL)';
-        $user_params[] = $tenant_id;
-    }
-
-    $selected_agent = db_fetch_one("
-        SELECT u.id, u.first_name, u.last_name, u.email, u.role, u.avatar
-        FROM users u
-        WHERE u.id = ?
-          AND u.role IN ('agent', 'admin')
-          AND u.is_active = 1
-          AND u.deleted_at IS NULL
-          {$user_tenant_where}
-        LIMIT 1
-    ", $user_params);
-
-    if ($selected_agent) {
-        $dur_expr = function_exists('sql_timer_duration_minutes') ? sql_timer_duration_minutes('tte.') : 'tte.duration_minutes';
-        $ticket_tenant_where = '';
-        $ticket_params = [$selected_agent_id];
-        if ($tenant_id > 0 && function_exists('column_exists') && column_exists('tickets', 'tenant_id')) {
-            $ticket_tenant_where = ' AND (t.tenant_id = ? OR t.tenant_id IS NULL)';
-            $ticket_params[] = $tenant_id;
-        }
-
-        $selected_agent_entries = db_fetch_all("
-            SELECT
-                tte.id,
-                tte.ticket_id,
-                tte.started_at,
-                tte.ended_at,
-                tte.duration_minutes,
-                tte.summary,
-                tte.is_billable,
-                " . (function_exists('time_entry_source_column_exists') && time_entry_source_column_exists() ? 'tte.source' : "'manual' AS source") . ",
-                {$dur_expr} AS actual_minutes,
-                t.title AS ticket_title,
-                t.hash AS ticket_hash,
-                s.name AS status_name
-            FROM ticket_time_entries tte
-            JOIN tickets t ON t.id = tte.ticket_id
-            LEFT JOIN statuses s ON s.id = t.status_id
-            WHERE tte.user_id = ?
-              AND tte.started_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-              {$ticket_tenant_where}
-            ORDER BY tte.started_at DESC
-            LIMIT 20
-        ", $ticket_params);
-
-        $week_start = date('Y-m-d 00:00:00', strtotime('monday this week'));
-        $week_end = date('Y-m-d 23:59:59', strtotime('sunday this week'));
-        $month_start = date('Y-m-01 00:00:00');
-        $month_end = date('Y-m-t 23:59:59');
-        $totals_params = [$week_start, $week_end, $month_start, $month_end, $selected_agent_id];
-        if ($tenant_id > 0 && function_exists('column_exists') && column_exists('tickets', 'tenant_id')) {
-            $totals_tenant_where = ' AND (t.tenant_id = ? OR t.tenant_id IS NULL)';
-            $totals_params[] = $tenant_id;
-        } else {
-            $totals_tenant_where = '';
-        }
-
-        $totals = db_fetch_one("
-            SELECT
-                SUM(CASE WHEN DATE(tte.started_at) = CURDATE() THEN ({$dur_expr}) ELSE 0 END) AS today,
-                SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_expr}) ELSE 0 END) AS week,
-                SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_expr}) ELSE 0 END) AS month
-            FROM ticket_time_entries tte
-            JOIN tickets t ON t.id = tte.ticket_id
-            WHERE tte.user_id = ?
-              {$totals_tenant_where}
-        ", $totals_params);
-
-        $selected_agent_totals = [
-            'today' => (int) ($totals['today'] ?? 0),
-            'week' => (int) ($totals['week'] ?? 0),
-            'month' => (int) ($totals['month'] ?? 0),
-        ];
-    }
-}
+$selected_agent_activity = dashboard_selected_agent_activity((int) ($_GET['agent_id'] ?? 0), $is_admin);
+$selected_agent_id = $selected_agent_activity['selected_agent_id'];
+$selected_agent = $selected_agent_activity['agent'];
+$selected_agent_totals = $selected_agent_activity['totals'];
+$selected_agent_entries = $selected_agent_activity['entries'];
 
 require_once BASE_PATH . '/includes/header.php';
 ?>

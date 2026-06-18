@@ -45,6 +45,45 @@ function api_agent_apply_ticket_scope_filters(array &$filters, array $user): voi
     }
 }
 
+function api_agent_reference_row_by_name(string $table, string $name): ?array
+{
+    $name = trim($name);
+    if ($name === '' || !in_array($table, ['statuses', 'priorities'], true)) {
+        return null;
+    }
+
+    $params = [$name];
+    $sql = "SELECT * FROM {$table} WHERE LOWER(name) = LOWER(?)";
+    if (function_exists('workflow_reference_sql_filter')) {
+        $sql .= workflow_reference_sql_filter($table, $params);
+    }
+    $sql .= " LIMIT 1";
+
+    $row = db_fetch_one($sql, $params);
+    return $row ?: null;
+}
+
+function api_agent_status_by_id(int $status_id): ?array
+{
+    if ($status_id <= 0) {
+        return null;
+    }
+
+    if (function_exists('get_status')) {
+        $status = get_status($status_id);
+        if ($status) {
+            return $status;
+        }
+    }
+
+    $params = [$status_id];
+    $sql = "SELECT * FROM statuses WHERE id = ?";
+    if (function_exists('workflow_reference_sql_filter')) {
+        $sql .= workflow_reference_sql_filter('statuses', $params);
+    }
+    return db_fetch_one($sql, $params) ?: null;
+}
+
 /**
  * Resolve a ticket from request input and enforce access for the current agent.
  */
@@ -343,7 +382,7 @@ function api_agent_list_tickets()
         if (is_numeric($status_val)) {
             $filters['status_id'] = (int) $status_val;
         } else {
-            $status_row = db_fetch_one("SELECT id FROM statuses WHERE LOWER(name) = LOWER(?)", [$status_val]);
+            $status_row = api_agent_reference_row_by_name('statuses', (string) $status_val);
             if ($status_row) {
                 $filters['status_id'] = (int) $status_row['id'];
             }
@@ -354,7 +393,7 @@ function api_agent_list_tickets()
         if (is_numeric($prio_val)) {
             $filters['priority_id'] = (int) $prio_val;
         } else {
-            $prio_row = db_fetch_one("SELECT id FROM priorities WHERE LOWER(name) = LOWER(?)", [$prio_val]);
+            $prio_row = api_agent_reference_row_by_name('priorities', (string) $prio_val);
             if ($prio_row) {
                 $filters['priority_id'] = (int) $prio_row['id'];
             }
@@ -583,7 +622,7 @@ function api_agent_update_status()
     if (!empty($input['status_id'])) {
         $status_id = (int) $input['status_id'];
     } elseif (!empty($input['status'])) {
-        $status_row = db_fetch_one("SELECT id FROM statuses WHERE LOWER(name) = LOWER(?)", [$input['status']]);
+        $status_row = api_agent_reference_row_by_name('statuses', (string) $input['status']);
         if ($status_row) {
             $status_id = (int) $status_row['id'];
         }
@@ -598,7 +637,7 @@ function api_agent_update_status()
     $ticket_id = (int) $ticket['id'];
 
     // Verify status exists
-    $status = db_fetch_one("SELECT id, name FROM statuses WHERE id = ?", [$status_id]);
+    $status = api_agent_status_by_id((int) $status_id);
     if (!$status) {
         api_error('Status not found', 404);
     }
@@ -615,7 +654,7 @@ function api_agent_update_status()
 
     // In-app notification for status change
     if (function_exists('dispatch_ticket_notifications')) {
-        $old_status_row = db_fetch_one("SELECT name FROM statuses WHERE id = ?", [(int) $ticket['status_id']]);
+        $old_status_row = api_agent_status_by_id((int) $ticket['status_id']);
         dispatch_ticket_notifications('status_changed', $ticket_id, $user['id'], [
             'old_status' => $old_status_row['name'] ?? '',
             'new_status' => $status['name'] ?? '',
@@ -673,8 +712,8 @@ function api_agent_log_time()
         'source' => $source,
     ];
 
-    // Apply billable_rate: explicit input > AI setting > default
-    if (isset($input['billable_rate'])) {
+    // Only admins may override billing rates through the API. Agent tokens use server-side rate rules.
+    if (($user['role'] ?? '') === 'admin' && isset($input['billable_rate'])) {
         $data['billable_rate'] = (float) $input['billable_rate'];
     }
 

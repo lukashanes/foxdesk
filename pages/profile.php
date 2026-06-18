@@ -136,12 +136,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
             try {
                 $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                $result = upload_file($_FILES['avatar'], $allowed, 2 * 1024 * 1024);
+                $result = upload_file($_FILES['avatar'], $allowed, 2 * 1024 * 1024, 'public');
 
                 // Delete old avatar if exists
                 if (!empty($user['avatar']) && strpos($user['avatar'], 'data:') !== 0) {
-                    $old_path = BASE_PATH . '/' . UPLOAD_DIR . basename($user['avatar']);
-                    if (file_exists($old_path)) {
+                    $old_path = function_exists('upload_absolute_path') ? upload_absolute_path($user['avatar']) : (BASE_PATH . '/' . UPLOAD_DIR . basename($user['avatar']));
+                    if ($old_path && file_exists($old_path)) {
                         @unlink($old_path);
                     }
                 }
@@ -173,8 +173,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['remove_avatar'])) {
         // Delete file if exists
         if (!empty($user['avatar']) && strpos($user['avatar'], 'data:') !== 0) {
-            $old_path = BASE_PATH . '/' . UPLOAD_DIR . basename($user['avatar']);
-            if (file_exists($old_path)) {
+            $old_path = function_exists('upload_absolute_path') ? upload_absolute_path($user['avatar']) : (BASE_PATH . '/' . UPLOAD_DIR . basename($user['avatar']));
+            if ($old_path && file_exists($old_path)) {
                 @unlink($old_path);
             }
         }
