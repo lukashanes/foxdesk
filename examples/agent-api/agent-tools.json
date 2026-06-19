@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "transport": "stdio",
+  "auth": {
+    "type": "bearer",
+    "base_url_env": "FOXDESK_BASE_URL",
+    "token_env": "FOXDESK_API_TOKEN",
+    "inherits_user_permissions": true
+  },
+  "safety": {
+    "writes_require_confirmation": true,
+    "dry_run_argument": "dry_run",
+    "confirmation_argument": "confirm",
+    "idempotency_argument": "idempotency_key",
+    "token_redaction": true
+  },
+  "tools": [
+    {
+      "name": "foxdesk_agent_manifest",
+      "action": null,
+      "method": "local",
+      "scopes": [],
+      "writes": false
+    },
+    {
+      "name": "foxdesk_list_tickets",
+      "action": "app-ticket-list",
+      "method": "GET",
+      "scopes": ["tickets:read"],
+      "writes": false
+    },
+    {
+      "name": "foxdesk_get_ticket",
+      "action": "app-ticket-detail",
+      "method": "GET",
+      "scopes": ["tickets:read"],
+      "writes": false
+    },
+    {
+      "name": "foxdesk_create_ticket",
+      "action": "app-create-ticket",
+      "method": "POST",
+      "scopes": ["tickets:write"],
+      "writes": true,
+      "supports_dry_run": true,
+      "requires_confirmation": true
+    },
+    {
+      "name": "foxdesk_add_comment",
+      "action": "app-add-comment",
+      "method": "POST",
+      "scopes": ["comments:write"],
+      "writes": true,
+      "supports_dry_run": true,
+      "requires_confirmation": true
+    },
+    {
+      "name": "foxdesk_log_time",
+      "action": "app-log-time",
+      "method": "POST",
+      "scopes": ["time:write"],
+      "writes": true,
+      "supports_dry_run": true,
+      "requires_confirmation": true
+    },
+    {
+      "name": "foxdesk_prepare_report",
+      "action": "app-reporting-review",
+      "method": "GET",
+      "scopes": ["reports:read"],
+      "writes": false
+    }
+  ]
+}
