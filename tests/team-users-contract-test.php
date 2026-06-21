@@ -31,6 +31,19 @@ foreach ([
 }
 
 foreach ([
+    'id="aiAddAgentForm"',
+    'id="editAiAgentForm"',
+    'name="ticket_scope"',
+    'name="scope_organization_ids[]"',
+    "'permissions' => \$permissions_data !== null ? json_encode(\$permissions_data) : null",
+    "'organization_id' => \$organization_id",
+    'setAiAgentAccess(agent)',
+    'bindAiAgentScope(',
+] as $needle) {
+    $assert(str_contains($page, $needle), 'AI agent access management must stay in the AI agents UI: ' . $needle);
+}
+
+foreach ([
     'SELECT u.*, o.name as organization_name',
     'SELECT user_id, SUM({$dur})',
     'SELECT tte.user_id, SUM({$dur})',

@@ -1305,6 +1305,9 @@ return [
     'Tune rates, discounts, or totals.' => 'Tune rates, discounts, or totals.',
     'Send the final report.' => 'Send the final report.',
     'Versions, updates, backups, background tasks, and upload limits.' => 'Versions, updates, backups, background tasks, and upload limits.',
+    'Access' => 'Access',
+    'No clients selected' => 'No clients selected',
+    'Own tickets only' => 'Own tickets only',
 
     // Link preview cards
     'Google Drive file' => 'Google Drive file',

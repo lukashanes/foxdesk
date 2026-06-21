@@ -1305,6 +1305,9 @@ return [
     'Tune rates, discounts, or totals.' => 'Upravte sazby, slevy nebo součty.',
     'Send the final report.' => 'Odešlete finální výkaz.',
     'Versions, updates, backups, background tasks, and upload limits.' => 'Verze, aktualizace, zálohy, úlohy na pozadí a limity nahrávání.',
+    'Access' => 'Přístup',
+    'No clients selected' => 'Nejsou vybraní klienti',
+    'Own tickets only' => 'Pouze vlastní požadavky',
 
     // Link preview cards
     'Google Drive file' => 'Soubor Google Drive',

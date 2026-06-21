@@ -34,6 +34,10 @@ try {
     $organizations = [];
 }
 $valid_organization_ids = team_users_valid_organization_ids($organizations);
+$organization_names_by_id = [];
+foreach ($organizations as $organization) {
+    $organization_names_by_id[(int) ($organization['id'] ?? 0)] = (string) ($organization['name'] ?? '');
+}
 
 $email_pref_column_exists = $user_table_capabilities['email_notifications'];
 $in_app_pref_column_exists = $user_table_capabilities['in_app_notifications'];
@@ -490,6 +494,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ai_model = trim($_POST['ai_model'] ?? '');
         $cost_rate_input = trim($_POST['cost_rate'] ?? '');
         $cost_rate = $cost_rate_input !== '' ? (float) str_replace(',', '.', $cost_rate_input) : 0;
+        $permission_input = $_POST;
+        if (!isset($permission_input['ticket_scope'])) {
+            $permission_input['ticket_scope'] = 'assigned';
+        }
+        $organization_assignment = team_users_normalize_organization_assignment(
+            $permission_input['organization_id'] ?? null,
+            $permission_input['scope_organization_ids'] ?? [],
+            $valid_organization_ids
+        );
+        $organization_id = $organization_assignment['organization_id'];
+        $organization_membership_ids = $organization_assignment['organization_membership_ids'];
+        $permissions_data = team_users_permission_payload(
+            'agent',
+            $organization_id,
+            $organization_membership_ids,
+            $permission_input,
+            $valid_organization_ids
+        );
 
         if (empty($agent_name)) {
             flash(t('Please fill in all required fields.'), 'error');
@@ -510,6 +532,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'is_ai_agent' => 1,
                     'ai_model' => $ai_model !== '' ? $ai_model : null,
                     'cost_rate' => $cost_rate,
+                    'organization_id' => $organization_id,
+                    'permissions' => $permissions_data !== null ? json_encode($permissions_data) : null,
                 ], 'id = ?', [$user_id]);
 
                 // Auto-generate API token
@@ -537,6 +561,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cost_rate_input = trim($_POST['cost_rate'] ?? '');
         $cost_rate = $cost_rate_input !== '' ? (float) str_replace(',', '.', $cost_rate_input) : 0;
         $is_active = isset($_POST['is_active']) ? 1 : 0;
+        $permission_input = $_POST;
+        if (!isset($permission_input['ticket_scope'])) {
+            $permission_input['ticket_scope'] = 'assigned';
+        }
+        $organization_assignment = team_users_normalize_organization_assignment(
+            $permission_input['organization_id'] ?? null,
+            $permission_input['scope_organization_ids'] ?? [],
+            $valid_organization_ids
+        );
+        $organization_id = $organization_assignment['organization_id'];
+        $organization_membership_ids = $organization_assignment['organization_membership_ids'];
+        $permissions_data = team_users_permission_payload(
+            'agent',
+            $organization_id,
+            $organization_membership_ids,
+            $permission_input,
+            $valid_organization_ids
+        );
 
         if ($id > 0 && !empty($agent_name)) {
             db_update('users', [
@@ -544,6 +586,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'ai_model' => $ai_model !== '' ? $ai_model : null,
                 'cost_rate' => $cost_rate,
                 'is_active' => $is_active,
+                'organization_id' => $organization_id,
+                'permissions' => $permissions_data !== null ? json_encode($permissions_data) : null,
             ], 'id = ? AND is_ai_agent = 1', [$id]);
             flash(t('Settings saved.'), 'success');
         }
@@ -713,6 +757,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                     <th class="px-4 py-2 text-left th-label whitespace-nowrap w-28"><?php echo e(t('Model')); ?></th>
                                     <th class="px-4 py-2 text-left th-label whitespace-nowrap w-20"><?php echo e(t('Rate/h')); ?></th>
                                     <th class="px-4 py-2 text-left th-label whitespace-nowrap w-32"><?php echo e(t('API token')); ?></th>
+                                    <th class="px-4 py-2 text-left th-label whitespace-nowrap w-44"><?php echo e(t('Access')); ?></th>
                                     <th class="px-4 py-2 text-left th-label whitespace-nowrap w-20"><?php echo e(t('Status')); ?></th>
                                     <th class="px-4 py-2 text-right th-label whitespace-nowrap w-28"><?php echo e(t('Actions')); ?></th>
                                 </tr>
@@ -720,7 +765,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <tbody class="divide-y">
                                 <?php if (empty($ai_agents)): ?>
                                         <tr>
-                                            <td colspan="6" class="px-4 py-6 text-center text-sm" style="color: var(--text-muted);">
+                                            <td colspan="7" class="px-4 py-6 text-center text-sm" style="color: var(--text-muted);">
                                                 <?php echo e(t('No AI agents yet.')); ?>
                                             </td>
                                         </tr>
@@ -735,6 +780,31 @@ include BASE_PATH . '/includes/components/page-header.php';
                                             break;
                                         }
                                     }
+                                    $agent_permissions = [];
+                                    if (!empty($agent['permissions'])) {
+                                        $decoded_permissions = json_decode((string) $agent['permissions'], true);
+                                        if (is_array($decoded_permissions)) {
+                                            $agent_permissions = $decoded_permissions;
+                                        }
+                                    }
+                                    $agent_scope = $agent_permissions['ticket_scope'] ?? 'assigned';
+                                    $agent_org_ids = normalize_organization_ids($agent_permissions['organization_ids'] ?? []);
+                                    if (empty($agent_org_ids) && !empty($agent['organization_id'])) {
+                                        $agent_org_ids = [(int) $agent['organization_id']];
+                                    }
+                                    $agent_org_names = [];
+                                    foreach ($agent_org_ids as $org_id) {
+                                        if (!empty($organization_names_by_id[$org_id])) {
+                                            $agent_org_names[] = $organization_names_by_id[$org_id];
+                                        }
+                                    }
+                                    $scope_labels = [
+                                        'all' => t('All tickets'),
+                                        'assigned' => t('Assigned tickets only'),
+                                        'organization' => t('Tickets from selected organizations'),
+                                        'own' => t('Own tickets only'),
+                                    ];
+                                    $access_label = $scope_labels[$agent_scope] ?? $agent_scope;
                                     ?>
                                         <tr class="tr-hover <?php echo $agent['is_active'] ? '' : 'opacity-50'; ?>">
                                             <td class="px-4 py-2.5">
@@ -764,6 +834,14 @@ include BASE_PATH . '/includes/components/page-header.php';
                                                             style="color: var(--text-muted);"><?php echo e($active_token['token_prefix'] ?? '???'); ?>...</code>
                                                 <?php else: ?>
                                                         <span class="text-orange-500"><?php echo e(t('No token')); ?></span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="px-4 py-2.5 text-xs" style="color: var(--text-secondary);">
+                                                <div class="font-medium" style="color: var(--text-primary);"><?php echo e($access_label); ?></div>
+                                                <?php if ($agent_scope === 'organization'): ?>
+                                                        <div style="color: var(--text-muted);">
+                                                            <?php echo !empty($agent_org_names) ? e(implode(', ', $agent_org_names)) : e(t('No clients selected')); ?>
+                                                        </div>
                                                 <?php endif; ?>
                                             </td>
                                             <td class="px-4 py-2.5">
@@ -823,7 +901,7 @@ include BASE_PATH . '/includes/components/page-header.php';
             <div class="admin-side-column">
                 <div class="card card-body">
                     <h3 class="font-semibold mb-4" style="color: var(--text-primary);"><?php echo e(t('Add AI agent')); ?></h3>
-                    <form method="post" class="space-y-4">
+                    <form method="post" id="aiAddAgentForm" class="space-y-4">
                         <?php echo csrf_field(); ?>
                         <div>
                             <label class="block text-sm font-medium mb-1"
@@ -841,6 +919,47 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 style="color: var(--text-secondary);"><?php echo e(t('Rate/h')); ?></label>
                             <input type="number" name="cost_rate" step="0.01" min="0" class="form-input" placeholder="0.00">
                         </div>
+                        <div class="border-t pt-3" style="border-color: var(--border-light);">
+                            <h4 class="text-sm font-semibold mb-2" style="color: var(--text-secondary);">
+                                <?php echo e(t('Access')); ?>
+                            </h4>
+                            <div class="space-y-2">
+                                <label class="flex items-center text-sm">
+                                    <input type="radio" name="ticket_scope" value="assigned" class="mr-2" checked>
+                                    <?php echo e(t('Assigned tickets only')); ?>
+                                </label>
+                                <label class="flex items-center text-sm">
+                                    <input type="radio" name="ticket_scope" value="organization" class="mr-2">
+                                    <?php echo e(t('Tickets from selected organizations')); ?>
+                                </label>
+                                <label class="flex items-center text-sm">
+                                    <input type="radio" name="ticket_scope" value="all" class="mr-2">
+                                    <?php echo e(t('All tickets')); ?>
+                                </label>
+                            </div>
+                            <?php if (!empty($organizations)): ?>
+                                    <div id="ai_add_org_select" class="mt-2 hidden">
+                                        <label class="block text-xs mb-1" style="color: var(--text-muted);">
+                                            <?php echo e(t('Select organizations (multiple allowed)')); ?>
+                                        </label>
+                                        <select name="scope_organization_ids[]" multiple size="5" class="form-select text-sm">
+                                            <?php foreach ($organizations as $org): ?>
+                                                    <option value="<?php echo $org['id']; ?>"><?php echo e($org['name']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                            <?php endif; ?>
+                            <div class="mt-3 space-y-2">
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox" name="can_view_time" class="mr-2" checked>
+                                    <?php echo e(t('Can view time entries')); ?>
+                                </label>
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox" name="can_view_timeline" class="mr-2" checked>
+                                    <?php echo e(t('Can view activity timeline')); ?>
+                                </label>
+                            </div>
+                        </div>
                         <button type="submit" name="add_ai_agent" class="btn btn-primary w-full">
                             <?php echo e(t('Add AI agent')); ?>
                         </button>
@@ -853,7 +972,7 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div id="editAiAgentModal"
             class="fixed inset-0 bg-black bg-opacity-50 hidden items-start sm:items-center justify-center z-50 overflow-y-auto p-2 sm:p-3"
             role="dialog" aria-modal="true" aria-labelledby="edit-ai-agent-title">
-            <div class="rounded-xl shadow-xl w-full max-w-md max-h-[calc(100vh-1rem)] overflow-hidden flex flex-col"
+            <div class="rounded-xl shadow-xl w-full max-w-lg max-h-[calc(100vh-1rem)] overflow-hidden flex flex-col"
                 style="background: var(--surface-primary);">
                 <div class="px-4 sm:px-6 py-3.5 border-b flex items-center justify-between"
                     style="border-color: var(--border-light); background: var(--surface-primary);">
@@ -865,7 +984,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                     </button>
                 </div>
                 <div class="p-4 sm:p-5 overflow-y-auto space-y-4">
-                    <form method="post" class="space-y-3.5">
+                    <form method="post" id="editAiAgentForm" class="space-y-3.5">
                         <?php echo csrf_field(); ?>
                         <input type="hidden" name="id" id="ai_edit_id">
                         <div>
@@ -884,6 +1003,52 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <label for="ai_edit_cost_rate" class="block text-sm font-medium mb-1"
                                 style="color: var(--text-secondary);"><?php echo e(t('Rate/h')); ?></label>
                             <input type="number" name="cost_rate" id="ai_edit_cost_rate" step="0.01" min="0" class="form-input">
+                        </div>
+                        <div class="border-t pt-3" style="border-color: var(--border-light);">
+                            <h4 class="text-sm font-semibold mb-2" style="color: var(--text-secondary);">
+                                <?php echo e(t('Access')); ?>
+                            </h4>
+                            <div class="space-y-2">
+                                <label class="flex items-center text-sm">
+                                    <input type="radio" name="ticket_scope" value="assigned" id="ai_edit_scope_assigned" class="mr-2">
+                                    <?php echo e(t('Assigned tickets only')); ?>
+                                </label>
+                                <label class="flex items-center text-sm">
+                                    <input type="radio" name="ticket_scope" value="organization" id="ai_edit_scope_org" class="mr-2">
+                                    <?php echo e(t('Tickets from selected organizations')); ?>
+                                </label>
+                                <label class="flex items-center text-sm">
+                                    <input type="radio" name="ticket_scope" value="all" id="ai_edit_scope_all" class="mr-2">
+                                    <?php echo e(t('All tickets')); ?>
+                                </label>
+                            </div>
+                            <?php if (!empty($organizations)): ?>
+                                    <div id="ai_edit_org_select" class="mt-2 hidden">
+                                        <label class="block text-xs mb-1" style="color: var(--text-muted);">
+                                            <?php echo e(t('Select organizations (multiple allowed)')); ?>
+                                        </label>
+                                        <select name="scope_organization_ids[]" id="ai_edit_scope_organization_ids" multiple
+                                            size="5" class="form-select text-sm">
+                                            <?php foreach ($organizations as $org): ?>
+                                                    <option value="<?php echo $org['id']; ?>"><?php echo e($org['name']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                            <?php endif; ?>
+                            <div class="mt-3 space-y-2">
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox" name="can_view_time" id="ai_edit_can_view_time" class="mr-2">
+                                    <?php echo e(t('Can view time entries')); ?>
+                                </label>
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox" name="can_view_timeline" id="ai_edit_can_view_timeline" class="mr-2">
+                                    <?php echo e(t('Can view activity timeline')); ?>
+                                </label>
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox" name="can_view_edit_history" id="ai_edit_can_view_edit_history" class="mr-2">
+                                    <?php echo e(t('Can view edit history')); ?>
+                                </label>
+                            </div>
                         </div>
                         <div>
                             <label class="flex items-center space-x-2 text-sm">
@@ -928,6 +1093,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                 document.getElementById('ai_edit_model').value = agent.ai_model || '';
                 document.getElementById('ai_edit_cost_rate').value = agent.cost_rate || '';
                 document.getElementById('ai_edit_is_active').checked = agent.is_active == 1;
+                setAiAgentAccess(agent);
 
                 var statusEl = document.getElementById('ai_edit_token_status');
                 var actionsEl = document.getElementById('ai_edit_token_actions');
@@ -990,7 +1156,99 @@ include BASE_PATH . '/includes/components/page-header.php';
                 if (_aiAgentReturnFocus) { _aiAgentReturnFocus.focus(); _aiAgentReturnFocus = null; }
             }
 
+            function parseAiAgentPermissions(agent) {
+                var permissions = {};
+                if (agent && agent.permissions) {
+                    try {
+                        permissions = typeof agent.permissions === 'string' ? JSON.parse(agent.permissions) : agent.permissions;
+                    } catch (e) {
+                        permissions = {};
+                    }
+                }
+                if (!permissions || typeof permissions !== 'object') {
+                    permissions = {};
+                }
+                return permissions;
+            }
+
+            function setAiAgentAccess(agent) {
+                var form = document.getElementById('editAiAgentForm');
+                if (!form) {
+                    return;
+                }
+
+                var permissions = parseAiAgentPermissions(agent);
+                var scope = permissions.ticket_scope || 'assigned';
+                if (!['assigned', 'organization', 'all'].includes(scope)) {
+                    scope = 'assigned';
+                }
+
+                form.querySelectorAll('input[name="ticket_scope"]').forEach(function (radio) {
+                    radio.checked = radio.value === scope;
+                });
+
+                var selectedIds = Array.isArray(permissions.organization_ids)
+                    ? permissions.organization_ids
+                    : (permissions.organization_ids ? [permissions.organization_ids] : []);
+                if (selectedIds.length === 0 && agent && agent.organization_id) {
+                    selectedIds = [agent.organization_id];
+                }
+                var selected = new Set(selectedIds.map(function (id) {
+                    return parseInt(id, 10);
+                }).filter(function (id) {
+                    return !Number.isNaN(id) && id > 0;
+                }));
+
+                var orgSelect = document.getElementById('ai_edit_scope_organization_ids');
+                if (orgSelect) {
+                    for (var option of orgSelect.options) {
+                        option.selected = selected.has(parseInt(option.value, 10));
+                    }
+                }
+
+                var timeCheckbox = document.getElementById('ai_edit_can_view_time');
+                if (timeCheckbox) {
+                    timeCheckbox.checked = permissions.can_view_time !== false;
+                }
+                var timelineCheckbox = document.getElementById('ai_edit_can_view_timeline');
+                if (timelineCheckbox) {
+                    timelineCheckbox.checked = permissions.can_view_timeline !== false;
+                }
+                var historyCheckbox = document.getElementById('ai_edit_can_view_edit_history');
+                if (historyCheckbox) {
+                    historyCheckbox.checked = permissions.can_view_edit_history === true;
+                }
+
+                syncAiAgentScope('editAiAgentForm', 'ai_edit_org_select');
+            }
+
+            function syncAiAgentScope(formId, orgContainerId) {
+                var form = document.getElementById(formId);
+                var orgContainer = document.getElementById(orgContainerId);
+                if (!form || !orgContainer) {
+                    return;
+                }
+                var checked = form.querySelector('input[name="ticket_scope"]:checked');
+                orgContainer.classList.toggle('hidden', !(checked && checked.value === 'organization'));
+            }
+
+            function bindAiAgentScope(formId, orgContainerId) {
+                var form = document.getElementById(formId);
+                if (!form) {
+                    return;
+                }
+                form.querySelectorAll('input[name="ticket_scope"]').forEach(function (radio) {
+                    radio.addEventListener('change', function () {
+                        syncAiAgentScope(formId, orgContainerId);
+                    });
+                });
+                syncAiAgentScope(formId, orgContainerId);
+            }
+
             document.addEventListener('DOMContentLoaded', function () {
+                bindAiAgentScope('aiAddAgentForm', 'ai_add_org_select');
+                bindAiAgentScope('editAiAgentForm', 'ai_edit_org_select');
+
                 var modal = document.getElementById('editAiAgentModal');
                 if (modal) {
                     modal.addEventListener('click', function (e) {
