@@ -5,19 +5,22 @@
 
 function report_export_csv_if_requested(array $request, string $tab, array $entries, array $by_org, bool $tags_supported, bool $show_money, bool $has_cost_data): void
 {
-    if (($request['export'] ?? '') !== 'csv' || !in_array($tab, ['detailed', 'worklog', 'summary'], true)) {
+    $export_tab = report_filter_normalize_tab($tab);
+    $legacy_tab = $export_tab === 'billing' ? 'detailed' : ($export_tab === 'time' ? 'summary' : $export_tab);
+
+    if (($request['export'] ?? '') !== 'csv' || !in_array($legacy_tab, ['detailed', 'worklog', 'summary'], true)) {
         return;
     }
 
     header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="report-' . $tab . '-' . date('Y-m-d') . '.csv"');
+    header('Content-Disposition: attachment; filename="report-' . $export_tab . '-' . date('Y-m-d') . '.csv"');
     $csv = fopen('php://output', 'w');
     if ($csv === false) {
         exit;
     }
     fwrite($csv, "\xEF\xBB\xBF");
 
-    if ($tab === 'detailed') {
+    if ($legacy_tab === 'detailed') {
         $headers = [t('Ticket'), t('Company')];
         if ($tags_supported) {
             $headers[] = t('Tags');
@@ -54,7 +57,7 @@ function report_export_csv_if_requested(array $request, string $tab, array $entr
             }
             fputcsv($csv, $row);
         }
-    } elseif ($tab === 'worklog') {
+    } elseif ($legacy_tab === 'worklog') {
         fputcsv($csv, [t('Date'), t('Ticket'), t('Subject'), t('Company'), t('User'), t('Billable'), t('Start'), t('End'), t('Duration'), t('Duration (min)')]);
         foreach ($entries as $entry) {
             fputcsv($csv, [
@@ -70,7 +73,7 @@ function report_export_csv_if_requested(array $request, string $tab, array $entr
                 $entry['actual_minutes'],
             ]);
         }
-    } elseif ($tab === 'summary') {
+    } elseif ($legacy_tab === 'summary') {
         $headers = [t('Company'), t('Time'), t('Time (min)'), t('Billable time'), t('Billable (min)'), t('Amount')];
         if ($has_cost_data) {
             $headers = array_merge($headers, [t('Cost'), t('Profit')]);

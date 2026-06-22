@@ -37,6 +37,39 @@ function report_tone_class($index): string
     return 'report-tone--' . ((int) $index % 8);
 }
 
+function report_billable_time_notice(array $totals, int $rounding): ?array
+{
+    if ($rounding <= 1) {
+        return null;
+    }
+
+    $actual_minutes = max(0, (int) ($totals['minutes'] ?? 0));
+    $billable_minutes = max(0, (int) ($totals['billable_minutes'] ?? 0));
+
+    if ($billable_minutes <= 0) {
+        return null;
+    }
+
+    $rounding = max(1, $rounding);
+    $delta_minutes = $billable_minutes - $actual_minutes;
+
+    if ($delta_minutes > 0) {
+        return [
+            'tone' => 'warning',
+            'title' => t('Why is billable time higher?'),
+            'text' => t('Billable time is rounded up per billable item by the report rounding setting ({minutes} min). It can be higher than tracked time.', ['minutes' => $rounding]),
+            'delta' => t('Rounding difference: {duration}', ['duration' => format_duration_minutes($delta_minutes)]),
+        ];
+    }
+
+    return [
+        'tone' => 'info',
+        'title' => t('How billable time is calculated'),
+        'text' => t('Billable time includes entries marked billable and is rounded by the report rounding setting ({minutes} min).', ['minutes' => $rounding]),
+        'delta' => null,
+    ];
+}
+
 function report_entry_enrich(array $entry, int $rounding): array
 {
     if (empty($entry['ended_at']) && !empty($entry['started_at']) && function_exists('calculate_timer_elapsed')) {
@@ -58,9 +91,7 @@ function report_entry_enrich(array $entry, int $rounding): array
         $cost_rate = (float) $entry['user_cost_rate'];
     }
 
-    $billable_minutes = !empty($entry['is_billable'])
-        ? (function_exists('round_minutes_nearest') ? round_minutes_nearest($actual_minutes, $rounding) : $actual_minutes)
-        : 0;
+    $billable_minutes = !empty($entry['is_billable']) ? $actual_minutes : 0;
     $billable_amount = ($billable_minutes / 60) * $billable_rate;
     $cost_amount = ($actual_minutes / 60) * $cost_rate;
 

@@ -240,7 +240,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                             style="color: var(--text-secondary);"><?php echo e(t('Billing rounding (minutes)')); ?></label>
                         <select name="billing_rounding" class="form-select">
                             <?php
-                            $rounding_value = (int) ($settings['billing_rounding'] ?? 15);
+                            $rounding_value = (int) ($settings['billing_rounding'] ?? 1);
                             $rounding_options = [1, 5, 10, 15, 30, 60];
                             foreach ($rounding_options as $option):
                                 ?>
@@ -250,7 +250,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <?php endforeach; ?>
                         </select>
                         <p class="text-xs mt-1" style="color: var(--text-muted);">
-                            <?php echo e(t('Rounds billable time up to the nearest interval in reports. Changing this affects all future reports but not saved time logs.')); ?>
+                            <?php echo e(t('Optional invoice rounding. Work and agent reports always show exact tracked minutes.')); ?>
                         </p>
                     </div>
                 </div>

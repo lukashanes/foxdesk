@@ -56,6 +56,7 @@ $by_agent = $report_data['by_agent'];
 $by_ticket = $report_data['by_ticket'];
 $by_week = $report_data['by_week'];
 $by_source = $report_data['by_source'];
+$billable_time_notice = $tab === 'billing' ? report_billable_time_notice($totals, $rounding) : null;
 
 $has_cost_data = abs((float) ($totals['cost_amount'] ?? 0)) > 0.001;
 report_export_csv_if_requested($_GET, $tab, $entries, $by_org, $tags_supported, (bool) $show_money, $has_cost_data);
@@ -73,7 +74,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 ?>
 
 <div class="workflow-surface workflow-surface--reports admin-legacy-page" data-core-workflow-surface="reports">
-    <?php if (is_admin()): ?>
+    <?php if (is_admin() && $tab === 'billing'): ?>
     <section class="reporting-flow-card">
         <div class="reporting-flow-main">
             <div class="reporting-flow-heading">
@@ -83,7 +84,7 @@ include BASE_PATH . '/includes/components/page-header.php';
             <form method="GET" action="index.php" class="reporting-flow-form">
                 <input type="hidden" name="page" value="admin">
                 <input type="hidden" name="section" value="reports">
-                <input type="hidden" name="tab" value="detailed">
+                <input type="hidden" name="tab" value="billing">
                 <input type="hidden" name="show_money" value="1">
                 <label>
                     <span><?php echo e(t('Client')); ?></span>
@@ -143,18 +144,15 @@ include BASE_PATH . '/includes/components/page-header.php';
     </section>
     <?php endif; ?>
 
-    <div class="report-page-toolbar">
-        <div class="admin-tabs">
+    <div class="report-page-toolbar report-page-toolbar--modes">
+        <div class="report-mode-switch" aria-label="<?php echo e(t('Report mode')); ?>">
             <?php
             $tab_labels = [
-                'summary' => t('Summary'),
-                'detailed' => t('Detailed'),
-                'weekly' => t('Weekly'),
-                'worklog' => t('Work Log'),
+                'time' => t('Time overview'),
             ];
             if (is_admin()) {
-                $tab_labels['rates'] = t('Rates');
-                $tab_labels['shared'] = t('Shared');
+                $tab_labels['billing'] = t('Billing review');
+                $tab_labels['published'] = t('Published reports');
             }
             foreach ($tab_labels as $tab_key => $label):
                 $params = $base_params;
@@ -162,15 +160,15 @@ include BASE_PATH . '/includes/components/page-header.php';
                 $tab_url = 'index.php?' . http_build_query($params);
                 ?>
                 <a href="<?php echo e($tab_url); ?>"
-                    class="admin-tab <?php echo $tab === $tab_key ? 'is-active' : ''; ?>">
+                    class="report-mode-link <?php echo $tab === $tab_key ? 'is-active' : ''; ?>">
                     <?php echo e($label); ?>
                 </a>
             <?php endforeach; ?>
         </div>
 
-        <?php if (in_array($tab, ['detailed', 'worklog', 'summary'], true) && !empty($entries)): ?>
+        <?php if (in_array($tab, ['billing', 'time'], true) && !empty($entries)): ?>
         <div class="report-actions">
-            <?php if ($tab === 'detailed'): ?>
+            <?php if ($tab === 'billing'): ?>
             <!-- Column Picker -->
             <div class="relative" id="col-picker-wrap">
                 <button type="button" onclick="document.getElementById('col-picker-dropdown').classList.toggle('hidden')"
@@ -234,7 +232,7 @@ include BASE_PATH . '/includes/components/page-header.php';
             <?php echo e(t('Time tracking is not available.')); ?>
         </div>
     <?php else: ?>
-        <?php if (!in_array($tab, ['shared', 'rates'], true)): ?>
+        <?php if ($tab !== 'published'): ?>
             <?php
             // Compute active filters for pills display
             $active_filters = [];
@@ -491,33 +489,41 @@ include BASE_PATH . '/includes/components/page-header.php';
             </details>
         <?php endif; ?>
 
-        <?php if ($tab === 'summary'): ?>
-            <div style="display: flex; border: 1px solid var(--border-light); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; background: var(--surface-primary);">
-                <div style="flex: 1; padding: 8px 14px;">
-                    <div style="font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 2px;"><?php echo e(is_admin() ? t('Total time') : t('My time')); ?></div>
-                    <div style="font-size: 1.125rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;"><?php echo e(format_duration_minutes($totals['minutes'])); ?></div>
+        <?php if ($tab === 'time'): ?>
+            <div class="report-summary-strip">
+                <div class="report-metric">
+                    <div class="report-metric__label"><?php echo e(is_admin() ? t('Total time') : t('My time')); ?></div>
+                    <div class="report-metric__value"><?php echo e(format_duration_minutes($totals['minutes'])); ?></div>
                 </div>
-                <div style="flex: 1; padding: 8px 14px; border-left: 1px solid var(--border-light);">
-                    <div style="font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 2px;"><?php echo e(is_admin() ? t('Billable time') : t('My billable time')); ?></div>
-                    <div style="font-size: 1.125rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;"><?php echo e(format_duration_minutes($totals['billable_minutes'])); ?></div>
+                <div class="report-metric">
+                    <div class="report-metric__label"><?php echo e(t('Entries')); ?></div>
+                    <div class="report-metric__value"><?php echo e((string) count($entries)); ?></div>
                 </div>
-                <?php if ($show_money): ?>
-                <div style="flex: 1; padding: 8px 14px; border-left: 1px solid var(--border-light);">
-                    <div style="font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 2px;"><?php echo e(t('Billable amount')); ?></div>
-                    <div style="font-size: 1.125rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;"><?php echo e(format_money($totals['billable_amount'])); ?></div>
+                <div class="report-metric">
+                    <div class="report-metric__label"><?php echo e(t('Clients')); ?></div>
+                    <div class="report-metric__value"><?php echo e((string) count($by_org)); ?></div>
                 </div>
-                <?php if ($has_cost_data): ?>
-                <div style="flex: 1; padding: 8px 14px; border-left: 1px solid var(--border-light);">
-                    <div style="font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 2px;"><?php echo e(t('Cost')); ?></div>
-                    <div style="font-size: 1.125rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;"><?php echo e(format_money($totals['cost_amount'])); ?></div>
+                <?php if (is_admin()): ?>
+                <div class="report-metric">
+                    <div class="report-metric__label"><?php echo e(t('Agents')); ?></div>
+                    <div class="report-metric__value"><?php echo e((string) count($by_agent)); ?></div>
                 </div>
-                <div style="flex: 1; padding: 8px 14px; border-left: 1px solid var(--border-light);">
-                    <div style="font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 2px;"><?php echo e(t('Profit')); ?></div>
-                    <div style="font-size: 1.125rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;"><?php echo e(format_money($totals['profit'])); ?></div>
-                </div>
-                <?php endif; ?>
                 <?php endif; ?>
             </div>
+            <?php if ($billable_time_notice): ?>
+            <div class="report-billing-note report-billing-note--<?php echo e($billable_time_notice['tone']); ?>">
+                <div class="report-billing-note__head">
+                    <?php echo get_icon('info', 'w-3.5 h-3.5'); ?>
+                    <strong><?php echo e($billable_time_notice['title']); ?></strong>
+                </div>
+                <div class="report-billing-note__body">
+                    <span><?php echo e($billable_time_notice['text']); ?></span>
+                    <?php if (!empty($billable_time_notice['delta'])): ?>
+                        <span class="report-billing-note__delta"><?php echo e($billable_time_notice['delta']); ?></span>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <?php
             $human_min = $totals['human_minutes'] ?? 0;
@@ -979,7 +985,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                 </div>
             </div>
             <?php endif; ?>
-        <?php elseif ($tab === 'detailed'): ?>
+        <?php elseif ($tab === 'billing'): ?>
             <?php if (empty($entries)): ?>
                 <div class="card card-body p-8 text-center">
                     <div class="text-4xl mb-3" style="color: var(--text-muted);">📋</div>
@@ -1013,6 +1019,20 @@ include BASE_PATH . '/includes/components/page-header.php';
                 <?php endif; ?>
                 <?php endif; ?>
             </div>
+            <?php if ($billable_time_notice): ?>
+            <div class="report-billing-note report-billing-note--<?php echo e($billable_time_notice['tone']); ?>">
+                <div class="report-billing-note__head">
+                    <?php echo get_icon('info', 'w-3.5 h-3.5'); ?>
+                    <strong><?php echo e($billable_time_notice['title']); ?></strong>
+                </div>
+                <div class="report-billing-note__body">
+                    <span><?php echo e($billable_time_notice['text']); ?></span>
+                    <?php if (!empty($billable_time_notice['delta'])): ?>
+                        <span class="report-billing-note__delta"><?php echo e($billable_time_notice['delta']); ?></span>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
             <div class="card overflow-hidden">
                 <div class="card-header">
                     <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Detailed')); ?></h3>
@@ -1539,7 +1559,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                     </form>
                 </div>
             </div>
-        <?php elseif ($tab === 'shared'): ?>
+        <?php elseif ($tab === 'published'): ?>
             <div class="card card-body space-y-4">
                 <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Share link')); ?></h3>
                 <form method="post" class="space-y-4">
@@ -1602,7 +1622,7 @@ include BASE_PATH . '/includes/components/page-header.php';
     <?php endif; ?>
 </div>
 
-<?php if ($tab === 'detailed' || $tab === 'worklog'): ?>
+<?php if ($tab === 'billing' || $tab === 'worklog'): ?>
     <div id="entryModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
         <div class="rounded-xl shadow-xl max-w-lg w-full mx-4 p-4" style="background: var(--bg-primary);">
             <h3 class="font-semibold mb-4" style="color: var(--text-primary);"><?php echo e(t('Edit time entry')); ?></h3>

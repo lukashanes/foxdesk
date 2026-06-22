@@ -16,6 +16,9 @@ assert_work_page(strpos($index, "case 'work'") !== false, 'work route is not reg
 assert_work_page(strpos($index, "return 'work';") !== false, 'authenticated self-hosted home should route to work.');
 assert_work_page(strpos($header, "url('work')") !== false, 'sidebar should link to work.');
 assert_work_page(strpos($work, 'work_queue_summary') !== false, 'work page should use the work queue module.');
+assert_work_page(strpos($work, 'time_activity_work_model') !== false, 'work page should use exact worked-time summaries.');
+assert_work_page(strpos($work, 'data-work-time-overview') !== false, 'work page must expose a stable time overview hook.');
+assert_work_page(strpos($work, 'data-work-team-time') !== false, 'admin work page must expose a stable team time hook.');
 assert_work_page(strpos($work, 'workspace_render_queue_page') !== false, 'work page should use the shared workspace queue renderer.');
 assert_work_page(strpos($work, "url('tickets', ['work_view' => 'waiting']") !== false, 'work page should link waiting queue to the ticket list view.');
 foreach ([

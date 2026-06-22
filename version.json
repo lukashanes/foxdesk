@@ -1,13 +1,13 @@
 {
-    "version": "0.3.131",
-    "date": "2026-06-18",
+    "version": "0.3.133",
+    "date": "2026-06-22",
     "min_php": "8.1",
     "changelog": [
-        "Work, Inbox, Tickets, Clients, Reports, and Search now use the shared helpdesk flow contracts",
-        "Ticket detail layout, long headings, timeline modals, and primary actions were tightened for a more stable workspace UI",
-        "Reports gained shared rate, adjustment, export, and live-total modules for billing review parity",
-        "Email notification policy and formatting were consolidated to reduce duplicate ticket emails",
-        "Self-hosted update packaging now builds a structured files/ update archive from the release script"
+        "Work now includes the main working dashboard with exact personal and team time summaries",
+        "The left navigation is simplified to Work, Tickets, Clients, Reports, and Settings",
+        "Reports are reorganized into Time overview, Billing review, and Published reports",
+        "Time overview shows exact worked minutes; invoice rounding is limited to explicit billing review",
+        "Settings now use compact section cards instead of duplicate horizontal admin menus"
     ],
     "delete_files": []
 }

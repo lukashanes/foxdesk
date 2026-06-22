@@ -5,18 +5,36 @@
 
 function report_filter_allowed_tabs(): array
 {
-    return ['summary', 'detailed', 'weekly', 'worklog', 'rates', 'shared'];
+    return ['time', 'billing', 'published', 'summary', 'detailed', 'weekly', 'worklog', 'rates', 'shared'];
+}
+
+function report_filter_normalize_tab(string $tab): string
+{
+    $tab = trim($tab);
+    $aliases = [
+        'summary' => 'time',
+        'weekly' => 'time',
+        'worklog' => 'time',
+        'detailed' => 'billing',
+        'rates' => 'billing',
+        'shared' => 'published',
+    ];
+
+    return $aliases[$tab] ?? $tab;
 }
 
 function report_filter_state_from_request(array $request, bool $is_admin_user): array
 {
-    $tab = (string) ($request['tab'] ?? 'summary');
+    $tab = report_filter_normalize_tab((string) ($request['tab'] ?? 'time'));
     if (!in_array($tab, report_filter_allowed_tabs(), true)) {
-        $tab = 'summary';
+        $tab = 'time';
+    }
+    if (!$is_admin_user && $tab !== 'time') {
+        $tab = 'time';
     }
 
     $range_data = get_time_range_bounds(
-        (string) ($request['time_range'] ?? 'this_month'),
+        (string) ($request['time_range'] ?? $request['period'] ?? 'this_month'),
         (string) ($request['from_date'] ?? ''),
         (string) ($request['to_date'] ?? '')
     );
@@ -31,6 +49,9 @@ function report_filter_state_from_request(array $request, bool $is_admin_user): 
         || isset($request['tags']);
     $show_money = $has_filters ? (isset($request['show_money']) ? 1 : 0) : 1;
     if (!$is_admin_user) {
+        $show_money = 0;
+    }
+    if ($tab === 'time') {
         $show_money = 0;
     }
 

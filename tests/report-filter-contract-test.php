@@ -45,7 +45,7 @@ $state = report_filter_state_from_request([
     'tags' => 'urgent, paid',
 ], true);
 
-$assert($state['tab'] === 'summary', 'Invalid tabs must fall back to summary.');
+$assert($state['tab'] === 'time', 'Invalid tabs must fall back to time overview.');
 $assert($state['time_range'] === 'custom', 'Time range must come from shared bounds helper.');
 $assert($state['range_start'] === '2026-06-10', 'Custom range start must be preserved.');
 $assert($state['selected_orgs'] === [7, 0], 'Selected organizations must be normalized to integers.');
@@ -55,6 +55,8 @@ $assert($state['show_money'] === 0, 'Filtered request without show_money must hi
 
 $agent_state = report_filter_state_from_request([], false);
 $assert($agent_state['show_money'] === 0, 'Non-admin users must never see money columns by default.');
+$agent_billing_state = report_filter_state_from_request(['tab' => 'billing'], false);
+$assert($agent_billing_state['tab'] === 'time', 'Non-admin users must be kept in time overview.');
 
 $assert(str_contains($bootstrap, '/reports/report-filters.php'), 'Module bootstrap must load report filters.');
 $assert(str_contains($page, 'report_filter_state_from_request($_GET, is_admin())'), 'Reports page must consume report filter state.');

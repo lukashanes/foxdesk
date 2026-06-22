@@ -32,7 +32,7 @@ $assert(str_contains($billing, 'function billing_review_rate_from_target_amount'
 $assert(str_contains($billing, "'discount_amount'"), 'Billing review must support amount discounts.');
 $assert(str_contains($reports, 'class="reporting-flow-card"'), 'Reports page must render the compact billing review flow.');
 $assert(str_contains($reports, 'name="organizations[]"'), 'Billing review must submit the selected client as a report filter.');
-$assert(str_contains($reports, 'name="tab" value="detailed"'), 'Billing review must open the detailed report.');
+$assert(str_contains($reports, 'name="tab" value="billing"'), 'Billing review must open the billing review mode.');
 $assert(str_contains($reports, 'name="show_money" value="1"'), 'Billing review must show money columns.');
 $assert(str_contains($reports, 'reporting_flow_steps()'), 'Reports page must render workflow steps from the helper.');
 $assert(str_contains($reports, 'reporting_flow_builder_url('), 'Create report link must preserve selected client and period.');
@@ -42,6 +42,10 @@ $assert(str_contains($reports, 'name="bulk_discount_amount"'), 'Bulk billing rev
 $assert(str_contains($reports, 'data-entry-amount'), 'Detailed rows must expose row amounts for live totals.');
 $assert(str_contains($reports, 'detail-billable-amount'), 'Detailed report must expose a live billable total.');
 $assert($billing_js !== false && str_contains($billing_js, "selectedAction === 'discount_amount'"), 'Live totals must handle amount discounts.');
+$assert(str_contains($reports, 'class="report-mode-link'), 'Reports page must use the simplified report mode switch.');
+$assert(str_contains($reports, "'time' => t('Time overview')"), 'Reports page must expose Time overview as the first mode.');
+$assert(str_contains($reports, "\$tab_labels['billing'] = t('Billing review')"), 'Reports page must expose Billing review only for admins.');
+$assert(str_contains($reports, "\$tab_labels['published'] = t('Published reports')"), 'Reports page must expose Published reports only for admins.');
 $assert(str_contains($builder, '$_GET[\'organization_id\']'), 'Report builder must accept a prefilled organization.');
 $assert(str_contains($builder, '$_GET[\'date_from\']'), 'Report builder must accept a prefilled start date.');
 $assert(str_contains($builder, '$_GET[\'date_to\']'), 'Report builder must accept a prefilled end date.');

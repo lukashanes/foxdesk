@@ -57,5 +57,7 @@ foreach ([
 $assert(str_contains($workflow, 'function settings_handle_workflow_post'), 'Settings workflow module must expose workflow handler.');
 $assert(str_contains($viewModel, 'function settings_tab_from_request'), 'Settings view model must expose tab helper.');
 $assert(str_contains($tabs, 'function render_admin_settings_tabs'), 'Settings tabs component must expose renderer.');
+$assert(str_contains($tabs, 'class="settings-section-card'), 'Settings renderer must use compact section cards.');
+$assert(!str_contains($tabs, 'class="admin-tab'), 'Settings renderer must not use horizontal admin tabs.');
 
 echo "Settings action contract OK\n";

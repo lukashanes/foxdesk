@@ -439,10 +439,10 @@ function settings_handle_post_request(callable $settings_audit): void
         if ($currency === '') {
             $currency = 'CZK';
         }
-        $billing_rounding = (int) ($_POST['billing_rounding'] ?? 15);
+        $billing_rounding = (int) ($_POST['billing_rounding'] ?? 1);
         $rounding_allowed = [1, 5, 10, 15, 30, 60];
         if (!in_array($billing_rounding, $rounding_allowed, true)) {
-            $billing_rounding = 15;
+            $billing_rounding = 1;
         }
         save_setting('app_name', $app_name);
         save_setting('ticket_prefix', strtoupper(preg_replace('/[^A-Za-z]/', '', $ticket_prefix)) ?: 'TK');

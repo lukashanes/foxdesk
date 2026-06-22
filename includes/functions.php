@@ -929,7 +929,7 @@ function get_currency_label()
  */
 function get_billing_rounding_increment()
 {
-    $value = (int) get_setting('billing_rounding', 15);
+    $value = (int) get_setting('billing_rounding', 1);
     return $value > 0 ? $value : 1;
 }
 
