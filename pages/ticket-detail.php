@@ -62,6 +62,11 @@ $share_status = $ticket_share_state['share_status'];
 $share_url = $ticket_share_state['share_url'];
 $share_status_label = $ticket_share_state['share_status_label'];
 $share_status_class = $ticket_share_state['share_status_class'];
+$ticket_creator_name = trim((string) (($ticket['first_name'] ?? '') . ' ' . ($ticket['last_name'] ?? '')));
+if ($ticket_creator_name === '') {
+    $ticket_creator_name = (string) ($ticket['email'] ?? t('User'));
+}
+$ticket_creator_avatar = function_exists('generate_avatar') ? generate_avatar($ticket_creator_name, 48) : '';
 
 // Time tracking state
 $time_tracking_available = ticket_time_table_exists();
@@ -807,17 +812,21 @@ require_once BASE_PATH . '/includes/header.php';
                     <div class="mt-3 pt-2.5 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs"
                         style="color: var(--text-muted);">
                         <div class="flex items-center space-x-3">
-                            <?php if (!empty($ticket['avatar'])): ?>
-                                    <img src="<?php echo e(upload_url($ticket['avatar'])); ?>" alt="" class="w-6 h-6 rounded-full">
-                            <?php endif; ?>
+                            <span class="ticket-meta-avatar" aria-hidden="true">
+                                <?php if ($ticket_creator_avatar !== ''): ?>
+                                        <img src="<?php echo e($ticket_creator_avatar); ?>" alt="" class="ticket-meta-avatar__image">
+                                <?php else: ?>
+                                        <span class="ticket-meta-avatar__initial"><?php echo e(mb_strtoupper(mb_substr($ticket_creator_name, 0, 1))); ?></span>
+                                <?php endif; ?>
+                            </span>
                             <span><?php echo e(t('Created by')); ?>:
                                 <?php if (is_agent()): ?>
                                         <a href="<?php echo url('user-profile', ['id' => $ticket['user_id']]); ?>"
                                             class="font-medium text-blue-600 hover:text-blue-700 hover:underline">
-                                            <?php echo e($ticket['first_name'] . ' ' . $ticket['last_name']); ?>
+                                            <?php echo e($ticket_creator_name); ?>
                                         </a>
                                 <?php else: ?>
-                                        <strong><?php echo e($ticket['first_name'] . ' ' . $ticket['last_name']); ?></strong>
+                                        <strong><?php echo e($ticket_creator_name); ?></strong>
                                 <?php endif; ?>
                             </span>
                         </div>
