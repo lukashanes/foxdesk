@@ -24,16 +24,23 @@ foreach ([
 
 foreach ([
     'data-ticket-sidebar-surface',
-    'ticket-client-pill',
+    'ticket-side-code',
     'ticket-side-list',
     'ticket-side-row',
     'ticket-side-label',
     'ticket-side-value',
+    'ticket-side-control',
     'ticket-side-select',
     'ticket-side-edit-button',
+    'quick-company',
+    'organization_id: this.value',
     'ticket-date-value',
+    'ticket-side-section',
+    'ticket-side-section__summary',
     'ticket-side-action-button',
+    'ticket-attachment-item',
     'ticket-attachment-link',
+    'deleteAttachment(',
     'ticket-share-input',
 ] as $needle) {
     $assert(str_contains($page, $needle), 'Ticket detail sidebar missing surface contract: ' . $needle);
@@ -42,12 +49,18 @@ foreach ([
 foreach ([
     '.ticket-sidebar > .card',
     '.ticket-side-card',
+    '.ticket-side-code',
     '.ticket-side-list',
     '.ticket-side-row',
     '.ticket-side-label',
     '.ticket-side-value',
-    '.ticket-client-pill',
+    '.ticket-side-control',
     '.ticket-side-select',
+    '.ticket-side-section',
+    '.ticket-side-section__summary',
+    '.ticket-side-section:not([open]) > .ticket-side-section__body',
+    '.ticket-side-inline-form',
+    '.ticket-side-user-chip',
     '.ticket-side-action-button',
     '.ticket-priority-pill',
     '.ticket-date-value',
@@ -61,6 +74,8 @@ $assert(!str_contains($page, 'style='), 'Ticket sidebar surface must not use inl
 $assert(!str_contains($page, 'onmouseover='), 'Ticket sidebar surface must not use inline mouseover styling.');
 $assert(!str_contains($page, 'onmouseout='), 'Ticket sidebar surface must not use inline mouseout styling.');
 $assert(!str_contains($page, 'text-xs py-0.5 px-1 rounded border-0 cursor-pointer'), 'Quick property selects must use ticket-side-select.');
+$assert(!str_contains($page, 'ticket-client-pill'), 'Client must not be duplicated as a separate read-only pill.');
+$assert(substr_count($page, "quickEditField('quick-company'") === 1, 'Client must have exactly one editable quick control.');
 $assert(!str_contains($theme, '.ticket-sidebar > .card:first-child'), 'Ticket sidebar cards must not use merged-card first-child styling.');
 $assert(!str_contains($theme, '.ticket-sidebar > .card + .card'), 'Ticket sidebar cards must keep normal card spacing.');
 

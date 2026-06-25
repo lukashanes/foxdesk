@@ -223,14 +223,14 @@ function render_child_card(array $notif): void
         display: flex;
         gap: 4px;
         padding: 3px;
-        border-radius: 10px;
+        border-radius: var(--fd-radius-control);
         background: var(--surface-secondary, #f1f5f9);
     }
     .notif-filter-tab {
         padding: 6px 14px;
         font-size: 0.8125rem;
         font-weight: 500;
-        border-radius: 8px;
+        border-radius: var(--fd-radius-control);
         color: var(--text-secondary);
         text-decoration: none;
         transition: all 0.15s;
@@ -277,7 +277,7 @@ function render_child_card(array $notif): void
     .notif-card .notif-avatar {
         width: 36px;
         height: 36px;
-        border-radius: 10px;
+        border-radius: var(--fd-radius-control);
         flex-shrink: 0;
         display: flex;
         align-items: center;
@@ -381,7 +381,7 @@ function render_child_card(array $notif): void
     }
     .notif-mark-read-btn {
         padding: 4px;
-        border-radius: 6px;
+        border-radius: var(--fd-radius-control);
         color: var(--text-muted);
         cursor: pointer;
         transition: color 0.12s, background 0.12s;
@@ -395,7 +395,7 @@ function render_child_card(array $notif): void
 
     /* ── Ticket group wrapper ───────────────────────────────────────────────── */
     .notif-ticket-group {
-        border-radius: 12px;
+        border-radius: var(--fd-radius-card);
         transition: background 0.15s;
     }
 
@@ -409,7 +409,7 @@ function render_child_card(array $notif): void
         padding: 0 6px;
         font-size: 0.6875rem;
         font-weight: 600;
-        border-radius: 10px;
+        border-radius: var(--fd-radius-control);
         background: var(--surface-secondary, #e2e8f0);
         color: var(--text-secondary);
         flex-shrink: 0;
@@ -446,7 +446,7 @@ function render_child_card(array $notif): void
         align-items: center;
         gap: 8px;
         padding: 6px 10px;
-        border-radius: 8px;
+        border-radius: var(--fd-radius-control);
         font-size: 0.8125rem;
         color: var(--text-secondary);
         text-decoration: none;
@@ -488,7 +488,7 @@ function render_child_card(array $notif): void
         padding: 6px 14px;
         font-size: 0.8125rem;
         font-weight: 500;
-        border-radius: 8px;
+        border-radius: var(--fd-radius-control);
         border: 1px solid var(--border-light);
         background: var(--surface-primary, #fff);
         color: var(--text-secondary);
@@ -517,7 +517,7 @@ function render_child_card(array $notif): void
         color: var(--primary, #3b82f6);
         background: none;
         border: 1px dashed var(--border-light);
-        border-radius: 10px;
+        border-radius: var(--fd-radius-control);
         cursor: pointer;
         transition: background 0.15s;
         margin-top: 12px;
@@ -548,14 +548,14 @@ function render_child_card(array $notif): void
         display: inline-flex;
         gap: 2px;
         padding: 3px;
-        border-radius: 8px;
+        border-radius: var(--fd-radius-control);
         background: var(--surface-secondary, #f1f5f9);
     }
     .notif-view-btn {
         padding: 5px 8px;
         border: none;
         background: none;
-        border-radius: 6px;
+        border-radius: var(--fd-radius-control);
         color: var(--text-muted);
         cursor: pointer;
         transition: all 0.15s;
@@ -630,13 +630,13 @@ function render_child_card(array $notif): void
 
     <!-- Notification list -->
     <div id="notif-list">
-        <div id="notif-page-loading" class="text-center py-8 text-sm" style="color: var(--text-muted);">
+        <div id="notif-page-loading" class="text-center py-8 text-sm text-theme-muted">
             <?php echo e(t('Loading...')); ?>
         </div>
         <noscript>
             <div class="notif-empty">
                 <?php echo get_icon('bell', 'w-12 h-12 notif-empty-icon'); ?>
-                <p class="text-base font-medium" style="color: var(--text-secondary);"><?php echo e(t('Notifications require JavaScript to load on this page.')); ?></p>
+                <p class="text-base font-medium text-theme-secondary"><?php echo e(t('Notifications require JavaScript to load on this page.')); ?></p>
             </div>
         </noscript>
     </div>
@@ -896,7 +896,7 @@ function render_child_card(array $notif): void
     function renderEmptyState() {
         return '<div class="notif-empty">'
             + <?php echo json_encode(get_icon('bell', 'w-12 h-12 notif-empty-icon')); ?>
-            + '<p class="text-base font-medium" style="color: var(--text-secondary);">' + esc(<?php echo json_encode(t('No notifications')); ?>) + '</p>'
+            + '<p class="text-base font-medium text-theme-secondary">' + esc(<?php echo json_encode(t('No notifications')); ?>) + '</p>'
             + '<p class="text-sm mt-1">' + esc(<?php echo json_encode(t('Activity on your tickets will appear here')); ?>) + '</p>'
             + '</div>';
     }

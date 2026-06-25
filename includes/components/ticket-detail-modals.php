@@ -15,7 +15,7 @@
                 <form method="post" id="edit-ticket-form">
                     <?php echo csrf_field(); ?>
                     <div class="modal-panel-body">
-                        <h3 class="text-base font-semibold mb-4 flex items-center gap-2" style="color: var(--text-primary);"
+                        <h3 class="text-base font-semibold mb-4 flex items-center gap-2 text-theme-primary"
                             id="edit-ticket-title">
                             <?php echo get_icon('edit', 'w-5 h-5 td-text-muted'); ?>
                             <?php echo e(t('Edit ticket')); ?>
@@ -23,15 +23,13 @@
 
                         <div class="space-y-3">
                             <div>
-                                <label class="block text-xs font-medium mb-1"
-                                    style="color: var(--text-muted);"><?php echo e(t('Subject')); ?> *</label>
+                                <label class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Subject')); ?> *</label>
                                 <input type="text" name="edit_title" id="edit-ticket-title-input"
                                     value="<?php echo e($ticket['title']); ?>" class="form-input w-full" required>
                             </div>
 
                             <div>
-                                <label class="block text-xs font-medium mb-1"
-                                    style="color: var(--text-muted);"><?php echo e(t('Description')); ?></label>
+                                <label class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Description')); ?></label>
                                 <div class="editor-wrapper">
                                     <div id="edit-description-editor"></div>
                                 </div>
@@ -41,8 +39,7 @@
 
                             <?php if ($tags_supported): ?>
                                     <div>
-                                        <label class="block text-xs font-medium mb-1"
-                                            style="color: var(--text-muted);"><?php echo e(t('Tags')); ?></label>
+                                        <label class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Tags')); ?></label>
                                         <input type="text" name="edit_tags" id="edit-ticket-tags-input"
                                             value="<?php echo e($ticket['tags'] ?? ''); ?>" class="form-input w-full"
                                             placeholder="<?php echo e(t('Comma separated tags')); ?>">
@@ -51,8 +48,7 @@
 
                             <?php if (is_agent()): ?>
                                     <div>
-                                        <label class="block text-xs font-medium mb-1"
-                                            style="color: var(--text-muted);"><?php echo e(t('Company')); ?></label>
+                                        <label class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Company')); ?></label>
                                         <select name="edit_organization_id" class="form-select w-full">
                                             <option value=""><?php echo e(t('-- No organization --')); ?></option>
                                             <?php foreach ($organizations as $org): ?>
@@ -66,13 +62,12 @@
 
                             <?php if (is_admin()): ?>
                                     <div>
-                                        <label class="block text-xs font-medium mb-1"
-                                            style="color: var(--text-muted);"><?php echo e(t('Custom billable rate (per hour)')); ?></label>
+                                        <label class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Custom billable rate (per hour)')); ?></label>
                                         <input type="number" name="edit_custom_billable_rate" step="0.01" min="0"
                                             value="<?php echo e($ticket_custom_billable_rate !== null ? number_format((float) $ticket_custom_billable_rate, 2, '.', '') : ''); ?>"
                                             class="form-input w-full"
                                             placeholder="<?php echo e(t('Leave empty to use the company default')); ?>">
-                                        <p class="mt-1 text-xs" style="color: var(--text-muted);">
+                                        <p class="mt-1 text-xs text-theme-muted">
                                             <?php echo e(t('Company default rate: {rate}', ['rate' => format_money($org_billable_rate)])); ?>
                                         </p>
                                     </div>
@@ -125,7 +120,7 @@
                     <input type="hidden" name="entry_id" id="edit-time-id">
                     <input type="hidden" name="edit_time_date" id="edit-time-date">
                     <div class="modal-panel-body">
-                        <h3 class="text-base font-semibold mb-4 flex items-center gap-2" style="color: var(--text-primary);"
+                        <h3 class="text-base font-semibold mb-4 flex items-center gap-2 text-theme-primary"
                             id="time-modal-title">
                             <?php echo get_icon('clock', 'w-5 h-5 td-text-muted'); ?>
                             <?php echo e(t('Edit time entry')); ?>
@@ -135,19 +130,16 @@
                             <!-- Date + Start + End on one row -->
                             <div class="grid grid-cols-[1fr_auto_auto] gap-2 items-end">
                                 <div>
-                                    <label class="block text-xs font-medium mb-1"
-                                        style="color: var(--text-muted);"><?php echo e(t('Date')); ?></label>
+                                    <label class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Date')); ?></label>
                                     <input type="date" id="edit-time-date-picker" class="form-input w-full text-sm h-9"
                                         required>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium mb-1"
-                                        style="color: var(--text-muted);"><?php echo e(t('Start')); ?></label>
+                                    <label class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Start')); ?></label>
                                     <input type="time" id="edit-time-start-time" class="form-input w-full text-sm h-9" required>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium mb-1"
-                                        style="color: var(--text-muted);"><?php echo e(t('End')); ?></label>
+                                    <label class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('End')); ?></label>
                                     <input type="time" id="edit-time-end-time" class="form-input w-full text-sm h-9" required>
                                 </div>
                             </div>
@@ -156,14 +148,12 @@
                             <input type="hidden" name="ended_at" id="edit-time-end">
 
                             <div class="flex items-center gap-2">
-                                <span class="text-xs font-medium"
-                                    style="color: var(--text-muted);"><?php echo e(t('Duration')); ?>:</span>
+                                <span class="text-xs font-medium text-theme-muted"><?php echo e(t('Duration')); ?>:</span>
                                 <span id="edit-time-duration" class="text-sm font-semibold text-blue-600">-</span>
                             </div>
 
                             <div>
-                                <label class="block text-xs font-medium mb-1"
-                                    style="color: var(--text-muted);"><?php echo e(t('Summary')); ?></label>
+                                <label class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Summary')); ?></label>
                                 <textarea name="summary" id="edit-time-summary" rows="2" class="form-textarea w-full text-sm"
                                     placeholder="<?php echo e(t('Optional work description...')); ?>"></textarea>
                             </div>
@@ -172,8 +162,7 @@
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="checkbox" name="is_billable" id="edit-time-billable" value="1"
                                         class="rounded text-blue-600 focus:ring-blue-500">
-                                    <span class="text-sm"
-                                        style="color: var(--text-secondary);"><?php echo e(t('Billable')); ?></span>
+                                    <span class="text-sm text-theme-secondary"><?php echo e(t('Billable')); ?></span>
                                 </label>
                             </div>
                         </div>

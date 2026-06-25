@@ -90,24 +90,24 @@ $priority_icons = [
     <!-- Add Form (Glassmorphic) -->
     <form method="post" id="add-priority-form" class="hidden mb-3 p-3 rounded-lg glass-form" style="background: rgba(255, 255, 255, 0.7);">
         <?php echo csrf_field(); ?>
-        <h4 class="text-xs font-semibold mb-2" style="color: var(--text-primary);">
+        <h4 class="text-xs font-semibold mb-2 text-theme-primary">
             <?php echo e(t('Add Priority')); ?>
         </h4>
         <div class="space-y-2">
             <div>
-                <label class="block text-xs mb-1" style="color: var(--text-secondary);">
+                <label class="block text-xs mb-1 text-theme-secondary">
                     <?php echo e(t('Name')); ?> *
                 </label>
                 <input type="text" name="name" required class="form-input w-full text-xs" placeholder="<?php echo e(t('High, Medium, Low...')); ?>">
             </div>
             <div>
-                <label class="block text-xs mb-1" style="color: var(--text-secondary);">
+                <label class="block text-xs mb-1 text-theme-secondary">
                     <?php echo e(t('Color')); ?>
                 </label>
                 <input type="color" name="color" value="#f59e0b" class="w-full h-8 rounded cursor-pointer" style="border: 1px solid var(--border-light);">
             </div>
             <div>
-                <label class="block text-xs mb-1" style="color: var(--text-secondary);">
+                <label class="block text-xs mb-1 text-theme-secondary">
                     <?php echo e(t('Icon')); ?>
                 </label>
                 <div class="grid grid-cols-4 gap-1">
@@ -122,7 +122,7 @@ $priority_icons = [
                     <?php endforeach; ?>
                 </div>
             </div>
-            <label class="flex items-center gap-2 text-xs cursor-pointer" style="color: var(--text-secondary);">
+            <label class="flex items-center gap-2 text-xs cursor-pointer text-theme-secondary">
                 <input type="checkbox" name="is_default" class="rounded w-3.5 h-3.5">
                 <?php echo e(t('Set as default')); ?>
             </label>
@@ -142,7 +142,7 @@ $priority_icons = [
     <!-- Priorities List -->
     <div id="priorities-list" class="priority-list">
         <?php if (empty($priorities)): ?>
-            <div class="text-center py-6" style="color: var(--text-muted);">
+            <div class="text-center py-6 text-theme-muted">
                 <p class="text-xs"><?php echo e(t('No priorities yet.')); ?></p>
             </div>
         <?php else: ?>
@@ -168,7 +168,7 @@ $priority_icons = [
 
                     <!-- Name and Default Badge -->
                     <div class="flex-1 min-w-0">
-                        <div class="text-xs font-medium" style="color: var(--text-primary);">
+                        <div class="text-xs font-medium text-theme-primary">
                             <?php echo e($priority['name']); ?>
                         </div>
                     </div>
@@ -197,15 +197,14 @@ $priority_icons = [
 
                         <div class="space-y-2">
                             <div>
-                                <label class="block text-xs mb-1" style="color: var(--text-secondary);">
+                                <label class="block text-xs mb-1 text-theme-secondary">
                                     <?php echo e(t('Name')); ?> *
                                 </label>
-                                <input type="text" name="name" value="<?php echo e($priority['name']); ?>" required class="form-input w-full text-xs"
-                                    style="background: var(--surface-secondary);">
+                                <input type="text" name="name" value="<?php echo e($priority['name']); ?>" required class="form-input w-full text-xs bg-theme-secondary">
                             </div>
 
                             <div>
-                                <label class="block text-xs mb-1" style="color: var(--text-secondary);">
+                                <label class="block text-xs mb-1 text-theme-secondary">
                                     <?php echo e(t('Color')); ?>
                                 </label>
                                 <input type="color" name="color" value="<?php echo e($priority['color']); ?>" class="w-full h-8 rounded cursor-pointer"
@@ -213,7 +212,7 @@ $priority_icons = [
                             </div>
 
                             <div>
-                                <label class="block text-xs mb-1" style="color: var(--text-secondary);">
+                                <label class="block text-xs mb-1 text-theme-secondary">
                                     <?php echo e(t('Icon')); ?>
                                 </label>
                                 <div class="grid grid-cols-4 gap-1">
@@ -229,7 +228,7 @@ $priority_icons = [
                                 </div>
                             </div>
 
-                            <div class="pt-2 border-t" style="border-color: var(--border-light);">
+                            <div class="pt-2 border-t border-theme-light">
                                 <div class="flex gap-2 mb-2">
                                     <button type="submit" name="update_priority" class="flex-1 btn btn-primary btn-sm text-xs">
                                         <?php echo e(t('Save')); ?>

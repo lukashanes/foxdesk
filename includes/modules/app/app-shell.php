@@ -30,9 +30,9 @@ function app_shell_navigation(array $user): array
     $items = [
         [
             'key' => 'work',
-            'label' => 'Work',
+            'label' => 'Dashboard',
             'url' => url('work'),
-            'icon' => 'tasks',
+            'icon' => 'home',
             'primary' => true,
         ],
     ];

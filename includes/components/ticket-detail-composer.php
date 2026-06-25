@@ -7,8 +7,7 @@
  */
 ?>
             <!-- Add Comment Form -->
-            <form method="post" enctype="multipart/form-data" class="p-3 lg:p-4 border-t"
-                style="background: var(--surface-secondary);"
+            <form method="post" enctype="multipart/form-data" class="p-3 lg:p-4 border-t bg-theme-secondary"
                 data-ticket-composer-surface
                 id="comment-form">
                 <?php echo csrf_field(); ?>
@@ -26,8 +25,7 @@
                 <?php if (is_agent()): ?>
                         <!-- Comment Mode Toggle - Primary Choice -->
                         <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-                            <div class="inline-flex items-center gap-0.5 rounded-lg p-1"
-                                style="background: var(--surface-secondary);">
+                            <div class="inline-flex items-center gap-0.5 rounded-lg p-1 bg-theme-secondary">
                                 <button type="button"
                                     class="comment-mode-btn flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all"
                                     data-mode="public" title="<?php echo e(t('Public reply')); ?>">
@@ -42,7 +40,7 @@
                                 </button>
                             </div>
                             <input type="checkbox" id="is_internal_toggle" name="is_internal" class="hidden">
-                            <p class="text-xs" style="color: var(--text-muted);" id="comment-mode-hint">
+                            <p class="text-xs text-theme-muted" id="comment-mode-hint">
                                 <?php echo e(t('Visible to customer')); ?></p>
                         </div>
                 <?php endif; ?>
@@ -50,8 +48,7 @@
                 <!-- Public Reply Section -->
                 <div id="public-comment-section">
                     <?php if (!is_agent()): ?>
-                            <label class="block text-sm mb-2"
-                                style="color: var(--text-secondary);"><?php echo e(t('Your reply')); ?>
+                            <label class="block text-sm mb-2 text-theme-secondary"><?php echo e(t('Your reply')); ?>
                                 <span class="text-red-500">*</span></label>
                     <?php endif; ?>
                     <div class="editor-wrapper">
@@ -90,7 +87,7 @@
                                         <input type="file" name="comment_attachments[]" id="comment-file-input" multiple
                                             class="hidden"
                                             accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar">
-                                        <div class="flex items-center justify-center gap-2" style="color: var(--text-muted);">
+                                        <div class="flex items-center justify-center gap-2 text-theme-muted">
                                             <?php echo get_icon('paperclip', 'w-4 h-4'); ?>
                                             <span class="text-sm">
                                                 <span
@@ -105,18 +102,16 @@
                             <!-- Non-agent: attachments only -->
                             <div>
                                 <div id="comment-upload-zone"
-                                    class="upload-zone rounded-lg p-2.5 text-center cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors"
-                                    style="border-color: var(--border-light);">
+                                    class="upload-zone rounded-lg p-2.5 text-center cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors border-theme-light">
                                     <input type="file" name="comment_attachments[]" id="comment-file-input" multiple
                                         class="hidden"
                                         accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar">
-                                    <div class="flex items-center justify-center gap-2" style="color: var(--text-muted);">
+                                    <div class="flex items-center justify-center gap-2 text-theme-muted">
                                         <?php echo get_icon('paperclip', 'w-4 h-4'); ?>
                                         <span class="text-sm">
                                             <span
                                                 class="text-blue-500 font-medium"><?php echo e(t('Add attachments')); ?></span>
-                                            <span class="text-xs ml-1"
-                                                style="color: var(--text-muted);">(<?php echo e(t('or drag files')); ?>)</span>
+                                            <span class="text-xs ml-1 text-theme-muted">(<?php echo e(t('or drag files')); ?>)</span>
                                         </span>
                                     </div>
                                 </div>
@@ -125,14 +120,14 @@
                     <?php endif; ?>
                 </div>
                 <?php if (get_request_upload_limit() > 0): ?>
-                <p class="mt-2 text-xs" style="color: var(--text-muted);">
+                <p class="mt-2 text-xs text-theme-muted">
                     <?php echo e(t('Total upload per request is limited to {size}.', ['size' => format_file_size(get_request_upload_limit())])); ?>
                 </p>
                 <?php endif; ?>
 
                 <?php if (is_agent() && $time_tracking_available): ?>
                         <!-- Manual Time Entry (expandable, between attachments and submit row) -->
-                        <div id="manual-entry-row" class="hidden mt-2 pt-2 border-t" style="border-color: var(--border-light);">
+                        <div id="manual-entry-row" class="hidden mt-2 pt-2 border-t border-theme-light">
                             <input type="hidden" name="manual_start_at" id="manual-start-at">
                             <input type="hidden" name="manual_end_at" id="manual-end-at">
                             <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
@@ -201,28 +196,24 @@
                                     </button>
                                     <!-- Log on submit checkbox (visible when timer active) -->
                                     <label id="timer-log-toggle"
-                                        class="<?php echo $timer_state === 'stopped' ? 'hidden' : ''; ?> inline-flex items-center gap-1.5 text-xs cursor-pointer select-none whitespace-nowrap"
-                                        style="color: var(--text-secondary);">
+                                        class="<?php echo $timer_state === 'stopped' ? 'hidden' : ''; ?> inline-flex items-center gap-1.5 text-xs cursor-pointer select-none whitespace-nowrap text-theme-secondary">
                                         <input type="checkbox" name="stop_timer" id="stop-timer-toggle" value="1" <?php echo $timer_state !== 'stopped' ? 'checked' : 'disabled'; ?>
                                             class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4">
                                         <span><?php echo e(t('Log on submit')); ?></span>
                                     </label>
                                     <!-- Discard button (visible when timer active) -->
                                     <button type="button" id="btn-discard-timer"
-                                        class="<?php echo $timer_state === 'stopped' ? 'hidden' : ''; ?> btn btn-ghost px-2 py-1.5 hover:text-red-500 transition-colors"
-                                        style="color: var(--text-muted);" title="<?php echo e(t('Discard timer')); ?>">
+                                        class="<?php echo $timer_state === 'stopped' ? 'hidden' : ''; ?> btn btn-ghost px-2 py-1.5 hover:text-red-500 transition-colors text-theme-muted" title="<?php echo e(t('Discard timer')); ?>">
                                         <?php echo get_icon('trash', 'w-4 h-4'); ?>
                                     </button>
                                 </div>
                                 <!-- Manual entry toggle -->
-                                <button type="button" id="manual-toggle" class="btn btn-ghost px-2 py-1.5"
-                                    style="color: var(--text-muted);" aria-expanded="false"
+                                <button type="button" id="manual-toggle" class="btn btn-ghost px-2 py-1.5 text-theme-muted" aria-expanded="false"
                                     title="<?php echo e(t('Manual entry')); ?>">
                                     <?php echo get_icon('pen', 'w-4 h-4'); ?>
                                 </button>
                         <?php endif; ?>
-                        <label class="flex items-center text-sm cursor-pointer whitespace-nowrap"
-                            style="color: var(--text-secondary);">
+                        <label class="flex items-center text-sm cursor-pointer whitespace-nowrap text-theme-secondary">
                             <input type="checkbox" name="skip_notification" value="1" class="mr-2 rounded">
                             <span><?php echo e(t('Do not send email notification')); ?></span>
                         </label>

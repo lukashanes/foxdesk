@@ -27,6 +27,7 @@ require_once __DIR__ . '/reports/report-filters.php';
 require_once __DIR__ . '/reports/reporting-flow.php';
 require_once __DIR__ . '/reports/billing-review.php';
 require_once __DIR__ . '/reports/report-totals.php';
+require_once __DIR__ . '/reports/time-overview.php';
 require_once __DIR__ . '/reports/report-query.php';
 require_once __DIR__ . '/reports/report-adjustments.php';
 require_once __DIR__ . '/reports/report-export.php';

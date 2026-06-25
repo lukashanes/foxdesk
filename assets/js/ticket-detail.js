@@ -235,6 +235,17 @@
             ? window.FoxDeskUploadPreview.init(options)
             : fallbackUploadPreview(options);
 
+        if (window.FoxDeskAttachmentPasteDrop) {
+            window.FoxDeskAttachmentPasteDrop.bind({
+                inputId: options.inputId,
+                targetSelectors: ['#comment-form', '#comment-upload-zone'],
+                namePrefix: 'ticket-attachment',
+                onFilesChanged: function () {
+                    if (instance && instance.updatePreview) instance.updatePreview();
+                }
+            });
+        }
+
         window.enforceCommentUploadLimits = function () {
             if (instance && instance.enforceLimits) return instance.enforceLimits();
             return { changed: false, hadErrors: false };

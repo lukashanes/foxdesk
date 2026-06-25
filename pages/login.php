@@ -331,18 +331,18 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
                 <!-- ═══ 2FA Code Entry Form ═══ -->
                 <div class="text-left mb-8">
                     <div class="flex items-center gap-3 mb-3">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: var(--surface-secondary);">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center bg-theme-secondary">
                             <svg class="w-5 h-5" style="color: var(--primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                             </svg>
                         </div>
                         <div>
-                            <h2 class="text-2xl font-bold" style="color: var(--text-primary);">
+                            <h2 class="text-2xl font-bold text-theme-primary">
                                 <?php echo e(t('Two-factor authentication')); ?>
                             </h2>
                         </div>
                     </div>
-                    <p class="text-sm" style="color: var(--text-muted);">
+                    <p class="text-sm text-theme-muted">
                         <?php echo e(t('Enter the 6-digit code from your authenticator app.')); ?>
                     </p>
                 </div>
@@ -357,14 +357,14 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
                     <?php echo csrf_field(); ?>
                     <div class="space-y-5">
                         <div>
-                            <label class="block text-sm font-medium mb-1.5" style="color: var(--text-primary);">
+                            <label class="block text-sm font-medium mb-1.5 text-theme-primary">
                                 <?php echo e(t('Verification code')); ?>
                             </label>
                             <input type="text" name="code" maxlength="9" pattern="[a-zA-Z0-9\-]{6,9}"
                                 inputmode="numeric" autocomplete="one-time-code"
                                 class="form-input w-full rounded-lg border-slate-300 dark:border-slate-700 bg-transparent px-4 py-3 text-center text-2xl tracking-[0.3em] font-mono focus:border-[#3c50e0] focus:ring-1 focus:ring-[#3c50e0]"
                                 placeholder="000000" required autofocus>
-                            <p class="text-xs mt-1.5" style="color: var(--text-muted);">
+                            <p class="text-xs mt-1.5 text-theme-muted">
                                 <?php echo e(t('Or enter a backup code (e.g. xxxx-xxxx)')); ?>
                             </p>
                         </div>
@@ -378,7 +378,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
 
                 <div class="flex items-center justify-center mt-6">
                     <a href="<?php echo url('login', ['cancel2fa' => '1']); ?>"
-                        class="text-sm transition-colors" style="color: var(--text-muted);">
+                        class="text-sm transition-colors text-theme-muted">
                         &larr; <?php echo e(t('Back to sign in')); ?>
                     </a>
                 </div>
@@ -386,9 +386,9 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
             <?php else: ?>
                 <!-- ═══ Standard Login Form ═══ -->
                 <div class="text-left mb-8">
-                    <h2 class="text-3xl font-bold mb-2" style="color: var(--text-primary);"><?php echo e(t('Sign in')); ?>
+                    <h2 class="text-3xl font-bold mb-2 text-theme-primary"><?php echo e(t('Sign in')); ?>
                     </h2>
-                    <p style="color: var(--text-muted);"><?php echo e(t('Sign in to your account')); ?></p>
+                    <p class="text-theme-muted"><?php echo e(t('Sign in to your account')); ?></p>
                 </div>
 
                 <?php if ($error): ?>
@@ -416,15 +416,13 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
                     <?php echo csrf_field(); ?>
                     <div class="space-y-5">
                         <div>
-                            <label class="block text-sm font-medium mb-1.5"
-                                style="color: var(--text-primary);"><?php echo e(t('Email')); ?></label>
+                            <label class="block text-sm font-medium mb-1.5 text-theme-primary"><?php echo e(t('Email')); ?></label>
                             <input type="email" name="email" value="<?php echo e($_POST['email'] ?? ''); ?>"
                                 class="form-input w-full rounded-lg border-slate-300 dark:border-slate-700 bg-transparent px-4 py-2.5 focus:border-[#3c50e0] focus:ring-1 focus:ring-[#3c50e0]"
                                 autocomplete="username" inputmode="email" autocapitalize="none" required autofocus>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1.5"
-                                style="color: var(--text-primary);"><?php echo e(t('Password')); ?></label>
+                            <label class="block text-sm font-medium mb-1.5 text-theme-primary"><?php echo e(t('Password')); ?></label>
                             <input type="password" name="password"
                                 class="form-input w-full rounded-lg border-slate-300 dark:border-slate-700 bg-transparent px-4 py-2.5 focus:border-[#3c50e0] focus:ring-1 focus:ring-[#3c50e0]"
                                 autocomplete="current-password" required>
@@ -435,7 +433,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" name="remember_me" value="1" checked
                                 class="form-checkbox rounded" style="width: 16px; height: 16px;">
-                            <span class="text-sm" style="color: var(--text-secondary);"><?php echo e(t('Remember me')); ?></span>
+                            <span class="text-sm text-theme-secondary"><?php echo e(t('Remember me')); ?></span>
                         </label>
                         <a href="<?php echo url('forgot-password', ['lang' => $current_lang]); ?>"
                             class="text-sm font-medium transition-colors hover:text-[#3243bd]"
@@ -455,7 +453,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
                         <input type="hidden" name="<?php echo e($key); ?>" value="<?php echo e($value); ?>">
                     <?php endforeach; ?>
                     <div class="flex items-center justify-center gap-3 px-3 py-1.5 mt-4 mx-auto max-w-[fit-content]">
-                        <div class="text-[11px] uppercase tracking-wider font-semibold" style="color: var(--text-muted);">
+                        <div class="text-[11px] uppercase tracking-wider font-semibold text-theme-muted">
                             <?php echo e(t('Language')); ?></div>
                         <select id="lang-select" name="lang"
                             class="bg-transparent text-sm border-none shadow-none focus:ring-0 cursor-pointer p-0 font-medium text-slate-700 dark:text-slate-300"
@@ -470,7 +468,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
                 </form>
             <?php endif; ?>
 
-            <p class="text-center text-xs mt-8" style="color: var(--text-muted);">
+            <p class="text-center text-xs mt-8 text-theme-muted">
                 &copy; <?php echo date('Y'); ?> <?php echo e($app_name); ?>
             </p>
         </div>

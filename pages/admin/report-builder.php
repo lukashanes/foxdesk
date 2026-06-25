@@ -342,7 +342,7 @@ include BASE_PATH . '/includes/header.php';
 
         <!-- Step 1: Basic Information -->
         <div class="card card-body">
-            <h2 class="text-xl font-semibold mb-4 flex items-center" style="color: var(--text-primary);">
+            <h2 class="text-xl font-semibold mb-4 flex items-center text-theme-primary">
                 <span class="bg-blue-50 dark:bg-blue-900/200 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">1</span>
                 <?php echo e(t('Basic Information')); ?>
             </h2>
@@ -350,7 +350,7 @@ include BASE_PATH . '/includes/header.php';
             <div class="space-y-4">
                 <!-- Organization Selector (Searchable) -->
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary">
                         <?php echo e(t('Client / Organization')); ?> <span class="text-red-500">*</span>
                     </label>
                     <input type="hidden" name="organization_id" id="org-hidden-input" required
@@ -369,12 +369,12 @@ include BASE_PATH . '/includes/header.php';
                                 }
                                 echo e($sel_org_name);
                             ?>">
-                        <span class="absolute left-3 top-1/2 -translate-y-1/2" style="color: var(--text-muted);"><?php echo get_icon('search', 'w-4 h-4'); ?></span>
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted"><?php echo get_icon('search', 'w-4 h-4'); ?></span>
                         <?php if (!empty($form_values['organization_id'])): ?>
-                        <button type="button" id="org-clear-btn" class="absolute right-3 top-1/2 -translate-y-1/2 text-sm" style="color: var(--text-muted);"
+                        <button type="button" id="org-clear-btn" class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-theme-muted"
                             onclick="clearOrgSelection()">&times;</button>
                         <?php else: ?>
-                        <button type="button" id="org-clear-btn" class="absolute right-3 top-1/2 -translate-y-1/2 text-sm hidden" style="color: var(--text-muted);"
+                        <button type="button" id="org-clear-btn" class="absolute right-3 top-1/2 -translate-y-1/2 text-sm hidden text-theme-muted"
                             onclick="clearOrgSelection()">&times;</button>
                         <?php endif; ?>
                         <div id="org-dropdown" class="absolute z-30 left-0 right-0 mt-1 rounded-lg shadow-lg border overflow-y-auto hidden"
@@ -388,17 +388,17 @@ include BASE_PATH . '/includes/header.php';
                                     <?php echo e($org['name']); ?>
                                 </div>
                             <?php endforeach; ?>
-                            <div id="org-no-match" class="px-4 py-3 text-sm text-center hidden" style="color: var(--text-muted);">
+                            <div id="org-no-match" class="px-4 py-3 text-sm text-center hidden text-theme-muted">
                                 <?php echo e(t('No organizations found')); ?>
                             </div>
                         </div>
                     </div>
-                    <p class="mt-1 text-xs" style="color: var(--text-muted);"><?php echo e(t('Type to search, then click to select')); ?></p>
+                    <p class="mt-1 text-xs text-theme-muted"><?php echo e(t('Type to search, then click to select')); ?></p>
                 </div>
 
                 <!-- Report Title -->
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary">
                         <?php echo e(t('Report Title')); ?> <span class="text-red-500">*</span>
                     </label>
                     <input type="text" name="title" required value="<?php echo e($form_values['title']); ?>"
@@ -408,7 +408,7 @@ include BASE_PATH . '/includes/header.php';
 
                 <!-- Language Selector -->
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary">
                         <?php echo e(t('Report Language')); ?>
                     </label>
                     <select name="report_language" class="form-input">
@@ -424,7 +424,7 @@ include BASE_PATH . '/includes/header.php';
 
         <!-- Step 2: Timeframe -->
         <div class="card card-body">
-            <h2 class="text-xl font-semibold mb-4 flex items-center" style="color: var(--text-primary);">
+            <h2 class="text-xl font-semibold mb-4 flex items-center text-theme-primary">
                 <span class="bg-blue-50 dark:bg-blue-900/200 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">2</span>
                 <?php echo e(t('Timeframe')); ?>
             </h2>
@@ -432,7 +432,7 @@ include BASE_PATH . '/includes/header.php';
             <div class="space-y-4">
                 <!-- Date Presets -->
                 <div>
-                    <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);"><?php echo e(t('Quick Presets')); ?></label>
+                    <label class="block text-sm font-medium mb-2 text-theme-secondary"><?php echo e(t('Quick Presets')); ?></label>
                     <div class="flex flex-wrap gap-2">
                         <button type="button" onclick="setDateRange('<?php echo $first_of_month; ?>', '<?php echo $last_of_month; ?>')"
                                 class="btn btn-secondary btn-sm">
@@ -452,14 +452,14 @@ include BASE_PATH . '/includes/header.php';
                 <!-- Custom Date Range -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                        <label class="block text-sm font-medium mb-1 text-theme-secondary">
                             <?php echo e(t('From Date')); ?> <span class="text-red-500">*</span>
                         </label>
                         <input type="date" name="date_from" id="date_from" required value="<?php echo e($form_values['date_from']); ?>"
                                class="form-input">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                        <label class="block text-sm font-medium mb-1 text-theme-secondary">
                             <?php echo e(t('To Date')); ?> <span class="text-red-500">*</span>
                         </label>
                         <input type="date" name="date_to" id="date_to" required value="<?php echo e($form_values['date_to']); ?>"
@@ -471,7 +471,7 @@ include BASE_PATH . '/includes/header.php';
 
         <!-- Step 3: Configuration -->
         <div class="card card-body">
-            <h2 class="text-xl font-semibold mb-4 flex items-center" style="color: var(--text-primary);">
+            <h2 class="text-xl font-semibold mb-4 flex items-center text-theme-primary">
                 <span class="bg-blue-50 dark:bg-blue-900/200 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">3</span>
                 <?php echo e(t('Display Options')); ?>
             </h2>
@@ -484,19 +484,19 @@ include BASE_PATH . '/includes/header.php';
                         <input type="checkbox" name="show_financials" <?php echo $form_values['show_financials'] ? 'checked' : ''; ?>
                                class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
                         <span class="ml-3">
-                            <span class="text-sm font-medium" style="color: var(--text-primary);"><?php echo e(t('Show Financial Data')); ?></span>
-                            <span class="block text-xs" style="color: var(--text-muted);"><?php echo e(t('Display hourly rates and total costs')); ?></span>
+                            <span class="text-sm font-medium text-theme-primary"><?php echo e(t('Show Financial Data')); ?></span>
+                            <span class="block text-xs text-theme-muted"><?php echo e(t('Display hourly rates and total costs')); ?></span>
                         </span>
                     </label>
 
                     <div class="pl-7">
-                        <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                        <label class="block text-sm font-medium mb-1 text-theme-secondary">
                             <?php echo e(t('Custom report rate (per hour)')); ?>
                         </label>
                         <input type="number" name="custom_billable_rate" step="0.01" min="0" class="form-input"
                                value="<?php echo e($form_values['custom_billable_rate'] !== null ? number_format((float) $form_values['custom_billable_rate'], 2, '.', '') : ''); ?>"
                                placeholder="<?php echo e(t('Leave empty to use ticket or client rates')); ?>">
-                        <p class="mt-1 text-xs" style="color: var(--text-muted);">
+                        <p class="mt-1 text-xs text-theme-muted">
                             <?php echo e(t('Apply one custom hourly rate to this report without changing ticket data.')); ?>
                         </p>
                     </div>
@@ -506,8 +506,8 @@ include BASE_PATH . '/includes/header.php';
                         <input type="checkbox" name="show_team_attribution" <?php echo $form_values['show_team_attribution'] ? 'checked' : ''; ?>
                                class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
                         <span class="ml-3">
-                            <span class="text-sm font-medium" style="color: var(--text-primary);"><?php echo e(t('Show Team Member Names')); ?></span>
-                            <span class="block text-xs" style="color: var(--text-muted);"><?php echo e(t('Attribute work to specific team members')); ?></span>
+                            <span class="text-sm font-medium text-theme-primary"><?php echo e(t('Show Team Member Names')); ?></span>
+                            <span class="block text-xs text-theme-muted"><?php echo e(t('Attribute work to specific team members')); ?></span>
                         </span>
                     </label>
 
@@ -516,8 +516,8 @@ include BASE_PATH . '/includes/header.php';
                         <input type="checkbox" name="show_cost_breakdown" <?php echo $form_values['show_cost_breakdown'] ? 'checked' : ''; ?>
                                class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
                         <span class="ml-3">
-                            <span class="text-sm font-medium" style="color: var(--text-primary);"><?php echo e(t('Show Detailed Cost Breakdown')); ?></span>
-                            <span class="block text-xs" style="color: var(--text-muted);"><?php echo e(t('Show cost per task in the data table')); ?></span>
+                            <span class="text-sm font-medium text-theme-primary"><?php echo e(t('Show Detailed Cost Breakdown')); ?></span>
+                            <span class="block text-xs text-theme-muted"><?php echo e(t('Show cost per task in the data table')); ?></span>
                         </span>
                     </label>
 
@@ -526,73 +526,73 @@ include BASE_PATH . '/includes/header.php';
                         <input type="checkbox" name="hide_branding" <?php echo $form_values['hide_branding'] ? 'checked' : ''; ?>
                                class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
                         <span class="ml-3">
-                            <span class="text-sm font-medium" style="color: var(--text-primary);"><?php echo e(t('White-Label Mode')); ?></span>
-                            <span class="block text-xs" style="color: var(--text-muted);"><?php echo e(t('Hide "Powered by" footer branding')); ?></span>
+                            <span class="text-sm font-medium text-theme-primary"><?php echo e(t('White-Label Mode')); ?></span>
+                            <span class="block text-xs text-theme-muted"><?php echo e(t('Hide "Powered by" footer branding')); ?></span>
                         </span>
                     </label>
                 </div>
 
                 <!-- Grouping Options -->
                 <div>
-                    <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);"><?php echo e(t('Group Entries By')); ?></label>
+                    <label class="block text-sm font-medium mb-2 text-theme-secondary"><?php echo e(t('Group Entries By')); ?></label>
                     <select name="group_by" class="form-input">
                         <option value="none" <?php echo $form_values['group_by'] === 'none' ? 'selected' : ''; ?>><?php echo e(t('No Grouping (Show all entries)')); ?></option>
                         <option value="day" <?php echo $form_values['group_by'] === 'day' ? 'selected' : ''; ?>><?php echo e(t('Group by Day')); ?></option>
                         <option value="task" <?php echo $form_values['group_by'] === 'task' ? 'selected' : ''; ?>><?php echo e(t('Group by Task')); ?></option>
                     </select>
-                    <p class="mt-1 text-xs" style="color: var(--text-muted);"><?php echo e(t('Grouped entries can be expanded to see details')); ?></p>
+                    <p class="mt-1 text-xs text-theme-muted"><?php echo e(t('Grouped entries can be expanded to see details')); ?></p>
                 </div>
 
                 <!-- Rounding Options -->
                 <div>
-                    <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);"><?php echo e(t('Time Rounding')); ?></label>
+                    <label class="block text-sm font-medium mb-2 text-theme-secondary"><?php echo e(t('Time Rounding')); ?></label>
                     <select name="rounding_minutes" class="form-input">
                         <option value="0" <?php echo $form_values['rounding_minutes'] === 0 ? 'selected' : ''; ?>><?php echo e(t('No Rounding (Exact time)')); ?></option>
                         <option value="15" <?php echo $form_values['rounding_minutes'] === 15 ? 'selected' : ''; ?>><?php echo e(t('Round to 15 minutes')); ?></option>
                         <option value="30" <?php echo $form_values['rounding_minutes'] === 30 ? 'selected' : ''; ?>><?php echo e(t('Round to 30 minutes')); ?></option>
                         <option value="60" <?php echo $form_values['rounding_minutes'] === 60 ? 'selected' : ''; ?>><?php echo e(t('Round to 1 hour')); ?></option>
                     </select>
-                    <p class="mt-1 text-xs" style="color: var(--text-muted);"><?php echo e(t('Round up time for billing purposes')); ?></p>
+                    <p class="mt-1 text-xs text-theme-muted"><?php echo e(t('Round up time for billing purposes')); ?></p>
                 </div>
 
                 <!-- Theme Color -->
                 <div>
-                    <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);"><?php echo e(t('Report Theme Color')); ?></label>
+                    <label class="block text-sm font-medium mb-2 text-theme-secondary"><?php echo e(t('Report Theme Color')); ?></label>
                     <div class="flex items-center space-x-4">
                         <input type="color" name="theme_color" value="<?php echo e($form_values['theme_color']); ?>" id="theme_color"
-                               class="w-32 h-16 border-2 rounded-lg cursor-pointer shadow-sm" style="border-color: var(--border-light);">
+                               class="w-32 h-16 border-2 rounded-lg cursor-pointer shadow-sm border-theme-light">
                         <div>
-                            <p class="text-sm font-medium" style="color: var(--text-primary);" id="color_display"><?php echo e(strtoupper($form_values['theme_color'])); ?></p>
-                            <p class="text-xs" style="color: var(--text-muted);"><?php echo e(t('Click to choose a color')); ?></p>
+                            <p class="text-sm font-medium text-theme-primary" id="color_display"><?php echo e(strtoupper($form_values['theme_color'])); ?></p>
+                            <p class="text-xs text-theme-muted"><?php echo e(t('Click to choose a color')); ?></p>
                         </div>
                     </div>
-                    <p class="mt-2 text-xs" style="color: var(--text-muted);"><?php echo e(t('Used for KPI cards, chart colors, and section accents')); ?></p>
+                    <p class="mt-2 text-xs text-theme-muted"><?php echo e(t('Used for KPI cards, chart colors, and section accents')); ?></p>
                 </div>
             </div>
         </div>
 
         <!-- Step 4: Executive Summary -->
         <div class="card card-body">
-            <h2 class="text-xl font-semibold mb-4 flex items-center" style="color: var(--text-primary);">
+            <h2 class="text-xl font-semibold mb-4 flex items-center text-theme-primary">
                 <span class="bg-blue-50 dark:bg-blue-900/200 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">4</span>
                 <?php echo e(t('Executive Summary')); ?>
             </h2>
 
             <div>
-                <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
+                <label class="block text-sm font-medium mb-2 text-theme-secondary">
                     <?php echo e(t('Write a custom message to your client')); ?>
                 </label>
                 <textarea name="executive_summary" id="executive_summary" rows="6"
                           placeholder="<?php echo e(t('Example: This month, our team focused on redesigning the user dashboard and implementing new analytics features...')); ?>"
                           class="form-input"><?php echo e($form_values['executive_summary']); ?></textarea>
-                <p class="mt-1 text-xs" style="color: var(--text-muted);"><?php echo e(t('This text will appear at the top of the report')); ?></p>
+                <p class="mt-1 text-xs text-theme-muted"><?php echo e(t('This text will appear at the top of the report')); ?></p>
             </div>
         </div>
 
         <!-- Step 5: Schedule & Email Delivery -->
         <?php ensure_report_schedule_columns(); ?>
         <div class="card card-body">
-            <h2 class="text-xl font-semibold mb-4 flex items-center" style="color: var(--text-primary);">
+            <h2 class="text-xl font-semibold mb-4 flex items-center text-theme-primary">
                 <span class="bg-blue-50 dark:bg-blue-900/200 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">5</span>
                 <?php echo e(t('Schedule & Email Delivery')); ?>
                 <span class="ml-2 text-xs font-normal px-2 py-0.5 rounded-full bg-blue-100 text-blue-700"><?php echo e(t('Optional')); ?></span>
@@ -606,8 +606,8 @@ include BASE_PATH . '/includes/header.php';
                            class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                            onchange="toggleScheduleFields()">
                     <span class="ml-3">
-                        <span class="text-sm font-medium" style="color: var(--text-primary);"><?php echo e(t('Enable automatic schedule')); ?></span>
-                        <span class="block text-xs" style="color: var(--text-muted);"><?php echo e(t('Auto-regenerate this report and email it to recipients on a recurring schedule')); ?></span>
+                        <span class="text-sm font-medium text-theme-primary"><?php echo e(t('Enable automatic schedule')); ?></span>
+                        <span class="block text-xs text-theme-muted"><?php echo e(t('Auto-regenerate this report and email it to recipients on a recurring schedule')); ?></span>
                     </span>
                 </label>
 
@@ -615,7 +615,7 @@ include BASE_PATH . '/includes/header.php';
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <!-- Interval -->
                         <div>
-                            <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Frequency')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Frequency')); ?></label>
                             <select name="schedule_interval" id="schedule_interval" class="form-input" onchange="updateScheduleDayLabel()">
                                 <option value="weekly" <?php echo $form_values['schedule_interval'] === 'weekly' ? 'selected' : ''; ?>><?php echo e(t('Weekly')); ?></option>
                                 <option value="monthly" <?php echo $form_values['schedule_interval'] === 'monthly' ? 'selected' : ''; ?>><?php echo e(t('Monthly')); ?></option>
@@ -640,7 +640,7 @@ include BASE_PATH . '/includes/header.php';
                             <input type="number" name="schedule_day_num" id="schedule_day_num" min="1" max="28"
                                    value="<?php echo min(28, max(1, $form_values['schedule_day'])); ?>"
                                    class="form-input <?php echo $form_values['schedule_interval'] === 'weekly' ? 'hidden' : ''; ?>">
-                            <p class="text-xs mt-1" style="color: var(--text-muted);">
+                            <p class="text-xs mt-1 text-theme-muted">
                                 <span id="schedule-day-hint-weekly" class="<?php echo $form_values['schedule_interval'] !== 'weekly' ? 'hidden' : ''; ?>">
                                     <?php echo e(t('Report will be generated on this day each week')); ?>
                                 </span>
@@ -653,12 +653,12 @@ include BASE_PATH . '/includes/header.php';
 
                     <!-- Recipients -->
                     <div>
-                        <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                        <label class="block text-sm font-medium mb-1 text-theme-secondary">
                             <?php echo get_icon('mail', 'w-4 h-4 inline-block mr-1'); ?><?php echo e(t('Email Recipients')); ?>
                         </label>
                         <textarea name="schedule_recipients" rows="2" class="form-input"
                                   placeholder="<?php echo e(t('client@example.com, manager@example.com')); ?>"><?php echo e($form_values['schedule_recipients']); ?></textarea>
-                        <p class="text-xs mt-1" style="color: var(--text-muted);"><?php echo e(t('Comma-separated email addresses. Each will receive the report with a summary and a link to the full report.')); ?></p>
+                        <p class="text-xs mt-1 text-theme-muted"><?php echo e(t('Comma-separated email addresses. Each will receive the report with a summary and a link to the full report.')); ?></p>
                     </div>
                 </div>
             </div>

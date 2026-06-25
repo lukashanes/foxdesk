@@ -130,7 +130,7 @@ require_once BASE_PATH . '/includes/header.php';
     /* Quill Editor - Unified rounded container */
     .editor-wrapper {
         border: 1px solid var(--border-light);
-        border-radius: var(--radius-lg);
+        border-radius: var(--fd-radius-control);
         overflow: hidden;
         background: var(--surface-primary);
     }
@@ -299,7 +299,7 @@ require_once BASE_PATH . '/includes/header.php';
         padding: 10px 14px;
         margin: 8px 0;
         border: 1px solid var(--border-light, #e2e8f0);
-        border-radius: 10px;
+        border-radius: var(--fd-radius-control);
         background: var(--surface-secondary, #f8fafc);
         text-decoration: none !important;
         color: inherit;
@@ -316,7 +316,7 @@ require_once BASE_PATH . '/includes/header.php';
         display: block;
         width: 64px;
         height: 48px;
-        border-radius: 6px;
+        border-radius: var(--fd-radius-control);
         overflow: hidden;
         background: var(--surface-tertiary, #e2e8f0);
     }
@@ -466,7 +466,7 @@ require_once BASE_PATH . '/includes/header.php';
     [data-theme="dark"] .ql-picker-options {
         background: var(--corp-slate-700) !important;
         border-color: var(--corp-slate-600) !important;
-        border-radius: 8px;
+        border-radius: var(--fd-radius-control);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
 
@@ -671,7 +671,7 @@ require_once BASE_PATH . '/includes/header.php';
         min-height: 2.25rem;
         padding: 0.5rem 0.8rem;
         border: 1px solid var(--border-light);
-        border-radius: 0.625rem;
+        border-radius: var(--fd-radius-control);
         color: var(--text-primary);
         background: var(--surface-primary);
         font-size: 0.875rem;
@@ -741,7 +741,7 @@ require_once BASE_PATH . '/includes/header.php';
                 }
                 ?>
                 <div class="ticket-work-panel__meta">
-                    <a href="<?php echo $back_url; ?>" class="inline-flex items-center gap-1 hover:underline" style="color: var(--text-muted);">
+                    <a href="<?php echo $back_url; ?>" class="inline-flex items-center gap-1 hover:underline text-theme-muted">
                         <?php echo get_icon('arrow-left', 'w-3.5 h-3.5'); ?>
                         <?php echo e(t('Back')); ?>
                     </a>
@@ -799,21 +799,20 @@ require_once BASE_PATH . '/includes/header.php';
         <?php if (!empty($ticket['description']) || !empty($initial_attachments)): ?>
                 <div class="card card-body">
                     <?php if (!empty($ticket['description'])): ?>
-                            <div class="prose max-w-none rich-content" style="color: var(--text-secondary);">
+                            <div class="prose max-w-none rich-content text-theme-secondary">
                                 <?php echo render_content($ticket['description']); ?>
                             </div>
                     <?php endif; ?>
 
                     <?php if (!empty($initial_attachments)): ?>
                             <div class="<?php echo !empty($ticket['description']) ? 'mt-4 pt-4 border-t' : ''; ?>">
-                                <h4 class="text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                                <h4 class="text-sm font-medium mb-1 text-theme-secondary">
                                     <?php echo e(t('Attachments')); ?></h4>
                                 <?php $component_attachments = $initial_attachments; $component_layout = 'grid'; include BASE_PATH . '/includes/components/attachment-grid.php'; ?>
                             </div>
                     <?php endif; ?>
 
-                    <div class="mt-3 pt-2.5 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs"
-                        style="color: var(--text-muted);">
+                    <div class="mt-3 pt-2.5 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs text-theme-muted">
                         <div class="flex items-center space-x-3">
                             <span class="ticket-meta-avatar" aria-hidden="true">
                                 <span class="ticket-meta-avatar__initial"><?php echo e($ticket_creator_initial); ?></span>
@@ -840,7 +839,7 @@ require_once BASE_PATH . '/includes/header.php';
                     if ($can_view_edit_history && !empty($ticket_history)):
                         ?>
                             <details class="mt-4 pt-4 border-t">
-                                <summary class="flex items-center gap-2 cursor-pointer text-sm" style="color: var(--text-muted);">
+                                <summary class="flex items-center gap-2 cursor-pointer text-sm text-theme-muted">
                                     <?php echo get_icon('history', 'w-4 h-4'); ?>
                                     <?php echo e(t('Edit history')); ?> (<?php echo count($ticket_history); ?>)
                                 </summary>
@@ -850,16 +849,15 @@ require_once BASE_PATH . '/includes/header.php';
                                             $is_long_text_change = in_array($history['field_name'], ['description', 'comment_content', 'comment_deleted'], true);
                                             $is_attachment_event = in_array($history['field_name'], ['attachment_added', 'attachment_unlinked'], true);
                                             ?>
-                                            <div class="flex items-start gap-3 text-xs p-2 rounded-lg"
-                                                style="background: var(--surface-secondary);">
+                                            <div class="flex items-start gap-3 text-xs p-2 rounded-lg bg-theme-secondary">
                                                 <div class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
                                                     style="background: var(--surface-tertiary);">
-                                                    <span class="font-medium text-xs" style="color: var(--text-secondary);">
+                                                    <span class="font-medium text-xs text-theme-secondary">
                                                         <?php echo strtoupper(substr($history['first_name'] ?? 'U', 0, 1)); ?>
                                                     </span>
                                                 </div>
                                                 <div class="flex-1 min-w-0">
-                                                    <div class="flex flex-wrap items-center gap-1" style="color: var(--text-secondary);">
+                                                    <div class="flex flex-wrap items-center gap-1 text-theme-secondary">
                                                         <strong><?php echo e(($history['first_name'] ?? '') . ' ' . ($history['last_name'] ?? '')); ?></strong>
                                                         <span><?php echo e(t('changed')); ?></span>
                                                         <span
@@ -883,7 +881,7 @@ require_once BASE_PATH . '/includes/header.php';
                                                                 </div>
                                                             </div>
                                                     <?php elseif ($is_attachment_event): ?>
-                                                            <div class="mt-1 flex flex-wrap items-center gap-2" style="color: var(--text-muted);">
+                                                            <div class="mt-1 flex flex-wrap items-center gap-2 text-theme-muted">
                                                                 <?php if ($history['field_name'] === 'attachment_added'): ?>
                                                                         <span
                                                                             class="inline-flex items-center px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">+
@@ -895,15 +893,14 @@ require_once BASE_PATH . '/includes/header.php';
                                                                 <?php endif; ?>
                                                             </div>
                                                     <?php else: ?>
-                                                            <div class="mt-1 flex flex-wrap items-center gap-2" style="color: var(--text-muted);">
+                                                            <div class="mt-1 flex flex-wrap items-center gap-2 text-theme-muted">
                                                                 <span
                                                                     class="line-through"><?php echo format_history_value($history['field_name'], $history['old_value']); ?></span>
                                                                 <span>→</span>
-                                                                <span class="font-medium"
-                                                                    style="color: var(--text-secondary);"><?php echo format_history_value($history['field_name'], $history['new_value']); ?></span>
+                                                                <span class="font-medium text-theme-secondary"><?php echo format_history_value($history['field_name'], $history['new_value']); ?></span>
                                                             </div>
                                                     <?php endif; ?>
-                                                    <div class="mt-1" style="color: var(--text-muted);">
+                                                    <div class="mt-1 text-theme-muted">
                                                         <?php echo format_date($history['created_at']); ?>
                                                     </div>
                                                 </div>
@@ -925,7 +922,7 @@ require_once BASE_PATH . '/includes/header.php';
         <!-- Comments & Time Log Combined -->
         <div class="card">
             <div class="card-header">
-                <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Activity')); ?>
+                <h3 class="font-semibold text-theme-primary"><?php echo e(t('Activity')); ?>
                     (<?php echo count($comments); ?> <?php echo e(t('comments')); ?>)</h3>
                 <?php if ($time_tracking_available && $total_time_minutes > 0 && can_view_time($user)): ?>
                         <span
@@ -937,11 +934,11 @@ require_once BASE_PATH . '/includes/header.php';
             </div>
 
             <?php if (empty($timeline_items)): ?>
-                    <div class="p-4 text-center" style="color: var(--text-muted);">
+                    <div class="p-4 text-center text-theme-muted">
                         <?php echo e(t('No comments yet.')); ?>
                     </div>
             <?php else: ?>
-                    <div class="divide-y" style="border-color: var(--border-light);">
+                    <div class="divide-y border-theme-light">
                         <?php foreach ($timeline_items as $timeline_item): ?>
                                 <?php if ($timeline_item['type'] === 'time_entry'): ?>
                                         <?php $entry = $timeline_item['data']; ?>
@@ -950,7 +947,7 @@ require_once BASE_PATH . '/includes/header.php';
                                                     <div class="time-entry-row inline-flex flex-wrap items-center gap-1.5 text-xs px-3 py-1.5 rounded-full"
                                                         style="background: var(--surface-secondary); color: var(--text-muted);">
                                                         <?php echo get_icon('clock', 'w-3.5 h-3.5 flex-shrink-0'); ?>
-                                                        <span class="font-medium" style="color: var(--text-secondary);"><?php
+                                                        <span class="font-medium text-theme-secondary"><?php
                                                         if (empty($entry['ended_at'])) {
                                                             $elapsed = max(0, time() - strtotime($entry['started_at']));
                                                             if (!empty($entry['paused_at'])) {
@@ -982,7 +979,7 @@ require_once BASE_PATH . '/includes/header.php';
                                                                     <?php if (!empty($entry['ended_at'])): ?>
                                                                             <button type="button"
                                                                                 onclick="openEditTimeEntry(<?php echo htmlspecialchars(json_encode($entry)); ?>)"
-                                                                                class="p-0.5 hover:text-blue-600 transition" style="color: var(--text-muted);"
+                                                                                class="p-0.5 hover:text-blue-600 transition text-theme-muted"
                                                                                 title="<?php echo e(t('Edit')); ?>">
                                                                                 <?php echo get_icon('pencil', 'w-3 h-3'); ?>
                                                                             </button>
@@ -991,7 +988,7 @@ require_once BASE_PATH . '/includes/header.php';
                                                                         <?php echo csrf_field(); ?>
                                                                         <input type="hidden" name="entry_id" value="<?php echo $entry['id']; ?>">
                                                                         <button type="submit" name="delete_time_entry"
-                                                                            class="p-0.5 hover:text-red-500 transition" style="color: var(--text-muted);"
+                                                                            class="p-0.5 hover:text-red-500 transition text-theme-muted"
                                                                             title="<?php echo e(t('Delete')); ?>"
                                                                             onclick="return confirm('<?php echo e(t('Delete this time entry?')); ?>')">
                                                                             <?php echo get_icon('trash', 'w-3 h-3'); ?>
@@ -1012,24 +1009,13 @@ require_once BASE_PATH . '/includes/header.php';
                                             class="comment-item group px-4 lg:px-5 py-4 transition-colors hover:bg-[var(--surface-secondary)]/40 <?php echo $comment['is_internal'] ? 'comment-internal' : ''; ?>">
                                             <div class="flex gap-3">
                                                 <!-- Avatar -->
-                                                <?php if (!empty($comment['avatar'])): ?>
-                                                        <img src="<?php echo e(upload_url($comment['avatar'])); ?>" alt=""
-                                                            class="w-9 h-9 rounded-full object-cover flex-shrink-0 mt-0.5">
-                                                <?php else: ?>
-                                                        <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                                                            style="background: <?php echo $is_own_comment ? 'var(--primary-soft-strong)' : 'var(--surface-tertiary)'; ?>;">
-                                                            <span class="font-semibold text-sm"
-                                                                style="color: <?php echo $is_own_comment ? 'var(--primary)' : 'var(--text-muted)'; ?>;">
-                                                                <?php echo strtoupper(substr($comment['first_name'], 0, 1)); ?>
-                                                            </span>
-                                                        </div>
-                                                <?php endif; ?>
+                                                <?php echo render_user_avatar($comment, 'md', 'mt-0.5 ' . ($is_own_comment ? 'ticket-comment__avatar--own' : '')); ?>
 
                                                 <!-- Content -->
                                                 <div class="flex-1 min-w-0">
                                                     <!-- Header: name + badges + timestamp + actions -->
                                                     <div class="flex items-center gap-2 mb-1">
-                                                        <span class="font-semibold text-sm" style="color: var(--text-primary);">
+                                                        <span class="font-semibold text-sm text-theme-primary">
                                                             <?php echo e($comment['first_name'] . ' ' . $comment['last_name']); ?>
                                                         </span>
                                                         <?php if ($is_own_comment): ?>
@@ -1040,11 +1026,9 @@ require_once BASE_PATH . '/includes/header.php';
                                                                 <span
                                                                     class="text-xs px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-700"><?php echo e(t('Internal')); ?></span>
                                                         <?php endif; ?>
-                                                        <span class="text-xs"
-                                                            style="color: var(--text-muted);"><?php echo format_date($comment['created_at']); ?></span>
+                                                        <span class="text-xs text-theme-muted"><?php echo format_date($comment['created_at']); ?></span>
                                                         <?php if ($can_view_edit_history && !empty($comment['updated_at']) && $comment['updated_at'] !== $comment['created_at']): ?>
-                                                                <span class="text-xs italic"
-                                                                    style="color: var(--text-muted);">(<?php echo e(t('edited')); ?>)</span>
+                                                                <span class="text-xs italic text-theme-muted">(<?php echo e(t('edited')); ?>)</span>
                                                         <?php endif; ?>
 
                                                         <!-- Edit/Delete actions (visible on hover) -->
@@ -1052,13 +1036,11 @@ require_once BASE_PATH . '/includes/header.php';
                                                                 <div class="comment-actions">
                                                                     <button type="button"
                                                                         onclick="openEditCommentModal(<?php echo $comment['id']; ?>, <?php echo htmlspecialchars(json_encode($comment['content']), ENT_QUOTES, 'UTF-8'); ?>)"
-                                                                        class="hover:text-blue-600 p-1 rounded transition"
-                                                                        style="color: var(--text-muted);" title="<?php echo e(t('Edit comment')); ?>">
+                                                                        class="hover:text-blue-600 p-1 rounded transition text-theme-muted" title="<?php echo e(t('Edit comment')); ?>">
                                                                         <?php echo get_icon('pencil', 'w-3.5 h-3.5'); ?>
                                                                     </button>
                                                                     <button type="button" onclick="deleteComment(<?php echo $comment['id']; ?>)"
-                                                                        class="hover:text-red-600 p-1 rounded transition"
-                                                                        style="color: var(--text-muted);" title="<?php echo e(t('Delete comment')); ?>">
+                                                                        class="hover:text-red-600 p-1 rounded transition text-theme-muted" title="<?php echo e(t('Delete comment')); ?>">
                                                                         <?php echo get_icon('trash', 'w-3.5 h-3.5'); ?>
                                                                     </button>
                                                                 </div>
@@ -1101,7 +1083,7 @@ require_once BASE_PATH . '/includes/header.php';
                                                                         <div class="time-entry-row inline-flex flex-wrap items-center gap-1.5 text-xs px-3 py-1.5 rounded-full"
                                                                             style="background: var(--surface-secondary); color: var(--text-muted);">
                                                                             <?php echo get_icon('clock', 'w-3.5 h-3.5 flex-shrink-0'); ?>
-                                                                            <span class="font-medium" style="color: var(--text-secondary);"><?php
+                                                                            <span class="font-medium text-theme-secondary"><?php
                                                                             if (empty($entry['ended_at'])) {
                                                                                 echo format_duration_minutes(max(0, (int) floor(calculate_timer_elapsed($entry) / 60)));
                                                                                 if (!empty($entry['paused_at'])) {
@@ -1127,8 +1109,7 @@ require_once BASE_PATH . '/includes/header.php';
                                                                                         <?php if (!empty($entry['ended_at'])): ?>
                                                                                                 <button type="button"
                                                                                                     onclick="openEditTimeEntry(<?php echo htmlspecialchars(json_encode($entry)); ?>)"
-                                                                                                    class="p-0.5 hover:text-blue-600 transition"
-                                                                                                    style="color: var(--text-muted);" title="<?php echo e(t('Edit time')); ?>">
+                                                                                                    class="p-0.5 hover:text-blue-600 transition text-theme-muted" title="<?php echo e(t('Edit time')); ?>">
                                                                                                     <?php echo get_icon('pencil', 'w-3 h-3'); ?>
                                                                                                 </button>
                                                                                         <?php endif; ?>
@@ -1136,8 +1117,7 @@ require_once BASE_PATH . '/includes/header.php';
                                                                                             <?php echo csrf_field(); ?>
                                                                                             <input type="hidden" name="entry_id" value="<?php echo $entry['id']; ?>">
                                                                                             <button type="submit" name="delete_time_entry"
-                                                                                                class="p-0.5 hover:text-red-500 transition"
-                                                                                                style="color: var(--text-muted);"
+                                                                                                class="p-0.5 hover:text-red-500 transition text-theme-muted"
                                                                                                 title="<?php echo e(t('Delete time')); ?>"
                                                                                                 onclick="return confirm('<?php echo e(t('Delete this time entry?')); ?>')">
                                                                                                 <?php echo get_icon('trash', 'w-3 h-3'); ?>
@@ -1261,6 +1241,7 @@ window.FoxDeskTicketDetailConfig = <?php echo json_encode($ticket_detail_js_conf
 <!-- Quill Editor JS (1.3.7 stable) -->
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script src="assets/js/quill-image-upload.js?v=<?php echo APP_VERSION; ?>"></script>
+<script src="assets/js/attachment-paste-drop.js?v=<?php echo APP_VERSION; ?>"></script>
 
 <!-- Autosave for comment editor -->
 <script src="assets/js/autosave.js?v=<?php echo APP_VERSION; ?>"></script>
@@ -1268,13 +1249,13 @@ window.FoxDeskTicketDetailConfig = <?php echo json_encode($ticket_detail_js_conf
 <?php if (function_exists('can_view_timeline') && can_view_timeline($user)): ?>
 <!-- Timeline Modal -->
 <div id="timeline-overlay" onclick="closeTimeline()" style="display:none; position:fixed; inset:0; z-index:50; background:rgba(0,0,0,0.5); backdrop-filter:blur(2px);">
-    <div onclick="event.stopPropagation()" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:640px; max-height:85vh; border-radius:12px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); display:flex; flex-direction:column; background:var(--surface-primary); color:var(--text-primary);">
+    <div onclick="event.stopPropagation()" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:640px; max-height:85vh; border-radius: var(--fd-radius-card); box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); display:flex; flex-direction:column; background:var(--surface-primary); color:var(--text-primary);">
         <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border-light);">
             <h2 style="font-size:16px; font-weight:600; display:flex; align-items:center; gap:8px;">
                 <?php echo get_icon('history', 'w-5 h-5'); ?>
                 <?php echo e(t('Activity Timeline')); ?>
             </h2>
-            <button onclick="closeTimeline()" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; border-radius:6px; border:none; cursor:pointer; background:var(--surface-secondary); color:var(--text-muted);">
+            <button onclick="closeTimeline()" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; border-radius: var(--fd-radius-control); border:none; cursor:pointer; background:var(--surface-secondary); color:var(--text-muted);">
                 &times;
             </button>
         </div>

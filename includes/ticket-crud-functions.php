@@ -203,6 +203,9 @@ function get_tickets($filters = []) {
             case 'oldest':
                 $order_by = "t.created_at ASC";
                 break;
+            case 'completed':
+                $order_by = ticket_completed_order_by($params);
+                break;
             case 'priority':
                 $order_by = "p.sort_order ASC, t.created_at DESC";
                 break;
@@ -239,6 +242,33 @@ function get_tickets($filters = []) {
     }
 
     return db_fetch_all($sql, $params);
+}
+
+function ticket_completed_order_by(array &$params): string
+{
+    if (!function_exists('work_status_ids_for_group') || !function_exists('ticket_history_table_exists') || !ticket_history_table_exists()) {
+        return "t.updated_at DESC, t.id DESC";
+    }
+
+    $done_status_ids = array_values(array_filter(array_map('intval', work_status_ids_for_group('done'))));
+    if (empty($done_status_ids)) {
+        return "t.updated_at DESC, t.id DESC";
+    }
+
+    $params = array_merge($params, $done_status_ids);
+    $placeholders = implode(',', array_fill(0, count($done_status_ids), '?'));
+
+    return "COALESCE(
+                (
+                    SELECT MAX(th.created_at)
+                    FROM ticket_history th
+                    WHERE th.ticket_id = t.id
+                      AND th.field_name = 'status_id'
+                      AND CAST(th.new_value AS UNSIGNED) IN ({$placeholders})
+                ),
+                t.updated_at,
+                t.created_at
+            ) DESC, t.id DESC";
 }
 
 /**

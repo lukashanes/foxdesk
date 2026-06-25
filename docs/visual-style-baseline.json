@@ -1,0 +1,13 @@
+{
+  "generatedAt": "2026-06-25T00:00:00.000Z",
+  "source": "post UI-system cleanup guardrail for self-hosted theme.css",
+  "files": [
+    "theme.css"
+  ],
+  "metrics": {
+    "uniqueFontSizes": 25,
+    "uniqueBorderRadii": 7,
+    "uniqueBoxShadows": 24
+  },
+  "rule": "The self-hosted UI cleanup passes only when current unique font-size, border-radius, and box-shadow declaration values stay lower than this guardrail. Values that reference CSS variables count as tokenized and are excluded from unique ad-hoc counts."
+}

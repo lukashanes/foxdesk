@@ -348,14 +348,14 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="space-y-4">
             <!-- Title -->
             <div>
-                <label for="ticket-title-input" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Subject')); ?> *</label>
+                <label for="ticket-title-input" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Subject')); ?> *</label>
                 <input type="text" name="title" value="<?php echo e($_POST['title'] ?? ''); ?>" class="form-input"
                     required aria-required="true" autofocus id="ticket-title-input">
             </div>
 
             <!-- Description with Rich Text Editor -->
             <div>
-                <label id="description-label" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Description')); ?></label>
+                <label id="description-label" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Description')); ?></label>
                 <div class="editor-wrapper" role="textbox" aria-labelledby="description-label" aria-multiline="true">
                     <div id="description-editor"></div>
                 </div>
@@ -366,23 +366,23 @@ include BASE_PATH . '/includes/components/page-header.php';
             <!-- File Upload + Company row -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Attachments')); ?></label>
-                    <div id="upload-zone" class="rounded-lg p-2 flex items-center gap-2 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors" style="border-color: var(--border-light);">
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Attachments')); ?></label>
+                    <div id="upload-zone" class="rounded-lg p-2 flex items-center gap-2 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors border-theme-light">
                         <input type="file" name="attachments[]" id="file-input" multiple class="hidden"
                             accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar">
                         <?php echo get_icon('cloud-upload-alt', 'text-lg flex-shrink-0'); ?>
                         <div class="flex-1 text-left min-w-0">
-                            <p class="text-xs" style="color: var(--text-secondary);">
+                            <p class="text-xs text-theme-secondary">
                                 <span class="text-blue-500 font-medium"><?php echo e(t('Click')); ?></span>
                                 <?php echo e(t('or drag files')); ?>
                             </p>
                         </div>
                     </div>
-                    <p class="text-xs mt-1" style="color: var(--text-muted);">
+                    <p class="text-xs mt-1 text-theme-muted">
                         <?php echo e(t('Max {size}MB. Types: JPG, PNG, GIF, PDF, DOC, XLS, TXT, ZIP', ['size' => get_max_upload_size_mb()])); ?>
                     </p>
                     <?php if (get_request_upload_limit() > 0): ?>
-                    <p class="text-xs mt-0.5" style="color: var(--text-muted);">
+                    <p class="text-xs mt-0.5 text-theme-muted">
                         <?php echo e(t('Total upload per request is limited to {size}.', ['size' => format_file_size(get_request_upload_limit())])); ?>
                     </p>
                     <?php endif; ?>
@@ -395,7 +395,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                 <?php if (!empty($organizations)): ?>
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Company')); ?></label>
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Company')); ?></label>
                     <select name="organization_id" class="form-select" autocomplete="off" data-reset-on-fresh-ticket="1">
                         <option value=""><?php echo e(t('-- No organization --')); ?></option>
                         <?php foreach ($organizations as $org): ?>
@@ -411,7 +411,7 @@ include BASE_PATH . '/includes/components/page-header.php';
             <!-- Status (admin/agent only) — visible immediately -->
             <?php if (is_admin() || is_agent()): ?>
             <div>
-                <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Status')); ?></label>
+                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Status')); ?></label>
                 <input type="hidden" name="status_id" id="status_id" value="<?php echo (int) ($statuses[0]['id'] ?? 0); ?>">
                 <div class="flex flex-wrap gap-1.5 items-center" id="status-selector">
                     <?php foreach ($statuses as $i => $status): ?>
@@ -428,7 +428,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
             <!-- Advanced Settings (collapsible) -->
             <details class="group">
-                <summary class="flex items-center gap-2 cursor-pointer py-2 text-sm font-medium" style="color: var(--text-secondary);">
+                <summary class="flex items-center gap-2 cursor-pointer py-2 text-sm font-medium text-theme-secondary">
                     <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                     <?php echo e(t('Advanced')); ?>
                 </summary>
@@ -437,7 +437,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         <!-- Priority -->
                         <div>
-                            <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Priority')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Priority')); ?></label>
                             <input type="hidden" name="priority_id" id="priority_id"
                                 value="<?php echo $default_priority_id; ?>">
                             <div class="flex flex-wrap gap-1.5 items-center" id="priority-selector">
@@ -457,7 +457,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <!-- Ticket Type -->
                         <div>
-                            <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Ticket type')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Ticket type')); ?></label>
                             <input type="hidden" name="type" id="type" value="<?php echo e($default_type_slug); ?>">
                             <div class="flex flex-wrap gap-1.5 items-center" id="type-selector">
                                 <?php foreach ($ticket_types as $tt):
@@ -476,7 +476,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <!-- Due Date -->
                         <div>
-                            <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Due date')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Due date')); ?></label>
                             <input type="datetime-local" name="due_date" value="<?php echo e($_POST['due_date'] ?? ''); ?>"
                                 class="form-input">
                         </div>
@@ -484,7 +484,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <!-- Assign To (admin/agent only) -->
                         <?php if (is_admin() || is_agent()): ?>
                         <div>
-                            <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Assign to')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Assign to')); ?></label>
                             <select name="assignee_id" class="form-select" autocomplete="off" data-reset-on-fresh-ticket="1">
                                 <option value=""><?php echo e(t('-- Unassigned --')); ?></option>
                                 <?php foreach ($staff_users as $su): ?>
@@ -498,7 +498,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <!-- On Behalf Of (admin/agent only) -->
                         <div>
-                            <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('On behalf of')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('On behalf of')); ?></label>
                             <select name="on_behalf_of" class="form-select">
                                 <option value=""><?php echo e(t('-- Myself --')); ?></option>
                                 <?php foreach ($all_users_list as $au): ?>
@@ -515,7 +515,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <!-- Tags (next to On Behalf Of) -->
                         <?php if ($tags_supported): ?>
                         <div>
-                            <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Tags')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Tags')); ?></label>
                             <input type="hidden" name="tags" id="nt-tags-value" value="<?php echo e($_POST['tags'] ?? ''); ?>">
                             <div class="chip-select" id="cs-tags">
                                 <div class="chip-select__wrap" id="cs-tags-wrap">
@@ -536,7 +536,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
         <?php if (is_agent() && function_exists('ticket_time_table_exists') && ticket_time_table_exists()): ?>
         <!-- Manual Time Entry (hidden by default) -->
-        <div id="nt-manual-entry-row" class="hidden mt-3 pt-3 border-t" style="border-color: var(--border-light);">
+        <div id="nt-manual-entry-row" class="hidden mt-3 pt-3 border-t border-theme-light">
             <div class="space-y-3">
                 <div>
                     <label class="form-label-sm mb-1"><?php echo e(t('Time (min)')); ?></label>
@@ -557,7 +557,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <button type="button" class="nt-manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="30">+30</button>
                         <button type="button" class="nt-manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="60">+60</button>
                     </div>
-                    <p class="mt-2 text-xs" style="color: var(--text-muted);">
+                    <p class="mt-2 text-xs text-theme-muted">
                         <?php echo e(t('Leave Start and End empty to log quick minutes ending now. If both are filled, the exact range is used instead.')); ?>
                     </p>
                 </div>
@@ -594,14 +594,13 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <span class="nt-timer-text"><?php echo e(t('Start timer')); ?></span>
                         </button>
                         <button type="button" id="nt-timer-discard"
-                            class="hidden btn btn-ghost px-2 py-1.5 hover:text-red-500 transition-colors" style="color: var(--text-muted);"
+                            class="hidden btn btn-ghost px-2 py-1.5 hover:text-red-500 transition-colors text-theme-muted"
                             title="<?php echo e(t('Discard timer')); ?>">
                             <?php echo get_icon('trash', 'w-4 h-4'); ?>
                         </button>
                     </div>
                     <!-- Manual time entry toggle -->
-                    <button type="button" id="nt-manual-toggle" class="btn btn-ghost px-2 py-1.5"
-                        style="color: var(--text-muted);" title="<?php echo e(t('Manual entry')); ?>">
+                    <button type="button" id="nt-manual-toggle" class="btn btn-ghost px-2 py-1.5 text-theme-muted" title="<?php echo e(t('Manual entry')); ?>">
                         <?php echo get_icon('pen', 'w-4 h-4'); ?>
                     </button>
 
@@ -624,7 +623,7 @@ include BASE_PATH . '/includes/components/page-header.php';
     /* Quill Editor - Unified rounded container */
     .editor-wrapper {
         border: 1px solid var(--border-light);
-        border-radius: var(--radius-lg);
+        border-radius: var(--fd-radius-control);
         overflow: hidden;
         background: var(--surface-primary);
     }
@@ -707,7 +706,7 @@ include BASE_PATH . '/includes/components/page-header.php';
     [data-theme="dark"] #description-editor .ql-picker-options {
         background: var(--corp-slate-700) !important;
         border-color: var(--corp-slate-600) !important;
-        border-radius: 8px;
+        border-radius: var(--fd-radius-control);
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
     [data-theme="dark"] #description-editor .ql-picker-item {
@@ -830,6 +829,7 @@ include BASE_PATH . '/includes/components/page-header.php';
     }
 </style>
 
+<script src="assets/js/attachment-paste-drop.js?v=<?php echo APP_VERSION; ?>"></script>
 <script>
     const ICONS = {
         'times': '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
@@ -1024,6 +1024,14 @@ include BASE_PATH . '/includes/components/page-header.php';
             });
         } else if (fileInput) {
             fileInput.addEventListener('change', updatePreview);
+        }
+        if (window.FoxDeskAttachmentPasteDrop) {
+            window.FoxDeskAttachmentPasteDrop.bind({
+                inputId: 'file-input',
+                targetSelectors: ['#new-ticket-form', '#upload-zone'],
+                namePrefix: 'ticket-attachment',
+                onFilesChanged: updatePreview
+            });
         }
 
     };

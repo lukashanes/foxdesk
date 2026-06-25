@@ -121,7 +121,7 @@ require_once BASE_PATH . '/includes/header.php';
 ?>
 
 <style>
-    .act-card { padding: 16px 20px; border-radius: 12px; background: var(--surface-primary); border: 1px solid var(--border-light); }
+    .act-card { padding: 16px 20px; border-radius: var(--fd-radius-card); background: var(--surface-primary); border: 1px solid var(--border-light); }
     .act-stat-value { font-size: 1.75rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
     .act-stat-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
     .act-table { width: 100%; border-collapse: collapse; }
@@ -129,34 +129,34 @@ require_once BASE_PATH . '/includes/header.php';
         color: var(--text-muted); padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border-light); }
     .act-table td { font-size: 0.8125rem; padding: 8px 12px; color: var(--text-primary); border-bottom: 1px solid var(--border-light); }
     .act-table tbody tr:hover { background: var(--primary-soft, rgba(59,130,246,0.03)); }
-    .act-page-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px;
+    .act-page-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--fd-radius-control);
         font-size: 0.75rem; font-weight: 500; background: var(--surface-secondary); color: var(--text-secondary); }
     .act-role-badge { font-size: 0.625rem; font-weight: 600; text-transform: uppercase; padding: 1px 5px;
-        border-radius: 4px; letter-spacing: 0.03em; }
+        border-radius: var(--fd-radius-control); letter-spacing: 0.03em; }
     .act-role-admin { background: #fef3c7; color: #92400e; }
     .act-role-agent { background: #dbeafe; color: #1e40af; }
     .act-role-user { background: #f1f5f9; color: #64748b; }
     [data-theme="dark"] .act-role-admin { background: rgba(146,64,14,0.2); color: #fbbf24; }
     [data-theme="dark"] .act-role-agent { background: rgba(30,64,175,0.2); color: #60a5fa; }
     [data-theme="dark"] .act-role-user { background: rgba(100,116,139,0.2); color: #94a3b8; }
-    .act-bar { height: 6px; border-radius: 3px; background: var(--primary, #3b82f6); transition: width 0.3s; }
-    .act-bar-bg { height: 6px; border-radius: 3px; background: var(--surface-secondary); width: 100%; overflow: hidden; }
+    .act-bar { height: 6px; border-radius: var(--fd-radius-control); background: var(--primary, #3b82f6); transition: width 0.3s; }
+    .act-bar-bg { height: 6px; border-radius: var(--fd-radius-control); background: var(--surface-secondary); width: 100%; overflow: hidden; }
     .act-avatar { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
         font-size: 11px; font-weight: 600; color: #fff; flex-shrink: 0; overflow: hidden; }
     .act-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .act-tabs { display: flex; gap: 3px; padding: 3px; border-radius: 10px; background: var(--surface-secondary, #f1f5f9); margin-bottom: 16px; }
-    .act-tab { padding: 6px 14px; font-size: 0.8125rem; font-weight: 500; border-radius: 8px; color: var(--text-secondary);
+    .act-tabs { display: flex; gap: 3px; padding: 3px; border-radius: var(--fd-radius-control); background: var(--surface-secondary, #f1f5f9); margin-bottom: 16px; }
+    .act-tab { padding: 6px 14px; font-size: 0.8125rem; font-weight: 500; border-radius: var(--fd-radius-control); color: var(--text-secondary);
         text-decoration: none; transition: all 0.15s; white-space: nowrap; }
     .act-tab:hover { background: var(--surface-primary, #fff); color: var(--text-primary); }
     .act-tab.active { background: var(--surface-primary, #fff); color: var(--primary, #3b82f6); font-weight: 600;
         box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .act-range { display: flex; gap: 2px; }
-    .act-range a { padding: 4px 10px; font-size: 0.6875rem; font-weight: 500; border-radius: 6px;
+    .act-range a { padding: 4px 10px; font-size: 0.6875rem; font-weight: 500; border-radius: var(--fd-radius-control);
         color: var(--text-secondary); text-decoration: none; transition: all 0.12s; }
     .act-range a:hover { background: var(--surface-secondary); }
     .act-range a.active { background: var(--primary, #3b82f6); color: #fff; }
     .act-spark { display: flex; align-items: flex-end; gap: 2px; height: 32px; }
-    .act-spark-bar { min-width: 4px; border-radius: 2px; background: var(--primary, #3b82f6); opacity: 0.7; transition: opacity 0.12s; }
+    .act-spark-bar { min-width: 4px; border-radius: var(--fd-radius-control); background: var(--primary, #3b82f6); opacity: 0.7; transition: opacity 0.12s; }
     .act-spark-bar:hover { opacity: 1; }
 </style>
 
@@ -220,7 +220,7 @@ require_once BASE_PATH . '/includes/header.php';
                     <?php endforeach; ?>
                 </div>
             <?php else: ?>
-                <div class="text-xs" style="color: var(--text-muted);">—</div>
+                <div class="text-xs text-theme-muted">—</div>
             <?php endif; ?>
         </div>
     </div>
@@ -228,11 +228,11 @@ require_once BASE_PATH . '/includes/header.php';
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Popular pages -->
         <div class="act-card">
-            <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--text-muted);">
+            <h3 class="text-xs font-semibold uppercase tracking-wider mb-3 text-theme-muted">
                 <?php echo e(t('Most Visited Pages')); ?>
             </h3>
             <?php if (empty($popular_pages)): ?>
-                <div class="text-sm" style="color: var(--text-muted);"><?php echo e(t('No data yet.')); ?></div>
+                <div class="text-sm text-theme-muted"><?php echo e(t('No data yet.')); ?></div>
             <?php else:
                 $max_views = $popular_pages[0]['views'] ?? 1;
             ?>
@@ -244,7 +244,7 @@ require_once BASE_PATH . '/includes/header.php';
                                     <?php echo get_icon(pv_page_icon($pp['page']), 'w-3 h-3'); ?>
                                     <?php echo e(pv_page_label($pp['page'], $pp['section'], $page_labels, $section_labels)); ?>
                                 </span>
-                                <span class="text-xs tabular-nums" style="color: var(--text-muted);">
+                                <span class="text-xs tabular-nums text-theme-muted">
                                     <?php echo number_format($pp['views']); ?>
                                     <span class="ml-1">(<?php echo $pp['users']; ?> <?php echo e(t('users')); ?>)</span>
                                 </span>
@@ -261,12 +261,12 @@ require_once BASE_PATH . '/includes/header.php';
         <!-- User activity -->
         <div class="act-card" style="overflow: hidden; padding: 0;">
             <div class="px-5 pt-4 pb-2">
-                <h3 class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-muted);">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-theme-muted">
                     <?php echo e(t('User Activity')); ?>
                 </h3>
             </div>
             <?php if (empty($user_activity)): ?>
-                <div class="px-5 pb-4 text-sm" style="color: var(--text-muted);"><?php echo e(t('No data yet.')); ?></div>
+                <div class="px-5 pb-4 text-sm text-theme-muted"><?php echo e(t('No data yet.')); ?></div>
             <?php else: ?>
                 <div style="overflow-x: auto;">
                     <table class="act-table">
@@ -282,24 +282,16 @@ require_once BASE_PATH . '/includes/header.php';
                         <tbody>
                             <?php foreach ($user_activity as $ua):
                                 $ua_name = trim(($ua['first_name'] ?? '') . ' ' . ($ua['last_name'] ?? ''));
-                                $ua_initials = mb_strtoupper(mb_substr($ua['first_name'] ?? '?', 0, 1));
-                                $ua_bg = 'hsl(' . abs(crc32($ua_name)) % 360 . ', 55%, 60%)';
                                 $role_class = 'act-role-' . ($ua['role'] ?? 'user');
                             ?>
                                 <tr>
                                     <td>
                                         <a href="<?php echo url('admin', ['section' => 'activity', 'tab' => 'user', 'uid' => $ua['user_id'], 'range' => $range]); ?>"
                                            class="flex items-center gap-2" style="text-decoration: none; color: var(--text-primary);">
-                                            <div class="act-avatar" style="background: <?php echo $ua_bg; ?>;">
-                                                <?php if (!empty($ua['avatar']) && !str_starts_with($ua['avatar'], 'data:')): ?>
-                                                    <img src="<?php echo e(upload_url($ua['avatar'])); ?>" alt="">
-                                                <?php else: ?>
-                                                    <?php echo e($ua_initials); ?>
-                                                <?php endif; ?>
-                                            </div>
+                                            <?php echo render_user_avatar($ua, 'xs', 'act-avatar'); ?>
                                             <div>
                                                 <div class="font-medium text-sm"><?php echo e($ua_name); ?></div>
-                                                <div class="text-xs" style="color: var(--text-muted);"><?php echo e($ua['email']); ?></div>
+                                                <div class="text-xs text-theme-muted"><?php echo e($ua['email']); ?></div>
                                             </div>
                                         </a>
                                     </td>
@@ -328,9 +320,6 @@ require_once BASE_PATH . '/includes/header.php';
         echo '<div class="act-card text-center py-8" style="color:var(--text-muted);">' . e(t('User not found.')) . '</div>';
     else:
         $du_name = trim(($detail_user['first_name'] ?? '') . ' ' . ($detail_user['last_name'] ?? ''));
-        $du_initials = mb_strtoupper(mb_substr($detail_user['first_name'] ?? '?', 0, 1));
-        $du_bg = 'hsl(' . abs(crc32($du_name)) % 360 . ', 55%, 60%)';
-
         $du_pages = db_fetch_all("
             SELECT page, section, COUNT(*) as views
             FROM page_views WHERE user_id = ? AND created_at >= ?
@@ -352,16 +341,10 @@ require_once BASE_PATH . '/includes/header.php';
 
     <div class="act-card mb-4">
         <div class="flex items-center gap-3">
-            <div class="act-avatar" style="width: 40px; height: 40px; border-radius: 10px; font-size: 16px; background: <?php echo $du_bg; ?>;">
-                <?php if (!empty($detail_user['avatar']) && !str_starts_with($detail_user['avatar'], 'data:')): ?>
-                    <img src="<?php echo e(upload_url($detail_user['avatar'])); ?>" alt="">
-                <?php else: ?>
-                    <?php echo e($du_initials); ?>
-                <?php endif; ?>
-            </div>
+            <?php echo render_user_avatar($detail_user, 'lg', 'act-avatar act-avatar--lg'); ?>
             <div>
-                <div class="font-bold text-base" style="color: var(--text-primary);"><?php echo e($du_name); ?></div>
-                <div class="text-xs" style="color: var(--text-muted);">
+                <div class="font-bold text-base text-theme-primary"><?php echo e($du_name); ?></div>
+                <div class="text-xs text-theme-muted">
                     <?php echo e($detail_user['email']); ?> ·
                     <span class="act-role-badge act-role-<?php echo e($detail_user['role']); ?>"><?php echo e($detail_user['role']); ?></span> ·
                     <?php echo number_format($du_total); ?> <?php echo e(t('views in {days}d', ['days' => $range_days])); ?>
@@ -373,11 +356,11 @@ require_once BASE_PATH . '/includes/header.php';
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Pages used -->
         <div class="act-card">
-            <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--text-muted);">
+            <h3 class="text-xs font-semibold uppercase tracking-wider mb-3 text-theme-muted">
                 <?php echo e(t('Pages Used')); ?>
             </h3>
             <?php if (empty($du_pages)): ?>
-                <div class="text-sm" style="color: var(--text-muted);"><?php echo e(t('No data.')); ?></div>
+                <div class="text-sm text-theme-muted"><?php echo e(t('No data.')); ?></div>
             <?php else:
                 $du_max = $du_pages[0]['views'] ?? 1;
             ?>
@@ -389,7 +372,7 @@ require_once BASE_PATH . '/includes/header.php';
                                     <?php echo get_icon(pv_page_icon($dp['page']), 'w-3 h-3'); ?>
                                     <?php echo e(pv_page_label($dp['page'], $dp['section'], $page_labels, $section_labels)); ?>
                                 </span>
-                                <span class="text-xs tabular-nums" style="color: var(--text-muted);"><?php echo number_format($dp['views']); ?></span>
+                                <span class="text-xs tabular-nums text-theme-muted"><?php echo number_format($dp['views']); ?></span>
                             </div>
                             <div class="act-bar-bg">
                                 <div class="act-bar" style="width: <?php echo round(100 * $dp['views'] / $du_max); ?>%;"></div>
@@ -403,7 +386,7 @@ require_once BASE_PATH . '/includes/header.php';
         <!-- Recent activity -->
         <div class="act-card" style="overflow: hidden; padding: 0;">
             <div class="px-5 pt-4 pb-2">
-                <h3 class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-muted);">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-theme-muted">
                     <?php echo e(t('Recent Activity')); ?>
                 </h3>
             </div>
@@ -512,10 +495,10 @@ require_once BASE_PATH . '/includes/header.php';
                     style="background: var(--primary); color: #fff;"><?php echo e(t('Filter')); ?></button>
             <?php if ($log_user || $log_page_filter !== ''): ?>
                 <a href="<?php echo url('admin', ['section' => 'activity', 'tab' => 'log', 'range' => $range]); ?>"
-                   class="text-sm" style="color: var(--text-muted);"><?php echo e(t('Clear')); ?></a>
+                   class="text-sm text-theme-muted"><?php echo e(t('Clear')); ?></a>
             <?php endif; ?>
 
-            <span class="text-xs ml-auto" style="color: var(--text-muted);">
+            <span class="text-xs ml-auto text-theme-muted">
                 <?php echo number_format($log_total); ?> <?php echo e(t('entries')); ?>
             </span>
         </form>
@@ -535,7 +518,7 @@ require_once BASE_PATH . '/includes/header.php';
                 </thead>
                 <tbody>
                     <?php if (empty($log_entries)): ?>
-                        <tr><td colspan="4" class="text-center py-6" style="color: var(--text-muted);"><?php echo e(t('No entries found.')); ?></td></tr>
+                        <tr><td colspan="4" class="text-center py-6 text-theme-muted"><?php echo e(t('No entries found.')); ?></td></tr>
                     <?php else: ?>
                         <?php foreach ($log_entries as $le): ?>
                             <tr>
@@ -563,8 +546,8 @@ require_once BASE_PATH . '/includes/header.php';
         </div>
 
         <?php if ($log_pages > 1): ?>
-            <div class="flex items-center justify-between px-4 py-3 border-t" style="border-color: var(--border-light);">
-                <div class="text-xs" style="color: var(--text-muted);">
+            <div class="flex items-center justify-between px-4 py-3 border-t border-theme-light">
+                <div class="text-xs text-theme-muted">
                     <?php echo e(t('Page {current} of {total}', ['current' => $page_num, 'total' => $log_pages])); ?>
                 </div>
                 <div class="flex gap-1">
@@ -595,10 +578,10 @@ require_once BASE_PATH . '/includes/header.php';
     $oldest_date = $oldest['oldest'] ?? null;
     ?>
     <div class="act-card" style="max-width: 500px;">
-        <h3 class="text-sm font-semibold mb-3" style="color: var(--text-primary);">
+        <h3 class="text-sm font-semibold mb-3 text-theme-primary">
             <?php echo e(t('Data Management')); ?>
         </h3>
-        <p class="text-xs mb-4" style="color: var(--text-muted);">
+        <p class="text-xs mb-4 text-theme-muted">
             <?php echo e(t('Total records: {count}', ['count' => number_format($total_all)])); ?>
             <?php if ($oldest_date): ?>
                 · <?php echo e(t('Since: {date}', ['date' => date('d.m.Y', strtotime($oldest_date))])); ?>

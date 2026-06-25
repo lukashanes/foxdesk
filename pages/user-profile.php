@@ -92,14 +92,7 @@ include BASE_PATH . '/includes/components/page-header.php';
     <div class="card card-body">
         <div class="flex items-start space-x-6">
             <div class="flex-shrink-0">
-                <?php if (!empty($user['avatar'])): ?>
-                    <img src="<?php echo e(upload_url($user['avatar'])); ?>" alt="Avatar" class="w-20 h-20 rounded-full object-cover">
-                <?php else: ?>
-                    <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span
-                            class="text-blue-600 text-2xl font-medium"><?php echo strtoupper(substr($user['first_name'], 0, 1)); ?></span>
-                    </div>
-                <?php endif; ?>
+                <?php echo render_user_avatar($user, 'xl', '', ['aria_hidden' => false]); ?>
             </div>
 
             <div class="flex-1">

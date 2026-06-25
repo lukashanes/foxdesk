@@ -267,10 +267,10 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 <?php $is_work = ($page ?? '') === 'work'; ?>
                 <a href="<?php echo url('work'); ?>"
                     class="nav-item <?php echo $is_work ? 'active' : ''; ?>"
-                    title="<?php echo e(t('Work')); ?>"
+                    title="<?php echo e(t('Dashboard')); ?>"
                     <?php echo $is_work ? 'aria-current="page"' : ''; ?>>
                     <?php echo get_icon('home', 'nav-item__icon'); ?>
-                    <span><?php echo e(t('Work')); ?></span>
+                    <span><?php echo e(t('Dashboard')); ?></span>
                 </a>
 
                 <?php $is_tickets = ($page ?? '') === 'tickets' && ($_GET['archived'] ?? '') !== '1'; ?>
@@ -301,17 +301,6 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                         <?php echo $is_time_reports ? 'aria-current="page"' : ''; ?>>
                         <?php echo get_icon('chart-bar', 'nav-item__icon'); ?>
                         <span><?php echo e(t('Reports')); ?></span>
-                    </a>
-                <?php endif; ?>
-
-                <?php if (is_admin()): ?>
-                    <?php $is_settings = ($page ?? '') === 'admin' && ($_GET['section'] ?? '') === 'settings'; ?>
-                    <a href="<?php echo url('admin', ['section' => 'settings']); ?>"
-                        class="nav-item <?php echo $is_settings ? 'active' : ''; ?>"
-                        title="<?php echo e(t('Settings')); ?>"
-                        <?php echo $is_settings ? 'aria-current="page"' : ''; ?>>
-                        <?php echo get_icon('cog', 'nav-item__icon'); ?>
-                        <span><?php echo e(t('Settings')); ?></span>
                     </a>
                 <?php endif; ?>
 
@@ -394,6 +383,19 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
             <?php endif; ?>
         </div>
 
+        <?php if (is_admin()): ?>
+            <?php $is_settings = ($page ?? '') === 'admin' && ($_GET['section'] ?? '') === 'settings'; ?>
+            <div class="px-2.5 pb-0.5">
+                <a href="<?php echo url('admin', ['section' => 'settings']); ?>"
+                    class="nav-item <?php echo $is_settings ? 'active' : ''; ?>"
+                    title="<?php echo e(t('Settings')); ?>"
+                    <?php echo $is_settings ? 'aria-current="page"' : ''; ?>>
+                    <?php echo get_icon('cog', 'nav-item__icon'); ?>
+                    <span><?php echo e(t('Settings')); ?></span>
+                </a>
+            </div>
+        <?php endif; ?>
+
         <!-- Help Button -->
         <div class="px-2.5 pb-0.5">
             <button onclick="toggleHelpPanel()" id="help-panel-btn"
@@ -410,18 +412,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
             <button onclick="toggleSidebarUserMenu()" id="sidebar-user-btn"
                 class="w-full flex items-center gap-3 p-1.5 rounded-xl transition-all cursor-pointer sidebar-hover"
                 aria-expanded="false" aria-controls="sidebar-user-menu" aria-haspopup="true">
-                <?php if (!empty($user['avatar']) && is_safe_avatar_url($user['avatar'])): ?>
-                    <img src="<?php echo e(upload_url($user['avatar'])); ?>" alt="Avatar"
-                        class="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/20 flex-shrink-0"
-                        onerror="this.classList.add('is-hidden');this.nextElementSibling.classList.remove('is-hidden')">
-                    <div class="avatar avatar-md avatar-fallback flex-shrink-0 is-hidden">
-                        <?php echo strtoupper(substr($user['first_name'], 0, 1)); ?>
-                    </div>
-                <?php else: ?>
-                    <div class="avatar avatar-md avatar-fallback flex-shrink-0">
-                        <?php echo strtoupper(substr($user['first_name'], 0, 1)); ?>
-                    </div>
-                <?php endif; ?>
+                <?php echo render_user_avatar($user, 'lg', 'ring-2 ring-blue-500/20'); ?>
                 <div class="flex-1 min-w-0 text-left">
                     <p class="font-medium text-sm truncate text-theme-primary">
                         <?php echo e($user['first_name'] . ' ' . $user['last_name']); ?>
@@ -506,18 +497,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                     <button onclick="toggleUserDropdownMobile()" id="mobile-user-btn"
                         class="p-1 rounded-xl transition-all sidebar-hover text-theme-secondary"
                         aria-label="<?php echo e(t('User menu')); ?>" aria-expanded="false" aria-controls="user-dropdown-mobile" aria-haspopup="true">
-                        <?php if (!empty($user['avatar']) && is_safe_avatar_url($user['avatar'])): ?>
-                            <img src="<?php echo e(upload_url($user['avatar'])); ?>" alt="Avatar"
-                                class="w-8 h-8 rounded-full object-cover ring-2 ring-blue-500/20"
-                                onerror="this.classList.add('is-hidden');this.nextElementSibling.classList.remove('is-hidden')">
-                            <div class="avatar avatar-sm avatar-fallback avatar-fallback--sm is-hidden">
-                                <?php echo strtoupper(substr($user['first_name'], 0, 1)); ?>
-                            </div>
-                        <?php else: ?>
-                            <div class="avatar avatar-sm avatar-fallback avatar-fallback--sm">
-                                <?php echo strtoupper(substr($user['first_name'], 0, 1)); ?>
-                            </div>
-                        <?php endif; ?>
+                        <?php echo render_user_avatar($user, 'sm', 'ring-2 ring-blue-500/20'); ?>
                     </button>
 
                     <!-- Mobile Dropdown Menu -->
@@ -686,12 +666,13 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
 
             function avatarHtml(n) {
                 var hue = typeof n.avatar_hue === 'number' ? n.avatar_hue : undefined;
+                var init = (n.actor_name || '?').charAt(0).toUpperCase();
                 if (n.actor_avatar) {
                     var src = avatarUrl(n.actor_avatar);
-                    var fallbackInit = esc((n.actor_name||'?').charAt(0).toUpperCase());
-                    return '<div class="' + avatarClass(n.actor_name, hue) + '"><img src="' + esc(src) + '" onerror="this.classList.add(\'is-hidden\');this.parentElement.textContent=\'' + fallbackInit + '\'"></div>';
+                    if (src) {
+                        return '<div class="' + avatarClass(n.actor_name, hue) + '"><span class="notif-avatar-fallback">' + esc(init) + '</span><img src="' + esc(src) + '" onerror="this.hidden=true;this.classList.add(\'is-hidden\');this.removeAttribute(\'src\');"></div>';
+                    }
                 }
-                var init = (n.actor_name || '?').charAt(0).toUpperCase();
                 return '<div class="' + avatarClass(n.actor_name, hue) + '">' + esc(init) + '</div>';
             }
 

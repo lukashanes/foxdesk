@@ -349,7 +349,7 @@ include BASE_PATH . '/includes/components/page-header.php';
     </a>
 </div>
 
-<p class="text-sm mb-4" style="color: var(--text-muted);">
+<p class="text-sm mb-4 text-theme-muted">
     <?php echo e(t('Choose your AI tool below and follow the step-by-step guide to connect it to your helpdesk.')); ?>
 </p>
 
@@ -359,43 +359,43 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="w-10 h-10 mx-auto mb-1.5 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
             <?php echo get_icon('cpu', 'w-5 h-5 text-red-600'); ?>
         </div>
-        <span class="text-sm font-medium block" style="color: var(--text-primary);"><?php echo e(t('Custom bot')); ?></span>
-        <span class="text-[10px] block mt-0.5" style="color: var(--text-muted);">Python · JS · cURL</span>
+        <span class="text-sm font-medium block text-theme-primary"><?php echo e(t('Custom bot')); ?></span>
+        <span class="text-[10px] block mt-0.5 text-theme-muted">Python · JS · cURL</span>
     </button>
     <button onclick="showTool('claude_ai')" id="tool_btn_claude_ai" class="tool-btn tool-btn-inactive group p-3 rounded-xl border-2 text-center transition-all cursor-pointer">
         <div class="w-10 h-10 mx-auto mb-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
             <?php echo get_icon('message-square', 'w-5 h-5 text-purple-600'); ?>
         </div>
-        <span class="text-sm font-medium block" style="color: var(--text-primary);">Claude.ai</span>
-        <span class="text-[10px] block mt-0.5" style="color: var(--text-muted);"><?php echo e(t('Web chat')); ?></span>
+        <span class="text-sm font-medium block text-theme-primary">Claude.ai</span>
+        <span class="text-[10px] block mt-0.5 text-theme-muted"><?php echo e(t('Web chat')); ?></span>
     </button>
     <button onclick="showTool('claude_code')" id="tool_btn_claude_code" class="tool-btn tool-btn-inactive group p-3 rounded-xl border-2 text-center transition-all cursor-pointer">
         <div class="w-10 h-10 mx-auto mb-1.5 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
             <?php echo get_icon('terminal', 'w-5 h-5 text-orange-600'); ?>
         </div>
-        <span class="text-sm font-medium block" style="color: var(--text-primary);">Claude Code</span>
-        <span class="text-[10px] block mt-0.5" style="color: var(--text-muted);"><?php echo e(t('CLI tool')); ?></span>
+        <span class="text-sm font-medium block text-theme-primary">Claude Code</span>
+        <span class="text-[10px] block mt-0.5 text-theme-muted"><?php echo e(t('CLI tool')); ?></span>
     </button>
     <button onclick="showTool('chatgpt')" id="tool_btn_chatgpt" class="tool-btn tool-btn-inactive group p-3 rounded-xl border-2 text-center transition-all cursor-pointer">
         <div class="w-10 h-10 mx-auto mb-1.5 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
             <?php echo get_icon('message-circle', 'w-5 h-5 text-green-600'); ?>
         </div>
-        <span class="text-sm font-medium block" style="color: var(--text-primary);">ChatGPT</span>
-        <span class="text-[10px] block mt-0.5" style="color: var(--text-muted);"><?php echo e(t('Web chat')); ?></span>
+        <span class="text-sm font-medium block text-theme-primary">ChatGPT</span>
+        <span class="text-[10px] block mt-0.5 text-theme-muted"><?php echo e(t('Web chat')); ?></span>
     </button>
     <button onclick="showTool('cursor')" id="tool_btn_cursor" class="tool-btn tool-btn-inactive group p-3 rounded-xl border-2 text-center transition-all cursor-pointer">
         <div class="w-10 h-10 mx-auto mb-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
             <?php echo get_icon('edit-3', 'w-5 h-5 text-blue-600'); ?>
         </div>
-        <span class="text-sm font-medium block" style="color: var(--text-primary);">Cursor</span>
-        <span class="text-[10px] block mt-0.5" style="color: var(--text-muted);"><?php echo e(t('AI editor')); ?></span>
+        <span class="text-sm font-medium block text-theme-primary">Cursor</span>
+        <span class="text-[10px] block mt-0.5 text-theme-muted"><?php echo e(t('AI editor')); ?></span>
     </button>
     <button onclick="showTool('api')" id="tool_btn_api" class="tool-btn tool-btn-inactive group p-3 rounded-xl border-2 text-center transition-all cursor-pointer">
         <div class="w-10 h-10 mx-auto mb-1.5 rounded-lg bg-gray-100 dark:bg-gray-700/30 flex items-center justify-center">
             <?php echo get_icon('book-open', 'w-5 h-5 text-gray-600'); ?>
         </div>
-        <span class="text-sm font-medium block" style="color: var(--text-primary);"><?php echo e(t('API Reference')); ?></span>
-        <span class="text-[10px] block mt-0.5" style="color: var(--text-muted);"><?php echo e(t('Endpoints')); ?></span>
+        <span class="text-sm font-medium block text-theme-primary"><?php echo e(t('API Reference')); ?></span>
+        <span class="text-[10px] block mt-0.5 text-theme-muted"><?php echo e(t('Endpoints')); ?></span>
     </button>
 </div>
 
@@ -408,16 +408,16 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
             <?php echo get_icon('cpu', 'w-4 h-4 text-red-600'); ?>
         </div>
-        <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo t('Connect {name} to your helpdesk', ['name' => $agent_name_safe]); ?></h3>
+        <h3 class="font-semibold text-theme-primary"><?php echo t('Connect {name} to your helpdesk', ['name' => $agent_name_safe]); ?></h3>
     </div>
     <div class="space-y-6">
         <!-- Step 1: Credentials -->
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">1</div>
             <div class="flex-1 pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Save your API credentials')); ?></p>
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Save your API credentials')); ?></p>
                 <?php if ($token): ?>
-                    <p class="text-xs mt-0.5 mb-2" style="color: var(--text-muted);">
+                    <p class="text-xs mt-0.5 mb-2 text-theme-muted">
                         <?php echo e(t('Create a .env file in your project directory with these credentials:')); ?>
                     </p>
                     <?php echo ac_code('bot_env', $env_file, '.env', [['fn'=>'.env','mime'=>'text/plain'], 'copy']); ?>
@@ -429,14 +429,14 @@ include BASE_PATH . '/includes/components/page-header.php';
                     </div>
                 <?php else: ?>
                     <?php if ($token_prefix_db): ?>
-                        <p class="text-xs mt-0.5 mb-3" style="color: var(--text-muted);">
+                        <p class="text-xs mt-0.5 mb-3 text-theme-muted">
                             <?php echo e(t('An active token exists for this agent (prefix: ')); ?><code class="font-mono text-xs px-1 py-0.5 rounded" style="background:var(--surface-secondary);color:var(--text-primary);"><?php echo e($token_prefix_db); ?>...</code><?php echo e(t('). The full token is no longer visible — it was only shown when it was first generated.')); ?>
                         </p>
-                        <p class="text-xs mb-3" style="color: var(--text-muted);">
+                        <p class="text-xs mb-3 text-theme-muted">
                             <?php echo e(t('If you have the .env file saved, continue below. If you lost the token, generate a new one.')); ?>
                         </p>
                     <?php else: ?>
-                        <p class="text-xs mt-0.5 mb-3" style="color: var(--text-muted);">
+                        <p class="text-xs mt-0.5 mb-3 text-theme-muted">
                             <?php echo e(t('No API token found. Generate one to connect this agent.')); ?>
                         </p>
                     <?php endif; ?>
@@ -464,12 +464,12 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">2</div>
             <div class="flex-1 pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Test the connection')); ?></p>
-                <p class="text-xs mt-0.5 mb-3" style="color: var(--text-muted);">
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Test the connection')); ?></p>
+                <p class="text-xs mt-0.5 mb-3 text-theme-muted">
                     <?php echo e(t('Run this command in your terminal to verify the token works:')); ?>
                 </p>
                 <?php echo ac_code('bot_test', "curl -s \"{$api_base}agent-me\" \\\n  -H \"Authorization: Bearer {$token_display}\"", 'curl', ['copy']); ?>
-                <p class="text-xs mt-2" style="color: var(--text-muted);">
+                <p class="text-xs mt-2 text-theme-muted">
                     <?php echo e(t('Expected: JSON response with agent name and role.')); ?>
                 </p>
             </div>
@@ -479,13 +479,13 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">3</div>
             <div class="flex-1 pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Integrate with your bot')); ?></p>
-                <p class="text-xs mt-0.5 mb-3" style="color: var(--text-muted);">
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Integrate with your bot')); ?></p>
+                <p class="text-xs mt-0.5 mb-3 text-theme-muted">
                     <?php echo e(t('Choose your language and use the code below as a starting point:')); ?>
                 </p>
 
                 <!-- Language sub-tabs -->
-                <div class="flex gap-1 mb-3 p-0.5 rounded-lg w-fit" style="background: var(--surface-secondary);">
+                <div class="flex gap-1 mb-3 p-0.5 rounded-lg w-fit bg-theme-secondary">
                     <button onclick="switchLang('python')" id="lang_btn_python" class="lang-btn lang-active px-3 py-1 rounded-md text-xs font-medium">Python</button>
                     <button onclick="switchLang('js')" id="lang_btn_js" class="lang-btn lang-inactive px-3 py-1 rounded-md text-xs font-medium">JavaScript</button>
                     <button onclick="switchLang('curl')" id="lang_btn_curl" class="lang-btn lang-inactive px-3 py-1 rounded-md text-xs font-medium">cURL</button>
@@ -504,8 +504,8 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"><?php echo get_icon('check', 'w-4 h-4'); ?></div>
             <div class="pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Ready!')); ?></p>
-                <p class="text-xs mt-0.5" style="color: var(--text-muted);">
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Ready!')); ?></p>
+                <p class="text-xs mt-0.5 text-theme-muted">
                     <?php echo t('{name} can now create tickets, add comments, update statuses, and log time.', ['name' => $agent_name_safe]); ?>
                 </p>
             </div>
@@ -530,14 +530,14 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
             <?php echo get_icon('message-square', 'w-4 h-4 text-purple-600'); ?>
         </div>
-        <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Connect to Claude.ai')); ?></h3>
+        <h3 class="font-semibold text-theme-primary"><?php echo e(t('Connect to Claude.ai')); ?></h3>
     </div>
     <div class="space-y-6">
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">1</div>
             <div class="pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Open claude.ai and sign in')); ?></p>
-                <p class="text-xs mt-0.5" style="color: var(--text-muted);">
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Open claude.ai and sign in')); ?></p>
+                <p class="text-xs mt-0.5 text-theme-muted">
                     <?php echo e(t('Go to')); ?> <a href="https://claude.ai" target="_blank" class="text-blue-600 hover:underline">claude.ai</a>
                 </p>
             </div>
@@ -545,8 +545,8 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">2</div>
             <div class="pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Create a new Project')); ?></p>
-                <p class="text-xs mt-0.5" style="color: var(--text-muted);">
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Create a new Project')); ?></p>
+                <p class="text-xs mt-0.5 text-theme-muted">
                     <?php echo t('In the sidebar, click <strong>Projects</strong> → <strong>Create Project</strong>. Name it e.g. "{app}".', ['app' => e($app_name)]); ?>
                 </p>
             </div>
@@ -554,8 +554,8 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">3</div>
             <div class="flex-1 pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Paste the instructions into the project')); ?></p>
-                <p class="text-xs mt-0.5 mb-3" style="color: var(--text-muted);">
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Paste the instructions into the project')); ?></p>
+                <p class="text-xs mt-0.5 mb-3 text-theme-muted">
                     <?php echo t('Click <strong>Set project instructions</strong>, copy the text below and paste it:'); ?>
                 </p>
                 <?php echo ac_code('claude_ai_prompt', $system_prompt, 'System Prompt', ['copy']); ?>
@@ -564,8 +564,8 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"><?php echo get_icon('check', 'w-4 h-4'); ?></div>
             <div class="pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Start chatting!')); ?></p>
-                <p class="text-xs mt-0.5" style="color: var(--text-muted);">
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Start chatting!')); ?></p>
+                <p class="text-xs mt-0.5 text-theme-muted">
                     <?php echo e(t('Open a new conversation inside the project. Claude can now manage your helpdesk tickets.')); ?>
                 </p>
             </div>
@@ -590,38 +590,38 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
             <?php echo get_icon('terminal', 'w-4 h-4 text-orange-600'); ?>
         </div>
-        <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Connect to Claude Code')); ?></h3>
+        <h3 class="font-semibold text-theme-primary"><?php echo e(t('Connect to Claude Code')); ?></h3>
     </div>
     <div class="space-y-6">
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">1</div>
             <div class="flex-1 pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Create a .env file in your project root')); ?></p>
-                <p class="text-xs mt-0.5 mb-3" style="color: var(--text-muted);"><?php echo e(t('Save your API credentials:')); ?></p>
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Create a .env file in your project root')); ?></p>
+                <p class="text-xs mt-0.5 mb-3 text-theme-muted"><?php echo e(t('Save your API credentials:')); ?></p>
                 <?php echo ac_code('cc_env', $env_file, '.env', [['fn'=>'.env','mime'=>'text/plain'], 'copy']); ?>
             </div>
         </div>
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">2</div>
             <div class="flex-1 pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Create a CLAUDE.md file in your project root')); ?></p>
-                <p class="text-xs mt-0.5 mb-3" style="color: var(--text-muted);"><?php echo e(t('Claude Code reads this file automatically:')); ?></p>
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Create a CLAUDE.md file in your project root')); ?></p>
+                <p class="text-xs mt-0.5 mb-3 text-theme-muted"><?php echo e(t('Claude Code reads this file automatically:')); ?></p>
                 <?php echo ac_code('cc_md', $claude_md, 'CLAUDE.md', [['fn'=>'CLAUDE.md','mime'=>'text/markdown'], 'copy']); ?>
             </div>
         </div>
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">3</div>
             <div class="pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Add .env to .gitignore')); ?></p>
-                <code class="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded mt-1 inline-block font-mono" style="color: var(--text-secondary);">echo ".env" >> .gitignore</code>
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Add .env to .gitignore')); ?></p>
+                <code class="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded mt-1 inline-block font-mono text-theme-secondary">echo ".env" >> .gitignore</code>
             </div>
         </div>
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"><?php echo get_icon('check', 'w-4 h-4'); ?></div>
             <div class="pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Run Claude Code')); ?></p>
-                <p class="text-xs mt-0.5" style="color: var(--text-muted);">
-                    <?php echo e(t('Open terminal in your project and run:')); ?> <code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded font-mono" style="color: var(--text-secondary);">claude</code>
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Run Claude Code')); ?></p>
+                <p class="text-xs mt-0.5 text-theme-muted">
+                    <?php echo e(t('Open terminal in your project and run:')); ?> <code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded font-mono text-theme-secondary">claude</code>
                 </p>
             </div>
         </div>
@@ -638,14 +638,14 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
             <?php echo get_icon('message-circle', 'w-4 h-4 text-green-600'); ?>
         </div>
-        <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Connect to ChatGPT')); ?></h3>
+        <h3 class="font-semibold text-theme-primary"><?php echo e(t('Connect to ChatGPT')); ?></h3>
     </div>
     <div class="space-y-6">
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">1</div>
             <div class="pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Open ChatGPT and sign in')); ?></p>
-                <p class="text-xs mt-0.5" style="color: var(--text-muted);">
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Open ChatGPT and sign in')); ?></p>
+                <p class="text-xs mt-0.5 text-theme-muted">
                     <?php echo e(t('Go to')); ?> <a href="https://chatgpt.com" target="_blank" class="text-blue-600 hover:underline">chatgpt.com</a>
                 </p>
             </div>
@@ -653,8 +653,8 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">2</div>
             <div class="pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Create a new Project')); ?></p>
-                <p class="text-xs mt-0.5" style="color: var(--text-muted);">
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Create a new Project')); ?></p>
+                <p class="text-xs mt-0.5 text-theme-muted">
                     <?php echo t('In the sidebar, click <strong>Projects</strong> → <strong>New Project</strong>. Name it "{app}".', ['app' => e($app_name)]); ?>
                 </p>
             </div>
@@ -662,8 +662,8 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">3</div>
             <div class="flex-1 pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Set project instructions')); ?></p>
-                <p class="text-xs mt-0.5 mb-3" style="color: var(--text-muted);">
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Set project instructions')); ?></p>
+                <p class="text-xs mt-0.5 mb-3 text-theme-muted">
                     <?php echo t('Click the <strong>pencil icon</strong> next to "Instructions" and paste:'); ?>
                 </p>
                 <?php echo ac_code('chatgpt_prompt', $system_prompt, 'System Prompt', ['copy']); ?>
@@ -672,8 +672,8 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"><?php echo get_icon('check', 'w-4 h-4'); ?></div>
             <div class="pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Start chatting!')); ?></p>
-                <p class="text-xs mt-0.5" style="color: var(--text-muted);"><?php echo e(t('Open a conversation inside the project. ChatGPT can now manage your tickets.')); ?></p>
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Start chatting!')); ?></p>
+                <p class="text-xs mt-0.5 text-theme-muted"><?php echo e(t('Open a conversation inside the project. ChatGPT can now manage your tickets.')); ?></p>
             </div>
         </div>
     </div>
@@ -689,22 +689,22 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
             <?php echo get_icon('edit-3', 'w-4 h-4 text-blue-600'); ?>
         </div>
-        <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Connect to Cursor')); ?></h3>
+        <h3 class="font-semibold text-theme-primary"><?php echo e(t('Connect to Cursor')); ?></h3>
     </div>
     <div class="space-y-6">
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">1</div>
             <div class="flex-1 pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Create a .env file in your project root')); ?></p>
-                <p class="text-xs mt-0.5 mb-3" style="color: var(--text-muted);"><?php echo e(t('Save your API credentials:')); ?></p>
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Create a .env file in your project root')); ?></p>
+                <p class="text-xs mt-0.5 mb-3 text-theme-muted"><?php echo e(t('Save your API credentials:')); ?></p>
                 <?php echo ac_code('cursor_env', $env_file, '.env', [['fn'=>'.env','mime'=>'text/plain'], 'copy']); ?>
             </div>
         </div>
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">2</div>
             <div class="flex-1 pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Create a Cursor rules file')); ?></p>
-                <p class="text-xs mt-0.5 mb-3" style="color: var(--text-muted);">
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Create a Cursor rules file')); ?></p>
+                <p class="text-xs mt-0.5 mb-3 text-theme-muted">
                     <?php echo t('Create <code>.cursor/rules/</code> folder, then save as <code>.cursor/rules/helpdesk.mdc</code>:'); ?>
                 </p>
                 <?php echo ac_code('cursor_rules', $cursor_rules, 'helpdesk.mdc', [['fn'=>'helpdesk.mdc','mime'=>'text/markdown'], 'copy']); ?>
@@ -713,14 +713,14 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">3</div>
             <div class="pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Add .env to .gitignore')); ?></p>
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Add .env to .gitignore')); ?></p>
             </div>
         </div>
         <div class="flex gap-4 items-start">
             <div class="ac-step bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"><?php echo get_icon('check', 'w-4 h-4'); ?></div>
             <div class="pt-0.5">
-                <p class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e(t('Open your project in Cursor')); ?></p>
-                <p class="text-xs mt-0.5" style="color: var(--text-muted);"><?php echo e(t('Cursor reads the rules file automatically.')); ?></p>
+                <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Open your project in Cursor')); ?></p>
+                <p class="text-xs mt-0.5 text-theme-muted"><?php echo e(t('Cursor reads the rules file automatically.')); ?></p>
             </div>
         </div>
     </div>
@@ -736,19 +736,19 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700/30 flex items-center justify-center">
             <?php echo get_icon('book-open', 'w-4 h-4 text-gray-600'); ?>
         </div>
-        <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('API Reference')); ?></h3>
+        <h3 class="font-semibold text-theme-primary"><?php echo e(t('API Reference')); ?></h3>
     </div>
 
     <div class="overflow-x-auto">
         <table class="w-full text-xs">
             <thead>
                 <tr style="border-bottom: 1px solid var(--border-color);">
-                    <th class="text-left py-2 pr-3 font-semibold" style="color: var(--text-secondary);"><?php echo e(t('Method')); ?></th>
-                    <th class="text-left py-2 pr-3 font-semibold" style="color: var(--text-secondary);"><?php echo e(t('Endpoint')); ?></th>
-                    <th class="text-left py-2 font-semibold" style="color: var(--text-secondary);"><?php echo e(t('Description')); ?></th>
+                    <th class="text-left py-2 pr-3 font-semibold text-theme-secondary"><?php echo e(t('Method')); ?></th>
+                    <th class="text-left py-2 pr-3 font-semibold text-theme-secondary"><?php echo e(t('Endpoint')); ?></th>
+                    <th class="text-left py-2 font-semibold text-theme-secondary"><?php echo e(t('Description')); ?></th>
                 </tr>
             </thead>
-            <tbody class="font-mono" style="color: var(--text-primary);">
+            <tbody class="font-mono text-theme-primary">
                 <?php
                 $endpoints = [
                     ['GET', 'agent-me', t('Agent info')],
@@ -776,26 +776,26 @@ include BASE_PATH . '/includes/components/page-header.php';
     </div>
 
     <div class="mt-5">
-        <h4 class="text-xs font-semibold uppercase tracking-wide mb-3" style="color: var(--text-muted);"><?php echo e(t('System Configuration')); ?></h4>
+        <h4 class="text-xs font-semibold uppercase tracking-wide mb-3 text-theme-muted"><?php echo e(t('System Configuration')); ?></h4>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-            <div class="p-2 rounded-lg" style="background: var(--surface-secondary);">
+            <div class="p-2 rounded-lg bg-theme-secondary">
                 <strong style="color: var(--text-secondary);"><?php echo e(t('Statuses')); ?></strong>
-                <p class="mt-0.5" style="color: var(--text-muted);"><?php echo e($status_list); ?></p>
+                <p class="mt-0.5 text-theme-muted"><?php echo e($status_list); ?></p>
             </div>
-            <div class="p-2 rounded-lg" style="background: var(--surface-secondary);">
+            <div class="p-2 rounded-lg bg-theme-secondary">
                 <strong style="color: var(--text-secondary);"><?php echo e(t('Priorities')); ?></strong>
-                <p class="mt-0.5" style="color: var(--text-muted);"><?php echo e($priority_list); ?></p>
+                <p class="mt-0.5 text-theme-muted"><?php echo e($priority_list); ?></p>
             </div>
-            <div class="p-2 rounded-lg" style="background: var(--surface-secondary);">
+            <div class="p-2 rounded-lg bg-theme-secondary">
                 <strong style="color: var(--text-secondary);"><?php echo e(t('Ticket Types')); ?></strong>
-                <p class="mt-0.5" style="color: var(--text-muted);"><?php echo e($type_list); ?></p>
+                <p class="mt-0.5 text-theme-muted"><?php echo e($type_list); ?></p>
             </div>
         </div>
     </div>
 
     <div class="mt-5">
-        <h4 class="text-xs font-semibold uppercase tracking-wide mb-3" style="color: var(--text-muted);"><?php echo e(t('Full System Prompt')); ?></h4>
-        <p class="text-xs mb-2" style="color: var(--text-muted);"><?php echo e(t('For AI tools not listed above, paste this into the tool\'s instruction field:')); ?></p>
+        <h4 class="text-xs font-semibold uppercase tracking-wide mb-3 text-theme-muted"><?php echo e(t('Full System Prompt')); ?></h4>
+        <p class="text-xs mb-2 text-theme-muted"><?php echo e(t('For AI tools not listed above, paste this into the tool\'s instruction field:')); ?></p>
         <?php echo ac_code('api_prompt', $system_prompt, 'System Prompt', ['copy']); ?>
     </div>
 </div>
@@ -805,12 +805,12 @@ include BASE_PATH . '/includes/components/page-header.php';
 <!-- Custom Instructions (collapsible) -->
 <div class="card card-body mt-6">
     <details>
-        <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wide select-none" style="color: var(--text-muted);">
+        <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wide select-none text-theme-muted">
             <?php echo get_icon('settings', 'w-4 h-4 inline mr-1'); ?>
             <?php echo e(t('Custom agent instructions')); ?>
         </summary>
         <div class="mt-3">
-            <p class="text-xs mb-2" style="color: var(--text-muted);">
+            <p class="text-xs mb-2 text-theme-muted">
                 <?php echo e(t('Add custom behavioral instructions included in all generated packages.')); ?>
             </p>
             <form method="post" class="space-y-3">
@@ -828,7 +828,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
 
 <style>
-.ac-step { flex-shrink:0; width:1.75rem; height:1.75rem; border-radius:9999px; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:700; }
+.ac-step { flex-shrink:0; width:1.75rem; height:1.75rem; border-radius: var(--fd-radius-pill); display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:700; }
 .ac-pre { padding:0.75rem; font-size:0.75rem; font-family:ui-monospace,monospace; overflow-x:auto; white-space:pre-wrap; margin:0; background:#0f172a; color:#4ade80; max-height:280px; overflow-y:auto; }
 .ac-tb { font-size:0.6875rem; padding:0.125rem 0.5rem; border-radius:0.25rem; color:#cbd5e1; transition:all 0.15s; display:flex; align-items:center; gap:0.125rem; cursor:pointer; background:transparent; border:none; }
 .ac-tb:hover { color:#fff; background:rgba(255,255,255,0.1); }

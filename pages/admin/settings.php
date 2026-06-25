@@ -144,13 +144,15 @@ include BASE_PATH . '/includes/components/page-header.php';
 ?>
 
 <div class="admin-shell">
+    <?php render_admin_settings_management_links(); ?>
+
     <!-- Tabs -->
     <?php render_admin_settings_tabs($tab); ?>
 
     <?php if ($tab === 'general'): ?>
         <!-- General Settings -->
         <div class="card card-body">
-            <h3 class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: var(--text-muted);">
+            <h3 class="text-xs font-semibold uppercase tracking-wide mb-2 text-theme-muted">
                 <?php echo e(t('General settings')); ?>
             </h3>
 
@@ -158,38 +160,34 @@ include BASE_PATH . '/includes/components/page-header.php';
                 <?php echo csrf_field(); ?>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-sm font-medium mb-1"
-                            style="color: var(--text-secondary);"><?php echo e(t('Application name')); ?></label>
+                        <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Application name')); ?></label>
                         <input type="text" name="app_name" value="<?php echo e($settings['app_name'] ?? 'FoxDesk'); ?>"
                             class="form-input">
-                        <p class="text-xs mt-1" style="color: var(--text-muted);">
+                        <p class="text-xs mt-1 text-theme-muted">
                             <?php echo e(t('This name appears throughout the app.')); ?>
                         </p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1"
-                            style="color: var(--text-secondary);"><?php echo e(t('Ticket ID prefix')); ?></label>
+                        <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Ticket ID prefix')); ?></label>
                         <input type="text" name="ticket_prefix" value="<?php echo e($settings['ticket_prefix'] ?? 'TK'); ?>"
                             maxlength="5" placeholder="TK" class="form-input">
-                        <p class="text-xs mt-1" style="color: var(--text-muted);">
+                        <p class="text-xs mt-1 text-theme-muted">
                             <?php echo e(t('Example: TK-10001, REQ-10001 (letters only). Only affects new tickets — existing tickets keep their current prefix.')); ?></p>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 gap-3">
                     <div>
-                        <label class="block text-sm font-medium mb-1"
-                            style="color: var(--text-secondary);"><?php echo e(t('Login page welcome text')); ?></label>
+                        <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Login page welcome text')); ?></label>
                         <textarea name="login_welcome_text"
                             class="form-input h-20"><?php echo e($settings['login_welcome_text'] ?? 'Manage your tickets, track time, and support your customers with our corporate enterprise helpdesk.'); ?></textarea>
-                        <p class="text-xs mt-1" style="color: var(--text-muted);">
+                        <p class="text-xs mt-1 text-theme-muted">
                             <?php echo e(t('This text appears on the login screen below the application name.')); ?></p>
                     </div>
                 </div>
 
                 <div class="max-w-sm">
-                    <label class="block text-sm font-medium mb-1"
-                        style="color: var(--text-secondary);"><?php echo e(t('Language')); ?></label>
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Language')); ?></label>
                     <select name="app_language" class="form-select">
                         <option value="en" <?php echo ($settings['app_language'] ?? 'en') === 'en' ? 'selected' : ''; ?>>
                             <?php echo e(t('English')); ?>
@@ -207,14 +205,13 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <?php echo e(t('Spanish')); ?>
                         </option>
                     </select>
-                    <p class="text-xs mt-1" style="color: var(--text-muted);">
+                    <p class="text-xs mt-1 text-theme-muted">
                         <?php echo e(t('Default interface language for all users. Users can override this in their profile.')); ?>
                     </p>
                 </div>
 
                 <div class="max-w-sm">
-                    <label class="block text-sm font-medium mb-1"
-                        style="color: var(--text-secondary);"><?php echo e(t('Time format')); ?></label>
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Time format')); ?></label>
                     <select name="time_format" class="form-select">
                         <option value="24" <?php echo ($settings['time_format'] ?? '24') === '24' ? 'selected' : ''; ?>>
                             <?php echo e(t('24-hour')); ?>
@@ -223,21 +220,19 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <?php echo e(t('12-hour (AM/PM)')); ?>
                         </option>
                     </select>
-                    <p class="text-xs mt-1" style="color: var(--text-muted);">
+                    <p class="text-xs mt-1 text-theme-muted">
                         <?php echo e(t('Applies to timestamps across the app.')); ?>
                     </p>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
                     <div>
-                        <label class="block text-sm font-medium mb-1"
-                            style="color: var(--text-secondary);"><?php echo e(t('Currency')); ?></label>
+                        <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Currency')); ?></label>
                         <input type="text" name="currency" value="<?php echo e($settings['currency'] ?? 'CZK'); ?>"
                             class="form-input" maxlength="10">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1"
-                            style="color: var(--text-secondary);"><?php echo e(t('Billing rounding (minutes)')); ?></label>
+                        <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Billing rounding (minutes)')); ?></label>
                         <select name="billing_rounding" class="form-select">
                             <?php
                             $rounding_value = (int) ($settings['billing_rounding'] ?? 1);
@@ -249,7 +244,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <p class="text-xs mt-1" style="color: var(--text-muted);">
+                        <p class="text-xs mt-1 text-theme-muted">
                             <?php echo e(t('Optional invoice rounding. Work and agent reports always show exact tracked minutes.')); ?>
                         </p>
                     </div>
@@ -257,7 +252,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                 <!-- Time Tracking Alerts Section -->
                 <div class="border-t pt-3 mt-3">
-                    <h4 class="font-semibold mb-4" style="color: var(--text-primary);">
+                    <h4 class="font-semibold mb-4 text-theme-primary">
                         <?php echo e(t('Time tracking alerts')); ?>
                     </h4>
 
@@ -266,22 +261,20 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <label class="flex items-center space-x-3">
                                 <input type="checkbox" name="timer_alert_enabled" <?php echo ($settings['timer_alert_enabled'] ?? '0') === '1' ? 'checked' : ''; ?>
                                     class="w-5 h-5 rounded text-blue-500 focus:ring-blue-500">
-                                <span class="font-medium"
-                                    style="color: var(--text-primary);"><?php echo e(t('Enable long timer alerts')); ?></span>
+                                <span class="font-medium text-theme-primary"><?php echo e(t('Enable long timer alerts')); ?></span>
                             </label>
-                            <p class="text-sm ml-8" style="color: var(--text-muted);">
+                            <p class="text-sm ml-8 text-theme-muted">
                                 <?php echo e(t('Notify users when their timer has been running for too long.')); ?>
                             </p>
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('Alert threshold (hours)')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Alert threshold (hours)')); ?></label>
                                 <input type="number" name="timer_alert_hours"
                                     value="<?php echo e($settings['timer_alert_hours'] ?? '3'); ?>" min="1" max="24"
                                     class="form-input">
-                                <p class="text-xs mt-1" style="color: var(--text-muted);">
+                                <p class="text-xs mt-1 text-theme-muted">
                                     <?php echo e(t('Send alert when timer exceeds this duration.')); ?>
                                 </p>
                             </div>
@@ -291,10 +284,9 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <label class="flex items-center space-x-3">
                                 <input type="checkbox" name="timer_alert_email" <?php echo ($settings['timer_alert_email'] ?? '1') === '1' ? 'checked' : ''; ?>
                                     class="w-4 h-4 rounded text-blue-500 focus:ring-blue-500">
-                                <span
-                                    style="color: var(--text-secondary);"><?php echo e(t('Send email notification to user')); ?></span>
+                                <span class="text-theme-secondary"><?php echo e(t('Send email notification to user')); ?></span>
                             </label>
-                            <p class="text-xs ml-7" style="color: var(--text-muted);">
+                            <p class="text-xs ml-7 text-theme-muted">
                                 <?php echo e(t('User will receive an email reminder to stop their timer.')); ?>
                             </p>
                         </div>
@@ -309,12 +301,12 @@ include BASE_PATH . '/includes/components/page-header.php';
 
         <!-- Favicon Upload Section -->
         <div class="card card-body mt-3">
-            <h3 class="font-semibold mb-4" style="color: var(--text-primary);"><?php echo e(t('Favicon')); ?></h3>
+            <h3 class="font-semibold mb-4 text-theme-primary"><?php echo e(t('Favicon')); ?></h3>
             <?php $current_favicon = $settings['favicon'] ?? ''; ?>
             <?php if ($current_favicon): ?>
-                <div class="flex items-center gap-3 p-3 rounded-lg mb-4 w-fit" style="background: var(--surface-secondary);">
+                <div class="flex items-center gap-3 p-3 rounded-lg mb-4 w-fit bg-theme-secondary">
                     <img src="<?php echo e($current_favicon); ?>" alt="Current favicon" class="w-8 h-8">
-                    <span class="text-sm" style="color: var(--text-secondary);"><?php echo e(t('Current favicon')); ?></span>
+                    <span class="text-sm text-theme-secondary"><?php echo e(t('Current favicon')); ?></span>
                     <form method="post" class="inline ml-2">
                         <?php echo csrf_field(); ?>
                         <input type="hidden" name="remove_favicon" value="1">
@@ -327,22 +319,20 @@ include BASE_PATH . '/includes/components/page-header.php';
             <form method="post" enctype="multipart/form-data" id="favicon-form">
                 <?php echo csrf_field(); ?>
                 <div id="favicon-upload-zone"
-                    class="rounded-lg p-4 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors max-w-md"
-                    style="border-color: var(--border-light);">
+                    class="rounded-lg p-4 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors max-w-md border-theme-light">
                     <input type="file" name="favicon" id="favicon-file-input"
                         accept=".ico,.png,.gif,image/x-icon,image/png,image/gif" class="hidden">
                     <div class="flex items-center gap-3">
-                        <span
-                            style="color: var(--text-muted);"><?php echo get_icon('cloud-upload-alt', 'text-2xl flex-shrink-0'); ?></span>
+                        <span class="text-theme-muted"><?php echo get_icon('cloud-upload-alt', 'text-2xl flex-shrink-0'); ?></span>
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm" style="color: var(--text-secondary);">
+                            <p class="text-sm text-theme-secondary">
                                 <span class="text-blue-500 font-medium"><?php echo e(t('Click')); ?></span>
                                 <?php echo e(t('or drag file')); ?>
                             </p>
-                            <p class="text-xs mt-0.5" style="color: var(--text-muted);" id="favicon-file-name">
+                            <p class="text-xs mt-0.5 text-theme-muted" id="favicon-file-name">
                                 <?php echo e(t('No file selected')); ?>
                             </p>
-                            <p class="text-xs" style="color: var(--text-muted);">
+                            <p class="text-xs text-theme-muted">
                                 <?php echo e(t('Recommended: 32x32 or 16x16 pixels. Formats: ICO, PNG, GIF')); ?>
                             </p>
                         </div>
@@ -357,13 +347,13 @@ include BASE_PATH . '/includes/components/page-header.php';
 
         <!-- App Logo Upload Section -->
         <div class="card card-body mt-3">
-            <h3 class="font-semibold mb-4" style="color: var(--text-primary);"><?php echo e(t('App logo')); ?></h3>
+            <h3 class="font-semibold mb-4 text-theme-primary"><?php echo e(t('App logo')); ?></h3>
             <?php $current_app_logo = get_setting('app_logo', ''); ?>
             <?php if ($current_app_logo): ?>
-                <div class="flex items-center gap-3 p-3 rounded-lg mb-4 w-fit" style="background: var(--surface-secondary);">
+                <div class="flex items-center gap-3 p-3 rounded-lg mb-4 w-fit bg-theme-secondary">
                     <img src="<?php echo e(upload_url($current_app_logo)); ?>" alt="Current logo"
                         class="w-10 h-10 rounded-full object-cover">
-                    <span class="text-sm" style="color: var(--text-secondary);"><?php echo e(t('Current logo')); ?></span>
+                    <span class="text-sm text-theme-secondary"><?php echo e(t('Current logo')); ?></span>
                     <form method="post" class="inline ml-2">
                         <?php echo csrf_field(); ?>
                         <input type="hidden" name="remove_app_logo" value="1">
@@ -376,22 +366,20 @@ include BASE_PATH . '/includes/components/page-header.php';
             <form method="post" enctype="multipart/form-data" id="app-logo-form">
                 <?php echo csrf_field(); ?>
                 <div id="app-logo-upload-zone"
-                    class="rounded-lg p-4 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors max-w-md"
-                    style="border-color: var(--border-light);">
+                    class="rounded-lg p-4 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors max-w-md border-theme-light">
                     <input type="file" name="app_logo" id="app-logo-file-input"
                         accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml" class="hidden">
                     <div class="flex items-center gap-3">
-                        <span
-                            style="color: var(--text-muted);"><?php echo get_icon('cloud-upload-alt', 'text-2xl flex-shrink-0'); ?></span>
+                        <span class="text-theme-muted"><?php echo get_icon('cloud-upload-alt', 'text-2xl flex-shrink-0'); ?></span>
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm" style="color: var(--text-secondary);">
+                            <p class="text-sm text-theme-secondary">
                                 <span class="text-blue-500 font-medium"><?php echo e(t('Click')); ?></span>
                                 <?php echo e(t('or drag file')); ?>
                             </p>
-                            <p class="text-xs mt-0.5" style="color: var(--text-muted);" id="app-logo-file-name">
+                            <p class="text-xs mt-0.5 text-theme-muted" id="app-logo-file-name">
                                 <?php echo e(t('No file selected')); ?>
                             </p>
-                            <p class="text-xs" style="color: var(--text-muted);">
+                            <p class="text-xs text-theme-muted">
                                 <?php echo e(t('Square image recommended. Formats: JPG, PNG, GIF, WebP, SVG. Max 2 MB.')); ?>
                             </p>
                         </div>
@@ -410,20 +398,21 @@ include BASE_PATH . '/includes/components/page-header.php';
             <form method="post">
                 <?php echo csrf_field(); ?>
                 <div class="card card-body mb-2">
-                    <h3 class="font-semibold mb-4" style="color: var(--text-primary);"><?php echo e(t('SMTP settings')); ?>
+                    <h3 class="font-semibold mb-1 text-theme-primary"><?php echo e(t('Outgoing email')); ?>
                     </h3>
+                    <p class="text-sm mb-4 text-theme-muted">
+                        <?php echo e(t('Use your mail server to send ticket and account emails.')); ?>
+                    </p>
 
                     <div class="space-y-4">
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('SMTP server')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('SMTP server')); ?></label>
                                 <input type="text" name="smtp_host" value="<?php echo e($settings['smtp_host'] ?? ''); ?>"
                                     placeholder="smtp.gmail.com" class="form-input">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('Port')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Port')); ?></label>
                                 <input type="number" name="smtp_port"
                                     value="<?php echo e($settings['smtp_port'] ?? '587'); ?>" class="form-input">
                             </div>
@@ -431,18 +420,16 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('Username')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Username')); ?></label>
                                 <input type="text" name="smtp_user" value="<?php echo e($settings['smtp_user'] ?? ''); ?>"
                                     placeholder="user@gmail.com" class="form-input">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('Password')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Password')); ?></label>
                                 <input type="password" name="smtp_pass"
                                     placeholder="<?php echo empty($settings['smtp_pass']) ? '' : '********'; ?>"
                                     class="form-input">
-                                <p class="text-xs mt-1" style="color: var(--text-muted);">
+                                <p class="text-xs mt-1 text-theme-muted">
                                     <?php echo e(t('Leave blank to keep current password.')); ?>
                                 </p>
                             </div>
@@ -450,22 +437,19 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('From email')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('From email')); ?></label>
                                 <input type="email" name="smtp_from_email"
                                     value="<?php echo e($settings['smtp_from_email'] ?? ''); ?>" class="form-input">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('From name')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('From name')); ?></label>
                                 <input type="text" name="smtp_from_name"
                                     value="<?php echo e($settings['smtp_from_name'] ?? ''); ?>" class="form-input">
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Encryption')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Encryption')); ?></label>
                             <select name="smtp_encryption" class="form-select">
                                 <option value="tls" <?php echo ($settings['smtp_encryption'] ?? 'tls') === 'tls' ? 'selected' : ''; ?>><?php echo e(t('TLS (port 587)')); ?></option>
                                 <option value="ssl" <?php echo ($settings['smtp_encryption'] ?? '') === 'ssl' ? 'selected' : ''; ?>><?php echo e(t('SSL (port 465)')); ?></option>
@@ -479,10 +463,10 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                 <div class="card card-body mb-2">
                     <div class="mb-4">
-                        <h3 class="font-semibold" style="color: var(--text-primary);">
-                            <?php echo e(t('Incoming email (IMAP)')); ?>
+                        <h3 class="font-semibold text-theme-primary">
+                            <?php echo e(t('Incoming email')); ?>
                         </h3>
-                        <p class="text-sm mt-1" style="color: var(--text-muted);">
+                        <p class="text-sm mt-1 text-theme-muted">
                             <?php echo e(t('Use this mailbox to create or update tickets from incoming emails.')); ?>
                         </p>
                     </div>
@@ -491,22 +475,21 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <div>
                             <label class="flex items-center space-x-3">
                                 <input type="checkbox" name="imap_enabled" <?php echo ($imap_view['enabled'] ?? '0') === '1' ? 'checked' : ''; ?> class="w-5 h-5 rounded text-blue-500 focus:ring-blue-500">
-                                <span class="font-medium"
-                                    style="color: var(--text-primary);"><?php echo e(t('Enable incoming email processing')); ?></span>
+                                <span class="font-medium text-theme-primary"><?php echo e(t('Enable incoming email processing')); ?></span>
                             </label>
-                            <p class="text-xs ml-8 mt-1" style="color: var(--text-muted);">
+                            <p class="text-xs ml-8 mt-1 text-theme-muted">
                                 <?php echo e(t('When enabled, the system will automatically create tickets from incoming emails. Requires a cron job or background tasks to be active.')); ?>
                             </p>
                             <?php if (!$imap_extension_loaded): ?>
                                 <div class="mt-4 rounded-lg border p-4 text-sm" style="border-color: rgba(217, 119, 6, 0.35); background: rgba(217, 119, 6, 0.08); color: var(--text-secondary);">
-                                    <div class="font-semibold mb-1" style="color: var(--text-primary);">
+                                    <div class="font-semibold mb-1 text-theme-primary">
                                         <?php echo e(t('PHP IMAP extension is not loaded.')); ?>
                                     </div>
                                     <p class="mb-2">
                                         <?php echo e(t('Incoming email processing cannot run until the php-imap extension is installed and PHP is restarted.')); ?>
                                     </p>
                                     <code class="block text-xs p-2 rounded" style="background: var(--surface-secondary); color: var(--text-primary);">sudo apt install php-imap &amp;&amp; sudo systemctl restart apache2</code>
-                                    <p class="mt-2 text-xs" style="color: var(--text-muted);">
+                                    <p class="mt-2 text-xs text-theme-muted">
                                         <?php echo e(t('On shared hosting, ask your provider to enable the PHP IMAP extension for this domain.')); ?>
                                     </p>
                                 </div>
@@ -515,14 +498,12 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('IMAP server')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('IMAP server')); ?></label>
                                 <input type="text" name="imap_host" value="<?php echo e($imap_view['host'] ?? ''); ?>"
                                     placeholder="imap.example.com" class="form-input">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('IMAP port')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('IMAP port')); ?></label>
                                 <input type="number" name="imap_port" value="<?php echo e($imap_view['port'] ?? '993'); ?>"
                                     class="form-input">
                             </div>
@@ -530,19 +511,17 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('IMAP username')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('IMAP username')); ?></label>
                                 <input type="text" name="imap_username"
                                     value="<?php echo e($imap_view['username'] ?? ''); ?>" placeholder="support@example.com"
                                     class="form-input">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('IMAP password')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('IMAP password')); ?></label>
                                 <input type="password" name="imap_password"
                                     placeholder="<?php echo !empty($imap_view['password_set']) ? '********' : ''; ?>"
                                     class="form-input">
-                                <p class="text-xs mt-1" style="color: var(--text-muted);">
+                                <p class="text-xs mt-1 text-theme-muted">
                                     <?php echo e(t('Leave blank to keep current IMAP password.')); ?>
                                 </p>
                             </div>
@@ -550,8 +529,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('IMAP encryption')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('IMAP encryption')); ?></label>
                                 <select name="imap_encryption" class="form-select">
                                     <option value="ssl" <?php echo ($imap_view['encryption'] ?? 'ssl') === 'ssl' ? 'selected' : ''; ?>><?php echo e(t('SSL')); ?></option>
                                     <option value="tls" <?php echo ($imap_view['encryption'] ?? '') === 'tls' ? 'selected' : ''; ?>><?php echo e(t('TLS')); ?></option>
@@ -559,8 +537,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('Mailbox folder')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Mailbox folder')); ?></label>
                                 <input type="text" name="imap_folder"
                                     value="<?php echo e($imap_view['folder'] ?? 'INBOX'); ?>" class="form-input">
                             </div>
@@ -568,99 +545,98 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('Processed folder')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Processed folder')); ?></label>
                                 <input type="text" name="imap_processed_folder"
                                     value="<?php echo e($imap_view['processed_folder'] ?? 'Processed'); ?>"
                                     class="form-input">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('Failed folder')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Failed folder')); ?></label>
                                 <input type="text" name="imap_failed_folder"
                                     value="<?php echo e($imap_view['failed_folder'] ?? 'Failed'); ?>" class="form-input">
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('Max emails per run')); ?></label>
-                                <input type="number" min="1" max="500" name="imap_max_emails_per_run"
-                                    value="<?php echo e($imap_view['max_emails_per_run'] ?? '50'); ?>" class="form-input">
+                        <details class="rounded-lg border p-3" style="border-color: var(--border-color);">
+                            <summary class="cursor-pointer font-medium text-theme-primary">
+                                <?php echo e(t('Advanced')); ?>
+                            </summary>
+                            <div class="space-y-4 mt-4">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Max emails per run')); ?></label>
+                                        <input type="number" min="1" max="500" name="imap_max_emails_per_run"
+                                            value="<?php echo e($imap_view['max_emails_per_run'] ?? '50'); ?>" class="form-input">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Max attachment size (MB)')); ?></label>
+                                        <input type="number" min="1" max="100" name="imap_max_attachment_size_mb"
+                                            value="<?php echo e($imap_view['max_attachment_size_mb'] ?? '10'); ?>"
+                                            class="form-input">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Attachment storage path')); ?></label>
+                                        <input type="text" name="imap_storage_base"
+                                            value="<?php echo e($imap_view['storage_base'] ?? 'storage/tickets'); ?>"
+                                            class="form-input">
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label class="flex items-center space-x-3">
+                                        <input type="checkbox" name="imap_validate_cert" <?php echo ($imap_view['validate_cert'] ?? '0') === '1' ? 'checked' : ''; ?>
+                                            class="w-4 h-4 rounded text-blue-500 focus:ring-blue-500">
+                                        <span class="text-theme-secondary"><?php echo e(t('Validate TLS certificate')); ?></span>
+                                    </label>
+
+                                    <label class="flex items-center space-x-3">
+                                        <input type="checkbox" name="imap_mark_seen_on_skip" <?php echo ($imap_view['mark_seen_on_skip'] ?? '1') === '1' ? 'checked' : ''; ?>
+                                            class="w-4 h-4 rounded text-blue-500 focus:ring-blue-500">
+                                        <span class="text-theme-secondary"><?php echo e(t('Mark skipped emails as seen')); ?></span>
+                                    </label>
+
+                                    <label class="flex items-center space-x-3">
+                                        <input type="checkbox" name="imap_allow_unknown_senders" <?php echo ($imap_view['allow_unknown_senders'] ?? '0') === '1' ? 'checked' : ''; ?>
+                                            class="w-4 h-4 rounded text-blue-500 focus:ring-blue-500">
+                                        <span class="text-theme-secondary"><?php echo e(t('Allow unknown senders (without allowlist)')); ?></span>
+                                    </label>
+                                    <p class="text-xs ml-7 mt-0.5 text-theme-warning">
+                                        <?php echo e(t('When enabled, anyone can create tickets by sending an email — not just addresses in the allowlist below.')); ?>
+                                    </p>
+                                </div>
+
+                                <p class="text-xs text-theme-muted">
+                                    <?php echo e(t('Cron command: php bin/ingest-emails.php')); ?>
+                                </p>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('Max attachment size (MB)')); ?></label>
-                                <input type="number" min="1" max="100" name="imap_max_attachment_size_mb"
-                                    value="<?php echo e($imap_view['max_attachment_size_mb'] ?? '10'); ?>"
-                                    class="form-input">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('Attachment storage path')); ?></label>
-                                <input type="text" name="imap_storage_base"
-                                    value="<?php echo e($imap_view['storage_base'] ?? 'storage/tickets'); ?>"
-                                    class="form-input">
-                            </div>
-                        </div>
-
-                        <div class="space-y-2">
-                            <label class="flex items-center space-x-3">
-                                <input type="checkbox" name="imap_validate_cert" <?php echo ($imap_view['validate_cert'] ?? '0') === '1' ? 'checked' : ''; ?>
-                                    class="w-4 h-4 rounded text-blue-500 focus:ring-blue-500">
-                                <span
-                                    style="color: var(--text-secondary);"><?php echo e(t('Validate TLS certificate')); ?></span>
-                            </label>
-
-                            <label class="flex items-center space-x-3">
-                                <input type="checkbox" name="imap_mark_seen_on_skip" <?php echo ($imap_view['mark_seen_on_skip'] ?? '1') === '1' ? 'checked' : ''; ?>
-                                    class="w-4 h-4 rounded text-blue-500 focus:ring-blue-500">
-                                <span
-                                    style="color: var(--text-secondary);"><?php echo e(t('Mark skipped emails as seen')); ?></span>
-                            </label>
-
-                            <label class="flex items-center space-x-3">
-                                <input type="checkbox" name="imap_allow_unknown_senders" <?php echo ($imap_view['allow_unknown_senders'] ?? '0') === '1' ? 'checked' : ''; ?>
-                                    class="w-4 h-4 rounded text-blue-500 focus:ring-blue-500">
-                                <span
-                                    style="color: var(--text-secondary);"><?php echo e(t('Allow unknown senders (without allowlist)')); ?></span>
-                            </label>
-                            <p class="text-xs ml-7 mt-0.5" style="color: var(--warning-color, #d97706);">
-                                <?php echo e(t('When enabled, anyone can create tickets by sending an email — not just addresses in the allowlist below.')); ?>
-                            </p>
-                        </div>
-
-                        <p class="text-xs" style="color: var(--text-muted);">
-                            <?php echo e(t('Cron command: php bin/ingest-emails.php')); ?>
-                        </p>
+                        </details>
                     </div>
                 </div>
 
                 <!-- Allowed Senders -->
                 <div class="card card-body mb-2">
-                    <h3 class="font-semibold mb-2" style="color: var(--text-primary);">
+                    <h3 class="font-semibold mb-2 text-theme-primary">
                         <?php echo e(t('Allowed Senders')); ?>
                     </h3>
-                    <p class="text-xs mb-4" style="color: var(--text-muted);">
+                    <p class="text-xs mb-4 text-theme-muted">
                         <?php echo e(t('When "Allow unknown senders" is disabled, only emails from addresses or domains in this list will be accepted.')); ?>
                     </p>
 
                     <!-- Add sender form -->
                     <div class="flex flex-wrap gap-2 mb-4 items-end">
                         <div>
-                            <label class="block text-xs mb-1" style="color: var(--text-secondary);"><?php echo e(t('Type')); ?></label>
+                            <label class="block text-xs mb-1 text-theme-secondary"><?php echo e(t('Type')); ?></label>
                             <select id="as-type" class="input-field text-sm" style="width: auto; min-width: 120px;">
                                 <option value="email"><?php echo e(t('Email')); ?></option>
                                 <option value="domain"><?php echo e(t('Domain')); ?></option>
                             </select>
                         </div>
                         <div class="flex-1" style="min-width: 200px;">
-                            <label class="block text-xs mb-1" style="color: var(--text-secondary);"><?php echo e(t('Email or Domain')); ?></label>
+                            <label class="block text-xs mb-1 text-theme-secondary"><?php echo e(t('Email or Domain')); ?></label>
                             <input type="text" id="as-value" class="input-field text-sm" placeholder="user@example.com">
                         </div>
                         <div>
-                            <label class="block text-xs mb-1" style="color: var(--text-secondary);"><?php echo e(t('Assign to user')); ?></label>
+                            <label class="block text-xs mb-1 text-theme-secondary"><?php echo e(t('Assign to user')); ?></label>
                             <select id="as-user" class="input-field text-sm" style="width: auto; min-width: 150px;">
                                 <option value="">&mdash;</option>
                                 <?php foreach ($all_users as $u): ?>
@@ -677,31 +653,31 @@ include BASE_PATH . '/includes/components/page-header.php';
                     <div class="overflow-x-auto border rounded-lg" style="border-color: var(--border-color);">
                         <table class="w-full text-sm">
                             <thead>
-                                <tr style="background: var(--surface-secondary);">
-                                    <th class="px-4 py-2 text-left text-xs font-medium" style="color: var(--text-muted);"><?php echo e(t('Type')); ?></th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium" style="color: var(--text-muted);"><?php echo e(t('Value')); ?></th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium" style="color: var(--text-muted);"><?php echo e(t('Assign to user')); ?></th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium" style="color: var(--text-muted);"><?php echo e(t('Status')); ?></th>
-                                    <th class="px-4 py-2 text-right text-xs font-medium" style="color: var(--text-muted);"></th>
+                                <tr class="bg-theme-secondary">
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-theme-muted"><?php echo e(t('Type')); ?></th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-theme-muted"><?php echo e(t('Value')); ?></th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-theme-muted"><?php echo e(t('Assign to user')); ?></th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-theme-muted"><?php echo e(t('Status')); ?></th>
+                                    <th class="px-4 py-2 text-right text-xs font-medium text-theme-muted"></th>
                                 </tr>
                             </thead>
                             <tbody id="allowed-senders-tbody">
                                 <?php if (empty($allowed_senders)): ?>
                                     <tr>
-                                        <td colspan="5" class="px-4 py-3 text-center text-xs" style="color: var(--text-muted);">
+                                        <td colspan="5" class="px-4 py-3 text-center text-xs text-theme-muted">
                                             <?php echo e(t('No entries')); ?>
                                         </td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($allowed_senders as $sender): ?>
                                         <tr class="border-t" style="border-color: var(--border-color);" id="as-row-<?php echo (int)$sender['id']; ?>">
-                                            <td class="px-4 py-2" style="color: var(--text-secondary);">
+                                            <td class="px-4 py-2 text-theme-secondary">
                                                 <?php echo $sender['type'] === 'email' ? 'Email' : e(t('Domain')); ?>
                                             </td>
-                                            <td class="px-4 py-2 font-mono text-xs" style="color: var(--text-primary);">
+                                            <td class="px-4 py-2 font-mono text-xs text-theme-primary">
                                                 <?php echo e($sender['value']); ?>
                                             </td>
-                                            <td class="px-4 py-2" style="color: var(--text-secondary);">
+                                            <td class="px-4 py-2 text-theme-secondary">
                                                 <?php echo $sender['user_name'] ? e($sender['user_name']) : '&mdash;'; ?>
                                             </td>
                                             <td class="px-4 py-2">
@@ -712,7 +688,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                                 <?php endif; ?>
                                             </td>
                                             <td class="px-4 py-2 text-right">
-                                                <button type="button" onclick="toggleAllowedSender(<?php echo (int)$sender['id']; ?>)" class="text-xs hover:underline mr-2" style="color: var(--text-muted);">
+                                                <button type="button" onclick="toggleAllowedSender(<?php echo (int)$sender['id']; ?>)" class="text-xs hover:underline mr-2 text-theme-muted">
                                                     <?php echo $sender['active'] ? e(t('Disable')) : e(t('Enable')); ?>
                                                 </button>
                                                 <button type="button" onclick="deleteAllowedSender(<?php echo (int)$sender['id']; ?>)" class="text-xs text-red-600 hover:underline">
@@ -728,7 +704,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                 </div>
 
                 <div class="card card-body mb-2">
-                    <h3 class="font-semibold mb-4" style="color: var(--text-primary);">
+                    <h3 class="font-semibold mb-4 text-theme-primary">
                         <?php echo e(t('Notification settings')); ?>
                     </h3>
 
@@ -737,18 +713,17 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <label class="flex items-center space-x-3">
                                 <input type="checkbox" name="email_notifications_enabled" <?php echo ($settings['email_notifications_enabled'] ?? '0') === '1' ? 'checked' : ''; ?>
                                     class="w-5 h-5 rounded text-blue-500 focus:ring-blue-500">
-                                <span class="font-medium"
-                                    style="color: var(--text-primary);"><?php echo e(t('Enable email notifications')); ?></span>
+                                <span class="font-medium text-theme-primary"><?php echo e(t('Enable email notifications')); ?></span>
                             </label>
-                            <p class="text-sm ml-8" style="color: var(--text-muted);">
+                            <p class="text-sm ml-8 text-theme-muted">
                                 <?php echo e(t('Master switch for all email notifications.')); ?>
                             </p>
                             <?php if (($settings['email_notifications_enabled'] ?? '0') === '1'): ?>
-                                <p class="text-xs ml-8 mt-1" style="color: var(--warning-color, #d97706);">
+                                <p class="text-xs ml-8 mt-1 text-theme-warning">
                                     <?php echo e(t('Turning this off will stop all email notifications for all users — including ticket updates, status changes, and new ticket alerts.')); ?>
                                 </p>
                             <?php else: ?>
-                                <p class="text-xs ml-8 mt-1" style="color: var(--text-muted);">
+                                <p class="text-xs ml-8 mt-1 text-theme-muted">
                                     <?php echo e(t('Currently off. No email notifications are being sent. Turn on to enable notifications for ticket updates, comments, and new tickets.')); ?>
                                 </p>
                             <?php endif; ?>
@@ -760,22 +735,19 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <label class="flex items-center space-x-3">
                                 <input type="checkbox" name="notify_on_status_change" <?php echo ($settings['notify_on_status_change'] ?? '1') === '1' ? 'checked' : ''; ?>
                                     class="w-4 h-4 rounded text-blue-500 focus:ring-blue-500">
-                                <span
-                                    style="color: var(--text-secondary);"><?php echo e(t('Notify on status change')); ?></span>
+                                <span class="text-theme-secondary"><?php echo e(t('Notify on status change')); ?></span>
                             </label>
 
                             <label class="flex items-center space-x-3">
                                 <input type="checkbox" name="notify_on_new_comment" <?php echo ($settings['notify_on_new_comment'] ?? '1') === '1' ? 'checked' : ''; ?>
                                     class="w-4 h-4 rounded text-blue-500 focus:ring-blue-500">
-                                <span
-                                    style="color: var(--text-secondary);"><?php echo e(t('Notify on new comment')); ?></span>
+                                <span class="text-theme-secondary"><?php echo e(t('Notify on new comment')); ?></span>
                             </label>
 
                             <label class="flex items-center space-x-3">
                                 <input type="checkbox" name="notify_on_new_ticket" <?php echo ($settings['notify_on_new_ticket'] ?? '1') === '1' ? 'checked' : ''; ?>
                                     class="w-4 h-4 rounded text-blue-500 focus:ring-blue-500">
-                                <span
-                                    style="color: var(--text-secondary);"><?php echo e(t('Notify admins on new ticket')); ?></span>
+                                <span class="text-theme-secondary"><?php echo e(t('Notify admins on new ticket')); ?></span>
                             </label>
                         </div>
                     </div>
@@ -800,10 +772,10 @@ include BASE_PATH . '/includes/components/page-header.php';
             <div class="card card-body">
                 <div class="flex items-center justify-between mb-4 gap-4">
                     <div>
-                        <h3 class="font-semibold" style="color: var(--text-primary);">
+                        <h3 class="font-semibold text-theme-primary">
                             <?php echo e(t('Incoming email log')); ?>
                         </h3>
-                        <p class="text-sm" style="color: var(--text-muted);">
+                        <p class="text-sm text-theme-muted">
                             <?php echo e(t('Last {count} processed/skipped/failed incoming emails.', ['count' => '100'])); ?>
                         </p>
                     </div>
@@ -814,7 +786,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <?php echo e(t('Incoming email log is not available: {error}', ['error' => $incoming_mail_log_error])); ?>
                     </div>
                 <?php elseif (empty($incoming_mail_logs)): ?>
-                    <div class="text-sm" style="color: var(--text-muted);"><?php echo e(t('No incoming email records yet.')); ?>
+                    <div class="text-sm text-theme-muted"><?php echo e(t('No incoming email records yet.')); ?>
                     </div>
                 <?php else: ?>
                     <div class="overflow-x-auto">
@@ -853,13 +825,13 @@ include BASE_PATH . '/includes/components/page-header.php';
                                     }
                                     ?>
                                     <tr class="tr-hover text-sm">
-                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--text-muted);">
+                                        <td class="px-4 py-3 whitespace-nowrap text-theme-muted">
                                             <?php echo e(date('Y-m-d H:i:s', strtotime($row['created_at']))); ?>
                                         </td>
-                                        <td class="px-4 py-3" style="color: var(--text-secondary);">
+                                        <td class="px-4 py-3 text-theme-secondary">
                                             <?php echo e($row['sender_email'] ?? '-'); ?>
                                         </td>
-                                        <td class="px-4 py-3 max-w-xs truncate" style="color: var(--text-secondary);"
+                                        <td class="px-4 py-3 max-w-xs truncate text-theme-secondary"
                                             title="<?php echo e($row['subject'] ?? ''); ?>">
                                             <?php echo e($row['subject'] ?? '-'); ?>
                                         </td>
@@ -869,23 +841,23 @@ include BASE_PATH . '/includes/components/page-header.php';
                                                 <?php echo e(t(ucfirst($status))); ?>
                                             </span>
                                         </td>
-                                        <td class="px-4 py-3" style="color: var(--text-secondary);">
+                                        <td class="px-4 py-3 text-theme-secondary">
                                             <?php if ($ticket_id > 0 && $ticket_url_value !== ''): ?>
                                                 <a class="text-blue-600 hover:text-blue-800" href="<?php echo e($ticket_url_value); ?>">
                                                     #<?php echo e((string) $ticket_id); ?>
                                                 </a>
                                             <?php else: ?>
-                                                <span style="color: var(--text-muted);">-</span>
+                                                <span class="text-theme-muted">-</span>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="px-4 py-3" style="color: var(--text-secondary);">
+                                        <td class="px-4 py-3 text-theme-secondary">
                                             <?php if (!empty($row['reason'])): ?>
                                                 <div><?php echo e($row['reason']); ?></div>
                                             <?php endif; ?>
                                             <?php if (!empty($row['error'])): ?>
                                                 <div class="text-xs text-red-600 mt-1"><?php echo e($row['error']); ?></div>
                                             <?php endif; ?>
-                                            <div class="text-xs mt-1" style="color: var(--text-muted);">
+                                            <div class="text-xs mt-1 text-theme-muted">
                                                 <?php echo e((string) ($row['mailbox'] ?? '')); ?> / UID
                                                 <?php echo e((string) ($row['uid'] ?? '')); ?>
                                             </div>
@@ -907,14 +879,14 @@ include BASE_PATH . '/includes/components/page-header.php';
         ?>
 
         <div class="mb-2 flex justify-between items-center">
-            <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Email Templates')); ?></h3>
+            <h3 class="font-semibold text-theme-primary"><?php echo e(t('Email Templates')); ?></h3>
 
             <form action="" method="get" class="flex items-center space-x-2">
                 <input type="hidden" name="page" value="admin">
                 <input type="hidden" name="section" value="settings">
                 <input type="hidden" name="tab" value="templates">
 
-                <label class="text-sm" style="color: var(--text-secondary);"><?php echo e(t('Language:')); ?></label>
+                <label class="text-sm text-theme-secondary"><?php echo e(t('Language:')); ?></label>
                 <select name="lang" onchange="this.form.submit()" class="form-select form-select-sm w-auto">
                     <option value="en" <?php echo $template_lang === 'en' ? 'selected' : ''; ?>><?php echo e(t('English')); ?>
                     </option>
@@ -940,13 +912,13 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <input type="hidden" name="template_key" value="<?php echo e($template['template_key']); ?>">
                         <input type="hidden" name="template_lang" value="<?php echo e($template_lang); ?>">
 
-                        <div class="px-6 py-3 border-b" style="background: var(--surface-secondary);">
+                        <div class="px-6 py-3 border-b bg-theme-secondary">
                             <div>
-                                <h4 class="font-semibold" style="color: var(--text-primary);">
+                                <h4 class="font-semibold text-theme-primary">
                                     <?php echo e($info['name'] ?? $template['template_key']); ?>
                                 </h4>
                                 <?php if ($info): ?>
-                                    <p class="text-sm" style="color: var(--text-muted);"><?php echo e($info['description']); ?></p>
+                                    <p class="text-sm text-theme-muted"><?php echo e($info['description']); ?></p>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -961,7 +933,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                             <span class="inline-flex items-center border border-blue-200 rounded px-2 py-1 text-xs"
                                                 style="background: var(--bg-primary);" title="<?php echo e($desc); ?>">
                                                 <code class="text-blue-600"><?php echo e($var); ?></code>
-                                                <span class="ml-1" style="color: var(--text-muted);">- <?php echo e($desc); ?></span>
+                                                <span class="ml-1 text-theme-muted">- <?php echo e($desc); ?></span>
                                             </span>
                                         <?php endforeach; ?>
                                     </div>
@@ -970,17 +942,15 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                             <div class="space-y-4">
                                 <div>
-                                    <label class="block text-sm font-medium mb-1"
-                                        style="color: var(--text-secondary);"><?php echo e(t('Email subject')); ?></label>
+                                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Email subject')); ?></label>
                                     <input type="text" name="template_subject" value="<?php echo e($template['subject']); ?>"
                                         class="form-input">
-                                    <p class="text-xs mt-1" style="color: var(--text-muted);">
+                                    <p class="text-xs mt-1 text-theme-muted">
                                         <?php echo e(t('You can use variables in the subject, e.g. {ticket_title}.')); ?>
                                     </p>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium mb-1"
-                                        style="color: var(--text-secondary);"><?php echo e(t('Email body')); ?></label>
+                                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Email body')); ?></label>
                                     <textarea name="template_body" rows="8"
                                         class="form-textarea font-mono text-sm"><?php echo e($template['body']); ?></textarea>
                                 </div>
@@ -1394,10 +1364,10 @@ include BASE_PATH . '/includes/components/page-header.php';
             <div class="admin-list-card admin-table">
                 <div class="px-4 py-2 border-b flex justify-between items-center">
                     <div>
-                        <h3 class="text-xs font-semibold uppercase tracking-wide" style="color: var(--text-muted);">
+                        <h3 class="text-xs font-semibold uppercase tracking-wide text-theme-muted">
                             <?php echo e(t('System Logs')); ?>
                         </h3>
-                        <p class="text-[11px]" style="color: var(--text-muted);">
+                        <p class="text-[11px] text-theme-muted">
                             <?php echo e(t('Shows system and background process events.')); ?>
                         </p>
                     </div>
@@ -1426,20 +1396,20 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <tbody class="divide-y">
                             <?php if (!$debug_log_available): ?>
                                 <tr>
-                                    <td colspan="6" class="px-6 py-8 text-center" style="color: var(--text-muted);">
+                                    <td colspan="6" class="px-6 py-8 text-center text-theme-muted">
                                         <?php echo e(t('Debug log table is not available in this installation yet.')); ?>
                                     </td>
                                 </tr>
                             <?php elseif (empty($logs)): ?>
                                 <tr>
-                                    <td colspan="6" class="px-6 py-8 text-center" style="color: var(--text-muted);">
+                                    <td colspan="6" class="px-6 py-8 text-center text-theme-muted">
                                         <?php echo e(t('No logs found.')); ?>
                                     </td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($logs as $log): ?>
                                     <tr class="tr-hover text-sm">
-                                        <td class="px-6 py-3 whitespace-nowrap" style="color: var(--text-muted);">
+                                        <td class="px-6 py-3 whitespace-nowrap text-theme-muted">
                                             <?php echo date('Y-m-d H:i:s', strtotime($log['created_at'])); ?>
                                         </td>
                                         <td class="px-6 py-3">
@@ -1464,19 +1434,19 @@ include BASE_PATH . '/includes/components/page-header.php';
                                                 <?php echo strtoupper($log['level']); ?>
                                             </span>
                                         </td>
-                                        <td class="px-6 py-3" style="color: var(--text-secondary);">
+                                        <td class="px-6 py-3 text-theme-secondary">
                                             <?php echo e($log['channel']); ?>
                                         </td>
-                                        <td class="px-6 py-3" style="color: var(--text-secondary);">
+                                        <td class="px-6 py-3 text-theme-secondary">
                                             <?php if ($log['user_id']): ?>
                                                 <span title="<?php echo e($log['email']); ?>">
                                                     <?php echo e(trim((string) (($log['first_name'] ?? '') . ' ' . ($log['last_name'] ?? '')))); ?>
                                                 </span>
                                             <?php else: ?>
-                                                <span style="color: var(--text-muted);">-</span>
+                                                <span class="text-theme-muted">-</span>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="px-6 py-3 max-w-md truncate" style="color: var(--text-primary);"
+                                        <td class="px-6 py-3 max-w-md truncate text-theme-primary"
                                             title="<?php echo e($log['message']); ?>">
                                             <?php echo e($log['message']); ?>
                                         </td>
@@ -1496,9 +1466,8 @@ include BASE_PATH . '/includes/components/page-header.php';
                 </div>
 
                 <?php if ($debug_log_available && $total_pages > 1): ?>
-                    <div class="px-6 py-3 border-t flex justify-between items-center"
-                        style="background: var(--surface-secondary);">
-                        <div class="text-xs" style="color: var(--text-muted);">
+                    <div class="px-6 py-3 border-t flex justify-between items-center bg-theme-secondary">
+                        <div class="text-xs text-theme-muted">
                             <?php echo t('Showing {start} to {end} of {total} entries', [
                                 'start' => $offset + 1,
                                 'end' => min($offset + $per_page, $total_logs),
@@ -1528,10 +1497,10 @@ include BASE_PATH . '/includes/components/page-header.php';
                 <div class="admin-list-card admin-table">
                     <div class="px-6 py-3 border-b flex justify-between items-center">
                         <div>
-                            <h3 class="font-semibold" style="color: var(--text-primary);">
+                            <h3 class="font-semibold text-theme-primary">
                                 <?php echo e(t('Security Audit Log')); ?>
                             </h3>
-                            <p class="text-xs mt-1" style="color: var(--text-muted);">
+                            <p class="text-xs mt-1 text-theme-muted">
                                 <?php echo e(t('Tracks who did what in sensitive operations.')); ?>
                             </p>
                         </div>
@@ -1557,20 +1526,20 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <tbody class="divide-y">
                                 <?php if (empty($security_logs)): ?>
                                     <tr>
-                                        <td colspan="5" class="px-6 py-8 text-center" style="color: var(--text-muted);">
+                                        <td colspan="5" class="px-6 py-8 text-center text-theme-muted">
                                             <?php echo e(t('No security log entries yet.')); ?>
                                         </td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($security_logs as $security_log): ?>
                                         <tr class="tr-hover text-sm">
-                                            <td class="px-6 py-3 whitespace-nowrap" style="color: var(--text-muted);">
+                                            <td class="px-6 py-3 whitespace-nowrap text-theme-muted">
                                                 <?php echo date('Y-m-d H:i:s', strtotime($security_log['created_at'])); ?>
                                             </td>
-                                            <td class="px-6 py-3" style="color: var(--text-secondary);">
+                                            <td class="px-6 py-3 text-theme-secondary">
                                                 <?php echo e($security_log['event_type']); ?>
                                             </td>
-                                            <td class="px-6 py-3" style="color: var(--text-secondary);">
+                                            <td class="px-6 py-3 text-theme-secondary">
                                                 <?php if (!empty($security_log['user_id'])): ?>
                                                     <?php
                                                     $security_user_name = trim((string) (($security_log['first_name'] ?? '') . ' ' . ($security_log['last_name'] ?? '')));
@@ -1581,10 +1550,10 @@ include BASE_PATH . '/includes/components/page-header.php';
                                                     <span
                                                         title="<?php echo e($security_log['email']); ?>"><?php echo e($security_user_name); ?></span>
                                                 <?php else: ?>
-                                                    <span style="color: var(--text-muted);">-</span>
+                                                    <span class="text-theme-muted">-</span>
                                                 <?php endif; ?>
                                             </td>
-                                            <td class="px-6 py-3" style="color: var(--text-secondary);">
+                                            <td class="px-6 py-3 text-theme-secondary">
                                                 <?php echo e($security_log['ip_address'] ?? '-'); ?>
                                             </td>
                                             <td class="px-6 py-3 text-right">
@@ -1605,9 +1574,9 @@ include BASE_PATH . '/includes/components/page-header.php';
                 </div>
             <?php else: ?>
                 <div class="card card-body">
-                    <h3 class="font-semibold mb-2" style="color: var(--text-primary);"><?php echo e(t('Security Audit Log')); ?>
+                    <h3 class="font-semibold mb-2 text-theme-primary"><?php echo e(t('Security Audit Log')); ?>
                     </h3>
-                    <p class="text-sm" style="color: var(--text-muted);">
+                    <p class="text-sm text-theme-muted">
                         <?php echo e(t('Security log table is not available in this installation yet.')); ?>
                     </p>
                 </div>
@@ -1642,11 +1611,11 @@ include BASE_PATH . '/includes/components/page-header.php';
         }
         ?>
         <div class="card card-body">
-            <h3 class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: var(--text-muted);">
+            <h3 class="text-xs font-semibold uppercase tracking-wide mb-2 text-theme-muted">
                 <?php echo e(t('Two-factor authentication')); ?>
             </h3>
 
-            <p class="text-sm mb-4" style="color: var(--text-secondary);">
+            <p class="text-sm mb-4 text-theme-secondary">
                 <?php echo e(t('Require users to set up an authenticator app (Google Authenticator, Authy, 1Password) before accessing the system.')); ?>
             </p>
 
@@ -1663,7 +1632,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         $enabled = $cnt['enabled'];
                     ?>
                     <div class="rounded-lg p-3 transition-colors" style="border: 1px solid var(--border-light);" data-tfa-role="<?php echo $role_key; ?>">
-                        <label class="flex items-center gap-3 text-sm cursor-pointer" style="color: var(--text-primary);">
+                        <label class="flex items-center gap-3 text-sm cursor-pointer text-theme-primary">
                             <input type="checkbox" name="2fa_required_<?php echo $role_key; ?>" class="rounded tfa-checkbox"
                                 data-role="<?php echo e($role_key); ?>"
                                 data-without="<?php echo $without; ?>"
@@ -1700,7 +1669,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                 <!-- What happens info box -->
                 <div class="rounded-lg p-3 text-xs space-y-1.5" style="background: var(--surface-secondary); color: var(--text-muted);">
-                    <div class="font-medium mb-1" style="color: var(--text-secondary);"><?php echo get_icon('info-circle', 'w-3.5 h-3.5 inline mr-1'); ?><?php echo e(t('How this works')); ?></div>
+                    <div class="font-medium mb-1 text-theme-secondary"><?php echo get_icon('info-circle', 'w-3.5 h-3.5 inline mr-1'); ?><?php echo e(t('How this works')); ?></div>
                     <div><?php echo e(t('• Users who haven\'t set up 2FA will be redirected to set it up on their next page load. They can\'t access any other page until setup is complete.')); ?></div>
                     <div><?php echo e(t('• Users need an authenticator app (Google Authenticator, Authy, 1Password) to scan a QR code.')); ?></div>
                     <div><?php echo e(t('• 8 one-time backup codes are provided in case the user loses their device.')); ?></div>

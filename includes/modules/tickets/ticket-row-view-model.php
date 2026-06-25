@@ -27,11 +27,12 @@ function ticket_registry_closed_label(): string
     return function_exists('t') ? t('Closed') : 'Closed';
 }
 
-function ticket_registry_split_model(array $statuses, array $tickets, ?int $status_id, string $ticket_list_view): array
+function ticket_registry_split_model(array $statuses, array $tickets, ?int $status_id, string $ticket_list_view, ?bool $show_closed_tickets_inline_override = null): array
 {
     $statuses_by_id = ticket_registry_statuses_by_id($statuses);
     $is_closed_filter_active = ticket_registry_closed_filter_active($statuses, $status_id);
-    $show_closed_tickets_inline = ticket_list_view_shows_closed_inline($ticket_list_view, $is_closed_filter_active);
+    $show_closed_tickets_inline = $show_closed_tickets_inline_override
+        ?? ticket_list_view_shows_closed_inline($ticket_list_view, $is_closed_filter_active);
 
     $active_statuses = [];
     $closed_statuses = [];

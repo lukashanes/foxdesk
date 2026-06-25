@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
                 <span class="text-white text-2xl font-bold"><?php echo strtoupper(substr($app_name, 0, 1)); ?></span>
             </div>
             <h1 class="text-2xl font-bold text-gradient"><?php echo e(t('New password')); ?></h1>
-            <p style="color: var(--text-muted);"><?php echo e(t('Enter a new password')); ?></p>
+            <p class="text-theme-muted"><?php echo e(t('Enter a new password')); ?></p>
         </div>
 
         <?php if (!$valid_token): ?>
@@ -135,16 +135,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
                 <div class="space-y-4">
                     <div>
                         <label
-                            class="block text-sm font-medium mb-2" style="color: var(--text-secondary);"><?php echo e(t('New password')); ?></label>
+                            class="block text-sm font-medium mb-2 text-theme-secondary"><?php echo e(t('New password')); ?></label>
                         <input type="password" name="password" class="form-input" autocomplete="new-password" required
                             minlength="6" autofocus>
-                        <p class="text-xs mt-1" style="color: var(--text-muted);">
+                        <p class="text-xs mt-1 text-theme-muted">
                             <?php echo e(t('New password must be at least 6 characters.')); ?>
                         </p>
                     </div>
                     <div>
                         <label
-                            class="block text-sm font-medium mb-2" style="color: var(--text-secondary);"><?php echo e(t('Confirm password')); ?></label>
+                            class="block text-sm font-medium mb-2 text-theme-secondary"><?php echo e(t('Confirm password')); ?></label>
                         <input type="password" name="confirm_password" class="form-input" autocomplete="new-password"
                             required>
                     </div>
@@ -161,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
                 <input type="hidden" name="<?php echo e($key); ?>" value="<?php echo e($value); ?>">
             <?php endforeach; ?>
             <label for="lang-select"
-                class="text-xs uppercase tracking-wide" style="color: var(--text-muted);"><?php echo e(t('Language')); ?></label>
+                class="text-xs uppercase tracking-wide text-theme-muted"><?php echo e(t('Language')); ?></label>
             <select id="lang-select" name="lang" class="form-select w-auto text-sm" onchange="this.form.submit()">
                 <?php foreach ($lang_options as $code => $label): ?>
                     <option value="<?php echo e($code); ?>" <?php echo $code === $current_lang ? 'selected' : ''; ?>>
@@ -171,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
             </select>
         </form>
 
-        <p class="text-center text-sm mt-8" style="color: var(--text-muted);">
+        <p class="text-center text-sm mt-8 text-theme-muted">
             &copy; <?php echo date('Y'); ?> <?php echo e($app_name); ?>
         </p>
     </div>

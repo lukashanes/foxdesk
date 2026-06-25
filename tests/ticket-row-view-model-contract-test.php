@@ -54,8 +54,10 @@ $page = file_get_contents($root . '/pages/tickets.php');
 $bootstrap = file_get_contents($root . '/includes/modules/bootstrap.php');
 $assert($page !== false && $bootstrap !== false, 'Ticket registry files must be readable.');
 $assert(str_contains($bootstrap, '/tickets/ticket-row-view-model.php'), 'Module bootstrap must load row view model.');
-$assert(str_contains($page, 'ticket_registry_split_model($statuses, $tickets, $status_id, $ticket_list_view)'), 'Tickets page must use split view model.');
+$assert(str_contains($page, 'ticket_registry_split_model($statuses, $tickets, $status_id, $ticket_list_view'), 'Tickets page must use split view model.');
+$assert(str_contains($page, '$show_closed_tickets_inline)'), 'Tickets page must pass the shared closed visibility decision into the split view model.');
 $assert(str_contains($page, 'ticket_registry_kanban_model('), 'Tickets page must use kanban view model.');
+$assert(!str_contains($page, '$ticket_registry_allowed_status_groups'), 'Tickets page must not define status class closures inline.');
 $assert(!str_contains($page, '$statuses_by_id = [];'), 'Tickets page must not rebuild status lookup inline.');
 $assert(!str_contains($page, '$kanban_main_status_ids = [];'), 'Tickets page must not build kanban main status ids inline.');
 

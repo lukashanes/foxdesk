@@ -11,6 +11,8 @@ $assert = static function (bool $condition, string $message): void {
 };
 
 $keys = settings_email_action_keys();
+$assert(settings_email_surface_type() === 'self_hosted', 'Self-hosted repository must use self-hosted email settings surface.');
+$assert(!settings_email_is_managed_surface(), 'Self-hosted repository must not use managed SaaS email surface.');
 foreach (['save_email', 'test_smtp', 'test_imap', 'run_imap_now', 'save_template'] as $key) {
     $assert(in_array($key, $keys, true), 'Email settings action key missing: ' . $key);
     $assert(settings_is_email_action([$key => '1']), 'Email settings action detector failed: ' . $key);

@@ -40,6 +40,24 @@ function time_activity_period_from_request(array $request): array
     ];
 }
 
+function time_activity_scope_from_request(array $request): array
+{
+    $scope = (string) ($request['activity'] ?? '1');
+    if (!in_array($scope, ['1', '5', 'all'], true)) {
+        $scope = '1';
+    }
+
+    return [
+        'key' => $scope,
+        'limit' => $scope === 'all' ? null : (int) $scope,
+        'options' => [
+            '1' => t('Last ticket'),
+            '5' => t('Last 5 tickets'),
+            'all' => t('All work'),
+        ],
+    ];
+}
+
 function time_activity_tenant_filter(string $table, string $alias, array &$params): string
 {
     if (!function_exists('column_exists') || !column_exists($table, 'tenant_id') || !function_exists('current_tenant_id')) {
@@ -116,10 +134,9 @@ function time_activity_user_totals(int $user_id, array $period): array
     ];
 }
 
-function time_activity_user_entries(int $user_id, array $period, int $limit = 8): array
+function time_activity_user_entries(int $user_id, array $period, ?int $limit = 8): array
 {
     $user_id = max(0, $user_id);
-    $limit = max(1, min(50, $limit));
     if ($user_id <= 0 || empty($period['start']) || empty($period['end']) || !function_exists('ticket_time_table_exists') || !ticket_time_table_exists()) {
         return [];
     }
@@ -127,6 +144,10 @@ function time_activity_user_entries(int $user_id, array $period, int $limit = 8)
     $duration_sql = time_activity_duration_sql();
     $params = [$user_id, $period['start'], $period['end']];
     $tenant_filter = time_activity_tenant_filter('tickets', 't', $params);
+    $limit_clause = '';
+    if ($limit !== null) {
+        $limit_clause = ' LIMIT ' . max(1, min(200, (int) $limit));
+    }
 
     return db_fetch_all("
         SELECT
@@ -150,7 +171,7 @@ function time_activity_user_entries(int $user_id, array $period, int $limit = 8)
           AND tte.started_at <= ?
           {$tenant_filter}
         ORDER BY tte.started_at DESC, tte.id DESC
-        LIMIT {$limit}
+        {$limit_clause}
     ", $params);
 }
 
@@ -171,7 +192,7 @@ function time_activity_staff_users(): array
     ", $params);
 }
 
-function time_activity_team_summary(array $period, int $limit = 50): array
+function time_activity_team_summary(array $period, int $limit = 50, ?int $entry_limit = 1): array
 {
     $users = array_slice(time_activity_staff_users(), 0, max(1, min(200, $limit)));
     $rows = [];
@@ -179,13 +200,14 @@ function time_activity_team_summary(array $period, int $limit = 50): array
     foreach ($users as $staff_user) {
         $user_id = (int) ($staff_user['id'] ?? 0);
         $totals = time_activity_user_totals($user_id, $period);
-        $entries = time_activity_user_entries($user_id, $period, 1);
+        $entries = time_activity_user_entries($user_id, $period, $entry_limit);
         $latest = $entries[0] ?? null;
         $name = trim((string) (($staff_user['first_name'] ?? '') . ' ' . ($staff_user['last_name'] ?? '')));
         $rows[] = [
             'user' => $staff_user,
             'name' => $name !== '' ? $name : (string) ($staff_user['email'] ?? t('Agent')),
             'totals' => $totals,
+            'entries' => $entries,
             'latest_entry' => $latest,
             'is_running' => $latest && empty($latest['ended_at']),
         ];
@@ -201,14 +223,16 @@ function time_activity_team_summary(array $period, int $limit = 50): array
 function time_activity_work_model(array $user, array $request): array
 {
     $period = time_activity_period_from_request($request);
+    $activity_scope = time_activity_scope_from_request($request);
     $user_id = (int) ($user['id'] ?? 0);
     $is_admin_user = function_exists('is_admin') ? is_admin() : (($user['role'] ?? '') === 'admin');
 
     return [
         'period' => $period,
         'period_options' => time_activity_period_options(),
+        'activity_scope' => $activity_scope,
         'my_totals' => time_activity_user_totals($user_id, $period),
-        'my_entries' => time_activity_user_entries($user_id, $period, 6),
-        'team' => $is_admin_user ? time_activity_team_summary($period, 80) : [],
+        'my_entries' => time_activity_user_entries($user_id, $period, $activity_scope['limit']),
+        'team' => $is_admin_user ? time_activity_team_summary($period, 80, $activity_scope['limit']) : [],
     ];
 }

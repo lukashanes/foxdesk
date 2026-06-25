@@ -170,7 +170,7 @@ include BASE_PATH . '/includes/header.php';
         <div class="relative flex-1 w-full sm:max-w-sm">
             <input type="text" id="taskSearch" placeholder="<?php echo e(t('Search tasks...')); ?>"
                 class="form-input w-full pl-9 text-sm" oninput="filterTasks()">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2" style="color: var(--text-muted);"><?php echo get_icon('search', 'w-4 h-4'); ?></span>
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted"><?php echo get_icon('search', 'w-4 h-4'); ?></span>
         </div>
         <div class="flex items-center gap-1 text-sm">
             <button type="button" class="px-3 py-1.5 rounded-md text-xs font-medium task-filter-btn active"
@@ -201,8 +201,8 @@ include BASE_PATH . '/includes/header.php';
     <?php if (empty($tasks)): ?>
         <div class="card p-12 text-center">
             <span style="color: var(--text-muted); opacity: 0.5;"><?php echo get_icon('redo', 'text-6xl mb-4 inline-block'); ?></span>
-            <h3 class="text-lg font-semibold mb-2" style="color: var(--text-primary);"><?php echo e(t('No Recurring Tasks')); ?></h3>
-            <p class="mb-2" style="color: var(--text-muted);">
+            <h3 class="text-lg font-semibold mb-2 text-theme-primary"><?php echo e(t('No Recurring Tasks')); ?></h3>
+            <p class="mb-2 text-theme-muted">
                 <?php echo e(t('Create your first recurring task to automate ticket creation')); ?></p>
             <button onclick="openTaskModal()" class="btn btn-primary">
                 <?php echo get_icon('plus', 'mr-2 inline-block'); ?><?php echo e(t('Create First Task')); ?>
@@ -222,25 +222,25 @@ include BASE_PATH . '/includes/header.php';
                         <th class="px-6 py-3 text-right th-label"><?php echo e(t('Actions')); ?></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y" style="border-color: var(--border-light);">
+                <tbody class="divide-y border-theme-light">
                     <?php foreach ($tasks as $task):
                         $task_status = ($task['is_paused'] ?? false) ? 'paused' : ($task['is_active'] ? 'active' : 'inactive');
                         $task_search_text = strtolower($task['title'] . ' ' . ($task['organization_name'] ?? '') . ' ' . trim($task['first_name'] . ' ' . $task['last_name']));
                     ?>
                         <tr class="tr-hover task-row" data-status="<?php echo $task_status; ?>" data-search="<?php echo e($task_search_text); ?>">
                             <td class="px-6 py-4">
-                                <div class="font-medium" style="color: var(--text-primary);"><?php echo e($task['title']); ?></div>
+                                <div class="font-medium text-theme-primary"><?php echo e($task['title']); ?></div>
                                 <?php if ($task['organization_name']): ?>
-                                    <div class="text-xs" style="color: var(--text-muted);"><?php echo e($task['organization_name']); ?></div>
+                                    <div class="text-xs text-theme-muted"><?php echo e($task['organization_name']); ?></div>
                                 <?php endif; ?>
-                                <div class="text-xs mt-0.5" style="color: var(--text-muted);">
+                                <div class="text-xs mt-0.5 text-theme-muted">
                                     <?php echo e(t('Due')); ?>: <?php echo e(($task['due_days'] ?? 7) . ' ' . t('days')); ?>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 text-sm" style="color: var(--text-secondary);">
+                            <td class="px-6 py-4 text-sm text-theme-secondary">
                                 <?php echo e(trim($task['first_name'] . ' ' . $task['last_name'])); ?>
                             </td>
-                            <td class="px-6 py-4 text-sm" style="color: var(--text-secondary);">
+                            <td class="px-6 py-4 text-sm text-theme-secondary">
                                 <?php
                                 $schedule = '';
                                 switch ($task['recurrence_type']) {
@@ -266,7 +266,7 @@ include BASE_PATH . '/includes/header.php';
                                 echo e($schedule);
                                 ?>
                             </td>
-                            <td class="px-6 py-4 text-sm" style="color: var(--text-secondary);">
+                            <td class="px-6 py-4 text-sm text-theme-secondary">
                                 <?php if ($task['is_active']): ?>
                                     <?php echo date('M j, Y', strtotime($task['next_run_date'])); ?>
                                     <?php
@@ -279,7 +279,7 @@ include BASE_PATH . '/includes/header.php';
                                         <?php echo e($relative); ?>
                                     </div>
                                 <?php else: ?>
-                                    <span style="color: var(--text-muted);">—</span>
+                                    <span class="text-theme-muted">—</span>
                                     <?php if (!empty($task['resume_date'])): ?>
                                         <div class="text-xs mt-0.5 text-orange-600">
                                             <?php echo get_icon('clock', 'inline-block w-3 h-3 mr-0.5'); ?>
@@ -288,7 +288,7 @@ include BASE_PATH . '/includes/header.php';
                                     <?php endif; ?>
                                 <?php endif; ?>
                             </td>
-                            <td class="px-6 py-4 text-sm" style="color: var(--text-secondary);">
+                            <td class="px-6 py-4 text-sm text-theme-secondary">
                                 <?php if ($task['last_run_date']): ?>
                                     <span title="<?php echo e(date('Y-m-d H:i', strtotime($task['last_run_date']))); ?>">
                                         <?php echo date('M j, Y', strtotime($task['last_run_date'])); ?>
@@ -300,7 +300,7 @@ include BASE_PATH . '/includes/header.php';
                                         </button>
                                     <?php endif; ?>
                                 <?php else: ?>
-                                    <span style="color: var(--text-muted);">—</span>
+                                    <span class="text-theme-muted">—</span>
                                 <?php endif; ?>
                             </td>
                             <td class="px-6 py-4">
@@ -338,7 +338,7 @@ include BASE_PATH . '/includes/header.php';
 
                                     <!-- Preview -->
                                     <button onclick='openPreviewModal(<?php echo json_encode($task, JSON_HEX_APOS | JSON_HEX_QUOT); ?>)'
-                                        class="hover:text-blue-800 text-sm font-medium px-1" style="color: var(--text-muted);" title="<?php echo e(t('Preview Ticket')); ?>">
+                                        class="hover:text-blue-800 text-sm font-medium px-1 text-theme-muted" title="<?php echo e(t('Preview Ticket')); ?>">
                                         <?php echo get_icon('eye', 'inline-block'); ?>
                                     </button>
 
@@ -347,7 +347,7 @@ include BASE_PATH . '/includes/header.php';
                                         <?php echo csrf_field(); ?>
                                         <input type="hidden" name="action" value="duplicate">
                                         <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
-                                        <button type="submit" class="hover:text-blue-800 text-sm font-medium px-1" style="color: var(--text-muted);" title="<?php echo e(t('Duplicate')); ?>">
+                                        <button type="submit" class="hover:text-blue-800 text-sm font-medium px-1 text-theme-muted" title="<?php echo e(t('Duplicate')); ?>">
                                             <?php echo get_icon('copy', 'inline-block'); ?>
                                         </button>
                                     </form>
@@ -384,7 +384,7 @@ include BASE_PATH . '/includes/header.php';
                         </tr>
                     <?php endforeach; ?>
                     <tr id="noTasksRow" class="hidden">
-                        <td colspan="7" class="px-6 py-8 text-center text-sm" style="color: var(--text-muted);">
+                        <td colspan="7" class="px-6 py-8 text-center text-sm text-theme-muted">
                             <?php echo e(t('No tasks match your search.')); ?>
                         </td>
                     </tr>
@@ -409,18 +409,18 @@ include BASE_PATH . '/includes/header.php';
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="md:col-span-2">
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary">
                         <?php echo e(t('Task Title')); ?> <span class="text-red-500">*</span>
                     </label>
                     <input type="text" name="title" id="title" required class="form-input w-full"
                         placeholder="<?php echo e(t('e.g., Weekly server backup check')); ?>">
                 </div>
                 <div class="md:col-span-2">
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Description')); ?></label>
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Description')); ?></label>
                     <textarea name="description" id="description" rows="3" class="form-input w-full"></textarea>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Client')); ?></label>
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Client')); ?></label>
                     <select name="organization_id" id="organization_id" class="form-select w-full">
                         <option value=""><?php echo e(t('-- No Client --')); ?></option>
                         <?php foreach ($organizations as $org): ?>
@@ -429,7 +429,7 @@ include BASE_PATH . '/includes/header.php';
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary">
                         <?php echo e(t('Assign To')); ?> <span class="text-red-500">*</span>
                     </label>
                     <select name="assigned_user_id" id="assigned_user_id" required class="form-select w-full">
@@ -441,7 +441,7 @@ include BASE_PATH . '/includes/header.php';
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Type')); ?></label>
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Type')); ?></label>
                     <select name="ticket_type_id" id="ticket_type_id" class="form-select w-full">
                         <option value=""><?php echo e(t('-- No Type --')); ?></option>
                         <?php foreach ($ticket_types as $type): ?>
@@ -450,7 +450,7 @@ include BASE_PATH . '/includes/header.php';
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Priority')); ?></label>
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Priority')); ?></label>
                     <select name="priority_id" id="priority_id" class="form-select w-full">
                         <option value=""><?php echo e(t('-- No Priority --')); ?></option>
                         <?php foreach ($priorities as $priority): ?>
@@ -459,7 +459,7 @@ include BASE_PATH . '/includes/header.php';
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary">
                         <?php echo e(t('Initial Status')); ?> <span class="text-red-500">*</span>
                     </label>
                     <select name="status_id" id="status_id" required class="form-select w-full">
@@ -469,23 +469,23 @@ include BASE_PATH . '/includes/header.php';
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary">
                         <?php echo e(t('Due in (days)')); ?>
                     </label>
                     <input type="number" name="due_days" id="due_days" value="7" min="1" max="365" class="form-input w-full">
-                    <p class="text-xs mt-0.5" style="color: var(--text-muted);"><?php echo e(t('Days until ticket is due after creation')); ?></p>
+                    <p class="text-xs mt-0.5 text-theme-muted"><?php echo e(t('Days until ticket is due after creation')); ?></p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary">
                         <?php echo e(t('Tags')); ?>
-                        <span class="text-xs font-normal" style="color: var(--text-muted);">(<?php echo e(t('Optional')); ?>)</span>
+                        <span class="text-xs font-normal text-theme-muted">(<?php echo e(t('Optional')); ?>)</span>
                     </label>
                     <input type="text" name="tags" id="task_tags" class="form-input w-full"
                         placeholder="<?php echo e(t('e.g., maintenance, monthly, server')); ?>">
-                    <p class="text-xs mt-0.5" style="color: var(--text-muted);"><?php echo e(t('Comma-separated tags applied to generated tickets')); ?></p>
+                    <p class="text-xs mt-0.5 text-theme-muted"><?php echo e(t('Comma-separated tags applied to generated tickets')); ?></p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary">
                         <?php echo e(t('Frequency')); ?> <span class="text-red-500">*</span>
                     </label>
                     <select name="recurrence_type" id="recurrence_type" required class="form-select w-full"
@@ -497,11 +497,11 @@ include BASE_PATH . '/includes/header.php';
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Every')); ?></label>
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Every')); ?></label>
                     <input type="number" name="recurrence_interval" id="recurrence_interval" value="1" min="1" max="365" class="form-input w-full">
                 </div>
                 <div id="dayOfWeekField" class="hidden">
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Day of Week')); ?></label>
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Day of Week')); ?></label>
                     <select name="recurrence_day_of_week" id="recurrence_day_of_week" class="form-select w-full">
                         <option value="0"><?php echo e(t('Sunday')); ?></option>
                         <option value="1" selected><?php echo e(t('Monday')); ?></option>
@@ -513,11 +513,11 @@ include BASE_PATH . '/includes/header.php';
                     </select>
                 </div>
                 <div id="dayOfMonthField" class="hidden">
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Day of Month')); ?></label>
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Day of Month')); ?></label>
                     <input type="number" name="recurrence_day_of_month" id="recurrence_day_of_month" value="1" min="1" max="31" class="form-input w-full">
                 </div>
                 <div id="monthField" class="hidden">
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Month')); ?></label>
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Month')); ?></label>
                     <select name="recurrence_month" id="recurrence_month" class="form-select w-full">
                         <?php for ($m = 1; $m <= 12; $m++): ?>
                             <option value="<?php echo $m; ?>"><?php echo e(t(date('F', mktime(0, 0, 0, $m, 1)))); ?></option>
@@ -525,14 +525,14 @@ include BASE_PATH . '/includes/header.php';
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary">
                         <?php echo e(t('Start Date')); ?> <span class="text-red-500">*</span>
                     </label>
                     <input type="date" name="start_date" id="start_date" value="<?php echo date('Y-m-d'); ?>" required class="form-input w-full">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('End Date')); ?>
-                        <span class="text-xs" style="color: var(--text-muted);">(<?php echo e(t('Optional')); ?>)</span></label>
+                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('End Date')); ?>
+                        <span class="text-xs text-theme-muted">(<?php echo e(t('Optional')); ?>)</span></label>
                     <input type="date" name="end_date" id="end_date" class="form-input w-full">
                 </div>
                 <div class="md:col-span-2 space-y-2">
@@ -564,10 +564,10 @@ include BASE_PATH . '/includes/header.php';
             <h3 class="text-lg font-semibold" id="historyTitle" style="color: var(--text-primary);">
                 <?php echo get_icon('clock', 'mr-2 inline-block'); ?><?php echo e(t('Run History')); ?>
             </h3>
-            <button onclick="closeHistoryModal()" class="text-xl" style="color: var(--text-muted);">&times;</button>
+            <button onclick="closeHistoryModal()" class="text-xl text-theme-muted">&times;</button>
         </div>
         <div id="historyContent" class="space-y-2">
-            <div class="text-center py-8" style="color: var(--text-muted);"><?php echo e(t('Loading...')); ?></div>
+            <div class="text-center py-8 text-theme-muted"><?php echo e(t('Loading...')); ?></div>
         </div>
     </div>
 </div>
@@ -576,12 +576,12 @@ include BASE_PATH . '/includes/header.php';
 <div id="pauseModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
     <div class="rounded-xl shadow-xl max-w-md w-full mx-4 p-4" style="background: var(--bg-primary);">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold" style="color: var(--text-primary);">
+            <h3 class="text-lg font-semibold text-theme-primary">
                 <?php echo get_icon('pause-circle', 'mr-2 inline-block'); ?><?php echo e(t('Pause Task')); ?>
             </h3>
-            <button onclick="closePauseModal()" class="text-xl" style="color: var(--text-muted);">&times;</button>
+            <button onclick="closePauseModal()" class="text-xl text-theme-muted">&times;</button>
         </div>
-        <p class="text-sm mb-3" style="color: var(--text-secondary);">
+        <p class="text-sm mb-3 text-theme-secondary">
             <?php echo e(t('This will stop the task from creating tickets until resumed.')); ?>
         </p>
         <p class="text-sm font-medium mb-1" id="pauseTaskName" style="color: var(--text-primary);"></p>
@@ -591,18 +591,18 @@ include BASE_PATH . '/includes/header.php';
             <input type="hidden" name="task_id" id="pauseTaskId" value="">
 
             <div class="mb-4">
-                <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                <label class="block text-sm font-medium mb-1 text-theme-secondary">
                     <?php echo e(t('Auto-resume date')); ?>
-                    <span class="text-xs font-normal" style="color: var(--text-muted);">(<?php echo e(t('Optional')); ?>)</span>
+                    <span class="text-xs font-normal text-theme-muted">(<?php echo e(t('Optional')); ?>)</span>
                 </label>
                 <input type="date" name="resume_date" id="pauseResumeDate" class="form-input w-full"
                        min="<?php echo date('Y-m-d', strtotime('+1 day')); ?>">
-                <p class="text-xs mt-1" style="color: var(--text-muted);">
+                <p class="text-xs mt-1 text-theme-muted">
                     <?php echo e(t('Leave empty to pause indefinitely. Task will auto-resume on this date.')); ?>
                 </p>
             </div>
 
-            <div class="flex items-center justify-end gap-3 pt-3 border-t" style="border-color: var(--border-light);">
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-theme-light">
                 <button type="button" onclick="closePauseModal()" class="btn btn-secondary"><?php echo e(t('Cancel')); ?></button>
                 <button type="submit" class="btn" style="background: #f97316; color: white;">
                     <?php echo get_icon('pause-circle', 'mr-1 inline-block'); ?><?php echo e(t('Pause Task')); ?>
@@ -619,13 +619,13 @@ include BASE_PATH . '/includes/header.php';
             <h3 class="text-lg font-semibold" id="previewTitle" style="color: var(--text-primary);">
                 <?php echo get_icon('eye', 'mr-2 inline-block'); ?><?php echo e(t('Ticket Preview')); ?>
             </h3>
-            <button onclick="closePreviewModal()" class="text-xl" style="color: var(--text-muted);">&times;</button>
+            <button onclick="closePreviewModal()" class="text-xl text-theme-muted">&times;</button>
         </div>
-        <p class="text-xs mb-4" style="color: var(--text-muted);">
+        <p class="text-xs mb-4 text-theme-muted">
             <?php echo e(t('This is a preview of the ticket that will be generated on the next scheduled run.')); ?>
         </p>
         <div id="previewContent"></div>
-        <div class="flex items-center justify-end gap-3 pt-4 mt-4 border-t" style="border-color: var(--border-light);">
+        <div class="flex items-center justify-end gap-3 pt-4 mt-4 border-t border-theme-light">
             <button type="button" onclick="closePreviewModal()" class="btn btn-secondary"><?php echo e(t('Close')); ?></button>
         </div>
     </div>

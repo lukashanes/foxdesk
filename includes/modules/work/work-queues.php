@@ -109,7 +109,70 @@ function work_queue_items(string $queue_key, array $user, int $limit = 8): array
     if (!function_exists('get_tickets')) {
         return [];
     }
-    return get_tickets(work_queue_filters($queue_key, $user, $limit));
+    $items = get_tickets(work_queue_filters($queue_key, $user, $limit));
+    if (($user['role'] ?? '') === 'user') {
+        return $items;
+    }
+
+    $scope_user_id = $queue_key === 'mine' ? (int) ($user['id'] ?? 0) : 0;
+    return work_queue_attach_worked_minutes($items, $scope_user_id);
+}
+
+function work_queue_ticket_minutes_map(array $ticket_ids, int $user_id = 0): array
+{
+    $ticket_ids = array_values(array_unique(array_filter(array_map('intval', $ticket_ids))));
+    if (empty($ticket_ids) || !function_exists('ticket_time_table_exists') || !ticket_time_table_exists()) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($ticket_ids), '?'));
+    $params = $ticket_ids;
+    $user_clause = '';
+    if ($user_id > 0) {
+        $user_clause = ' AND tte.user_id = ?';
+        $params[] = $user_id;
+    }
+
+    $duration_sql = function_exists('time_activity_duration_sql')
+        ? time_activity_duration_sql()
+        : 'tte.duration_minutes';
+    $tenant_filter = function_exists('time_activity_tenant_filter')
+        ? time_activity_tenant_filter('tickets', 't', $params)
+        : '';
+
+    $rows = db_fetch_all("
+        SELECT tte.ticket_id, SUM({$duration_sql}) AS worked_minutes
+        FROM ticket_time_entries tte
+        JOIN tickets t ON t.id = tte.ticket_id
+        WHERE tte.ticket_id IN ({$placeholders})
+          {$user_clause}
+          {$tenant_filter}
+        GROUP BY tte.ticket_id
+    ", $params);
+
+    $map = [];
+    foreach ($rows as $row) {
+        $map[(int) ($row['ticket_id'] ?? 0)] = max(0, (int) ($row['worked_minutes'] ?? 0));
+    }
+
+    return $map;
+}
+
+function work_queue_attach_worked_minutes(array $items, int $user_id = 0): array
+{
+    $ticket_ids = [];
+    foreach ($items as $item) {
+        $ticket_ids[] = (int) ($item['id'] ?? 0);
+    }
+
+    $minutes = work_queue_ticket_minutes_map($ticket_ids, $user_id);
+    foreach ($items as &$item) {
+        $ticket_id = (int) ($item['id'] ?? 0);
+        $item['worked_minutes'] = (int) ($minutes[$ticket_id] ?? 0);
+    }
+    unset($item);
+
+    return $items;
 }
 
 function work_queue_count(string $queue_key, array $user): int

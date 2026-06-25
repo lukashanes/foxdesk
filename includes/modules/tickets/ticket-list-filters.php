@@ -42,7 +42,7 @@ function ticket_list_normalize_tag_filters($value): array
 
 function ticket_list_allowed_sorts(bool $tags_supported): array
 {
-    $sorts = ['newest', 'oldest', 'last_updated', 'ticket_number', 'ticket_number_asc', 'priority', 'status', 'due_date'];
+    $sorts = ['newest', 'oldest', 'completed', 'last_updated', 'ticket_number', 'ticket_number_asc', 'priority', 'status', 'due_date'];
     if ($tags_supported) {
         $sorts[] = 'tags';
     }
@@ -89,6 +89,7 @@ function ticket_list_filter_state_from_request(array $request, array $cookies = 
         $tag_filters = ticket_list_normalize_tag_filters($request['tag'] ?? '');
     }
 
+    $sort_is_explicit = array_key_exists('sort', $request);
     $sort = trim((string) ($request['sort'] ?? 'newest'));
     if (!in_array($sort, ticket_list_allowed_sorts($tags_supported), true)) {
         $sort = 'newest';
@@ -146,7 +147,7 @@ function ticket_list_filter_state_from_request(array $request, array $cookies = 
         }
     }
 
-    if ($sort !== 'newest') {
+    if ($sort_is_explicit || $sort !== 'newest') {
         $filters['sort'] = $sort;
     }
     if ($archive_supported) {
@@ -168,6 +169,7 @@ function ticket_list_filter_state_from_request(array $request, array $cookies = 
         'tag_filters' => $tag_filters,
         'tag_filter_csv' => implode(', ', $tag_filters),
         'sort' => $sort,
+        'sort_is_explicit' => $sort_is_explicit,
         'ticket_view' => $view_state['view'],
         'ticket_view_should_persist' => $view_state['persist'],
     ];

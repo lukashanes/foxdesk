@@ -35,6 +35,17 @@ assert_ticket_list_view(empty($open['status_group']), 'Open view should remove s
 $waiting = ticket_list_view_apply_filters($base, 'waiting');
 assert_ticket_list_view(($waiting['status_group'] ?? '') === 'waiting', 'Waiting view should filter waiting tickets.');
 
+$done = ticket_list_view_apply_filters(['is_archived' => 0], 'done');
+assert_ticket_list_view(($done['status_group'] ?? '') === 'done', 'Done view should filter done tickets.');
+assert_ticket_list_view(($done['sort'] ?? '') === 'completed', 'Done view should default to completed sort.');
+
+$done_explicit_sort = ticket_list_view_apply_filters(['is_archived' => 0, 'sort' => 'newest'], 'done');
+assert_ticket_list_view(($done_explicit_sort['sort'] ?? '') === 'newest', 'Explicit Done sort must be preserved.');
+
+assert_ticket_list_view(ticket_list_view_default_sort('done') === 'completed', 'Done view default sort should be completed.');
+assert_ticket_list_view(ticket_list_view_effective_sort('done', 'newest', false) === 'completed', 'Implicit Done sort should become completed.');
+assert_ticket_list_view(ticket_list_view_effective_sort('done', 'newest', true) === 'newest', 'Explicit Done newest sort should stay newest.');
+
 $explicit_status = ['is_archived' => 0, 'status_id' => 5];
 $open_with_status = ticket_list_view_apply_filters($explicit_status, 'open');
 assert_ticket_list_view(($open_with_status['status_id'] ?? null) === 5, 'Explicit status filter should be preserved.');
@@ -70,12 +81,18 @@ assert_ticket_list_view(ticket_list_view_shows_closed_inline('all'), 'All view s
 assert_ticket_list_view(ticket_list_view_shows_closed_inline('open', true), 'Explicit closed status filter should show closed tickets inline.');
 
 $tickets_page = file_get_contents($root . '/pages/tickets.php');
+$ticket_row_model = file_get_contents($root . '/includes/modules/tickets/ticket-row-view-model.php');
+$ticket_registry_surface = file_get_contents($root . '/includes/components/ticket-registry-surface.php');
 assert_ticket_list_view($tickets_page !== false, 'Tickets page must be readable.');
+assert_ticket_list_view($ticket_row_model !== false, 'Ticket row model must be readable.');
+assert_ticket_list_view($ticket_registry_surface !== false, 'Ticket registry surface must be readable.');
 assert_ticket_list_view(str_contains($tickets_page, 'ticket_registry_render_view_tabs'), 'Tickets page should render view tabs through the registry surface component.');
 assert_ticket_list_view(str_contains($tickets_page, '$ticket_show_all_url'), 'Tickets page should use a real All view URL for Show all.');
 assert_ticket_list_view(str_contains($tickets_page, '$ticket_clear_url'), 'Tickets page should preserve the current view when clearing filters.');
+assert_ticket_list_view(str_contains($tickets_page, '$page_header_subtitle = \'\';'), 'Ticket page header must not repeat the active view count below the tab counts.');
+assert_ticket_list_view(!str_contains($ticket_registry_surface, 'ticket-filter-summary__count'), 'Ticket registry summary must not repeat the selected view count below the view tabs.');
 assert_ticket_list_view(substr_count($tickets_page, 'name="search_scope" value="all"') >= 2, 'Ticket search forms should request all-ticket search by default.');
-assert_ticket_list_view(str_contains($tickets_page, 'ticket_list_view_shows_closed_inline'), 'Tickets page must use the closed visibility helper.');
-assert_ticket_list_view(str_contains($tickets_page, 'if (!$show_closed_tickets_inline'), 'Board closed-ticket hiding must follow the same closed visibility helper.');
+assert_ticket_list_view(str_contains($ticket_row_model, 'ticket_list_view_shows_closed_inline'), 'Ticket row model must use the closed visibility helper.');
+assert_ticket_list_view(str_contains($ticket_row_model, 'if (!$show_closed_tickets_inline'), 'Board closed-ticket hiding must follow the same closed visibility helper.');
 
 echo "Ticket list view tests passed\n";

@@ -118,6 +118,12 @@ if ($staff_scope) {
 
 $ticket_list_include_archive = is_admin();
 $ticket_list_view = ticket_list_view_from_request($_GET, $is_archive, $ticket_list_include_archive);
+$sort = ticket_list_view_effective_sort($ticket_list_view, $sort, (bool) ($ticket_filter_state['sort_is_explicit'] ?? false));
+if ($sort !== 'newest') {
+    $filters['sort'] = $sort;
+} elseif (($filters['sort'] ?? '') === 'newest') {
+    unset($filters['sort']);
+}
 $ticket_list_view_definitions = ticket_list_view_definitions($ticket_list_include_archive);
 $ticket_show_all_url = $is_archive
     ? url('tickets', ['archived' => '1'])
@@ -249,7 +255,10 @@ if ($user_search !== '') {
 if ($created_date_value !== '') {
     $filter_notes[] = t('Created') . ': ' . $created_date_value;
 }
-$page_header_subtitle = t('{count} tickets', ['count' => $total_tickets]) . (!empty($filter_notes) ? ' | ' . implode(' | ', $filter_notes) : '');
+$has_filters = !empty($search_query) || !empty($status_id) || !empty($priority_id) ||
+               !empty($organization_id) || !empty($due_date_filter) || !empty($created_date_value) ||
+               !empty($user_search) || !empty($assigned_to) || $staff_scope || ($tags_supported && !empty($tag_filters)) || $sort !== 'newest';
+$page_header_subtitle = '';
 
 $page_header_breadcrumbs = [
     ['label' => t('All tickets'), 'url' => url('tickets', $is_archive ? ['archived' => '1'] : [])]
@@ -279,11 +288,11 @@ if (!is_admin() && !is_agent() && isset($scope) && $scope === 'organization' && 
     $mine_url = url('tickets', $params_mine);
     $company_url = url('tickets', $params_comp);
 
-    $page_header_actions .= '<div class="inline-flex rounded-md shadow-sm mr-4" role="group">
-        <a href="'.$mine_url.'" class="px-4 py-2 text-sm font-medium border rounded-l-lg '.($current_view === 'mine' ? 'bg-blue-600 text-white border-blue-600' : '').' " style="'.($current_view !== 'mine' ? 'background: var(--bg-primary); color: var(--text-secondary); border-color: var(--border-light);' : '').'">
+    $page_header_actions .= '<div class="ticket-segmented-control" role="group" aria-label="' . e(t('Ticket scope')) . '">
+        <a href="'.$mine_url.'" class="ticket-segmented-item '.($current_view === 'mine' ? 'is-active' : '').'">
             '.t('My Tickets').'
         </a>
-        <a href="'.$company_url.'" class="px-4 py-2 text-sm font-medium border rounded-r-lg '.($current_view === 'company' ? 'bg-blue-600 text-white border-blue-600' : '').' " style="'.($current_view !== 'company' ? 'background: var(--bg-primary); color: var(--text-secondary); border-color: var(--border-light);' : '').'">
+        <a href="'.$company_url.'" class="ticket-segmented-item '.($current_view === 'company' ? 'is-active' : '').'">
             '.t('Company Tickets').'
         </a>
     </div>';
@@ -296,11 +305,11 @@ if (!$is_archive) {
     $list_url = url('tickets', $view_params_list);
     $board_url = url('tickets', $view_params_board);
 
-    $page_header_actions .= '<div class="inline-flex rounded-md shadow-sm mr-2" role="group">'
-        . '<a href="' . $list_url . '" class="px-3 py-2 text-sm font-medium border rounded-l-lg ' . ($ticket_view === 'list' ? 'bg-blue-600 text-white border-blue-600' : '') . '" style="' . ($ticket_view !== 'list' ? 'background: var(--bg-primary); color: var(--text-secondary); border-color: var(--border-light);' : '') . '" title="' . e(t('List')) . '">'
+    $page_header_actions .= '<div class="ticket-segmented-control ticket-segmented-control--icon" role="group" aria-label="' . e(t('View')) . '">'
+        . '<a href="' . $list_url . '" class="ticket-segmented-item ' . ($ticket_view === 'list' ? 'is-active' : '') . '" title="' . e(t('List')) . '">'
         . get_icon('list', 'w-4 h-4')
         . '</a>'
-        . '<a href="' . $board_url . '" class="px-3 py-2 text-sm font-medium border rounded-r-lg ' . ($ticket_view === 'board' ? 'bg-blue-600 text-white border-blue-600' : '') . '" style="' . ($ticket_view !== 'board' ? 'background: var(--bg-primary); color: var(--text-secondary); border-color: var(--border-light);' : '') . '" title="' . e(t('Board')) . '">'
+        . '<a href="' . $board_url . '" class="ticket-segmented-item ' . ($ticket_view === 'board' ? 'is-active' : '') . '" title="' . e(t('Board')) . '">'
         . get_icon('columns', 'w-4 h-4')
         . '</a>'
         . '</div>';
@@ -310,6 +319,7 @@ if (!$is_archive) {
 $sort_options = [
     'newest'           => t('Newest'),
     'oldest'           => t('Oldest'),
+    'completed'        => t('Completed'),
     'last_updated'     => t('Last updated'),
     'ticket_number'    => t('Ticket # (newest)'),
     'ticket_number_asc'=> t('Ticket # (oldest)'),
@@ -387,684 +397,35 @@ $build_remove_tag_filter_url = function ($tag_value) use ($is_archive, $tag_filt
     return url('tickets', $params);
 };
 
+$date_sort_next = $sort === 'oldest' ? 'newest' : 'oldest';
+if (!in_array($sort, ['newest', 'oldest'], true)) {
+    $date_sort_next = 'newest';
+}
+$date_sort_params = $_GET;
+unset($date_sort_params['page'], $date_sort_params['p']);
+$date_sort_params['sort'] = $date_sort_next;
+if ($is_archive) {
+    $date_sort_params['archived'] = '1';
+} else {
+    unset($date_sort_params['archived']);
+}
+$date_sort_url = url('tickets', $date_sort_params);
+$date_sort_icon = $sort === 'oldest' ? 'arrow-up' : ($sort === 'newest' ? 'arrow-down' : 'arrow-up-down');
+$date_sort_is_active = in_array($sort, ['newest', 'oldest'], true);
+$date_sort_title = t('Date') . ': ' . t($date_sort_next === 'oldest' ? 'Oldest' : 'Newest');
+
 include BASE_PATH . '/includes/components/page-header.php';
 ?>
 
-<style>
-.ticket-view-tabs {
-    display: flex;
-    gap: 0.375rem;
-    overflow-x: auto;
-    padding: 0 0.25rem 0.75rem;
-    margin-top: -0.25rem;
-    -webkit-overflow-scrolling: touch;
-}
-.ticket-view-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.55rem 0.75rem;
-    border: 1px solid var(--border-light);
-    border-radius: 0.75rem;
-    color: var(--text-secondary);
-    background: var(--surface-primary);
-    text-decoration: none;
-    font-size: 0.8125rem;
-    font-weight: 700;
-    white-space: nowrap;
-    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
-}
-.ticket-view-tab:hover {
-    color: var(--text-primary);
-    background: var(--surface-secondary);
-}
-.ticket-view-tab.is-active {
-    color: var(--primary);
-    border-color: color-mix(in srgb, var(--primary) 35%, var(--border-light));
-    background: var(--primary-soft);
-}
-.ticket-view-tab__count {
-    min-width: 1.55rem;
-    padding: 0.125rem 0.4rem;
-    border-radius: 999px;
-    background: var(--surface-secondary);
-    color: var(--text-muted);
-    text-align: center;
-    font-size: 0.6875rem;
-    font-weight: 800;
-}
-.ticket-view-tab.is-active .ticket-view-tab__count {
-    background: var(--surface-primary);
-    color: var(--primary);
-}
-/* Ticket ID — plain text, no pill */
-.ticket-code {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-decoration: none;
-    white-space: nowrap;
-    transition: color 0.15s ease;
-}
-.ticket-code:hover {
-    color: var(--primary);
-}
-/* Subject link — plain text, underline on hover */
-.ticket-subject-link {
-    color: var(--text-primary);
-    font-weight: 400;
-    text-decoration: none;
-    cursor: pointer;
-    transition: color 0.15s ease;
-}
-.ticket-subject-link:hover {
-    color: var(--primary);
-    text-decoration: underline;
-    text-underline-offset: 2px;
-}
-/* Whole row clickable — pointer cursor */
-.ticket-row {
-    cursor: pointer;
-}
-.ticket-row:hover .ticket-subject-link {
-    color: var(--primary);
-}
-/* Filter selects in header — clean minimal appearance */
-.tickets-table .filter-select {
-    appearance: none;
-    -webkit-appearance: none;
-    background: transparent;
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-sm);
-    padding: 0.35rem 1.4rem 0.35rem 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.15s ease;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.35rem center;
-    white-space: nowrap;
-    width: 100%;
-}
-.tickets-table .filter-select:hover {
-    border-color: var(--border-light);
-    background-color: var(--surface-secondary);
-}
-.tickets-table .filter-select:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px var(--primary-soft);
-}
-/* Filter text input — same subtle style as selects */
-.tickets-table .filter-input {
-    background: transparent;
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-sm);
-    padding: 0.35rem 0.5rem 0.35rem 0.5rem;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    transition: all 0.15s ease;
-    width: 100%;
-}
-.tickets-table .filter-input::placeholder {
-    color: var(--text-muted);
-    font-weight: 400;
-}
-.tickets-table .filter-input:hover {
-    border-color: var(--border-light);
-    background-color: var(--surface-secondary);
-}
-.tickets-table .filter-input:focus {
-    outline: none;
-    border-color: var(--primary);
-    background-color: var(--surface-primary);
-    box-shadow: 0 0 0 2px var(--primary-soft);
-}
-/* Search input in subject header */
-.ticket-search-wrap {
-    position: relative;
-    flex-shrink: 1;
-    min-width: 0;
-    width: 10rem;
-    overflow: visible;
-}
-/* Autosuggest dropdown */
-.ticket-search-suggestions {
-    display: none;
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    width: 320px;
-    max-height: 280px;
-    overflow-y: auto;
-    background: var(--surface-primary);
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-md, 8px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    z-index: 100;
-    padding: 4px;
-}
-[data-theme="dark"] .ticket-search-suggestions {
-    background: var(--corp-slate-800);
-    border-color: var(--corp-slate-600);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-}
-.ticket-search-suggestions.active { display: block; }
-.ticket-suggest-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border-radius: var(--radius-sm, 6px);
-    cursor: pointer;
-    text-decoration: none;
-    color: var(--text-primary);
-    font-size: 0.8125rem;
-    transition: background 0.1s;
-}
-.ticket-suggest-item:hover,
-.ticket-suggest-item.active {
-    background: var(--surface-secondary);
-}
-.ticket-suggest-item .suggest-code {
-    font-size: 0.6875rem;
-    color: var(--text-muted);
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-.ticket-suggest-item .suggest-title {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.ticket-suggest-item .suggest-status {
-    font-size: 0.625rem;
-    padding: 1px 6px;
-    border-radius: 9999px;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-.ticket-suggest-hint {
-    padding: 6px 10px;
-    font-size: 0.6875rem;
-    color: var(--text-muted);
-    text-align: center;
-}
-.ticket-search-wrap .search-icon {
-    position: absolute;
-    left: 0.65rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-muted);
-    pointer-events: none;
-    transition: color 0.15s;
-}
-.ticket-search-input {
-    background: transparent;
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-sm);
-    box-sizing: border-box;
-    padding: 0.35rem 0.5rem 0.35rem 1.85rem;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-.ticket-search-input::placeholder {
-    color: var(--text-muted);
-    font-weight: 400;
-    font-size: 0.6875rem;
-}
-.ticket-search-input:hover {
-    border-color: var(--border-light);
-    background-color: var(--surface-secondary);
-}
-.ticket-search-input:focus {
-    outline: none;
-    cursor: text;
-    border-color: var(--primary);
-    background-color: var(--surface-primary);
-    box-shadow: 0 0 0 2px var(--primary-soft);
-}
-.ticket-search-input:focus::placeholder {
-    color: var(--text-muted);
-}
-@media (min-width: 1280px) {
-    .ticket-search-wrap { width: 12rem; }
-}
-.ticket-search-input:focus + .search-icon,
-.ticket-search-wrap:focus-within .search-icon {
-    color: var(--primary);
-}
-/* Header sort select — icon is in wrapper div */
-#header-sort {
-    outline: none;
-    border: none;
-    color: inherit;
-}
-/* Dark mode overrides for ticket filters */
-[data-theme="dark"] .tickets-table .filter-select {
-    color: var(--corp-slate-200);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-}
-[data-theme="dark"] .tickets-table .filter-select:hover,
-[data-theme="dark"] .tickets-table .filter-input:hover {
-    border-color: var(--corp-slate-600);
-    background-color: var(--corp-slate-700);
-}
-[data-theme="dark"] .tickets-table .filter-input,
-[data-theme="dark"] .ticket-search-input {
-    color: var(--corp-slate-200);
-}
-[data-theme="dark"] .tickets-table .filter-select:focus,
-[data-theme="dark"] .tickets-table .filter-input:focus,
-[data-theme="dark"] .ticket-search-input:focus {
-    border-color: var(--corp-blue-500);
-    background-color: var(--corp-slate-700);
-}
-[data-theme="dark"] .ticket-search-input:hover {
-    border-color: var(--corp-slate-600);
-    background-color: var(--corp-slate-700);
-}
-
-/* Kanban Board */
-.kanban-board-wrapper {
-    overflow: visible !important;
-    border: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    padding: 0 !important;
-}
-.kanban-board {
-    display: flex;
-    gap: 0.75rem;
-    overflow-x: auto;
-    padding: 0.5rem 0.75rem 0.75rem;
-    align-items: flex-start;
-    -webkit-overflow-scrolling: touch;
-}
-.kanban-board--closed {
-    padding-top: 0.75rem;
-}
-.kanban-board--centered {
-    width: 100%;
-}
-.kanban-board--fill {
-    width: 100%;
-}
-.kanban-closed-toggle {
-    width: calc(100% - 1.5rem);
-    margin: 0.25rem 0.75rem 0;
-    padding: 0.625rem 0.875rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    border: 1px solid var(--border-light, #e5e7eb);
-    border-radius: 0.75rem;
-    background: var(--surface-secondary, #f9fafb);
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-.kanban-closed-toggle:hover {
-    background: var(--surface-primary, #ffffff);
-    color: var(--text-primary);
-}
-.kanban-column {
-    flex: 0 0 272px;
-    min-width: 272px;
-    display: flex;
-    flex-direction: column;
-    background: var(--surface-secondary, #f9fafb);
-    border-radius: 0.75rem;
-    border: 1px solid var(--border-light, #e5e7eb);
-}
-.kanban-column-header {
-    padding: 0.625rem 0.75rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 600;
-    font-size: 0.8125rem;
-    color: var(--text-primary);
-    border-bottom: 1px solid var(--border-light, #e5e7eb);
-    position: sticky;
-    top: 0;
-    z-index: 1;
-}
-.kanban-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-.kanban-count {
-    margin-left: auto;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    padding: 0.125rem 0.5rem;
-    border-radius: 9999px;
-    background: var(--border-light, #e5e7eb);
-    color: var(--text-muted, #6b7280);
-}
-.kanban-cards {
-    padding: 0.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-    min-height: 2rem;
-}
-.kanban-card {
-    background: var(--surface-primary, #ffffff);
-    border: 1px solid var(--border-light, #e5e7eb);
-    border-radius: 0.5rem;
-    transition: box-shadow 0.2s, opacity 0.2s, transform 0.2s;
-    position: relative;
-}
-.kanban-column {
-    transition: opacity 0.2s, transform 0.2s;
-}
-.kanban-card[draggable="true"] {
-    cursor: grab;
-}
-.kanban-card[draggable="true"]:active {
-    cursor: grabbing;
-}
-.kanban-card:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    transform: translateY(-1px);
-}
-.kanban-card.dragging {
-    opacity: 0.35;
-    transform: scale(0.97) rotate(1.5deg);
-    box-shadow: none;
-    transition: opacity 0.15s, transform 0.15s;
-}
-/* Source column dims while dragging from it */
-.kanban-column.drag-source {
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-.kanban-column.drag-source .kanban-column-header {
-    opacity: 0.5;
-}
-/* Target column highlight with smooth transition */
-.kanban-column.drag-over {
-    background: color-mix(in srgb, var(--primary, #3c50e0) 6%, var(--surface-secondary, #f9fafb));
-    border-color: var(--primary, #3c50e0);
-    transform: scale(1.01);
-    transition: background 0.2s, border-color 0.2s, transform 0.2s;
-}
-.kanban-column.drag-over .kanban-cards {
-    outline: 2px dashed color-mix(in srgb, var(--primary, #3c50e0) 30%, transparent);
-    outline-offset: -2px;
-    border-radius: 0.375rem;
-}
-.kanban-column.drag-over .kanban-column-header {
-    color: var(--primary, #3c50e0);
-    transition: color 0.2s;
-}
-/* Drag ghost — floating thumbnail */
-.kanban-drag-ghost {
-    position: fixed;
-    top: -9999px;
-    left: -9999px;
-    z-index: 9999;
-    background: var(--surface-primary, #ffffff);
-    border: 1px solid var(--border-light, #e5e7eb);
-    border-radius: 0.5rem;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.1);
-    transform: rotate(-2deg) scale(1.02);
-    opacity: 0.95;
-    pointer-events: none;
-    max-width: 280px;
-    overflow: hidden;
-}
-[data-theme="dark"] .kanban-drag-ghost {
-    background: var(--corp-slate-900, #0f172a);
-    border-color: var(--corp-slate-600, #475569);
-    box-shadow: 0 12px 32px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.3);
-}
-/* Drop placeholder — animated gap where card will land */
-.kanban-drop-placeholder {
-    background: color-mix(in srgb, var(--primary, #3c50e0) 8%, transparent);
-    border: 2px dashed color-mix(in srgb, var(--primary, #3c50e0) 25%, transparent);
-    border-radius: 0.5rem;
-    margin: 0.25rem 0;
-    transition: height 0.2s ease;
-    animation: placeholder-pulse 1.2s ease-in-out infinite;
-}
-@keyframes placeholder-pulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
-}
-/* Card landing animation */
-.kanban-card.just-dropped {
-    animation: card-land 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-@keyframes card-land {
-    0% { transform: scale(1.06); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
-    100% { transform: scale(1); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-}
-/* Revert shake on error */
-.kanban-card.revert-shake {
-    animation: shake 0.4s ease;
-}
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    20% { transform: translateX(-6px); }
-    40% { transform: translateX(6px); }
-    60% { transform: translateX(-4px); }
-    80% { transform: translateX(4px); }
-}
-/* Mobile: card fly out/in */
-.kanban-card.card-fly-out {
-    animation: fly-out 0.2s ease forwards;
-}
-@keyframes fly-out {
-    to { opacity: 0; transform: scale(0.9) translateY(-8px); }
-}
-.kanban-card.card-fly-in {
-    animation: fly-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-@keyframes fly-in {
-    from { opacity: 0; transform: scale(0.9) translateY(8px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
-}
-/* Count badge pop on change */
-.kanban-count.count-pop {
-    animation: count-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-@keyframes count-pop {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.3); }
-    100% { transform: scale(1); }
-}
-.kanban-card-link {
-    display: block;
-    padding: 0.5rem 0.625rem;
-    text-decoration: none;
-    color: inherit;
-}
-.kanban-card-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.25rem;
-}
-.kanban-card-code {
-    font-size: 0.6875rem;
-    font-weight: 500;
-    color: var(--text-muted, #6b7280);
-}
-.kanban-card-due {
-    font-size: 0.6875rem;
-    color: var(--text-muted, #6b7280);
-}
-.kanban-card-due.overdue {
-    color: var(--danger, #ef4444);
-    font-weight: 600;
-}
-.kanban-card-title {
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: var(--text-primary);
-    line-height: 1.35;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-.kanban-card-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    margin-top: 0.375rem;
-    flex-wrap: wrap;
-}
-.kanban-card-priority {
-    font-size: 0.625rem;
-    font-weight: 600;
-    padding: 0.0625rem 0.375rem;
-    border-radius: 0.25rem;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-}
-.kanban-card-icon {
-    color: var(--text-muted, #6b7280);
-    display: flex;
-    align-items: center;
-}
-.kanban-card-assignee {
-    margin-left: auto;
-    font-size: 0.6875rem;
-    color: var(--text-muted, #6b7280);
-}
-.kanban-mobile-status {
-    display: none;
-}
-
-/* Wide screens: let the active board breathe instead of leaving a large empty strip */
-@media (min-width: 1440px) {
-    .kanban-board--centered {
-        display: grid;
-        grid-template-columns: repeat(var(--kanban-column-count, 1), minmax(320px, var(--kanban-centered-width, 440px)));
-        justify-content: center;
-        gap: 1rem;
-        overflow-x: visible;
-        padding-left: 0;
-        padding-right: 0;
-        align-items: start;
-    }
-    .kanban-board--centered .kanban-column {
-        flex: none;
-        min-width: 0;
-    }
-    .kanban-board--centered .kanban-column-header {
-        padding: 0.75rem 0.875rem;
-    }
-    .kanban-board--centered .kanban-cards {
-        padding: 0.625rem;
-        gap: 0.5rem;
-    }
-    .kanban-board--centered .kanban-card-link {
-        padding: 0.75rem 0.8125rem;
-    }
-    .kanban-board--centered .kanban-card-title {
-        font-size: 0.9375rem;
-    }
-    .kanban-board--fill {
-        display: grid;
-        grid-template-columns: repeat(var(--kanban-column-count, 1), minmax(0, 1fr));
-        gap: 1rem;
-        overflow-x: visible;
-        padding-left: 0;
-        padding-right: 0;
-        align-items: start;
-    }
-    .kanban-board--fill .kanban-column {
-        flex: none;
-        min-width: 0;
-    }
-    .kanban-board--fill .kanban-column-header {
-        padding: 0.75rem 0.875rem;
-    }
-    .kanban-board--fill .kanban-cards {
-        padding: 0.625rem;
-        gap: 0.5rem;
-    }
-    .kanban-board--fill .kanban-card-link {
-        padding: 0.625rem 0.75rem;
-    }
-    .kanban-board--fill .kanban-card-title {
-        font-size: 0.875rem;
-    }
-}
-
-/* Mobile: stack columns */
-@media (max-width: 1023px) {
-    .kanban-board {
-        flex-direction: column;
-        overflow-x: visible;
-    }
-    .kanban-column {
-        flex: none;
-        min-width: 100%;
-        max-height: none;
-    }
-    .kanban-mobile-status {
-        display: block;
-        width: 100%;
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-        border-top: 1px solid var(--border-light, #e5e7eb);
-        background: var(--surface-secondary, #f9fafb);
-        color: var(--text-secondary);
-        border-radius: 0 0 0.5rem 0.5rem;
-        cursor: pointer;
-    }
-}
-
-/* Dark mode */
-[data-theme="dark"] .kanban-column {
-    background: var(--corp-slate-800, #1e293b);
-    border-color: var(--corp-slate-700, #334155);
-}
-[data-theme="dark"] .kanban-column-header {
-    border-color: var(--corp-slate-700, #334155);
-}
-[data-theme="dark"] .kanban-card {
-    background: var(--corp-slate-900, #0f172a);
-    border-color: var(--corp-slate-700, #334155);
-}
-[data-theme="dark"] .kanban-card:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-}
-[data-theme="dark"] .kanban-count {
-    background: var(--corp-slate-700, #334155);
-    color: var(--corp-slate-400, #94a3b8);
-}
-[data-theme="dark"] .kanban-mobile-status {
-    background: var(--corp-slate-800, #1e293b);
-    border-color: var(--corp-slate-700, #334155);
-    color: var(--corp-slate-300, #cbd5e1);
-}
-</style>
 
 <?php
-$ticket_registry_model = ticket_registry_split_model($statuses, $tickets, $status_id, $ticket_list_view);
+$is_closed_filter_active = ticket_registry_closed_filter_active($statuses, $status_id);
+$show_closed_tickets_inline = ticket_list_view_shows_closed_inline($ticket_list_view, $is_closed_filter_active);
+$ticket_registry_closed_mode_class = 'ticket-registry-page--closed-inline';
+if (!$show_closed_tickets_inline) {
+    $ticket_registry_closed_mode_class = 'ticket-registry-page--closed-collapsible';
+}
+$ticket_registry_model = ticket_registry_split_model($statuses, $tickets, $status_id, $ticket_list_view, $show_closed_tickets_inline);
 extract($ticket_registry_model, EXTR_SKIP);
 $ticket_kanban_model = ticket_registry_kanban_model($statuses, $tickets, $statuses_by_id, $board_active_statuses, $board_closed_statuses, $show_closed_tickets_inline);
 $kanban_hide_closed_after_days = $ticket_kanban_model['hide_closed_after_days'];
@@ -1075,22 +436,24 @@ $kanban_main_statuses = $ticket_kanban_model['main_statuses'];
 $kanban_archived_closed_statuses = $ticket_kanban_model['archived_closed_statuses'];
 ?>
 
-<div class="workflow-surface workflow-surface--registry ticket-registry-page"
+<div class="workflow-surface workflow-surface--registry ticket-registry-page <?php echo e($ticket_registry_closed_mode_class); ?>"
      data-core-workflow-surface="tickets"
      data-ticket-registry-surface
      data-app-contract-surface="tickets"
      data-app-contract-action="app-ticket-list"
      data-ticket-contract-mode="refresh">
-<!-- Tickets Table/List with Inline Filters -->
-<?php
-ticket_registry_render_view_tabs(
-    $ticket_list_view_definitions,
-    $ticket_list_view_counts,
-    $ticket_list_view,
-    $ticket_list_include_archive,
-    $_GET
-);
-?>
+    <div class="ticket-registry-toolbar">
+        <?php
+        ticket_registry_render_view_tabs(
+            $ticket_list_view_definitions,
+            $ticket_list_view_counts,
+            $ticket_list_view,
+            $ticket_list_include_archive,
+            $_GET
+        );
+        ticket_registry_render_filter_summary($total_tickets, $filter_notes, $ticket_clear_url, $has_filters);
+        ?>
+    </div>
 
 <div class="card ticket-registry-card overflow-hidden <?php echo $ticket_view === 'board' ? 'kanban-board-wrapper' : ''; ?>">
     <?php if (empty($tickets)): ?>
@@ -1302,7 +665,7 @@ ticket_registry_render_view_tabs(
         ?>
 
         <!-- Mobile Filter Bar -->
-        <div class="block lg:hidden border-b px-4 py-3 glass" style="border-color: var(--border-light);">
+        <div class="block lg:hidden border-b px-4 py-3 glass border-theme-light">
             <form method="get" action="index.php" class="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="page" value="tickets">
                 <input type="hidden" name="search_scope" value="all">
@@ -1339,6 +702,7 @@ ticket_registry_render_view_tabs(
                 <select name="sort" class="form-select form-select-sm text-xs" onchange="this.form.submit()">
                     <option value="newest" <?php echo $sort === 'newest' ? 'selected' : ''; ?>><?php echo e(t('Newest')); ?></option>
                     <option value="oldest" <?php echo $sort === 'oldest' ? 'selected' : ''; ?>><?php echo e(t('Oldest')); ?></option>
+                    <option value="completed" <?php echo $sort === 'completed' ? 'selected' : ''; ?>><?php echo e(t('Completed')); ?></option>
                     <option value="last_updated" <?php echo $sort === 'last_updated' ? 'selected' : ''; ?>><?php echo e(t('Last updated')); ?></option>
                     <option value="ticket_number" <?php echo $sort === 'ticket_number' ? 'selected' : ''; ?>><?php echo e(t('Ticket # (newest)')); ?></option>
                     <option value="ticket_number_asc" <?php echo $sort === 'ticket_number_asc' ? 'selected' : ''; ?>><?php echo e(t('Ticket # (oldest)')); ?></option>
@@ -1370,7 +734,7 @@ ticket_registry_render_view_tabs(
             $clear_tags_url = url('tickets', $clear_tags_params);
             ?>
             <div class="border-b px-4 py-2.5 flex flex-wrap items-center gap-2" style="border-color: var(--border-light); background: var(--surface-secondary);">
-                <span class="text-xs font-medium" style="color: var(--text-secondary);"><?php echo e(t('Tags')); ?>:</span>
+                <span class="text-xs font-medium text-theme-secondary"><?php echo e(t('Tags')); ?>:</span>
                 <?php foreach ($tag_filters as $active_tag): ?>
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs" style="background: var(--primary-soft); color: var(--primary);">
                         #<?php echo e($active_tag); ?>
@@ -1379,7 +743,7 @@ ticket_registry_render_view_tabs(
                         </a>
                     </span>
                 <?php endforeach; ?>
-                <a href="<?php echo e($clear_tags_url); ?>" class="text-xs underline" style="color: var(--text-secondary);">
+                <a href="<?php echo e($clear_tags_url); ?>" class="text-xs underline text-theme-secondary">
                     <?php echo e(t('Clear all tags')); ?>
                 </a>
             </div>
@@ -1389,7 +753,7 @@ ticket_registry_render_view_tabs(
         <div class="block lg:hidden">
             <?php foreach ($ticket_groups as $group): ?>
                 <?php if ($group['name'] === 'closed'): ?>
-                    <div class="p-3 text-center border-t cursor-pointer text-xs font-medium text-gray-500 hover:text-gray-700" style="background: var(--surface-secondary);" onclick="document.getElementById('closed-tickets-mobile').classList.toggle('hidden')">
+                    <div class="p-3 text-center border-t cursor-pointer text-xs font-medium text-gray-500 hover:text-gray-700 bg-theme-secondary" onclick="document.getElementById('closed-tickets-mobile').classList.toggle('hidden')">
                         <?php echo e($group['label']); ?>
                     </div>
                     <div id="closed-tickets-mobile" class="hidden divide-y">
@@ -1408,7 +772,7 @@ ticket_registry_render_view_tabs(
                                 class="bulk-checkbox hidden mt-1 rounded" form="bulk-actions-form" onclick="event.stopPropagation()">
                         <?php endif; ?>
                             <a href="<?php echo ticket_url($ticket); ?>" class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 text-xs mb-1" style="color: var(--text-muted);">
+                                <div class="flex items-center gap-2 text-xs mb-1 text-theme-muted">
                                     <span class="w-2 h-2 rounded-full"
                                         style="background-color: <?php echo e($ticket['status_color']); ?>"></span>
                                     <span><?php echo e($ticket['status_name']); ?></span>
@@ -1416,8 +780,8 @@ ticket_registry_render_view_tabs(
                                         <?php echo e(get_ticket_code($ticket['id'])); ?>
                                     </span>
                                 </div>
-                                <div class="font-medium truncate" style="color: var(--text-primary);"><?php echo e($ticket['title']); ?></div>
-                                <div class="text-sm mt-1 flex flex-wrap items-center gap-2" style="color: var(--text-muted);">
+                                <div class="font-medium truncate text-theme-primary"><?php echo e($ticket['title']); ?></div>
+                                <div class="text-sm mt-1 flex flex-wrap items-center gap-2 text-theme-muted">
                                     <span><?php echo format_date($ticket['created_at'], 'd.m.Y'); ?></span>
                                     <?php if (!empty($ticket['due_date'])): ?>
                                         <?php
@@ -1437,7 +801,7 @@ ticket_registry_render_view_tabs(
                                         <?php echo e($priority_name); ?>
                                     </span>
                                     <?php if (is_admin() && !empty($ticket['organization_name'])): ?>
-                                        <span class="text-xs" style="color: var(--text-muted);"><?php echo e($ticket['organization_name']); ?></span>
+                                        <span class="text-xs text-theme-muted"><?php echo e($ticket['organization_name']); ?></span>
                                     <?php endif; ?>
                                     <?php if ($tags_supported && !empty($ticket['tags'])): ?>
                                         <?php foreach (array_slice(get_ticket_tags_array($ticket['tags']), 0, 3) as $tag): ?>
@@ -1463,7 +827,7 @@ ticket_registry_render_view_tabs(
                                             $running_elapsed = (int) ($first['elapsed_minutes'] ?? 0);
                                         }
                                         ?>
-                                        <span class="text-xs" style="color: var(--text-muted);">
+                                        <span class="text-xs text-theme-muted">
                                             <?php echo get_icon('clock', 'mr-1 w-3 h-3 inline'); ?><?php echo $ticket_total > 0 ? format_duration_minutes($ticket_total) : '-'; ?>
                                         </span>
                                         <?php if (!empty($running_label)): ?>
@@ -1494,18 +858,24 @@ ticket_registry_render_view_tabs(
                 <?php endif; ?>
             <table class="w-full hidden lg:table tickets-table text-xs" style="table-layout: fixed;">
                 <thead>
-                    <tr class="border-b" style="border-color: var(--border-light);">
+                    <tr class="border-b border-theme-light">
                         <th class="px-3 py-2.5 text-left" style="width: 80px;">
                             <div class="flex items-center gap-1">
                                 <?php if ($bulk_actions_enabled): ?>
                                     <input type="checkbox" id="select-all" class="rounded hidden" onchange="toggleAll(this)">
                                 <?php endif; ?>
-                                <span class="text-[10px] font-medium uppercase tracking-wider" style="color: var(--text-muted);"><?php echo e(t('Date')); ?></span>
+                                <a href="<?php echo e($date_sort_url); ?>"
+                                   class="ticket-date-sort <?php echo $date_sort_is_active ? 'is-active' : ''; ?>"
+                                   title="<?php echo e($date_sort_title); ?>"
+                                   aria-label="<?php echo e($date_sort_title); ?>">
+                                    <span><?php echo e(t('Date')); ?></span>
+                                    <?php echo get_icon($date_sort_icon, 'w-3 h-3'); ?>
+                                </a>
                             </div>
                         </th>
                         <th class="px-3 py-2.5 text-left" style="min-width: 260px; max-width: 480px; overflow:visible">
                             <div class="flex items-center justify-between gap-2">
-                                <span class="text-[10px] font-medium uppercase tracking-wider" style="color: var(--text-muted);"><?php echo e(t('Subject')); ?></span>
+                                <span class="text-[10px] font-medium uppercase tracking-wider text-theme-muted"><?php echo e(t('Subject')); ?></span>
                                 <div class="flex items-center gap-1.5">
                                     <div class="ticket-search-wrap">
                                         <input type="text" name="search" value="<?php echo e($search_query); ?>"
@@ -1518,7 +888,7 @@ ticket_registry_render_view_tabs(
                                     </div>
                                     <?php if ($has_filters): ?>
                                     <a href="<?php echo e($ticket_clear_url); ?>"
-                                       class="inline-flex items-center justify-center w-6 h-6 rounded hover:text-red-500 hover:bg-red-50 transition-colors" style="color: var(--text-muted);" title="<?php echo e(t('Clear')); ?>">
+                                       class="inline-flex items-center justify-center w-6 h-6 rounded hover:text-red-500 hover:bg-red-50 transition-colors text-theme-muted" title="<?php echo e(t('Clear')); ?>">
                                         <?php echo get_icon('x', 'w-3.5 h-3.5'); ?>
                                     </a>
                                     <?php endif; ?>
@@ -1581,7 +951,7 @@ ticket_registry_render_view_tabs(
                                 </select>
                             </th>
                             <th class="px-3 py-2.5 text-left" style="width: 110px;">
-                                <span class="text-[10px] font-medium uppercase tracking-wider" style="color: var(--text-muted);"><?php echo e(t('Time')); ?></span>
+                                <span class="text-[10px] font-medium uppercase tracking-wider text-theme-muted"><?php echo e(t('Time')); ?></span>
                             </th>
                         <?php elseif (is_agent()): ?>
                             <th class="px-2 py-2.5" style="width: 110px;">
@@ -1597,7 +967,7 @@ ticket_registry_render_view_tabs(
                                 </select>
                             </th>
                             <th class="px-3 py-2.5 text-left" style="width: 110px;">
-                                <span class="text-[10px] font-medium uppercase tracking-wider" style="color: var(--text-muted);"><?php echo e(t('Time')); ?></span>
+                                <span class="text-[10px] font-medium uppercase tracking-wider text-theme-muted"><?php echo e(t('Time')); ?></span>
                             </th>
                         <?php endif; ?>
                         <input type="hidden" name="created_date" value="<?php echo e($created_date_value); ?>">
@@ -1681,7 +1051,7 @@ ticket_registry_render_view_tabs(
                     <?php if ($group['name'] === 'closed'): ?>
                         </tbody>
                         <tbody class="border-t-2" style="border-top-color: var(--border-light)">
-                            <tr class="cursor-pointer" style="background: var(--surface-secondary);" onclick="document.getElementById('closed-tickets-desktop').classList.toggle('hidden')">
+                            <tr class="cursor-pointer bg-theme-secondary" onclick="document.getElementById('closed-tickets-desktop').classList.toggle('hidden')">
                                 <?php $colspan = is_admin() ? 8 : (is_agent() ? 6 : 5); ?>
                                 <td colspan="<?php echo $colspan; ?>" class="px-3 py-2 font-medium text-xs text-center text-gray-500 hover:text-gray-700">
                                    <?php echo e($group['label']); ?>
@@ -1703,10 +1073,10 @@ ticket_registry_render_view_tabs(
                                             class="bulk-checkbox hidden rounded flex-shrink-0" form="bulk-actions-form">
                                     <?php endif; ?>
                                     <div>
-                                        <a href="<?php echo ticket_url($ticket); ?>" class="font-medium text-xs" style="color: var(--text-primary);" title="<?php echo e(get_ticket_code($ticket['id'])); ?>">
+                                        <a href="<?php echo ticket_url($ticket); ?>" class="font-medium text-xs text-theme-primary" title="<?php echo e(get_ticket_code($ticket['id'])); ?>">
                                             <?php echo date('d.m.', strtotime($ticket['created_at'])); ?>
                                         </a>
-                                        <div class="text-[10px]" style="color: var(--text-muted);"><?php echo e(get_ticket_code($ticket['id'])); ?></div>
+                                        <div class="text-[10px] text-theme-muted"><?php echo e(get_ticket_code($ticket['id'])); ?></div>
                                     </div>
                                 </div>
                             </td>
@@ -1725,12 +1095,12 @@ ticket_registry_render_view_tabs(
                                     </a>
                                     <?php endif; ?>
                                     <?php if (!empty($ticket['attachment_count']) && $ticket['attachment_count'] > 0): ?>
-                                        <span class="flex-shrink-0" style="color: var(--text-muted);" title="<?php echo e(t('Attachments')); ?>: <?php echo $ticket['attachment_count']; ?>">
+                                        <span class="flex-shrink-0 text-theme-muted" title="<?php echo e(t('Attachments')); ?>: <?php echo $ticket['attachment_count']; ?>">
                                             <?php echo get_icon('paperclip', 'w-3 h-3'); ?>
                                         </span>
                                     <?php endif; ?>
                                 </div>
-                                <div class="text-[11px] mt-0.5" style="color: var(--text-muted);">
+                                <div class="text-[11px] mt-0.5 text-theme-muted">
                                     <?php if ((is_agent() || is_admin()) && !empty($ticket_types_list)): ?>
                                         <span class="tl-inline-edit" style="position:relative; display:inline-block;">
                                             <span class="tl-edit-trigger tl-type-trigger"
@@ -1815,7 +1185,7 @@ ticket_registry_render_view_tabs(
                                 </span>
                                 <?php endif; ?>
                             </td>
-                            <td class="px-2 py-2.5 whitespace-nowrap align-top text-xs" style="color: var(--text-muted);">
+                            <td class="px-2 py-2.5 whitespace-nowrap align-top text-xs text-theme-muted">
                                 <?php
                                 $_due_ts = !empty($ticket['due_date']) ? strtotime($ticket['due_date']) : null;
                                 $_is_overdue = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed']));
@@ -1910,7 +1280,7 @@ ticket_registry_render_view_tabs(
                                         </span>
                                     </span>
                                 </td>
-                                <td class="px-3 py-2.5 text-xs whitespace-nowrap align-top" style="color: var(--text-muted);">
+                                <td class="px-3 py-2.5 text-xs whitespace-nowrap align-top text-theme-muted">
                                     <?php
                                     $ticket_total = $ticket_time_totals[$ticket['id']] ?? 0;
                                     $running_entries = $ticket_running_entries[$ticket['id']] ?? [];
@@ -1965,7 +1335,7 @@ ticket_registry_render_view_tabs(
                                         </span>
                                     </span>
                                 </td>
-                                <td class="px-3 py-2.5 text-xs whitespace-nowrap align-top" style="color: var(--text-muted);">
+                                <td class="px-3 py-2.5 text-xs whitespace-nowrap align-top text-theme-muted">
                                     <?php
                                     $ticket_total = $ticket_time_totals[$ticket['id']] ?? 0;
                                     $running_entries = $ticket_running_entries[$ticket['id']] ?? [];
@@ -2006,7 +1376,7 @@ ticket_registry_render_view_tabs(
                                 style="background: var(--surface-tertiary); color: var(--text-secondary);">
                                 <span id="selected-count">0</span>
                             </span>
-                            <span style="color: var(--text-secondary);"><?php echo e(t('selected')); ?></span>
+                            <span class="text-theme-secondary"><?php echo e(t('selected')); ?></span>
                         </div>
                     </div>
 
@@ -2093,199 +1463,6 @@ window.FoxDeskTicketListConfig = {
 </script>
 <script src="assets/js/ticket-list.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>" defer></script>
 
-
-<style>
-/* Compact header icon buttons (Bulk select / Quick add) */
-.hdr-icon-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 34px;
-    height: 34px;
-    border-radius: 8px;
-    border: 1px solid var(--border-light);
-    background: var(--surface-primary);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-.hdr-icon-btn:hover {
-    background: var(--surface-secondary);
-    color: var(--text-primary);
-    border-color: var(--border-strong, var(--text-muted));
-}
-.hdr-icon-btn[aria-pressed="true"] {
-    background: #6366f1;
-    color: #fff;
-    border-color: #6366f1;
-}
-.hdr-icon-btn--quick {
-    color: #f59e0b;
-    border-color: #fcd34d;
-    background: #fffbeb;
-}
-[data-theme="dark"] .hdr-icon-btn--quick {
-    color: #fbbf24;
-    background: rgba(251, 191, 36, 0.08);
-    border-color: rgba(251, 191, 36, 0.35);
-}
-.hdr-icon-btn--quick:hover {
-    color: #fff;
-    background: #f59e0b;
-    border-color: #f59e0b;
-}
-.hdr-icon-btn--quick.is-active {
-    color: #fff;
-    background: #f59e0b;
-    border-color: #f59e0b;
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
-}
-
-.tl-inline-input {
-    background: var(--surface-primary);
-    border: 1px solid var(--primary, #3b82f6);
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-size: 12px;
-    color: var(--text-primary);
-    width: 100%;
-    outline: none;
-    box-sizing: border-box;
-}
-.new-ticket-row .nt-input {
-    background: var(--surface-primary);
-    border: 1px solid var(--border-light);
-    border-radius: 4px;
-    padding: 4px 6px;
-    font-size: 12px;
-    color: var(--text-primary);
-    width: 100%;
-    box-sizing: border-box;
-}
-.new-ticket-row .nt-input:focus {
-    outline: 2px solid var(--primary, #3b82f6);
-    outline-offset: 0;
-    border-color: transparent;
-}
-.new-ticket-row .nt-plus-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--primary, #3b82f6);
-    color: #fff;
-    border: none;
-    cursor: pointer;
-    transition: transform 0.1s ease, opacity 0.1s ease;
-}
-.new-ticket-row .nt-plus-btn:hover { transform: scale(1.08); }
-.new-ticket-row .nt-plus-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.tl-inline-text:hover {
-    background: var(--surface-secondary);
-    border-radius: 3px;
-}
-.tl-due-trigger:hover {
-    background: var(--surface-secondary);
-    border-radius: 3px;
-    padding: 1px 3px;
-    margin: -1px -3px;
-}
-.tl-due-trigger {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    min-width: 2.5rem;
-}
-</style>
-
-<style>
-.tl-dropdown {
-    position: fixed;
-    z-index: 9999;
-    min-width: 160px;
-    max-height: 320px;
-    overflow-y: auto;
-    padding: 4px 0;
-    background: var(--surface-primary);
-    border: 1px solid var(--border-light);
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-}
-[data-theme="dark"] .tl-dropdown {
-    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-}
-.tl-dropdown-item {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    padding: 6px 12px;
-    font-size: 13px;
-    border: none;
-    background: none;
-    cursor: pointer;
-    text-align: left;
-    white-space: nowrap;
-}
-.tl-dropdown-item:hover {
-    background: var(--surface-secondary);
-}
-.tl-edit-trigger:hover {
-    opacity: 0.8;
-    outline: 2px solid currentColor;
-    outline-offset: 1px;
-    border-radius: 4px;
-}
-.tl-due-popover {
-    position: fixed;
-    z-index: 10000;
-    width: 220px;
-    padding: 10px;
-    background: var(--surface-primary);
-    border: 1px solid var(--border-light);
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.14);
-}
-[data-theme="dark"] .tl-due-popover {
-    box-shadow: 0 8px 24px rgba(0,0,0,0.36);
-}
-.tl-due-popover__input {
-    width: 100%;
-    background: var(--surface-primary);
-    border: 1px solid var(--border-light);
-    border-radius: 8px;
-    padding: 8px 10px;
-    color: var(--text-primary);
-}
-.tl-due-popover__actions {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    margin-top: 10px;
-}
-.tl-due-popover__btn {
-    flex: 1;
-    border: 1px solid var(--border-light);
-    border-radius: 8px;
-    padding: 7px 10px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease;
-}
-.tl-due-popover__btn:hover {
-    background: var(--surface-secondary);
-}
-.tl-due-popover__btn--primary {
-    background: var(--primary, #3b82f6);
-    border-color: var(--primary, #3b82f6);
-    color: #fff;
-}
-.tl-due-popover__btn--primary:hover {
-    background: var(--primary-hover, #2563eb);
-    border-color: var(--primary-hover, #2563eb);
-}
-</style>
 
 <template id="tl-due-popover-tpl">
     <div class="tl-due-popover" role="dialog" aria-label="<?php echo e(t('Due date')); ?>">

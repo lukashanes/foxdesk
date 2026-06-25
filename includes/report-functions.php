@@ -956,7 +956,7 @@ function send_scheduled_report_email(array $report, string $date_from, string $d
         </p>
 
         <div style='text-align:center;margin:24px 0;'>
-            <a href='{$report_link}' style='display:inline-block;padding:12px 32px;background:#3b82f6;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;'>
+            <a href='{$report_link}' style='display:inline-block;padding:12px 32px;background:#3b82f6;color:#ffffff;text-decoration:none;border-radius: var(--fd-radius-control);font-weight:600;font-size:14px;'>
                 View Full Report
             </a>
         </div>

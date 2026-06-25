@@ -77,7 +77,7 @@ require_once BASE_PATH . '/includes/header.php';
     /* Widget base */
     .db-widget {
         position: relative;
-        border-radius: 8px;
+        border-radius: var(--fd-radius-control);
         transition: opacity 0.2s, transform 0.2s;
         min-width: 0;
         display: flex;
@@ -152,7 +152,7 @@ require_once BASE_PATH . '/includes/header.php';
         display: flex;
         flex-wrap: wrap;
         border: 1px solid var(--border-light);
-        border-radius: 8px;
+        border-radius: var(--fd-radius-control);
         background: var(--surface-primary);
         overflow: hidden;
     }
@@ -498,7 +498,7 @@ require_once BASE_PATH . '/includes/header.php';
         gap: 8px;
         padding: 8px 10px;
         border: 1px solid var(--border-light);
-        border-radius: 10px;
+        border-radius: var(--fd-radius-control);
         transition: border-color 0.12s, background 0.12s;
         text-decoration: none;
     }
@@ -539,7 +539,7 @@ require_once BASE_PATH . '/includes/header.php';
         justify-content: center;
         color: var(--text-muted);
         border: 1px dashed var(--border-light);
-        border-radius: 12px;
+        border-radius: var(--fd-radius-card);
         font-size: 0.875rem;
     }
 
@@ -579,7 +579,7 @@ require_once BASE_PATH . '/includes/header.php';
         justify-content: center;
         width: 22px;
         height: 22px;
-        border-radius: 6px;
+        border-radius: var(--fd-radius-control);
         cursor: pointer;
         border: 1px solid var(--border-light);
         background: var(--surface-secondary);
@@ -655,7 +655,7 @@ require_once BASE_PATH . '/includes/header.php';
         align-items: flex-start;
         gap: 10px;
         padding: 8px 10px;
-        border-radius: 10px;
+        border-radius: var(--fd-radius-control);
         text-decoration: none;
         transition: background 0.12s;
         border-left: 3px solid transparent;
@@ -667,7 +667,7 @@ require_once BASE_PATH . '/includes/header.php';
         background: var(--primary-soft, rgba(59,130,246,0.04));
     }
     .dbnotif-avatar {
-        width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+        width: 32px; height: 32px; border-radius: var(--fd-radius-control); flex-shrink: 0;
         display: flex; align-items: center; justify-content: center;
         font-size: 12px; font-weight: 600; color: #fff; overflow: hidden;
     }
@@ -693,17 +693,17 @@ require_once BASE_PATH . '/includes/header.php';
     }
     .dbnotif-card:hover .dbnotif-actions { opacity: 1; }
     .dbnotif-btn {
-        padding: 3px; border-radius: 5px; color: var(--text-muted);
+        padding: 3px; border-radius: var(--fd-radius-control); color: var(--text-muted);
         cursor: pointer; transition: color 0.12s, background 0.12s;
         border: none; background: none; line-height: 0;
     }
     .dbnotif-btn:hover { color: var(--primary, #3b82f6); background: var(--primary-soft, rgba(59,130,246,0.08)); }
     .dbnotif-filter-tabs {
-        display: flex; gap: 3px; padding: 2px; border-radius: 8px;
+        display: flex; gap: 3px; padding: 2px; border-radius: var(--fd-radius-control);
         background: var(--surface-secondary, #f1f5f9); margin-bottom: 8px;
     }
     .dbnotif-filter-tab {
-        padding: 4px 10px; font-size: 0.6875rem; font-weight: 500; border-radius: 6px;
+        padding: 4px 10px; font-size: 0.6875rem; font-weight: 500; border-radius: var(--fd-radius-control);
         color: var(--text-secondary); text-decoration: none; transition: all 0.15s;
         white-space: nowrap; cursor: pointer; border: none; background: none;
     }
@@ -716,7 +716,7 @@ require_once BASE_PATH . '/includes/header.php';
 
     /* ─── Notification Ticket Grouping ─── */
     .dbnotif-ticket-group {
-        border-radius: 10px;
+        border-radius: var(--fd-radius-control);
         transition: background 0.15s;
     }
     .dbnotif-group-toggle {
@@ -725,7 +725,7 @@ require_once BASE_PATH . '/includes/header.php';
     .dbnotif-group-count {
         display: inline-flex; align-items: center; justify-content: center;
         min-width: 18px; height: 18px; padding: 0 5px;
-        font-size: 0.625rem; font-weight: 600; border-radius: 9px;
+        font-size: 0.625rem; font-weight: 600; border-radius: var(--fd-radius-control);
         background: var(--surface-secondary, #e2e8f0); color: var(--text-secondary);
         flex-shrink: 0; transition: background 0.15s, color 0.15s;
     }
@@ -746,7 +746,7 @@ require_once BASE_PATH . '/includes/header.php';
     }
     .dbnotif-child-card {
         display: flex; align-items: center; gap: 6px;
-        padding: 4px 8px; border-radius: 6px;
+        padding: 4px 8px; border-radius: var(--fd-radius-control);
         font-size: 0.75rem; color: var(--text-secondary);
         text-decoration: none; transition: background 0.12s, color 0.12s;
     }
@@ -775,7 +775,7 @@ require_once BASE_PATH . '/includes/header.php';
     }
     .db-agent-activity {
         border: 1px solid var(--border-light);
-        border-radius: 8px;
+        border-radius: var(--fd-radius-control);
         background: var(--surface-primary);
         margin-bottom: 16px;
         overflow: hidden;
@@ -814,7 +814,7 @@ require_once BASE_PATH . '/includes/header.php';
     .db-agent-activity__total {
         padding: 9px 10px;
         border: 1px solid var(--border-light);
-        border-radius: 8px;
+        border-radius: var(--fd-radius-control);
         background: var(--surface-secondary);
     }
     .db-agent-activity__total span {
@@ -969,16 +969,10 @@ require_once BASE_PATH . '/includes/header.php';
             <?php
             $agent_name = trim((string) (($selected_agent['first_name'] ?? '') . ' ' . ($selected_agent['last_name'] ?? '')));
             $agent_name = $agent_name !== '' ? $agent_name : (string) ($selected_agent['email'] ?? t('Agent'));
-            $agent_initials = mb_substr((string) ($selected_agent['first_name'] ?? $agent_name), 0, 1) . mb_substr((string) ($selected_agent['last_name'] ?? ''), 0, 1);
-            $agent_initials = trim($agent_initials) !== '' ? $agent_initials : mb_substr($agent_name, 0, 1);
             ?>
             <div class="db-agent-activity__head">
                 <div class="db-agent-activity__person">
-                    <?php if (!empty($selected_agent['avatar'])): ?>
-                        <img src="<?php echo e(upload_url($selected_agent['avatar'])); ?>" alt="" class="db-avatar object-cover">
-                    <?php else: ?>
-                        <div class="db-avatar"><?php echo e($agent_initials); ?></div>
-                    <?php endif; ?>
+                    <?php echo render_user_avatar($selected_agent, 'sm', 'db-avatar'); ?>
                     <div class="min-w-0">
                         <h2 class="db-agent-activity__title"><?php echo e($agent_name); ?></h2>
                         <div class="db-agent-activity__meta">
@@ -1313,7 +1307,7 @@ require_once BASE_PATH . '/includes/header.php';
                         </div>
                     <?php endforeach; ?>
                     </div>
-                    <div class="text-center py-3 mt-2 border-t" style="border-color: var(--border-light);">
+                    <div class="text-center py-3 mt-2 border-t border-theme-light">
                         <a href="<?php echo url('notifications'); ?>"
                            class="text-xs font-semibold" style="color: var(--primary); text-decoration: none;">
                             <?php echo e(t('View all notifications')); ?>
@@ -1479,11 +1473,7 @@ require_once BASE_PATH . '/includes/header.php';
                                         ?>
                                         <tr>
                                             <td class="db-avatar-cell">
-                                                <?php if (!empty($member['avatar'])): ?>
-                                                    <img src="<?php echo e(upload_url($member['avatar'])); ?>" alt="" class="db-avatar object-cover">
-                                                <?php else: ?>
-                                                    <div class="db-avatar"><?php echo e($initials); ?></div>
-                                                <?php endif; ?>
+                                                <?php echo render_user_avatar($member, 'sm', 'db-avatar'); ?>
                                             </td>
                                             <td>
                                                 <a href="<?php echo $member_link; ?>"

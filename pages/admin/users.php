@@ -779,12 +779,12 @@ include BASE_PATH . '/includes/components/page-header.php';
             <div class="admin-main-column">
                 <div class="admin-list-card">
                     <div class="card-header">
-                        <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('AI agents')); ?>
+                        <h3 class="font-semibold text-theme-primary"><?php echo e(t('AI agents')); ?>
                             (<?php echo count($ai_agents); ?>)</h3>
                     </div>
                     <div class="admin-responsive-table-wrap">
                         <table class="admin-responsive-table admin-ai-agents-table tickets-table">
-                            <thead style="background: var(--surface-secondary);">
+                            <thead class="bg-theme-secondary">
                                 <tr class="border-b">
                                     <th class="px-4 py-2 text-left th-label whitespace-nowrap"><?php echo e(t('Name')); ?></th>
                                     <th class="px-4 py-2 text-left th-label whitespace-nowrap w-28"><?php echo e(t('Model')); ?></th>
@@ -798,7 +798,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <tbody class="divide-y">
                                 <?php if (empty($ai_agents)): ?>
                                         <tr>
-                                            <td colspan="7" class="px-4 py-6 text-center text-sm" style="color: var(--text-muted);">
+                                            <td colspan="7" class="px-4 py-6 text-center text-sm text-theme-muted">
                                                 <?php echo e(t('No AI agents yet.')); ?>
                                             </td>
                                         </tr>
@@ -846,8 +846,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                                         class="w-7 h-7 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
                                                         <?php echo get_icon('bot', 'w-4 h-4 text-purple-600'); ?>
                                                     </div>
-                                                    <span class="admin-cell-title text-sm"
-                                                        style="color: var(--text-primary);"><?php echo e($agent['first_name']); ?></span>
+                                                    <span class="admin-cell-title text-sm text-theme-primary"><?php echo e($agent['first_name']); ?></span>
                                                 </div>
                                             </td>
                                             <td class="px-4 py-2.5" data-label="<?php echo e(t('Model')); ?>">
@@ -855,24 +854,23 @@ include BASE_PATH . '/includes/components/page-header.php';
                                                         <span
                                                             class="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded"><?php echo e($agent['ai_model']); ?></span>
                                                 <?php else: ?>
-                                                        <span style="color: var(--text-muted);">-</span>
+                                                        <span class="text-theme-muted">-</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td class="px-4 py-2.5 text-sm" data-label="<?php echo e(t('Rate/h')); ?>" style="color: var(--text-secondary);">
-                                                <?php echo (float) $agent['cost_rate'] > 0 ? e(format_money($agent['cost_rate'])) . '/h' : '<span style="color: var(--text-muted);">-</span>'; ?>
+                                                <?php echo (float) $agent['cost_rate'] > 0 ? e(format_money($agent['cost_rate'])) . '/h' : '<span class="text-theme-muted">-</span>'; ?>
                                             </td>
                                             <td class="px-4 py-2.5 text-xs" data-label="<?php echo e(t('API token')); ?>">
                                                 <?php if ($active_token): ?>
-                                                        <code
-                                                            style="color: var(--text-muted);"><?php echo e($active_token['token_prefix'] ?? '???'); ?>...</code>
+                                                        <code class="text-theme-muted"><?php echo e($active_token['token_prefix'] ?? '???'); ?>...</code>
                                                 <?php else: ?>
                                                         <span class="text-orange-500"><?php echo e(t('No token')); ?></span>
                                                 <?php endif; ?>
                                             </td>
                                             <td class="px-4 py-2.5 text-xs" data-label="<?php echo e(t('Access')); ?>" style="color: var(--text-secondary);">
-                                                <div class="font-medium" style="color: var(--text-primary);"><?php echo e($access_label); ?></div>
+                                                <div class="font-medium text-theme-primary"><?php echo e($access_label); ?></div>
                                                 <?php if ($agent_scope === 'organization'): ?>
-                                                        <div class="admin-cell-muted" style="color: var(--text-muted);">
+                                                        <div class="admin-cell-muted text-theme-muted">
                                                             <?php echo !empty($agent_org_names) ? e(implode(', ', $agent_org_names)) : e(t('No clients selected')); ?>
                                                         </div>
                                                 <?php endif; ?>
@@ -930,27 +928,24 @@ include BASE_PATH . '/includes/components/page-header.php';
             <!-- Add AI Agent Form -->
             <div class="admin-side-column">
                 <div class="card card-body">
-                    <h3 class="font-semibold mb-4" style="color: var(--text-primary);"><?php echo e(t('Add AI agent')); ?></h3>
+                    <h3 class="font-semibold mb-4 text-theme-primary"><?php echo e(t('Add AI agent')); ?></h3>
                     <form method="post" id="aiAddAgentForm" class="space-y-4">
                         <?php echo csrf_field(); ?>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Name')); ?> *</label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Name')); ?> *</label>
                             <input type="text" name="agent_name" required class="form-input" placeholder="<?php echo e(t('e.g. Claude Sonnet')); ?>">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Model')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Model')); ?></label>
                             <input type="text" name="ai_model" class="form-input"
                                 placeholder="<?php echo e(t('e.g. claude-sonnet-4-5, gpt-4o')); ?>">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Rate/h')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Rate/h')); ?></label>
                             <input type="number" name="cost_rate" step="0.01" min="0" class="form-input" placeholder="0.00">
                         </div>
-                        <div class="border-t pt-3" style="border-color: var(--border-light);">
-                            <h4 class="text-sm font-semibold mb-2" style="color: var(--text-secondary);">
+                        <div class="border-t pt-3 border-theme-light">
+                            <h4 class="text-sm font-semibold mb-2 text-theme-secondary">
                                 <?php echo e(t('Access')); ?>
                             </h4>
                             <div class="space-y-2">
@@ -969,7 +964,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                             </div>
                             <?php if (!empty($organizations)): ?>
                                     <div id="ai_add_org_select" class="mt-2 hidden">
-                                        <label class="block text-xs mb-1" style="color: var(--text-muted);">
+                                        <label class="block text-xs mb-1 text-theme-muted">
                                             <?php echo e(t('Select organizations (multiple allowed)')); ?>
                                         </label>
                                         <select name="scope_organization_ids[]" multiple size="5" class="form-select text-sm">
@@ -991,25 +986,24 @@ include BASE_PATH . '/includes/components/page-header.php';
                             </div>
                         </div>
                         <?php if (!empty($ai_agent_token_scope_groups)): ?>
-                                <div class="border-t pt-3" style="border-color: var(--border-light);">
-                                    <h4 class="text-sm font-semibold mb-1" style="color: var(--text-secondary);">
+                                <div class="border-t pt-3 border-theme-light">
+                                    <h4 class="text-sm font-semibold mb-1 text-theme-secondary">
                                         <?php echo e(t('Token actions')); ?>
                                     </h4>
-                                    <p class="text-xs mb-2" style="color: var(--text-muted);">
+                                    <p class="text-xs mb-2 text-theme-muted">
                                         <?php echo e(t('Choose what this token can do.')); ?>
                                     </p>
                                     <div class="space-y-2">
                                         <?php foreach ($ai_agent_token_scope_groups as $group_key => $group): ?>
-                                                <label class="flex items-start gap-2 text-sm rounded-lg border p-2 cursor-pointer"
-                                                    style="border-color: var(--border-light);">
+                                                <label class="flex items-start gap-2 text-sm rounded-lg border p-2 cursor-pointer border-theme-light">
                                                     <input type="checkbox" name="api_token_scope_groups[]"
                                                         value="<?php echo e($group_key); ?>" class="mt-0.5 rounded"
                                                         <?php echo in_array($group_key, $ai_agent_token_default_scope_groups, true) ? 'checked' : ''; ?>>
                                                     <span>
-                                                        <span class="font-medium" style="color: var(--text-primary);">
+                                                        <span class="font-medium text-theme-primary">
                                                             <?php echo e(t($group['label'])); ?>
                                                         </span>
-                                                        <span class="block text-xs" style="color: var(--text-muted);">
+                                                        <span class="block text-xs text-theme-muted">
                                                             <?php echo e(t($group['description'])); ?>
                                                         </span>
                                                     </span>
@@ -1034,10 +1028,10 @@ include BASE_PATH . '/includes/components/page-header.php';
                 style="background: var(--surface-primary);">
                 <div class="px-4 sm:px-6 py-3.5 border-b flex items-center justify-between"
                     style="border-color: var(--border-light); background: var(--surface-primary);">
-                    <h3 id="edit-ai-agent-title" class="font-semibold" style="color: var(--text-primary);">
+                    <h3 id="edit-ai-agent-title" class="font-semibold text-theme-primary">
                         <?php echo e(t('Edit AI agent')); ?>
                     </h3>
-                    <button type="button" onclick="closeAiAgentModal()" class="p-1" style="color: var(--text-muted);">
+                    <button type="button" onclick="closeAiAgentModal()" class="p-1 text-theme-muted">
                         <?php echo get_icon('x', 'w-5 h-5'); ?>
                     </button>
                 </div>
@@ -1046,24 +1040,21 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <?php echo csrf_field(); ?>
                         <input type="hidden" name="id" id="ai_edit_id">
                         <div>
-                            <label for="ai_edit_name" class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Name')); ?> *</label>
+                            <label for="ai_edit_name" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Name')); ?> *</label>
                             <input type="text" name="agent_name" id="ai_edit_name" required aria-required="true"
                                 class="form-input">
                         </div>
                         <div>
-                            <label for="ai_edit_model" class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Model')); ?></label>
+                            <label for="ai_edit_model" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Model')); ?></label>
                             <input type="text" name="ai_model" id="ai_edit_model" class="form-input"
                                 placeholder="<?php echo e(t('e.g. claude-sonnet-4-5, gpt-4o')); ?>">
                         </div>
                         <div>
-                            <label for="ai_edit_cost_rate" class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Rate/h')); ?></label>
+                            <label for="ai_edit_cost_rate" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Rate/h')); ?></label>
                             <input type="number" name="cost_rate" id="ai_edit_cost_rate" step="0.01" min="0" class="form-input">
                         </div>
-                        <div class="border-t pt-3" style="border-color: var(--border-light);">
-                            <h4 class="text-sm font-semibold mb-2" style="color: var(--text-secondary);">
+                        <div class="border-t pt-3 border-theme-light">
+                            <h4 class="text-sm font-semibold mb-2 text-theme-secondary">
                                 <?php echo e(t('Access')); ?>
                             </h4>
                             <div class="space-y-2">
@@ -1082,7 +1073,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                             </div>
                             <?php if (!empty($organizations)): ?>
                                     <div id="ai_edit_org_select" class="mt-2 hidden">
-                                        <label class="block text-xs mb-1" style="color: var(--text-muted);">
+                                        <label class="block text-xs mb-1 text-theme-muted">
                                             <?php echo e(t('Select organizations (multiple allowed)')); ?>
                                         </label>
                                         <select name="scope_organization_ids[]" id="ai_edit_scope_organization_ids" multiple
@@ -1109,26 +1100,25 @@ include BASE_PATH . '/includes/components/page-header.php';
                             </div>
                         </div>
                         <?php if (!empty($ai_agent_token_scope_groups)): ?>
-                                <div class="border-t pt-3" style="border-color: var(--border-light);">
-                                    <h4 class="text-sm font-semibold mb-1" style="color: var(--text-secondary);">
+                                <div class="border-t pt-3 border-theme-light">
+                                    <h4 class="text-sm font-semibold mb-1 text-theme-secondary">
                                         <?php echo e(t('Token actions')); ?>
                                     </h4>
-                                    <p class="text-xs mb-2" style="color: var(--text-muted);">
+                                    <p class="text-xs mb-2 text-theme-muted">
                                         <?php echo e(t('Choose what this token can do.')); ?>
                                     </p>
                                     <div class="space-y-2">
                                         <?php foreach ($ai_agent_token_scope_groups as $group_key => $group): ?>
-                                                <label class="flex items-start gap-2 text-sm rounded-lg border p-2 cursor-pointer"
-                                                    style="border-color: var(--border-light);">
+                                                <label class="flex items-start gap-2 text-sm rounded-lg border p-2 cursor-pointer border-theme-light">
                                                     <input type="checkbox" name="api_token_scope_groups[]"
                                                         value="<?php echo e($group_key); ?>" class="mt-0.5 rounded ai-token-scope-group"
                                                         data-group="<?php echo e($group_key); ?>"
                                                         <?php echo in_array($group_key, $ai_agent_token_default_scope_groups, true) ? 'checked' : ''; ?>>
                                                     <span>
-                                                        <span class="font-medium" style="color: var(--text-primary);">
+                                                        <span class="font-medium text-theme-primary">
                                                             <?php echo e(t($group['label'])); ?>
                                                         </span>
-                                                        <span class="block text-xs" style="color: var(--text-muted);">
+                                                        <span class="block text-xs text-theme-muted">
                                                             <?php echo e(t($group['description'])); ?>
                                                         </span>
                                                     </span>
@@ -1143,12 +1133,12 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 <span><?php echo e(t('Active')); ?></span>
                             </label>
                         </div>
-                        <div class="border-t pt-3" style="border-color: var(--border-light);">
-                            <h4 class="text-sm font-semibold mb-1" style="color: var(--text-secondary);">
+                        <div class="border-t pt-3 border-theme-light">
+                            <h4 class="text-sm font-semibold mb-1 text-theme-secondary">
                                 <?php echo e(t('API token')); ?>
                             </h4>
                             <div id="ai_edit_token_status"></div>
-                            <p class="text-xs mt-2" style="color: var(--text-muted);">
+                            <p class="text-xs mt-2 text-theme-muted">
                                 <?php echo e(t('The new token uses the access and actions selected above. Creating a new token revokes older active tokens for this agent.')); ?>
                             </p>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
@@ -1393,7 +1383,7 @@ include BASE_PATH . '/includes/components/page-header.php';
             <div class="admin-main-column">
                 <div class="admin-list-card">
                     <div class="card-header">
-                        <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Users')); ?>
+                        <h3 class="font-semibold text-theme-primary"><?php echo e(t('Users')); ?>
                             (<?php echo count($users); ?>)</h3>
                     </div>
 
@@ -1402,8 +1392,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <input type="hidden" name="page" value="admin">
                             <input type="hidden" name="section" value="users">
                             <div>
-                                <label class="block text-xs mb-1"
-                                    style="color: var(--text-muted);"><?php echo e(t('Time range')); ?></label>
+                                <label class="block text-xs mb-1 text-theme-muted"><?php echo e(t('Time range')); ?></label>
                                 <select name="time_range" id="users-time-range" class="form-select">
                                     <option value="all" <?php echo $time_range === 'all' ? 'selected' : ''; ?>>
                                         <?php echo e(t('All time')); ?>
@@ -1425,13 +1414,11 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <div id="users-custom-range"
                                 class="flex flex-wrap items-end gap-3 <?php echo $time_range === 'custom' ? '' : 'hidden'; ?>">
                                 <div>
-                                    <label class="block text-xs mb-1"
-                                        style="color: var(--text-muted);"><?php echo e(t('From date')); ?></label>
+                                    <label class="block text-xs mb-1 text-theme-muted"><?php echo e(t('From date')); ?></label>
                                     <input type="date" name="from_date" value="<?php echo e($from_date); ?>" class="form-input">
                                 </div>
                                 <div>
-                                    <label class="block text-xs mb-1"
-                                        style="color: var(--text-muted);"><?php echo e(t('To date')); ?></label>
+                                    <label class="block text-xs mb-1 text-theme-muted"><?php echo e(t('To date')); ?></label>
                                     <input type="date" name="to_date" value="<?php echo e($to_date); ?>" class="form-input">
                                 </div>
                             </div>
@@ -1454,7 +1441,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <?php endif; ?>
                         </form>
                         <table class="admin-responsive-table admin-users-table tickets-table">
-                            <thead style="background: var(--surface-secondary);">
+                            <thead class="bg-theme-secondary">
                                 <tr class="border-b">
                                     <th class="px-4 py-2 text-left th-label">
                                         <?php echo e(t('Name')); ?>
@@ -1476,7 +1463,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                     </th>
                                 </tr>
                                 <!-- Inline Filter Row -->
-                                <tr class="border-b" style="background: var(--surface-secondary);">
+                                <tr class="border-b bg-theme-secondary">
                                     <th class="px-3 py-1.5">
                                         <input type="text" name="search" value="<?php echo e($filter_search); ?>"
                                             form="user-filter-form" placeholder="<?php echo e(t('Name or email...')); ?>"
@@ -1534,20 +1521,10 @@ include BASE_PATH . '/includes/components/page-header.php';
                                         <tr class="tr-hover">
                                             <td class="px-4 py-2.5 admin-responsive-primary" data-label="<?php echo e(t('Name')); ?>">
                                                 <div class="flex items-center space-x-2">
-                                                    <?php if (!empty($u['avatar'])): ?>
-                                                            <img src="<?php echo e(upload_url($u['avatar'])); ?>" alt=""
-                                                                class="w-7 h-7 rounded-full object-cover flex-shrink-0">
-                                                    <?php else: ?>
-                                                            <div
-                                                                class="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                                                <span
-                                                                    class="text-blue-600 text-xs font-medium"><?php echo strtoupper(substr($u['first_name'], 0, 1)); ?></span>
-                                                            </div>
-                                                    <?php endif; ?>
+                                                    <?php echo render_user_avatar($u, 'sm'); ?>
                                                     <div class="admin-cell-main">
-                                                        <span class="admin-cell-title text-sm"
-                                                            style="color: var(--text-primary);"><?php echo e($u['first_name'] . ' ' . $u['last_name']); ?></span>
-                                                        <div class="admin-cell-subtitle text-xs" style="color: var(--text-muted);">
+                                                        <span class="admin-cell-title text-sm text-theme-primary"><?php echo e($u['first_name'] . ' ' . $u['last_name']); ?></span>
+                                                        <div class="admin-cell-subtitle text-xs text-theme-muted">
                                                             <?php echo e($u['email']); ?>
                                                         </div>
                                                     </div>
@@ -1555,10 +1532,9 @@ include BASE_PATH . '/includes/components/page-header.php';
                                             </td>
                                             <td class="px-4 py-2.5 text-xs" data-label="<?php echo e(t('Company')); ?>" style="color: var(--text-secondary);">
                                                 <?php if (!empty($u['organization_name'])): ?>
-                                                        <span class="admin-cell-muted"
-                                                            style="color: var(--text-secondary);"><?php echo e($u['organization_name']); ?></span>
+                                                        <span class="admin-cell-muted text-theme-secondary"><?php echo e($u['organization_name']); ?></span>
                                                 <?php else: ?>
-                                                        <span style="color: var(--text-muted);">-</span>
+                                                        <span class="text-theme-muted">-</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td class="px-4 py-2.5" data-label="<?php echo e(t('Role')); ?>">
@@ -1578,7 +1554,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                             <td class="px-4 py-2.5 text-xs" data-label="<?php echo e(t('Logged time')); ?>" style="color: var(--text-secondary);">
                                                 <?php
                                                 $total_minutes = $time_totals[$u['id']] ?? 0;
-                                                echo $total_minutes > 0 ? e(format_duration_minutes($total_minutes)) : '<span style="color: var(--text-muted);">-</span>';
+                                                echo $total_minutes > 0 ? e(format_duration_minutes($total_minutes)) : '<span class="text-theme-muted">-</span>';
                                                 ?>
                                             </td>
                                             <td class="px-4 py-2.5" data-label="<?php echo e(t('Status')); ?>">
@@ -1605,7 +1581,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                                             </form>
                                                     <?php endif; ?>
                                                     <a href="<?php echo url('user-profile', ['id' => $u['id']]); ?>"
-                                                        class="p-1.5 rounded transition-colors" style="color: var(--text-muted);"
+                                                        class="p-1.5 rounded transition-colors text-theme-muted"
                                                         title="<?php echo e(t('Ticket history')); ?>">
                                                         <?php echo get_icon('clock', 'w-4 h-4'); ?>
                                                     </a>
@@ -1646,54 +1622,47 @@ include BASE_PATH . '/includes/components/page-header.php';
             <!-- Add New User -->
             <div class="admin-side-column">
                 <div class="card card-body">
-                    <h3 class="font-semibold mb-4" style="color: var(--text-primary);"><?php echo e(t('Add user')); ?></h3>
+                    <h3 class="font-semibold mb-4 text-theme-primary"><?php echo e(t('Add user')); ?></h3>
 
                     <form method="post" class="space-y-4" id="addUserForm">
                         <?php echo csrf_field(); ?>
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Email')); ?> *</label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Email')); ?> *</label>
                             <input type="email" name="email" required class="form-input">
                         </div>
 
                         <?php if ($contact_phone_column_exists): ?>
                                 <div>
-                                    <label class="block text-sm font-medium mb-1"
-                                        style="color: var(--text-secondary);"><?php echo e(t('Phone')); ?></label>
+                                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Phone')); ?></label>
                                     <input type="text" name="contact_phone" class="form-input">
                                 </div>
                         <?php endif; ?>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('First name')); ?>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('First name')); ?>
                                     *</label>
                                 <input type="text" name="first_name" required class="form-input">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('Last name')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Last name')); ?></label>
                                 <input type="text" name="last_name" class="form-input">
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Password')); ?>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Password')); ?>
                                 *</label>
                             <input type="password" name="password" required minlength="6" class="form-input">
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Cost rate (per hour)')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Cost rate (per hour)')); ?></label>
                             <input type="number" name="cost_rate" step="0.01" min="0" class="form-input">
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Role')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Role')); ?></label>
                             <select name="role" id="add_role" onchange="togglePermissions('add')" class="form-select">
                                 <option value="user"><?php echo e(t('User')); ?></option>
                                 <option value="agent"><?php echo e(t('Agent')); ?></option>
@@ -1702,8 +1671,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Language')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Language')); ?></label>
                             <select name="language" class="form-select">
                                 <option value="en"><?php echo e(t('English')); ?></option>
                                 <option value="cs"><?php echo e(t('Czech')); ?></option>
@@ -1715,8 +1683,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <?php if (!empty($organizations)): ?>
                                 <div>
-                                    <label class="block text-sm font-medium mb-1"
-                                        style="color: var(--text-secondary);"><?php echo e(t('Company')); ?></label>
+                                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Company')); ?></label>
                                     <select name="organization_id" id="add_organization_id" class="form-select">
                                         <option value=""><?php echo e(t('-- No organization --')); ?></option>
                                         <?php foreach ($organizations as $org): ?>
@@ -1725,15 +1692,14 @@ include BASE_PATH . '/includes/components/page-header.php';
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium mb-1"
-                                        style="color: var(--text-secondary);"><?php echo e(t('Organizations')); ?></label>
+                                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Organizations')); ?></label>
                                     <select name="organization_membership_ids[]" id="add_organization_membership_ids" multiple size="5"
                                         class="form-select text-sm">
                                         <?php foreach ($organizations as $org): ?>
                                                 <option value="<?php echo $org['id']; ?>"><?php echo e($org['name']); ?></option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <p class="text-xs mt-1" style="color: var(--text-muted);">
+                                    <p class="text-xs mt-1 text-theme-muted">
                                         <?php echo e(t('Ctrl+click to select multiple organizations.')); ?>
                                     </p>
                                 </div>
@@ -1741,15 +1707,14 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <?php if ($notes_column_exists): ?>
                                 <div>
-                                    <label class="block text-sm font-medium mb-1"
-                                        style="color: var(--text-secondary);"><?php echo e(t('Notes')); ?></label>
+                                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Notes')); ?></label>
                                     <textarea name="notes" rows="3" class="form-textarea"></textarea>
                                 </div>
                         <?php endif; ?>
 
                         <?php if ($notification_preferences_available): ?>
                                 <div class="border-t pt-4 space-y-2">
-                                    <h4 class="text-sm font-semibold" style="color: var(--text-secondary);">
+                                    <h4 class="text-sm font-semibold text-theme-secondary">
                                         <?php echo e(t('Notification settings')); ?>
                                     </h4>
                                     <label id="add_email_notifications_wrap" class="flex items-center text-sm">
@@ -1771,14 +1736,13 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <!-- Permissions (show for agents and users) -->
                         <div id="add_permissions" class="hidden border-t pt-4">
-                            <h4 class="text-sm font-semibold mb-3" style="color: var(--text-secondary);">
+                            <h4 class="text-sm font-semibold mb-3 text-theme-secondary">
                                 <?php echo e(t('Permissions')); ?>
                             </h4>
 
                             <div class="space-y-3">
                                 <div>
-                                    <label class="block text-xs mb-2"
-                                        style="color: var(--text-secondary);"><?php echo e(t('Ticket scope:')); ?></label>
+                                    <label class="block text-xs mb-2 text-theme-secondary"><?php echo e(t('Ticket scope:')); ?></label>
                                     <div class="space-y-2">
                                         <label class="flex items-center text-sm">
                                             <input type="radio" name="ticket_scope" value="all" class="mr-2">
@@ -1801,14 +1765,13 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                                     <?php if (!empty($organizations)): ?>
                                             <div id="add_org_select" class="mt-2 hidden">
-                                                <label class="block text-xs mb-1"
-                                                    style="color: var(--text-muted);"><?php echo e(t('Select organizations (multiple allowed)')); ?></label>
+                                                <label class="block text-xs mb-1 text-theme-muted"><?php echo e(t('Select organizations (multiple allowed)')); ?></label>
                                                 <select name="scope_organization_ids[]" multiple size="5" class="form-select text-sm">
                                                     <?php foreach ($organizations as $org): ?>
                                                             <option value="<?php echo $org['id']; ?>"><?php echo e($org['name']); ?></option>
                                                     <?php endforeach; ?>
                                                 </select>
-                                                <p class="text-xs mt-1" style="color: var(--text-muted);">
+                                                <p class="text-xs mt-1 text-theme-muted">
                                                     <?php echo e(t('Ctrl+click to select multiple organizations.')); ?>
                                                 </p>
                                             </div>
@@ -1868,9 +1831,9 @@ include BASE_PATH . '/includes/components/page-header.php';
             <div class="card overflow-hidden">
                 <div class="card-header flex items-center justify-between">
                     <div>
-                        <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Permissions Matrix')); ?>
+                        <h3 class="font-semibold text-theme-primary"><?php echo e(t('Permissions Matrix')); ?>
                         </h3>
-                        <p class="text-sm mt-1" style="color: var(--text-muted);">
+                        <p class="text-sm mt-1 text-theme-muted">
                             <?php echo e(t('Overview of user access and permissions')); ?>
                         </p>
                     </div>
@@ -1883,30 +1846,30 @@ include BASE_PATH . '/includes/components/page-header.php';
                 <div id="permissions-matrix" class="hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
-                            <thead style="background: var(--surface-secondary);">
+                            <thead class="bg-theme-secondary">
                                 <tr>
-                                    <th class="px-4 py-3 text-left font-medium" style="color: var(--text-secondary);">
+                                    <th class="px-4 py-3 text-left font-medium text-theme-secondary">
                                         <?php echo e(t('User')); ?>
                                     </th>
-                                    <th class="px-4 py-3 text-left font-medium" style="color: var(--text-secondary);">
+                                    <th class="px-4 py-3 text-left font-medium text-theme-secondary">
                                         <?php echo e(t('Role')); ?>
                                     </th>
-                                    <th class="px-4 py-3 text-left font-medium" style="color: var(--text-secondary);">
+                                    <th class="px-4 py-3 text-left font-medium text-theme-secondary">
                                         <?php echo e(t('Ticket Scope')); ?>
                                     </th>
-                                    <th class="px-4 py-3 text-left font-medium" style="color: var(--text-secondary);">
+                                    <th class="px-4 py-3 text-left font-medium text-theme-secondary">
                                         <?php echo e(t('Organizations')); ?>
                                     </th>
-                                    <th class="px-4 py-3 text-center font-medium" style="color: var(--text-secondary);">
+                                    <th class="px-4 py-3 text-center font-medium text-theme-secondary">
                                         <?php echo e(t('Can Archive')); ?>
                                     </th>
-                                    <th class="px-4 py-3 text-center font-medium" style="color: var(--text-secondary);">
+                                    <th class="px-4 py-3 text-center font-medium text-theme-secondary">
                                         <?php echo e(t('Can view edit history')); ?>
                                     </th>
-                                    <th class="px-4 py-3 text-center font-medium" style="color: var(--text-secondary);">
+                                    <th class="px-4 py-3 text-center font-medium text-theme-secondary">
                                         <?php echo e(t('Can import .md')); ?>
                                     </th>
-                                    <th class="px-4 py-3 text-center font-medium" style="color: var(--text-secondary);">
+                                    <th class="px-4 py-3 text-center font-medium text-theme-secondary">
                                         <?php echo e(t('Status')); ?>
                                     </th>
                                 </tr>
@@ -1966,19 +1929,12 @@ include BASE_PATH . '/includes/components/page-header.php';
                                         <tr class="tr-hover <?php echo $u['is_active'] ? '' : 'opacity-50'; ?>">
                                             <td class="px-4 py-3">
                                                 <div class="flex items-center gap-2">
-                                                    <?php if (!empty($u['avatar'])): ?>
-                                                            <img src="<?php echo e(upload_url($u['avatar'])); ?>" alt="" class="w-6 h-6 rounded-full">
-                                                    <?php else: ?>
-                                                            <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium"
-                                                                style="background: var(--surface-tertiary); color: var(--text-secondary);">
-                                                                <?php echo strtoupper(substr($u['first_name'], 0, 1)); ?>
-                                                            </div>
-                                                    <?php endif; ?>
+                                                    <?php echo render_user_avatar($u, 'xs'); ?>
                                                     <div>
-                                                        <div class="font-medium" style="color: var(--text-primary);">
+                                                        <div class="font-medium text-theme-primary">
                                                             <?php echo e($u['first_name'] . ' ' . $u['last_name']); ?>
                                                         </div>
-                                                        <div class="text-xs" style="color: var(--text-muted);">
+                                                        <div class="text-xs text-theme-muted">
                                                             <?php echo e($u['email']); ?>
                                                         </div>
                                                     </div>
@@ -1997,8 +1953,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                             </td>
                                             <td class="px-4 py-3">
                                                 <?php if ($u['role'] === 'admin'): ?>
-                                                        <span class="text-xs italic"
-                                                            style="color: var(--text-muted);"><?php echo e(t('All organizations')); ?></span>
+                                                        <span class="text-xs italic text-theme-muted"><?php echo e(t('All organizations')); ?></span>
                                                 <?php elseif (!empty($org_names)): ?>
                                                         <div class="flex flex-wrap gap-1">
                                                             <?php foreach (array_slice($org_names, 0, 3) as $name): ?>
@@ -2006,12 +1961,11 @@ include BASE_PATH . '/includes/components/page-header.php';
                                                                         style="background: var(--surface-secondary); color: var(--text-secondary);"><?php echo e($name); ?></span>
                                                             <?php endforeach; ?>
                                                             <?php if (count($org_names) > 3): ?>
-                                                                    <span class="text-xs"
-                                                                        style="color: var(--text-muted);">+<?php echo count($org_names) - 3; ?></span>
+                                                                    <span class="text-xs text-theme-muted">+<?php echo count($org_names) - 3; ?></span>
                                                             <?php endif; ?>
                                                         </div>
                                                 <?php else: ?>
-                                                        <span class="text-xs" style="color: var(--text-muted);">-</span>
+                                                        <span class="text-xs text-theme-muted">-</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td class="px-4 py-3 text-center">
@@ -2059,7 +2013,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                     <!-- Legend -->
                     <div class="px-6 py-3 border-t"
                         style="background: var(--surface-secondary); border-color: var(--border-light);">
-                        <div class="flex flex-wrap gap-3 text-xs" style="color: var(--text-secondary);">
+                        <div class="flex flex-wrap gap-3 text-xs text-theme-secondary">
                             <div>
                                 <span class="font-medium"><?php echo e(t('Ticket Scope:')); ?></span>
                                 <span
@@ -2102,8 +2056,8 @@ include BASE_PATH . '/includes/components/page-header.php';
                 style="background: var(--surface-primary);">
                 <div class="px-4 sm:px-6 py-3.5 border-b flex items-center justify-between sticky top-0 z-10"
                     style="border-color: var(--border-light); background: var(--surface-primary);">
-                    <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Edit user')); ?></h3>
-                    <button type="button" onclick="closeModal()" class="p-1" style="color: var(--text-muted);"
+                    <h3 class="font-semibold text-theme-primary"><?php echo e(t('Edit user')); ?></h3>
+                    <button type="button" onclick="closeModal()" class="p-1 text-theme-muted"
                         aria-label="<?php echo e(t('Cancel')); ?>">
                         <?php echo get_icon('x', 'w-5 h-5'); ?>
                     </button>
@@ -2113,7 +2067,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                     class="p-4 sm:p-5 overflow-y-auto overscroll-contain max-h-[calc(100vh-8.5rem)] sm:max-h-[calc(100vh-9.5rem)]">
 
                     <!-- Avatar upload (separate form) -->
-                    <div class="flex items-center gap-4 pb-3.5 mb-3.5 border-b" style="border-color: var(--border-light);">
+                    <div class="flex items-center gap-4 pb-3.5 mb-3.5 border-b border-theme-light">
                         <div id="edit_avatar_preview">
                             <div class="w-14 h-14 rounded-full flex items-center justify-center"
                                 style="background: var(--surface-tertiary); color: var(--text-secondary);">
@@ -2121,21 +2075,20 @@ include BASE_PATH . '/includes/components/page-header.php';
                             </div>
                         </div>
                         <div class="flex-1">
-                            <label class="block text-sm font-medium mb-1.5"
-                                style="color: var(--text-secondary);"><?php echo e(t('Avatar')); ?></label>
+                            <label class="block text-sm font-medium mb-1.5 text-theme-secondary"><?php echo e(t('Avatar')); ?></label>
                             <form method="post" enctype="multipart/form-data" class="mb-1">
                                 <?php echo csrf_field(); ?>
                                 <input type="hidden" name="user_id" id="edit_avatar_user_id">
                                 <input type="hidden" name="upload_user_avatar" value="1">
-                                <div id="user-avatar-edit-zone" class="rounded-lg p-2 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors" style="border-color: var(--border-light);">
+                                <div id="user-avatar-edit-zone" class="rounded-lg p-2 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors border-theme-light">
                                     <input type="file" name="user_avatar" id="user-avatar-edit-input" accept="image/jpeg,image/png,image/gif,image/webp"
                                         class="hidden" onchange="this.form.submit()">
                                     <div class="flex items-center gap-2 text-xs">
-                                        <span style="color: var(--text-muted);"><?php echo get_icon('cloud-upload-alt', 'text-base flex-shrink-0'); ?></span>
+                                        <span class="text-theme-muted"><?php echo get_icon('cloud-upload-alt', 'text-base flex-shrink-0'); ?></span>
                                         <span><span class="text-blue-500 font-medium"><?php echo e(t('Click')); ?></span> <?php echo e(t('or drag file')); ?></span>
                                     </div>
                                 </div>
-                                <p id="user-avatar-edit-filename" class="text-xs mt-1 hidden" style="color: var(--text-secondary);"></p>
+                                <p id="user-avatar-edit-filename" class="text-xs mt-1 hidden text-theme-secondary"></p>
                             </form>
                             <div class="flex items-center gap-2">
                                 <form method="post" id="remove_avatar_form" class="inline" style="display:none;">
@@ -2147,7 +2100,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                     </button>
                                 </form>
                             </div>
-                            <p class="text-xs mt-1" style="color: var(--text-muted);">
+                            <p class="text-xs mt-1 text-theme-muted">
                                 <?php echo e(t('Square image recommended. Max 2 MB.')); ?>
                             </p>
                         </div>
@@ -2158,27 +2111,23 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <input type="hidden" name="id" id="edit_id">
 
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Email')); ?> *</label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Email')); ?> *</label>
                             <input type="email" name="email" id="edit_email" required class="form-input">
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('First name')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('First name')); ?></label>
                                 <input type="text" name="first_name" id="edit_first_name" class="form-input">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium mb-1"
-                                    style="color: var(--text-secondary);"><?php echo e(t('Last name')); ?></label>
+                                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Last name')); ?></label>
                                 <input type="text" name="last_name" id="edit_last_name" class="form-input">
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Role')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Role')); ?></label>
                             <select name="role" id="edit_role" onchange="togglePermissions('edit')" class="form-select">
                                 <option value="user"><?php echo e(t('User')); ?></option>
                                 <option value="agent"><?php echo e(t('Agent')); ?></option>
@@ -2187,8 +2136,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Language')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Language')); ?></label>
                             <select name="language" id="edit_language" class="form-select">
                                 <option value="en"><?php echo e(t('English')); ?></option>
                                 <option value="cs"><?php echo e(t('Czech')); ?></option>
@@ -2200,22 +2148,19 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <?php if ($contact_phone_column_exists): ?>
                                 <div>
-                                    <label class="block text-sm font-medium mb-1"
-                                        style="color: var(--text-secondary);"><?php echo e(t('Phone')); ?></label>
+                                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Phone')); ?></label>
                                     <input type="text" name="contact_phone" id="edit_contact_phone" class="form-input">
                                 </div>
                         <?php endif; ?>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('Cost rate (per hour)')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Cost rate (per hour)')); ?></label>
                             <input type="number" name="cost_rate" id="edit_cost_rate" step="0.01" min="0" class="form-input">
                         </div>
 
                         <?php if (!empty($organizations)): ?>
                                 <div>
-                                    <label class="block text-sm font-medium mb-1"
-                                        style="color: var(--text-secondary);"><?php echo e(t('Company')); ?></label>
+                                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Company')); ?></label>
                                     <select name="organization_id" id="edit_organization_id" class="form-select">
                                         <option value=""><?php echo e(t('-- No organization --')); ?></option>
                                         <?php foreach ($organizations as $org): ?>
@@ -2224,15 +2169,14 @@ include BASE_PATH . '/includes/components/page-header.php';
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium mb-1"
-                                        style="color: var(--text-secondary);"><?php echo e(t('Organizations')); ?></label>
+                                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Organizations')); ?></label>
                                     <select name="organization_membership_ids[]" id="edit_organization_membership_ids" multiple size="5"
                                         class="form-select text-sm">
                                         <?php foreach ($organizations as $org): ?>
                                                 <option value="<?php echo $org['id']; ?>"><?php echo e($org['name']); ?></option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <p class="text-xs mt-1" style="color: var(--text-muted);">
+                                    <p class="text-xs mt-1 text-theme-muted">
                                         <?php echo e(t('Ctrl+click to select multiple organizations.')); ?>
                                     </p>
                                 </div>
@@ -2240,15 +2184,14 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <?php if ($notes_column_exists): ?>
                                 <div>
-                                    <label class="block text-sm font-medium mb-1"
-                                        style="color: var(--text-secondary);"><?php echo e(t('Notes')); ?></label>
+                                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Notes')); ?></label>
                                     <textarea name="notes" id="edit_notes" rows="3" class="form-textarea"></textarea>
                                 </div>
                         <?php endif; ?>
 
                         <?php if ($notification_preferences_available): ?>
                                 <div class="border-t pt-4 space-y-2">
-                                    <h4 class="text-sm font-semibold" style="color: var(--text-secondary);">
+                                    <h4 class="text-sm font-semibold text-theme-secondary">
                                         <?php echo e(t('Notification settings')); ?>
                                     </h4>
                                     <label id="edit_email_notifications_wrap" class="flex items-center text-sm">
@@ -2270,14 +2213,13 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <!-- Permissions (show for agents and users) -->
                         <div id="edit_permissions" class="hidden border-t pt-4">
-                            <h4 class="text-sm font-semibold mb-3" style="color: var(--text-secondary);">
+                            <h4 class="text-sm font-semibold mb-3 text-theme-secondary">
                                 <?php echo e(t('Permissions')); ?>
                             </h4>
 
                             <div class="space-y-3">
                                 <div>
-                                    <label class="block text-xs mb-2"
-                                        style="color: var(--text-secondary);"><?php echo e(t('Ticket scope:')); ?></label>
+                                    <label class="block text-xs mb-2 text-theme-secondary"><?php echo e(t('Ticket scope:')); ?></label>
                                     <div class="space-y-2">
                                         <label class="flex items-center text-sm">
                                             <input type="radio" name="ticket_scope" value="all" id="edit_scope_all"
@@ -2303,15 +2245,14 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                                     <?php if (!empty($organizations)): ?>
                                             <div id="edit_org_select" class="mt-2 hidden">
-                                                <label class="block text-xs mb-1"
-                                                    style="color: var(--text-muted);"><?php echo e(t('Select organizations (multiple allowed)')); ?></label>
+                                                <label class="block text-xs mb-1 text-theme-muted"><?php echo e(t('Select organizations (multiple allowed)')); ?></label>
                                                 <select name="scope_organization_ids[]" id="edit_scope_organization_ids" multiple
                                                     size="5" class="form-select text-sm">
                                                     <?php foreach ($organizations as $org): ?>
                                                             <option value="<?php echo $org['id']; ?>"><?php echo e($org['name']); ?></option>
                                                     <?php endforeach; ?>
                                                 </select>
-                                                <p class="text-xs mt-1" style="color: var(--text-muted);">
+                                                <p class="text-xs mt-1 text-theme-muted">
                                                     <?php echo e(t('Ctrl+click to select multiple organizations.')); ?>
                                                 </p>
                                             </div>
@@ -2355,8 +2296,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <div>
                             <label class="flex items-center">
                                 <input type="checkbox" name="is_active" id="edit_is_active" class="mr-2 rounded">
-                                <span class="text-sm"
-                                    style="color: var(--text-secondary);"><?php echo e(t('Active account')); ?></span>
+                                <span class="text-sm text-theme-secondary"><?php echo e(t('Active account')); ?></span>
                             </label>
                         </div>
 
@@ -2376,8 +2316,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <?php echo csrf_field(); ?>
                         <input type="hidden" name="id" id="reset_id">
                         <div class="flex-1">
-                            <label class="block text-sm font-medium mb-1"
-                                style="color: var(--text-secondary);"><?php echo e(t('New password')); ?></label>
+                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('New password')); ?></label>
                             <input type="password" name="new_password" minlength="6" class="form-input">
                         </div>
                         <button type="submit" name="reset_password" class="btn btn-warning w-full sm:w-auto">
@@ -2568,22 +2507,27 @@ include BASE_PATH . '/includes/components/page-header.php';
                 const avatarPreview = document.getElementById('edit_avatar_preview');
                 const removeAvatarForm = document.getElementById('remove_avatar_form');
                 while (avatarPreview.firstChild) avatarPreview.removeChild(avatarPreview.firstChild);
+                const avatarInitials = ((user.first_name || user.email || '?').charAt(0)).toUpperCase();
+                const avatarWrapper = document.createElement('span');
+                avatarWrapper.className = 'user-avatar user-avatar--edit';
+                const avatarFallback = document.createElement('span');
+                avatarFallback.className = 'user-avatar__initials';
+                avatarFallback.textContent = avatarInitials;
+                avatarWrapper.appendChild(avatarFallback);
                 if (user.avatar) {
                     const img = document.createElement('img');
                     img.src = user.avatar;
                     img.alt = '';
-                    img.className = 'w-14 h-14 rounded-full object-cover';
-                    avatarPreview.appendChild(img);
+                    img.className = 'user-avatar__image';
+                    img.onerror = function () {
+                        this.classList.add('is-hidden');
+                        this.removeAttribute('src');
+                    };
+                    avatarWrapper.appendChild(img);
+                    avatarPreview.appendChild(avatarWrapper);
                     removeAvatarForm.style.display = 'inline';
                 } else {
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'w-14 h-14 rounded-full flex items-center justify-center';
-                    wrapper.style.cssText = 'background: var(--surface-tertiary); color: var(--text-secondary);';
-                    const span = document.createElement('span');
-                    span.className = 'text-lg font-bold';
-                    span.textContent = ((user.first_name || '?').charAt(0)).toUpperCase();
-                    wrapper.appendChild(span);
-                    avatarPreview.appendChild(wrapper);
+                    avatarPreview.appendChild(avatarWrapper);
                     removeAvatarForm.style.display = 'none';
                 }
 

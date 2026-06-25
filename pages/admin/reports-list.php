@@ -160,10 +160,10 @@ include BASE_PATH . '/includes/header.php';
     <!-- Reports List -->
     <?php if (empty($reports)): ?>
         <div class="card card-body p-12 text-center">
-            <div class="mb-4" style="color: var(--text-muted);"><?php echo get_icon('file', 'w-16 h-16 mx-auto'); ?></div>
-            <h3 class="text-lg font-semibold mb-2" style="color: var(--text-primary);"><?php echo e(t('No Reports Yet')); ?>
+            <div class="mb-4 text-theme-muted"><?php echo get_icon('file', 'w-16 h-16 mx-auto'); ?></div>
+            <h3 class="text-lg font-semibold mb-2 text-theme-primary"><?php echo e(t('No Reports Yet')); ?>
             </h3>
-            <p class="mb-2" style="color: var(--text-muted);">
+            <p class="mb-2 text-theme-muted">
                 <?php echo e(t('Get started by creating your first client report')); ?>
             </p>
             <a href="<?php echo url('admin', ['section' => 'report-builder']); ?>" class="btn btn-primary">
@@ -195,21 +195,21 @@ include BASE_PATH . '/includes/header.php';
                         </th>
                     </tr>
                 </thead>
-                <tbody class="divide-y" style="border-color: var(--border-light);">
+                <tbody class="divide-y border-theme-light">
                     <?php foreach ($reports as $report): ?>
                         <tr class="tr-hover">
                             <td class="px-6 py-4">
-                                <div class="font-medium" style="color: var(--text-primary);"><?php echo e($report['title']); ?>
+                                <div class="font-medium text-theme-primary"><?php echo e($report['title']); ?>
                                 </div>
-                                <div class="text-xs" style="color: var(--text-muted);">
+                                <div class="text-xs text-theme-muted">
                                     <?php echo get_icon('globe', 'w-3 h-3 mr-1 inline-block'); ?>
                                     <?php echo e(strtoupper($report['report_language'])); ?>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 text-sm" style="color: var(--text-secondary);">
+                            <td class="px-6 py-4 text-sm text-theme-secondary">
                                 <?php echo e($report['organization_name']); ?>
                             </td>
-                            <td class="px-6 py-4 text-sm" style="color: var(--text-secondary);">
+                            <td class="px-6 py-4 text-sm text-theme-secondary">
                                 <?php echo date('M j', strtotime($report['date_from'])); ?> -
                                 <?php echo date('M j, Y', strtotime($report['date_to'])); ?>
                             </td>
@@ -238,9 +238,9 @@ include BASE_PATH . '/includes/header.php';
                                     </div>
                                 <?php endif; ?>
                             </td>
-                            <td class="px-6 py-4 text-sm" style="color: var(--text-secondary);">
+                            <td class="px-6 py-4 text-sm text-theme-secondary">
                                 <?php echo date('M j, Y', strtotime($report['created_at'])); ?>
-                                <div class="text-xs" style="color: var(--text-muted);">
+                                <div class="text-xs text-theme-muted">
                                     <?php echo e(t('by')); ?>
                                     <?php echo e($report['first_name'] . ' ' . $report['last_name']); ?>
                                 </div>
@@ -344,7 +344,7 @@ include BASE_PATH . '/includes/header.php';
 <!-- Expiration Modal -->
 <div id="expirationModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
     <div class="rounded-xl shadow-xl max-w-md w-full mx-4 p-4" style="background: var(--surface-primary);">
-        <h3 class="text-lg font-semibold mb-4" style="color: var(--text-primary);">
+        <h3 class="text-lg font-semibold mb-4 text-theme-primary">
             <span
                 class="text-orange-600 inline-block mr-2"><?php echo get_icon('clock', 'w-5 h-5'); ?></span><?php echo e(t('Set Report Expiration')); ?>
         </h3>
@@ -355,16 +355,16 @@ include BASE_PATH . '/includes/header.php';
 
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
+                    <label class="block text-sm font-medium mb-2 text-theme-secondary">
                         <?php echo e(t('Expiration Date & Time')); ?>
                     </label>
                     <input type="datetime-local" name="expires_at" id="expires_at_input" class="form-input">
-                    <p class="mt-1 text-xs" style="color: var(--text-muted);">
+                    <p class="mt-1 text-xs text-theme-muted">
                         <?php echo e(t('Leave empty to remove expiration')); ?>
                     </p>
                 </div>
 
-                <div class="flex items-center gap-2 text-xs" style="color: var(--text-secondary);">
+                <div class="flex items-center gap-2 text-xs text-theme-secondary">
                     <span class="text-blue-500"><?php echo get_icon('info-circle', 'w-4 h-4'); ?></span>
                     <span><?php echo e(t('After expiration, the share link will no longer be accessible')); ?></span>
                 </div>

@@ -31,11 +31,11 @@ function ticket_registry_render_view_tabs(array $definitions, array $counts, str
 
 function ticket_registry_render_filter_summary(int $total_tickets, array $filter_notes, string $clear_url, bool $has_filters): void
 {
+    if (empty($filter_notes) && !$has_filters) {
+        return;
+    }
     ?>
     <div class="ticket-filter-summary">
-        <div class="ticket-filter-summary__count">
-            <?php echo e(t('{count} tickets', ['count' => $total_tickets])); ?>
-        </div>
         <?php if (!empty($filter_notes)): ?>
             <div class="ticket-filter-summary__chips" aria-label="<?php echo e(t('Active filters')); ?>">
                 <?php foreach ($filter_notes as $note): ?>

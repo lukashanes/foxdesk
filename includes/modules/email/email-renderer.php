@@ -118,7 +118,7 @@ function foxdesk_render_ticket_email_html(array $payload): string
     $reason = foxdesk_email_escape($payload['reason'] ?? 'You are receiving this because you are connected to this ticket.');
 
     $cta = $cta_url !== ''
-        ? '<p style="margin:24px 0 0"><a href="' . $cta_url . '" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;border-radius:10px;padding:11px 16px;font-weight:700">' . $cta_label . '</a></p>'
+        ? '<p style="margin:24px 0 0"><a href="' . $cta_url . '" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;border-radius: var(--fd-radius-control);padding:11px 16px;font-weight:700">' . $cta_label . '</a></p>'
         : '';
     $reason_html = $reason !== ''
         ? '<p style="margin:22px 0 0;color:#64748b;font-size:12px;line-height:18px">' . $reason . '</p>'

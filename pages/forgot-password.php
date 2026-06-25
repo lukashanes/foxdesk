@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <span class="text-white text-2xl font-bold"><?php echo strtoupper(substr($app_name, 0, 1)); ?></span>
             </div>
             <h1 class="text-2xl font-bold text-gradient"><?php echo e(t('Reset password')); ?></h1>
-            <p style="color: var(--text-muted);"><?php echo e(t('Enter your email to reset your password')); ?></p>
+            <p class="text-theme-muted"><?php echo e(t('Enter your email to reset your password')); ?></p>
         </div>
 
         <?php if ($error): ?>
@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <form method="post">
             <?php echo csrf_field(); ?>
             <div>
-                <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);"><?php echo e(t('Email')); ?></label>
+                <label class="block text-sm font-medium mb-2 text-theme-secondary"><?php echo e(t('Email')); ?></label>
                 <input type="email" name="email" value="<?php echo e($_POST['email'] ?? ''); ?>" class="form-input login-input"
                     autocomplete="username" inputmode="email" autocapitalize="none" required autofocus>
             </div>
@@ -142,8 +142,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php foreach ($lang_params as $key => $value): ?>
                 <input type="hidden" name="<?php echo e($key); ?>" value="<?php echo e($value); ?>">
             <?php endforeach; ?>
-            <label for="lang-select" class="text-xs uppercase tracking-wide" style="color: var(--text-muted);"><?php echo e(t('Language')); ?></label>
-            <select id="lang-select" name="lang" class="form-select w-auto text-sm" style="border-radius: var(--radius-md);" onchange="this.form.submit()">
+            <label for="lang-select" class="text-xs uppercase tracking-wide text-theme-muted"><?php echo e(t('Language')); ?></label>
+            <select id="lang-select" name="lang" class="form-select w-auto text-sm" style="border-radius: var(--fd-radius-control);" onchange="this.form.submit()">
                 <?php foreach ($lang_options as $code => $label): ?>
                     <option value="<?php echo e($code); ?>" <?php echo $code === $current_lang ? 'selected' : ''; ?>>
                         <?php echo e($label); ?>
@@ -159,7 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </a>
         </div>
 
-        <p class="text-center text-sm mt-8" style="color: var(--text-muted);">
+        <p class="text-center text-sm mt-8 text-theme-muted">
             &copy; <?php echo date('Y'); ?> <?php echo e($app_name); ?>
         </p>
     </div>

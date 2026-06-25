@@ -15,6 +15,10 @@ $assert($page !== false, 'Tickets page must be readable.');
 $assert($asset !== false, 'Ticket list JS asset must be readable.');
 $assert(str_contains($page, 'window.FoxDeskTicketListConfig'), 'Tickets page must expose only the ticket-list JS config.');
 $assert(str_contains($page, 'assets/js/ticket-list.js'), 'Tickets page must load the extracted ticket-list JS asset.');
+$assert(str_contains($page, '$date_sort_url'), 'Tickets page must expose a clickable date sort URL.');
+$assert(str_contains($page, '$date_sort_next = $sort === \'oldest\' ? \'newest\' : \'oldest\';'), 'Date header must toggle newest/oldest sorting.');
+$assert(str_contains($page, 'class="ticket-date-sort'), 'Date column header must be a clickable sort control.');
+$assert(str_contains($page, 'get_icon($date_sort_icon'), 'Date sort control must show direction.');
 
 foreach ([
     'window.applyHeaderSort',

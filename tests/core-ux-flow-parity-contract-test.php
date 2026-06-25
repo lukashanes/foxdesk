@@ -34,19 +34,21 @@ foreach ([
 
 $header = read_core_ux_flow_file($root, 'includes/header.php');
 foreach ([
-    "t('Work')",
     "t('Dashboard')",
-    "t('All tickets')",
+    "t('Tickets')",
     "t('New ticket')",
-    "t('Time Reports')",
+    "t('Reports')",
+    "t('Settings')",
 ] as $needle) {
     assert_core_ux_flow(str_contains($header, $needle), 'Workspace navigation is missing ' . $needle);
 }
-assert_core_ux_flow(
-    strpos($header, "url('work')") < strpos($header, "url('dashboard')"),
-    'Work must stay ahead of Dashboard in the workspace navigation.'
-);
+assert_core_ux_flow(!str_contains($header, "url('dashboard')"), 'Legacy dashboard must not be exposed as a primary workspace agenda.');
 assert_core_ux_flow(!str_contains($header, "url('inbox')"), 'Inbox must not be exposed as a separate workspace agenda.');
+
+$shortcuts = read_core_ux_flow_file($root, 'assets/js/shortcuts.js');
+assert_core_ux_flow(str_contains($shortcuts, "label: 'Dashboard'"), 'Command palette must label the primary workspace dashboard as Dashboard.');
+assert_core_ux_flow(!str_contains($shortcuts, "label: 'Work'"), 'Command palette must not expose the old Work label.');
+assert_core_ux_flow(str_contains($shortcuts, "label: 'Analytics'"), 'Command palette must keep the legacy analytics dashboard distinct.');
 
 $work = read_core_ux_flow_file($root, 'includes/modules/work/work-queues.php');
 foreach (['mine', 'unassigned', 'overdue', 'waiting', 'done_today'] as $key) {
@@ -124,6 +126,9 @@ $new_ticket = read_core_ux_flow_file($root, 'pages/new-ticket.php');
 assert_core_ux_flow(str_contains($new_ticket, "'organization_id' => \$organization_id"), 'New ticket must pass the selected client explicitly, including a blank client.');
 assert_core_ux_flow(str_contains($new_ticket, '$default_organization_id = null'), 'New ticket must default to no selected client.');
 assert_core_ux_flow(str_contains($new_ticket, 'data-reset-on-fresh-ticket="1"'), 'New ticket form must reset client selection for fresh tickets.');
+assert_core_ux_flow(str_contains($new_ticket, 'assets/js/attachment-paste-drop.js'), 'New ticket must load paste/drop attachment support.');
+assert_core_ux_flow(str_contains($new_ticket, 'FoxDeskAttachmentPasteDrop.bind'), 'New ticket must bind pasted and dropped files to attachments.');
+assert_core_ux_flow(str_contains($new_ticket, "targetSelectors: ['#new-ticket-form', '#upload-zone']"), 'New ticket paste/drop support must cover the form and upload zone.');
 
 $ticket_crud = read_core_ux_flow_file($root, 'includes/ticket-crud-functions.php');
 foreach ([

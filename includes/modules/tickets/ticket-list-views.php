@@ -45,6 +45,22 @@ function ticket_list_view_shows_closed_inline(string $view, bool $is_closed_filt
     return in_array(ticket_list_view_normalize($view, true), ['done', 'all', 'archived'], true);
 }
 
+function ticket_list_view_default_sort(string $view): string
+{
+    return ticket_list_view_normalize($view, true) === 'done' ? 'completed' : 'newest';
+}
+
+function ticket_list_view_effective_sort(string $view, string $sort, bool $sort_is_explicit = false): string
+{
+    $sort = trim($sort) !== '' ? trim($sort) : 'newest';
+    if ($sort_is_explicit) {
+        return $sort;
+    }
+
+    $default_sort = ticket_list_view_default_sort($view);
+    return $default_sort !== 'newest' ? $default_sort : $sort;
+}
+
 function ticket_list_view_definitions(bool $include_archive = true): array
 {
     $views = [
@@ -106,6 +122,13 @@ function ticket_list_view_apply_filters(array $filters, string $view): array
             continue;
         }
         $filters[$key] = $value;
+    }
+
+    if (empty($filters['sort'])) {
+        $default_sort = ticket_list_view_default_sort($view);
+        if ($default_sort !== 'newest') {
+            $filters['sort'] = $default_sort;
+        }
     }
 
     return $filters;

@@ -6,7 +6,7 @@
  * query logic into the presentation layer.
  */
 
-function workspace_surface_action(string $url, string $label, string $icon = 'plus', string $class = 'btn btn-primary btn-sm'): string
+function workspace_surface_action(string $url, string $label, string $icon = 'plus', string $class = 'fd-button fd-button--primary fd-button--sm btn btn-primary btn-sm'): string
 {
     return '<a href="' . e($url) . '" class="' . e($class) . '">'
         . get_icon($icon, 'w-4 h-4 mr-1')
@@ -23,7 +23,9 @@ function workspace_render_queue_page(array $options): void
     $active_items = is_array($options['items'] ?? null) ? $options['items'] : [];
     $queue_url = $options['queue_url'] ?? null;
     $view_all_url = (string) ($options['view_all_url'] ?? url('tickets'));
-    $primary_action = (string) ($options['primary_action'] ?? workspace_surface_action(url('new-ticket'), 'New ticket'));
+    $primary_action = array_key_exists('primary_action', $options)
+        ? (string) $options['primary_action']
+        : workspace_surface_action(url('new-ticket'), 'New ticket');
     $row_options = is_array($options['row_options'] ?? null) ? $options['row_options'] : [];
     $aria_label = (string) ($options['aria_label'] ?? $title);
     $contract_surface = (string) ($options['contract_surface'] ?? 'work');
@@ -42,13 +44,15 @@ function workspace_render_queue_page(array $options): void
          data-work-show-source="<?php echo !empty($row_options['show_source']) ? '1' : '0'; ?>">
         <div class="workspace-surface-head">
             <h1 class="workspace-surface-title"><?php echo e(t($title)); ?></h1>
-            <div class="workspace-surface-actions">
-                <?php echo $primary_action; ?>
-            </div>
+            <?php if ($primary_action !== ''): ?>
+                <div class="workspace-surface-actions">
+                    <?php echo $primary_action; ?>
+                </div>
+            <?php endif; ?>
         </div>
 
         <div class="workspace-queue-shell">
-            <nav class="workspace-queue-rail" aria-label="<?php echo e(t($aria_label)); ?>">
+            <nav class="fd-card fd-card--compact workspace-queue-rail" aria-label="<?php echo e(t($aria_label)); ?>">
                 <?php foreach ($summary as $key => $queue): ?>
                     <?php
                     $definition = is_array($queue['definition'] ?? null) ? $queue['definition'] : [];
@@ -65,12 +69,12 @@ function workspace_render_queue_page(array $options): void
                 <?php endforeach; ?>
             </nav>
 
-            <section class="workspace-queue-panel">
+            <section class="fd-card fd-card--compact workspace-queue-panel">
                 <div class="workspace-queue-panel__head">
                     <h2 class="workspace-queue-panel__title" data-work-active-title>
                         <?php echo e(t((string) ($active_queue['definition']['label'] ?? $title))); ?>
                     </h2>
-                    <a href="<?php echo e($view_all_url); ?>" class="btn btn-secondary btn-sm"><?php echo e(t('View all')); ?></a>
+                    <a href="<?php echo e($view_all_url); ?>" class="fd-button fd-button--secondary fd-button--sm btn btn-secondary btn-sm"><?php echo e(t('View all')); ?></a>
                 </div>
 
                 <?php workspace_render_ticket_rows($active_items, $row_options); ?>
@@ -106,6 +110,7 @@ function workspace_render_ticket_row(array $ticket, array $options = []): void
     $show_assignee = !empty($options['show_assignee']);
     $show_source = !empty($options['show_source']);
     $date_value = (string) ($ticket['updated_at'] ?? $ticket['created_at'] ?? '');
+    $worked_minutes = max(0, (int) ($ticket['worked_minutes'] ?? 0));
     ?>
     <a href="<?php echo e(ticket_url($ticket)); ?>" class="workspace-ticket-row">
         <div class="workspace-ticket-row__main">
@@ -124,6 +129,12 @@ function workspace_render_ticket_row(array $ticket, array $options = []): void
             <?php endif; ?>
             <?php if ($date_value !== ''): ?>
                 <span><?php echo e(format_date($date_value, 'd.m.Y')); ?></span>
+            <?php endif; ?>
+            <?php if ($worked_minutes > 0): ?>
+                <span class="workspace-ticket-row__time">
+                    <?php echo get_icon('clock', 'w-3.5 h-3.5'); ?>
+                    <span><?php echo e(format_duration_minutes($worked_minutes)); ?></span>
+                </span>
             <?php endif; ?>
         </div>
     </a>

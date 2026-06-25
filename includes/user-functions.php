@@ -563,6 +563,81 @@ function generate_avatar($name, $size = 100)
     return 'data:image/svg+xml;base64,' . base64_encode($svg);
 }
 
+function user_avatar_display_name(array $user): string
+{
+    $name = trim((string) (($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')));
+    if ($name !== '') {
+        return $name;
+    }
+
+    $name = trim((string) ($user['name'] ?? ''));
+    if ($name !== '') {
+        return $name;
+    }
+
+    return trim((string) ($user['email'] ?? 'User'));
+}
+
+function user_avatar_initials(array $user): string
+{
+    $parts = [];
+    foreach (['first_name', 'last_name'] as $field) {
+        $value = trim((string) ($user[$field] ?? ''));
+        if ($value !== '') {
+            $parts[] = mb_strtoupper(mb_substr($value, 0, 1));
+        }
+    }
+
+    if (empty($parts)) {
+        $name = user_avatar_display_name($user);
+        foreach (preg_split('/\s+/', $name) ?: [] as $part) {
+            $part = trim((string) $part);
+            if ($part !== '') {
+                $parts[] = mb_strtoupper(mb_substr($part, 0, 1));
+            }
+            if (count($parts) >= 2) {
+                break;
+            }
+        }
+    }
+
+    if (empty($parts) && !empty($user['email'])) {
+        $parts[] = mb_strtoupper(mb_substr((string) $user['email'], 0, 1));
+    }
+
+    return implode('', array_slice($parts ?: ['?'], 0, 2));
+}
+
+function user_avatar_tone_class(array $user): string
+{
+    $seed = user_avatar_display_name($user) . '|' . (string) ($user['email'] ?? '');
+    return 'user-avatar--tone-' . (abs(crc32($seed)) % 12);
+}
+
+function render_user_avatar(array $user, string $size = 'md', string $class = '', array $options = []): string
+{
+    $size = in_array($size, ['xs', 'sm', 'md', 'lg', 'edit', 'xl'], true) ? $size : 'md';
+    $name = user_avatar_display_name($user);
+    $initials = user_avatar_initials($user);
+    $classes = trim('user-avatar user-avatar--' . $size . ' ' . user_avatar_tone_class($user) . ' ' . $class);
+    $title = !empty($options['title']) ? ' title="' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . '"' : '';
+    $aria = array_key_exists('aria_hidden', $options) && !$options['aria_hidden'] ? '' : ' aria-hidden="true"';
+
+    $html = '<span class="' . htmlspecialchars($classes, ENT_QUOTES, 'UTF-8') . '"' . $title . $aria . '>';
+    $html .= '<span class="user-avatar__initials">' . htmlspecialchars($initials, ENT_QUOTES, 'UTF-8') . '</span>';
+
+    $avatar = trim((string) ($user['avatar'] ?? ''));
+    if ($avatar !== '' && (!function_exists('is_safe_avatar_url') || is_safe_avatar_url($avatar))) {
+        $src = function_exists('upload_url') ? upload_url($avatar) : $avatar;
+        if ($src !== '') {
+            $html .= '<img src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '" alt="" class="user-avatar__image" loading="lazy" decoding="async" onerror="this.hidden=true;this.classList.add(\'is-hidden\');this.removeAttribute(\'src\');">';
+        }
+    }
+
+    $html .= '</span>';
+    return $html;
+}
+
 
 /**
  * Get organization IDs for a user (works for both agents and regular users)

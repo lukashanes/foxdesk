@@ -6,6 +6,7 @@
  *   N           — New ticket (when not in input)
  *   /           — Focus search (when not in input)
  *   G then D    — Go to Dashboard
+ *   G then A    — Go to Analytics
  *   G then T    — Go to Tickets
  *   G then R    — Go to Reports
  *   Esc         — Close command palette / modal
@@ -101,8 +102,8 @@
 
     function getDefaultItems() {
         var items = [
-            { type: 'nav', label: 'Work', desc: 'Open work queues', icon: '\u2302', action: function() { navigateTo('work'); } },
-            { type: 'nav', label: 'Dashboard', desc: 'View analytics dashboard', icon: 'D', action: function() { navigateTo('dashboard'); } },
+            { type: 'nav', label: 'Dashboard', desc: 'Open your main workspace dashboard', icon: '\u2302', action: function() { navigateTo('work'); } },
+            { type: 'nav', label: 'Analytics', desc: 'View analytics dashboard', icon: 'A', action: function() { navigateTo('dashboard'); } },
             { type: 'nav', label: 'Tickets', desc: 'View all tickets', icon: '\uD83C\uDF9F', action: function() { navigateTo('tickets'); } },
             { type: 'action', label: 'New Ticket', desc: 'Create a new ticket', icon: '\u2795', action: function() { navigateTo('new-ticket'); } },
             { type: 'nav', label: 'My Profile', desc: 'Edit your profile', icon: '\uD83D\uDC64', action: function() { navigateTo('profile'); } }
@@ -400,8 +401,8 @@
         if (pendingG) {
             clearTimeout(gTimeout);
             pendingG = false;
-            if (e.key === 'd') { navigateTo('dashboard'); return; }
-            if (e.key === 'w') { navigateTo('work'); return; }
+            if (e.key === 'd') { navigateTo('work'); return; }
+            if (e.key === 'a') { navigateTo('dashboard'); return; }
             if (e.key === 't') { navigateTo('tickets'); return; }
             if (e.key === 'r') { navigateTo('admin', {section:'reports'}); return; }
             if (e.key === 'o') { navigateTo('admin', {section:'organizations'}); return; }

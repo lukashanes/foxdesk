@@ -22,6 +22,8 @@ $theme = read_admin_ui_file($root, 'theme.css');
 $tickets = read_admin_ui_file($root, 'pages/tickets.php');
 $page_header = read_admin_ui_file($root, 'includes/components/page-header.php');
 $admin_nav = read_admin_ui_file($root, 'includes/components/admin-nav.php');
+$admin_settings_tabs = read_admin_ui_file($root, 'includes/components/admin-settings-tabs.php');
+$admin_settings = read_admin_ui_file($root, 'pages/admin/settings.php');
 $admin_users = read_admin_ui_file($root, 'pages/admin/users.php');
 $admin_clients = read_admin_ui_file($root, 'pages/admin/clients.php');
 $ui_css = $theme . "\n" . $tickets;
@@ -33,6 +35,13 @@ foreach ([
 ] as $needle) {
     assert_admin_ui(str_contains($header, $needle), 'Header search markup missing stable contract: ' . $needle);
 }
+
+assert_admin_ui(str_contains($header, "title=\"<?php echo e(t('Dashboard')); ?>\""), 'Primary home navigation must be labeled Dashboard.');
+assert_admin_ui(!str_contains($header, "title=\"<?php echo e(t('Work')); ?>\""), 'Primary home navigation must not use the Work label.');
+assert_admin_ui(
+    strpos($header, "url('admin', ['section' => 'settings'])") > strpos($header, '<!-- Active timers'),
+    'Settings must live in the lower sidebar area, not the primary navigation block.'
+);
 
 foreach ([
     '.header-search-form',
@@ -92,10 +101,35 @@ foreach ([
 }
 
 foreach ([
-    'includes/components/admin-nav.php',
     'admin-page-nav',
 ] as $needle) {
-    assert_admin_ui(str_contains($page_header . "\n" . $admin_nav, $needle), 'Admin navigation contract missing: ' . $needle);
+    assert_admin_ui(str_contains($admin_nav, $needle), 'Legacy admin navigation component must remain readable for compatibility: ' . $needle);
+}
+assert_admin_ui(!str_contains($page_header, "include BASE_PATH . '/includes/components/admin-nav.php'"), 'Page header must not auto-render the old horizontal admin navigation.');
+assert_admin_ui(str_contains($page_header, "\$is_admin_child_page"), 'Admin child pages must use the compact Settings breadcrumb contract.');
+assert_admin_ui(str_contains($page_header, "url('admin', ['section' => 'settings'])"), 'Admin child breadcrumbs must link back to Settings.');
+
+foreach ([
+    'data-settings-management',
+    'render_admin_settings_management_links',
+    "url('admin', ['section' => 'users'])",
+    "url('admin', ['section' => 'clients'])",
+    "url('admin', ['section' => 'organizations'])",
+    "url('admin', ['section' => 'statuses'])",
+    "url('admin', ['section' => 'recurring-tasks'])",
+    "url('admin', ['section' => 'reports'])",
+    "url('admin', ['section' => 'reports-list'])",
+    "url('admin', ['section' => 'activity'])",
+] as $needle) {
+    assert_admin_ui(str_contains($admin_settings . "\n" . $admin_nav . "\n" . $admin_settings_tabs, $needle), 'Settings must expose moved admin area: ' . $needle);
+}
+
+foreach ([
+    '.settings-management-panel',
+    '.settings-management-panel__head',
+    '.settings-section-nav--management',
+] as $needle) {
+    assert_admin_ui(str_contains($theme, $needle), 'Settings management CSS missing: ' . $needle);
 }
 
 foreach ([

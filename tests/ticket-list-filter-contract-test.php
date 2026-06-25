@@ -34,6 +34,7 @@ $assert($state['created_date_value'] === '2026-06-17', 'Created date must be nor
 $assert($state['tag_filters'] === ['Urgent', 'paid'], 'Tag filters must be normalized and deduplicated case-insensitively.');
 $assert($state['tag_filter_csv'] === 'Urgent, paid', 'Tag filter CSV must match normalized tags.');
 $assert($state['sort'] === 'tags', 'Tags sort must be allowed when tags are supported.');
+$assert($state['sort_is_explicit'] === true, 'Explicit sort requests must be tracked.');
 $assert($state['ticket_view'] === 'board', 'Explicit board view must be used.');
 $assert($state['ticket_view_should_persist'] === true, 'Explicit view must be persisted.');
 $assert($state['filters']['created_from'] === '2026-06-17', 'Created date from filter must be set.');
@@ -49,6 +50,7 @@ $fallback = ticket_list_filter_state_from_request([
 ], ['foxdesk_ticket_view' => 'board'], true, ['tags_supported' => false, 'archive_supported' => true]);
 
 $assert($fallback['sort'] === 'newest', 'Tags sort must fall back when tags are not supported.');
+$assert($fallback['sort_is_explicit'] === true, 'Invalid explicit sort still counts as explicit user intent.');
 $assert($fallback['ticket_view'] === 'board', 'Cookie board view must be used when request view is invalid.');
 $assert($fallback['ticket_view_should_persist'] === false, 'Cookie-derived view must not be re-persisted.');
 $assert($fallback['tag_filters'] === ['legacy'], 'Legacy single tag parameter must be supported.');
@@ -64,5 +66,12 @@ $assert(str_contains($bootstrap, '/tickets/ticket-list-filters.php'), 'Module bo
 $assert(str_contains($page, 'ticket_list_filter_state_from_request($_GET, $_COOKIE, $is_archive)'), 'Tickets page must consume ticket list filter state.');
 $assert(!str_contains($page, '$normalize_tag_filters ='), 'Tickets page must not own tag normalization closure.');
 $assert(!str_contains($page, '$allowed_sorts ='), 'Tickets page must not own sort allow-list logic.');
+$assert(str_contains($page, 'ticket_list_view_effective_sort'), 'Tickets page must apply view-aware default sorting.');
+$assert(str_contains($page, "'completed'        => t('Completed')"), 'Tickets page must expose completed sort in the header.');
+
+$ticket_crud = file_get_contents($root . '/includes/ticket-crud-functions.php');
+$assert($ticket_crud !== false, 'Ticket CRUD functions must be readable.');
+$assert(str_contains($ticket_crud, "case 'completed':"), 'Ticket CRUD must support completed sort.');
+$assert(str_contains($ticket_crud, 'ticket_completed_order_by'), 'Completed sort must use a dedicated order helper.');
 
 echo "Ticket list filter contract OK\n";

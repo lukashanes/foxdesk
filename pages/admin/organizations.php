@@ -315,8 +315,8 @@ include BASE_PATH . '/includes/components/page-header.php';
     <div class="admin-main-column">
     <div class="admin-list-card">
         <div class="px-6 py-3 border-b flex items-center justify-between">
-            <h3 class="font-semibold" style="color: var(--text-primary);"><?php echo e(t('Organization list')); ?></h3>
-            <span class="text-sm" style="color: var(--text-muted);"><?php echo e(t('Click row to expand members')); ?></span>
+            <h3 class="font-semibold text-theme-primary"><?php echo e(t('Organization list')); ?></h3>
+            <span class="text-sm text-theme-muted"><?php echo e(t('Click row to expand members')); ?></span>
         </div>
 
         <div class="admin-filter-bar">
@@ -324,7 +324,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                 <input type="hidden" name="page" value="admin">
                 <input type="hidden" name="section" value="organizations">
                 <div>
-                    <label class="block text-xs mb-1" style="color: var(--text-muted);"><?php echo e(t('Time range')); ?></label>
+                    <label class="block text-xs mb-1 text-theme-muted"><?php echo e(t('Time range')); ?></label>
                     <select name="time_range" id="orgs-time-range" class="form-select">
                         <option value="all" <?php echo $time_range === 'all' ? 'selected' : ''; ?>>
                             <?php echo e(t('All time')); ?>
@@ -346,11 +346,11 @@ include BASE_PATH . '/includes/components/page-header.php';
                 <div id="orgs-custom-range"
                     class="flex items-end gap-3 <?php echo $time_range === 'custom' ? '' : 'hidden'; ?>">
                     <div>
-                        <label class="block text-xs mb-1" style="color: var(--text-muted);"><?php echo e(t('From date')); ?></label>
+                        <label class="block text-xs mb-1 text-theme-muted"><?php echo e(t('From date')); ?></label>
                         <input type="date" name="from_date" value="<?php echo e($from_date); ?>" class="form-input">
                     </div>
                     <div>
-                        <label class="block text-xs mb-1" style="color: var(--text-muted);"><?php echo e(t('To date')); ?></label>
+                        <label class="block text-xs mb-1 text-theme-muted"><?php echo e(t('To date')); ?></label>
                         <input type="date" name="to_date" value="<?php echo e($to_date); ?>" class="form-input">
                     </div>
                 </div>
@@ -359,12 +359,12 @@ include BASE_PATH . '/includes/components/page-header.php';
         </div>
 
         <?php if (empty($organizations)): ?>
-            <div class="p-8 text-center" style="color: var(--text-muted);">
+            <div class="p-8 text-center text-theme-muted">
                 <?php echo get_icon('building', 'text-4xl mb-4'); ?>
                 <p><?php echo e(t('No organizations yet.')); ?></p>
             </div>
         <?php else: ?>
-            <div class="divide-y" style="border-color: var(--border-light);">
+            <div class="divide-y border-theme-light">
                 <?php foreach ($organizations as $org):
                     $users_count = $org_user_counts[$org['id']] ?? 0;
                     $total_minutes = $org_time_totals[$org['id']] ?? 0;
@@ -394,8 +394,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-3">
                                         <a href="<?php echo url('client', ['id' => (int) $org['id']]); ?>"
-                                           class="font-medium hover:underline"
-                                           style="color: var(--text-primary);"
+                                           class="font-medium hover:underline text-theme-primary"
                                            onclick="event.stopPropagation();">
                                             <?php echo e($org['name']); ?>
                                         </a>
@@ -406,23 +405,23 @@ include BASE_PATH . '/includes/components/page-header.php';
                                         <?php endif; ?>
                                     </div>
                                     <?php if (!empty($org['contact_email'])): ?>
-                                        <div class="text-sm" style="color: var(--text-muted);"><?php echo e($org['contact_email']); ?></div>
+                                        <div class="text-sm text-theme-muted"><?php echo e($org['contact_email']); ?></div>
                                     <?php endif; ?>
                                 </div>
 
                                 <!-- Stats -->
-                                <div class="hidden md:flex items-center gap-3 text-sm" style="color: var(--text-secondary);">
+                                <div class="hidden md:flex items-center gap-3 text-sm text-theme-secondary">
                                     <div class="text-center">
                                         <div class="font-medium"><?php echo $users_count; ?></div>
-                                        <div class="text-xs" style="color: var(--text-muted);"><?php echo e(t('Users')); ?></div>
+                                        <div class="text-xs text-theme-muted"><?php echo e(t('Users')); ?></div>
                                     </div>
                                     <div class="text-center">
                                         <div class="font-medium"><?php echo $total_minutes > 0 ? e(format_duration_minutes($total_minutes)) : '-'; ?></div>
-                                        <div class="text-xs" style="color: var(--text-muted);"><?php echo e(t('Time')); ?></div>
+                                        <div class="text-xs text-theme-muted"><?php echo e(t('Time')); ?></div>
                                     </div>
                                     <div class="text-center">
                                         <div class="font-medium"><?php echo $org['billable_rate'] ? e(number_format((float) $org['billable_rate'], 0) . ' ' . $currency) : '-'; ?></div>
-                                        <div class="text-xs" style="color: var(--text-muted);"><?php echo e(t('Rate')); ?></div>
+                                        <div class="text-xs text-theme-muted"><?php echo e(t('Rate')); ?></div>
                                     </div>
                                 </div>
                             </div>
@@ -469,21 +468,15 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <div class="px-6 py-3 pl-14">
                                 <div class="members-list space-y-2 mb-4" id="members-list-<?php echo $org['id']; ?>">
                                     <?php if (empty($members)): ?>
-                                        <div class="text-sm py-2 empty-message" style="color: var(--text-muted);"><?php echo e(t('No users in this organization.')); ?></div>
+                                        <div class="text-sm py-2 empty-message text-theme-muted"><?php echo e(t('No users in this organization.')); ?></div>
                                     <?php else: ?>
                                         <?php foreach ($members as $u): ?>
                                             <div class="member-row flex items-center justify-between rounded-lg px-4 py-2 shadow-sm" data-user-id="<?php echo $u['id']; ?>" style="background: var(--surface-primary);">
                                                 <div class="flex items-center gap-3">
-                                                    <?php if (!empty($u['avatar'])): ?>
-                                                        <img src="<?php echo e(upload_url($u['avatar'])); ?>" alt="" class="w-8 h-8 rounded-full object-cover flex-shrink-0">
-                                                    <?php else: ?>
-                                                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style="background: var(--surface-tertiary); color: var(--text-secondary);">
-                                                            <?php echo strtoupper(substr($u['first_name'], 0, 1)); ?>
-                                                        </div>
-                                                    <?php endif; ?>
+                                                    <?php echo render_user_avatar($u, 'sm'); ?>
                                                     <div>
-                                                        <div class="font-medium text-sm" style="color: var(--text-primary);"><?php echo e($u['first_name'] . ' ' . $u['last_name']); ?></div>
-                                                        <div class="text-xs" style="color: var(--text-muted);"><?php echo e($u['email']); ?></div>
+                                                        <div class="font-medium text-sm text-theme-primary"><?php echo e($u['first_name'] . ' ' . $u['last_name']); ?></div>
+                                                        <div class="text-xs text-theme-muted"><?php echo e($u['email']); ?></div>
                                                     </div>
                                                     <span class="badge text-xs <?php echo $u['role'] === 'admin' ? 'bg-purple-100 text-purple-800' : ($u['role'] === 'agent' ? 'bg-blue-100 text-blue-800' : ''); ?>"<?php if ($u['role'] !== 'admin' && $u['role'] !== 'agent'): ?> style="background: var(--surface-secondary); color: var(--text-primary);"<?php endif; ?>>
                                                         <?php echo e(ucfirst($u['role'])); ?>
@@ -531,56 +524,56 @@ include BASE_PATH . '/includes/components/page-header.php';
     <!-- Add Organization Form (Sidebar) -->
     <div class="admin-side-column">
     <div class="card card-body h-fit">
-        <h3 class="font-semibold mb-4" style="color: var(--text-primary);"><?php echo e(t('Add organization')); ?></h3>
+        <h3 class="font-semibold mb-4 text-theme-primary"><?php echo e(t('Add organization')); ?></h3>
 
         <form method="post" enctype="multipart/form-data" class="space-y-4">
             <?php echo csrf_field(); ?>
 
             <div>
-                <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Organization name')); ?> *</label>
+                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Organization name')); ?> *</label>
                 <input type="text" name="name" required class="form-input">
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Logo')); ?></label>
-                <div id="org-logo-create-zone" class="rounded-lg p-2.5 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors" style="border-color: var(--border-light);">
+                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Logo')); ?></label>
+                <div id="org-logo-create-zone" class="rounded-lg p-2.5 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors border-theme-light">
                     <input type="file" name="org_logo_create" id="org-logo-create-input" accept="image/jpeg,image/png,image/gif,image/webp" class="hidden">
                     <div class="flex items-center gap-2 text-xs">
-                        <span style="color: var(--text-muted);"><?php echo get_icon('cloud-upload-alt', 'text-base flex-shrink-0'); ?></span>
+                        <span class="text-theme-muted"><?php echo get_icon('cloud-upload-alt', 'text-base flex-shrink-0'); ?></span>
                         <span><span class="text-blue-500 font-medium"><?php echo e(t('Click')); ?></span> <?php echo e(t('or drag file')); ?></span>
                     </div>
                 </div>
-                <p id="org-logo-create-filename" class="text-xs mt-1 hidden" style="color: var(--text-secondary);"></p>
-                <p class="text-xs mt-1" style="color: var(--text-muted);"><?php echo e(t('Square image recommended. Max 2 MB.')); ?></p>
+                <p id="org-logo-create-filename" class="text-xs mt-1 hidden text-theme-secondary"></p>
+                <p class="text-xs mt-1 text-theme-muted"><?php echo e(t('Square image recommended. Max 2 MB.')); ?></p>
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Company ID')); ?></label>
+                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Company ID')); ?></label>
                 <input type="text" name="ico" class="form-input">
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Address')); ?></label>
+                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Address')); ?></label>
                 <textarea name="address" rows="2" class="form-textarea"></textarea>
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Contact email')); ?></label>
+                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Contact email')); ?></label>
                 <input type="email" name="contact_email" class="form-input">
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Phone')); ?></label>
+                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Phone')); ?></label>
                 <input type="text" name="contact_phone" class="form-input">
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Notes')); ?></label>
+                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Notes')); ?></label>
                 <textarea name="notes" rows="2" class="form-textarea"></textarea>
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Billable rate (per hour)')); ?></label>
+                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Billable rate (per hour)')); ?></label>
                 <input type="number" name="billable_rate" step="0.01" min="0" class="form-input">
             </div>
 
@@ -595,30 +588,30 @@ include BASE_PATH . '/includes/components/page-header.php';
 <!-- Edit Organization Modal -->
 <div id="editOrgModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="edit-org-title">
     <div class="rounded-xl shadow-xl max-w-lg w-full mx-4 p-4 max-h-[90vh] overflow-y-auto" style="background: var(--surface-primary);">
-        <h3 id="edit-org-title" class="font-semibold mb-4" style="color: var(--text-primary);"><?php echo e(t('Edit organization')); ?></h3>
+        <h3 id="edit-org-title" class="font-semibold mb-4 text-theme-primary"><?php echo e(t('Edit organization')); ?></h3>
 
         <!-- Logo upload (separate form) -->
-        <div class="flex items-center gap-4 pb-4 mb-4 border-b" style="border-color: var(--border-light);">
+        <div class="flex items-center gap-4 pb-4 mb-4 border-b border-theme-light">
             <div id="edit_org_logo_preview">
                 <div class="w-14 h-14 rounded-xl flex items-center justify-center" style="background: var(--surface-tertiary); color: var(--text-secondary);">
                     <span class="text-lg font-bold" id="edit_org_logo_initial"></span>
                 </div>
             </div>
             <div class="flex-1">
-                <label class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary);"><?php echo e(t('Logo')); ?></label>
+                <label class="block text-sm font-medium mb-1.5 text-theme-secondary"><?php echo e(t('Logo')); ?></label>
                 <form method="post" enctype="multipart/form-data" class="mb-1">
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="org_id" id="edit_org_logo_org_id">
                     <input type="hidden" name="upload_org_logo" value="1">
-                    <div id="org-logo-edit-zone" class="rounded-lg p-2 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors" style="border-color: var(--border-light);">
+                    <div id="org-logo-edit-zone" class="rounded-lg p-2 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors border-theme-light">
                         <input type="file" name="org_logo" id="org-logo-edit-input" accept="image/jpeg,image/png,image/gif,image/webp" class="hidden"
                                onchange="this.form.submit()">
                         <div class="flex items-center gap-2 text-xs">
-                            <span style="color: var(--text-muted);"><?php echo get_icon('cloud-upload-alt', 'text-base flex-shrink-0'); ?></span>
+                            <span class="text-theme-muted"><?php echo get_icon('cloud-upload-alt', 'text-base flex-shrink-0'); ?></span>
                             <span><span class="text-blue-500 font-medium"><?php echo e(t('Click')); ?></span> <?php echo e(t('or drag file')); ?></span>
                         </div>
                     </div>
-                    <p id="org-logo-edit-filename" class="text-xs mt-1 hidden" style="color: var(--text-secondary);"></p>
+                    <p id="org-logo-edit-filename" class="text-xs mt-1 hidden text-theme-secondary"></p>
                 </form>
                 <div class="flex items-center gap-2">
                     <form method="post" id="remove_org_logo_form" class="inline" style="display:none;">
@@ -629,7 +622,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         </button>
                     </form>
                 </div>
-                <p class="text-xs mt-1" style="color: var(--text-muted);"><?php echo e(t('Square image recommended. Max 2 MB.')); ?></p>
+                <p class="text-xs mt-1 text-theme-muted"><?php echo e(t('Square image recommended. Max 2 MB.')); ?></p>
             </div>
         </div>
 
@@ -639,38 +632,38 @@ include BASE_PATH . '/includes/components/page-header.php';
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label for="edit_org_name" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Organization name')); ?> *</label>
+                    <label for="edit_org_name" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Organization name')); ?> *</label>
                     <input type="text" name="name" id="edit_org_name" required aria-required="true" class="form-input">
                 </div>
                 <div>
-                    <label for="edit_org_ico" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Company ID')); ?></label>
+                    <label for="edit_org_ico" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Company ID')); ?></label>
                     <input type="text" name="ico" id="edit_org_ico" class="form-input">
                 </div>
             </div>
 
             <div>
-                <label for="edit_org_address" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Address')); ?></label>
+                <label for="edit_org_address" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Address')); ?></label>
                 <textarea name="address" id="edit_org_address" rows="2" class="form-textarea"></textarea>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label for="edit_org_contact_email" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Contact email')); ?></label>
+                    <label for="edit_org_contact_email" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Contact email')); ?></label>
                     <input type="email" name="contact_email" id="edit_org_contact_email" class="form-input">
                 </div>
                 <div>
-                    <label for="edit_org_contact_phone" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Phone')); ?></label>
+                    <label for="edit_org_contact_phone" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Phone')); ?></label>
                     <input type="text" name="contact_phone" id="edit_org_contact_phone" class="form-input">
                 </div>
             </div>
 
             <div>
-                <label for="edit_org_notes" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Notes')); ?></label>
+                <label for="edit_org_notes" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Notes')); ?></label>
                 <textarea name="notes" id="edit_org_notes" rows="2" class="form-textarea"></textarea>
             </div>
 
             <div>
-                <label for="edit_org_billable_rate" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);"><?php echo e(t('Billable rate (per hour)')); ?></label>
+                <label for="edit_org_billable_rate" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Billable rate (per hour)')); ?></label>
                 <input type="number" name="billable_rate" id="edit_org_billable_rate" step="0.01" min="0" class="form-input">
             </div>
 
@@ -842,8 +835,8 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <div class="flex items-center gap-3">
                             <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style="background: var(--surface-tertiary); color: var(--text-secondary);">${escHtml(initial)}</div>
                             <div>
-                                <div class="font-medium text-sm" style="color: var(--text-primary);">${safeFirstName} ${safeLastName}</div>
-                                <div class="text-xs" style="color: var(--text-muted);">${safeEmail}</div>
+                                <div class="font-medium text-sm text-theme-primary">${safeFirstName} ${safeLastName}</div>
+                                <div class="text-xs text-theme-muted">${safeEmail}</div>
                             </div>
                             <span class="badge text-xs ${roleClass}" style="${roleStyle}">${safeRole}</span>
                         </div>
@@ -910,7 +903,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         // Check if list is empty
                         if (!membersList.querySelector('.member-row')) {
-                            membersList.innerHTML = '<div class="text-sm py-2 empty-message" style="color: var(--text-muted);"><?php echo e(t('No users in this organization.')); ?></div>';
+                            membersList.innerHTML = '<div class="text-sm py-2 empty-message text-theme-muted"><?php echo e(t('No users in this organization.')); ?></div>';
                         }
                     }, 200);
 
