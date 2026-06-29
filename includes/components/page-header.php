@@ -7,6 +7,9 @@
  * - $page_header_breadcrumbs (array, optional): [['label' => '...', 'url' => '...'], ...]
  */
 ?>
+<?php if (!empty($page_header_suppressed)): ?>
+    <?php return; ?>
+<?php endif; ?>
 <div class="page-header mb-2">
     <?php
     $admin_section = isset($_GET['section']) ? (string) $_GET['section'] : '';

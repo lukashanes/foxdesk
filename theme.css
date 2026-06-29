@@ -8281,3 +8281,150 @@ justify-self: start;
 width: 100%;
 }
 }
+
+/* Compact reports surface for laptop viewports. */
+.workflow-surface--reports.admin-legacy-page {
+gap: 0.625rem;
+padding: 0.75rem 1rem 1rem;
+}
+.workflow-surface--reports .report-page-toolbar {
+margin-bottom: 0.5rem;
+}
+.workflow-surface--reports .report-page-toolbar--modes {
+gap: 0.5rem;
+margin-bottom: 0.5rem;
+}
+.workflow-surface--reports .report-mode-switch {
+gap: 0.25rem;
+padding: 0.2rem;
+}
+.workflow-surface--reports .report-mode-link {
+min-height: 30px;
+padding: 0.35rem 0.6rem;
+font-size: var(--type-xs);
+}
+.workflow-surface--reports .reporting-flow-card {
+gap: 0.625rem;
+padding: 0.75rem;
+}
+.workflow-surface--reports .reporting-flow-main,
+.workflow-surface--reports .reporting-flow-side {
+gap: 0.5rem;
+}
+.workflow-surface--reports .reporting-flow-heading {
+display: flex;
+align-items: baseline;
+gap: 0.35rem 0.6rem;
+flex-wrap: wrap;
+}
+.workflow-surface--reports .reporting-flow-heading .admin-eyebrow {
+margin: 0;
+font-size: 0.625rem;
+}
+.workflow-surface--reports .reporting-flow-heading h2 {
+font-size: var(--type-base);
+line-height: 1.15;
+}
+.workflow-surface--reports .reporting-flow-form {
+gap: 0.5rem;
+grid-template-columns: minmax(220px, 1fr) minmax(145px, 210px) auto;
+}
+.workflow-surface--reports .reporting-flow-form label {
+gap: 0.2rem;
+}
+.workflow-surface--reports .reporting-flow-form .form-select,
+.workflow-surface--reports .reporting-flow-form .btn {
+min-height: 34px;
+}
+.workflow-surface--reports .reporting-flow-steps {
+gap: 0.375rem;
+}
+.workflow-surface--reports .reporting-flow-step {
+min-height: 30px;
+gap: 0.4rem;
+padding: 0.35rem 0.45rem;
+}
+.workflow-surface--reports .reporting-flow-step span {
+width: 1.1rem;
+height: 1.1rem;
+font-size: 0.625rem;
+}
+.workflow-surface--reports .reporting-flow-side .admin-hero-actions {
+gap: 0.375rem;
+}
+.workflow-surface--reports .reporting-flow-side .btn-sm {
+min-height: 32px;
+padding: 0.35rem 0.6rem;
+}
+.workflow-surface--reports #report-filters {
+margin-bottom: 0.5rem;
+}
+.workflow-surface--reports .report-filter-summary {
+min-height: 34px;
+padding: 0.4rem 0.65rem;
+}
+.workflow-surface--reports .report-filter-body {
+padding: 0.45rem 0.65rem 0.6rem;
+}
+.workflow-surface--reports .report-filter-grid {
+display: grid;
+grid-template-columns: repeat(4, minmax(0, 1fr));
+gap: 0.5rem;
+}
+.workflow-surface--reports .report-filter-field label {
+margin-bottom: 0.25rem;
+}
+.workflow-surface--reports .report-filter-actions {
+gap: 0.4rem;
+margin-top: 0.4rem;
+}
+.workflow-surface--reports .chip-select__wrap,
+.workflow-surface--reports .form-select,
+.workflow-surface--reports .form-input {
+min-height: 34px;
+}
+.workflow-surface--reports .report-preset-list {
+gap: 0.25rem;
+}
+.workflow-surface--reports .range-preset-btn {
+padding: 0.2rem 0.55rem;
+}
+.workflow-surface--reports .report-summary-strip,
+.workflow-surface--reports .report-detail-totals {
+margin-bottom: 0.5rem;
+}
+.workflow-surface--reports .report-metric {
+padding: 0.4rem 0.75rem;
+}
+.workflow-surface--reports .report-metric__value {
+font-size: var(--type-base);
+}
+.workflow-surface--reports .card-header {
+padding: 0.55rem 0.75rem;
+}
+.workflow-surface--reports .data-table th,
+.workflow-surface--reports .data-table td {
+padding: 0.45rem 0.65rem;
+}
+@media (min-width: 981px) and (max-width: 1280px) {
+.workflow-surface--reports .reporting-flow-steps {
+grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+}
+@media (max-width: 1180px) {
+.workflow-surface--reports .report-filter-grid {
+grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+}
+@media (max-width: 720px) {
+.workflow-surface--reports.admin-legacy-page {
+padding: 0.75rem;
+}
+.workflow-surface--reports .reporting-flow-form,
+.workflow-surface--reports .report-filter-grid {
+grid-template-columns: 1fr;
+}
+.workflow-surface--reports .reporting-flow-steps {
+grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+}

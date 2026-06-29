@@ -69,7 +69,7 @@ require_once BASE_PATH . '/includes/header.php';
 ?>
 <?php
 $page_header_title = $page_title;
-$page_header_subtitle = t('User activity and ticket history.');
+$page_header_suppressed = true;
 include BASE_PATH . '/includes/components/page-header.php';
 ?>
 
