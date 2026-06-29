@@ -151,7 +151,7 @@ if ('serviceWorker' in navigator) {
      style="display:none; position:fixed; inset:0; z-index:9999; align-items:center; justify-content:center; background:rgba(0,0,0,0.75); padding:1rem; cursor:pointer;"
      onclick="if(event.target===this)closeImagePreview();">
     <div style="position:relative; display:flex; flex-direction:column; align-items:center; max-width:90vw; max-height:90vh; cursor:default;">
-        <img id="lightbox-img" src="" alt=""
+        <img id="lightbox-img" alt=""
              style="max-width:90vw; max-height:85vh; width:auto; height:auto; object-fit:contain; border-radius: var(--fd-radius-control); box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
         <div id="lightbox-name" style="text-align:center; color:#fff; font-size:0.875rem; margin-top:0.5rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;"></div>
         <button onclick="closeImagePreview();"
@@ -162,7 +162,12 @@ if ('serviceWorker' in navigator) {
 <script>
 function openImagePreview(src, name) {
     var lb = document.getElementById('image-lightbox');
-    document.getElementById('lightbox-img').src = src;
+    var img = document.getElementById('lightbox-img');
+    if (src) {
+        img.src = src;
+    } else {
+        img.removeAttribute('src');
+    }
     document.getElementById('lightbox-name').textContent = name || '';
     lb.style.display = 'flex';
     document.addEventListener('keydown', _lbEsc);
@@ -170,7 +175,7 @@ function openImagePreview(src, name) {
 function closeImagePreview() {
     var lb = document.getElementById('image-lightbox');
     lb.style.display = 'none';
-    document.getElementById('lightbox-img').src = '';
+    document.getElementById('lightbox-img').removeAttribute('src');
     document.removeEventListener('keydown', _lbEsc);
 }
 function _lbEsc(e) { if (e.key === 'Escape') closeImagePreview(); }
