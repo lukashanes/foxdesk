@@ -217,12 +217,12 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 <?php $app_logo = get_setting('app_logo', ''); ?>
                 <?php if ($app_logo): ?>
                     <img src="<?php echo e(upload_url($app_logo)); ?>" alt="<?php echo e($app_name); ?>"
-                         class="w-10 h-10 rounded-xl object-cover shadow-lg transition-transform group-hover:scale-105">
+                         class="w-10 h-10 fd-rounded-control object-cover">
                 <?php else: ?>
                     <img src="assets/img/logo.png" alt="<?php echo e($app_name); ?>"
-                         class="w-10 h-10 rounded-xl object-cover shadow-lg transition-transform group-hover:scale-105">
+                         class="w-10 h-10 fd-rounded-control object-cover">
                 <?php endif; ?>
-                <span class="sidebar-brand-label text-xl font-bold text-gradient"><?php echo e($app_name); ?></span>
+                <span class="sidebar-brand-label text-xl font-bold text-theme-primary"><?php echo e($app_name); ?></span>
             </a>
             <button onclick="toggleSidebarCompact(); if (window.syncSidebarCompactLayout) window.syncSidebarCompactLayout();" id="sidebar-collapse-btn"
                 class="sidebar-collapse-btn items-center justify-center w-8 h-8 rounded-xl transition-all sidebar-hover text-theme-muted"
@@ -554,7 +554,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
         </header>
 
         <!-- Notification Panel (shared between mobile & desktop) -->
-        <div id="notification-panel" class="notification-panel hidden fixed z-50 glass rounded-xl shadow-2xl animate-scale-in">
+        <div id="notification-panel" class="notification-panel hidden fixed z-50 fd-popover">
             <!-- Header -->
             <div class="flex items-center justify-between px-4 py-3 border-b border-theme-light">
                 <h3 class="font-semibold text-sm text-theme-primary"><?php echo e(t('Notifications')); ?></h3>

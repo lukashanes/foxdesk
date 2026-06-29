@@ -880,8 +880,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                                         <span
                                                             class="text-xs px-2 py-0.5 rounded bg-green-100 text-green-600"><?php echo e(t('Active')); ?></span>
                                                 <?php else: ?>
-                                                        <span class="text-xs px-2 py-0.5 rounded"
-                                                            style="background: var(--surface-tertiary); color: var(--text-secondary);"><?php echo e(t('Inactive')); ?></span>
+                                                        <span class="text-xs px-2 py-0.5 fd-rounded-pill bg-theme-tertiary text-theme-secondary"><?php echo e(t('Inactive')); ?></span>
                                                 <?php endif; ?>
                                             </td>
                                             <td class="px-4 py-2.5 text-right admin-responsive-actions" data-label="<?php echo e(t('Actions')); ?>">
@@ -1562,8 +1561,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                                         <span
                                                             class="text-xs px-2 py-0.5 rounded bg-green-100 text-green-600"><?php echo e(t('Active')); ?></span>
                                                 <?php else: ?>
-                                                        <span class="text-xs px-2 py-1 rounded"
-                                                            style="background: var(--surface-tertiary); color: var(--text-secondary);"><?php echo e(t('Archived')); ?></span>
+                                                        <span class="text-xs px-2 py-1 fd-rounded-pill bg-theme-tertiary text-theme-secondary"><?php echo e(t('Archived')); ?></span>
                                                 <?php endif; ?>
                                             </td>
                                             <td class="px-4 py-2.5 text-right admin-responsive-actions" data-label="<?php echo e(t('Actions')); ?>">
@@ -2069,8 +2067,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                     <!-- Avatar upload (separate form) -->
                     <div class="flex items-center gap-4 pb-3.5 mb-3.5 border-b border-theme-light">
                         <div id="edit_avatar_preview">
-                            <div class="w-14 h-14 rounded-full flex items-center justify-center"
-                                style="background: var(--surface-tertiary); color: var(--text-secondary);">
+                            <div class="w-14 h-14 fd-rounded-pill flex items-center justify-center bg-theme-tertiary text-theme-secondary">
                                 <span class="text-lg font-bold" id="edit_avatar_initial"></span>
                             </div>
                         </div>

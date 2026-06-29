@@ -209,26 +209,22 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
         .login-bg {
             position: fixed;
             inset: 0;
-            background: linear-gradient(135deg, var(--corp-slate-100) 0%, var(--corp-slate-50) 50%, #f0f4ff 100%);
+            background: var(--bg-secondary);
         }
 
         [data-theme="dark"] .login-bg {
-            background: linear-gradient(135deg, var(--corp-slate-950) 0%, var(--corp-slate-900) 50%, #0c1929 100%);
+            background: var(--bg-primary);
         }
 
         .login-card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            box-shadow:
-                0 25px 50px -12px rgba(0, 0, 0, 0.15),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            background: var(--surface-primary);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
         }
 
         .login-logo {
-            background: linear-gradient(135deg, var(--corp-blue-500) 0%, var(--corp-blue-600) 100%);
-            box-shadow: 0 10px 40px -10px rgba(59, 130, 246, 0.5);
+            background: var(--primary);
+            box-shadow: none;
         }
 
         /* Modern Split Layout Fixes */
@@ -276,16 +272,16 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
     <!-- Left Half: Dark Brand Area -->
     <div class="split-left">
         <div class="absolute inset-0 z-0">
-            <div class="absolute inset-0 bg-gradient-to-br from-[#3c50e0] to-[#1c2434] opacity-90"></div>
+            <div class="absolute inset-0 bg-[#0f172a] opacity-95"></div>
         </div>
         <div class="relative z-10 text-center text-white p-12 max-w-lg">
             <?php $app_logo = get_setting('app_logo', ''); ?>
             <?php if ($app_logo): ?>
                 <img src="<?php echo e(upload_url($app_logo)); ?>" alt="<?php echo e($app_name); ?>"
-                    class="w-24 h-24 rounded-full object-cover mx-auto mb-8 shadow-2xl ring-4 ring-white/10">
+                    class="w-24 h-24 fd-rounded-card object-cover mx-auto mb-8">
             <?php else: ?>
                 <div
-                    class="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl bg-[#3c50e0] ring-4 ring-white/10">
+                    class="w-24 h-24 fd-rounded-card flex items-center justify-center mx-auto mb-8 bg-[#3c50e0]">
                     <span class="text-white text-4xl font-bold"><?php echo strtoupper(substr($app_name, 0, 1)); ?></span>
                 </div>
             <?php endif; ?>

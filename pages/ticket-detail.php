@@ -748,8 +748,7 @@ require_once BASE_PATH . '/includes/header.php';
                     <span><?php echo get_ticket_code($ticket_id); ?></span>
                     <?php ticket_detail_render_status_pill($ticket, $statuses); ?>
                     <?php if (!empty($ticket['is_archived'])): ?>
-                        <span class="px-1.5 py-0.5 rounded text-[11px] font-medium"
-                            style="background: var(--surface-tertiary); color: var(--text-secondary);"><?php echo e(t('Archived')); ?></span>
+                        <span class="px-1.5 py-0.5 fd-rounded-pill text-[11px] font-medium bg-theme-tertiary text-theme-secondary"><?php echo e(t('Archived')); ?></span>
                     <?php endif; ?>
                     <?php if (!empty($ticket['organization_name'])): ?>
                         <span><?php echo e($ticket['organization_name']); ?></span>
@@ -850,8 +849,7 @@ require_once BASE_PATH . '/includes/header.php';
                                             $is_attachment_event = in_array($history['field_name'], ['attachment_added', 'attachment_unlinked'], true);
                                             ?>
                                             <div class="flex items-start gap-3 text-xs p-2 rounded-lg bg-theme-secondary">
-                                                <div class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
-                                                    style="background: var(--surface-tertiary);">
+                                                <div class="flex-shrink-0 w-6 h-6 fd-rounded-pill flex items-center justify-center bg-theme-tertiary">
                                                     <span class="font-medium text-xs text-theme-secondary">
                                                         <?php echo strtoupper(substr($history['first_name'] ?? 'U', 0, 1)); ?>
                                                     </span>
@@ -1248,7 +1246,7 @@ window.FoxDeskTicketDetailConfig = <?php echo json_encode($ticket_detail_js_conf
 
 <?php if (function_exists('can_view_timeline') && can_view_timeline($user)): ?>
 <!-- Timeline Modal -->
-<div id="timeline-overlay" onclick="closeTimeline()" style="display:none; position:fixed; inset:0; z-index:50; background:rgba(0,0,0,0.5); backdrop-filter:blur(2px);">
+<div id="timeline-overlay" onclick="closeTimeline()" style="display:none; position:fixed; inset:0; z-index:50; background:rgba(0,0,0,0.5);">
     <div onclick="event.stopPropagation()" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100%; max-width:640px; max-height:85vh; border-radius: var(--fd-radius-card); box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); display:flex; flex-direction:column; background:var(--surface-primary); color:var(--text-primary);">
         <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border-light);">
             <h2 style="font-size:16px; font-weight:600; display:flex; align-items:center; gap:8px;">

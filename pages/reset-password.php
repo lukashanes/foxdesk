@@ -85,17 +85,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
         .login-bg {
             position: fixed;
             inset: 0;
-            background: linear-gradient(135deg, var(--corp-slate-100) 0%, var(--corp-slate-50) 50%, #f0f4ff 100%);
+            background: var(--bg-secondary);
         }
         [data-theme="dark"] .login-bg {
-            background: linear-gradient(135deg, var(--corp-slate-950) 0%, var(--corp-slate-900) 50%, #0c1929 100%);
+            background: var(--bg-primary);
         }
         .login-card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+            background: var(--surface-primary);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+        }
+        .auth-logo-mark {
+            background: var(--primary);
+            box-shadow: none;
         }
     </style>
 </head>
@@ -105,10 +107,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
     <div class="login-card rounded-3xl w-full max-w-md p-8 relative z-10">
         <!-- Logo -->
         <div class="text-center mb-8">
-            <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 transition-transform hover:scale-105" style="background: linear-gradient(135deg, var(--corp-blue-500) 0%, var(--corp-blue-600) 100%); box-shadow: 0 10px 40px -10px rgba(59, 130, 246, 0.5);">
+            <div class="auth-logo-mark w-16 h-16 fd-rounded-pill flex items-center justify-center mx-auto mb-4">
                 <span class="text-white text-2xl font-bold"><?php echo strtoupper(substr($app_name, 0, 1)); ?></span>
             </div>
-            <h1 class="text-2xl font-bold text-gradient"><?php echo e(t('New password')); ?></h1>
+            <h1 class="text-2xl font-bold text-theme-primary"><?php echo e(t('New password')); ?></h1>
             <p class="text-theme-muted"><?php echo e(t('Enter a new password')); ?></p>
         </div>
 

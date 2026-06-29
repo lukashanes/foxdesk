@@ -155,55 +155,51 @@ $extract_report_tags = static function ($value) {
         }
 
         .kpi-card {
-            background: linear-gradient(135deg,
-                    <?php echo $theme_color; ?>
-                    0%,
-                    <?php echo $theme_color_dark; ?>
-                    100%);
-            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.2);
-            transform: translateY(0);
-            transition: all 0.3s ease;
+            background: var(--surface-primary);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+            color: var(--text-primary);
+            transition: border-color 0.15s ease, background 0.15s ease;
         }
 
         .kpi-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 15px 40px -5px rgba(0, 0, 0, 0.15);
+            border-color: var(--border-medium);
         }
 
         .kpi-card-alt-1 {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            box-shadow: 0 10px 30px -5px rgba(102, 126, 234, 0.3);
-            transform: translateY(0);
-            transition: all 0.3s ease;
+            background: var(--surface-primary);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+            color: var(--text-primary);
+            transition: border-color 0.15s ease, background 0.15s ease;
         }
 
         .kpi-card-alt-1:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 15px 40px -5px rgba(102, 126, 234, 0.4);
+            border-color: var(--border-medium);
         }
 
         .kpi-card-alt-2 {
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            box-shadow: 0 10px 30px -5px rgba(99, 102, 241, 0.3);
-            transform: translateY(0);
-            transition: all 0.3s ease;
+            background: var(--surface-primary);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+            color: var(--text-primary);
+            transition: border-color 0.15s ease, background 0.15s ease;
         }
 
         .kpi-card-alt-2:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 15px 40px -5px rgba(99, 102, 241, 0.4);
+            border-color: var(--border-medium);
         }
 
         .kpi-card-alt-3 {
-            background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
-            box-shadow: 0 10px 30px -5px rgba(59, 130, 246, 0.3);
-            transform: translateY(0);
-            transition: all 0.3s ease;
+            background: var(--surface-primary);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+            color: var(--text-primary);
+            transition: border-color 0.15s ease, background 0.15s ease;
         }
 
         .kpi-card-alt-3:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 15px 40px -5px rgba(59, 130, 246, 0.4);
+            border-color: var(--border-medium);
         }
 
         table {
@@ -301,7 +297,7 @@ $extract_report_tags = static function ($value) {
         <!-- KPI Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-5">
             <!-- Total Time -->
-            <div class="kpi-card text-white rounded-lg p-6 shadow-lg">
+            <div class="kpi-card fd-rounded-card p-6">
                 <div class="flex items-center justify-between mb-2">
                     <?php echo get_icon('clock', 'text-3xl opacity-80 inline-block'); ?>
                     <span class="text-xs font-semibold uppercase tracking-wide"><?php echo e(t('Total Time')); ?></span>
@@ -310,7 +306,7 @@ $extract_report_tags = static function ($value) {
             </div>
 
             <!-- Total Tasks -->
-            <div class="kpi-card-alt-1 text-white rounded-lg p-6 shadow-lg">
+            <div class="kpi-card-alt-1 fd-rounded-card p-6">
                 <div class="flex items-center justify-between mb-2">
                     <?php echo get_icon('tasks', 'text-3xl opacity-80 inline-block'); ?>
                     <span class="text-xs font-semibold uppercase tracking-wide"><?php echo e(t('Tasks')); ?></span>
@@ -320,7 +316,7 @@ $extract_report_tags = static function ($value) {
 
             <!-- Total Amount (if enabled) -->
             <?php if ($template['show_financials']): ?>
-                <div class="kpi-card-alt-2 text-white rounded-lg p-6 shadow-lg">
+                <div class="kpi-card-alt-2 fd-rounded-card p-6">
                     <div class="flex items-center justify-between mb-2">
                         <?php echo get_icon('coins', 'text-3xl opacity-80 inline-block'); ?>
                         <span
@@ -332,7 +328,7 @@ $extract_report_tags = static function ($value) {
 
             <!-- Team Members (if enabled) -->
             <?php if ($template['show_team_attribution']): ?>
-                <div class="kpi-card-alt-3 text-white rounded-lg p-6 shadow-lg">
+                <div class="kpi-card-alt-3 fd-rounded-card p-6">
                     <div class="flex items-center justify-between mb-2">
                         <?php echo get_icon('users', 'text-3xl opacity-80 inline-block'); ?>
                         <span
@@ -544,8 +540,7 @@ $extract_report_tags = static function ($value) {
 
         <!-- Action Buttons -->
         <div class="flex justify-center space-x-4 mb-5 no-print">
-            <button onclick="window.print()"
-                class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition shadow-lg">
+            <button onclick="window.print()" class="fd-button fd-button--primary">
                 <?php echo get_icon('print', 'mr-2 inline-block'); ?><?php echo e(t('Print / Save as PDF')); ?>
             </button>
         </div>

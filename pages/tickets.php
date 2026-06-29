@@ -1372,8 +1372,7 @@ $kanban_archived_closed_statuses = $ticket_kanban_model['archived_closed_statuse
                     style="<?php echo $bulk_delete_mode ? '' : 'border-color: var(--border-light); background: var(--surface-secondary);'; ?>">
                     <div class="flex items-center justify-between">
                         <div class="inline-flex items-center gap-2 text-sm">
-                            <span class="inline-flex items-center justify-center min-w-[1.75rem] h-7 px-2 rounded-full font-semibold"
-                                style="background: var(--surface-tertiary); color: var(--text-secondary);">
+                            <span class="inline-flex items-center justify-center min-w-[1.75rem] h-7 px-2 fd-rounded-pill font-semibold bg-theme-tertiary text-theme-secondary">
                                 <span id="selected-count">0</span>
                             </span>
                             <span class="text-theme-secondary"><?php echo e(t('selected')); ?></span>

@@ -385,7 +385,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 <?php if (!empty($org['logo'])): ?>
                                     <img src="<?php echo e(upload_url($org['logo'])); ?>" alt="" class="w-8 h-8 rounded-lg object-cover flex-shrink-0">
                                 <?php else: ?>
-                                    <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background: var(--surface-tertiary); color: var(--text-secondary);">
+                                    <div class="w-8 h-8 fd-rounded-control flex items-center justify-center flex-shrink-0 bg-theme-tertiary text-theme-secondary">
                                         <span class="text-xs font-bold"><?php echo strtoupper(substr($org['name'], 0, 1)); ?></span>
                                     </div>
                                 <?php endif; ?>
@@ -593,7 +593,7 @@ include BASE_PATH . '/includes/components/page-header.php';
         <!-- Logo upload (separate form) -->
         <div class="flex items-center gap-4 pb-4 mb-4 border-b border-theme-light">
             <div id="edit_org_logo_preview">
-                <div class="w-14 h-14 rounded-xl flex items-center justify-center" style="background: var(--surface-tertiary); color: var(--text-secondary);">
+                <div class="w-14 h-14 fd-rounded-card flex items-center justify-center bg-theme-tertiary text-theme-secondary">
                     <span class="text-lg font-bold" id="edit_org_logo_initial"></span>
                 </div>
             </div>
@@ -732,13 +732,12 @@ include BASE_PATH . '/includes/components/page-header.php';
             const img = document.createElement('img');
             img.src = org.logo;
             img.alt = '';
-            img.className = 'w-14 h-14 rounded-xl object-cover';
+            img.className = 'w-14 h-14 fd-rounded-card object-cover';
             logoPreview.appendChild(img);
             removeLogoForm.style.display = 'inline';
         } else {
             const wrapper = document.createElement('div');
-            wrapper.className = 'w-14 h-14 rounded-xl flex items-center justify-center';
-            wrapper.style.cssText = 'background: var(--surface-tertiary); color: var(--text-secondary);';
+            wrapper.className = 'w-14 h-14 fd-rounded-card flex items-center justify-center bg-theme-tertiary text-theme-secondary';
             const span = document.createElement('span');
             span.className = 'text-lg font-bold';
             span.textContent = (org.name || '?').charAt(0).toUpperCase();
@@ -831,9 +830,9 @@ include BASE_PATH . '/includes/components/page-header.php';
                 const safeOrgId = parseInt(orgId, 10);
 
                 const memberHtml = `
-                    <div class="member-row flex items-center justify-between rounded-lg px-4 py-2 shadow-sm" data-user-id="${safeId}" style="background: var(--surface-primary);">
+                    <div class="member-row flex items-center justify-between fd-rounded-control px-4 py-2 bg-theme-primary" data-user-id="${safeId}">
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style="background: var(--surface-tertiary); color: var(--text-secondary);">${escHtml(initial)}</div>
+                            <div class="w-8 h-8 fd-rounded-pill flex items-center justify-center text-xs font-bold bg-theme-tertiary text-theme-secondary">${escHtml(initial)}</div>
                             <div>
                                 <div class="font-medium text-sm text-theme-primary">${safeFirstName} ${safeLastName}</div>
                                 <div class="text-xs text-theme-muted">${safeEmail}</div>

@@ -55,36 +55,33 @@
         // Backdrop
         paletteEl = document.createElement('div');
         paletteEl.id = 'command-palette';
-        paletteEl.className = 'cmd-palette-backdrop';
-        paletteEl.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;padding-top:20vh;';
+        paletteEl.className = 'cmd-palette-backdrop fd-command-backdrop';
         paletteEl.addEventListener('click', function(e) {
             if (e.target === paletteEl) closePalette();
         });
 
         // Dialog
         var dialog = document.createElement('div');
-        dialog.style.cssText = 'width:min(560px,90vw);border-radius:12px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);';
-        dialog.style.background = 'var(--surface-primary, #fff)';
-        dialog.style.border = '1px solid var(--border-light, #e2e8f0)';
+        dialog.className = 'fd-command-dialog';
 
         // Search input
         var inputWrap = document.createElement('div');
-        inputWrap.style.cssText = 'padding:12px 16px;border-bottom:1px solid var(--border-light, #e2e8f0);display:flex;align-items:center;gap:8px;';
+        inputWrap.className = 'fd-command-search';
 
         var searchIcon = document.createElement('span');
         searchIcon.innerHTML = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
-        searchIcon.style.cssText = 'color:var(--text-muted);flex-shrink:0;';
+        searchIcon.className = 'fd-command-search__icon';
 
         paletteInput = document.createElement('input');
         paletteInput.type = 'text';
         paletteInput.placeholder = 'Search tickets, clients, history...';
-        paletteInput.style.cssText = 'flex:1;border:none;outline:none;font-size:15px;background:transparent;color:var(--text-primary);';
+        paletteInput.className = 'fd-command-input';
         paletteInput.addEventListener('input', onPaletteInput);
         paletteInput.addEventListener('keydown', onPaletteKeydown);
 
         var kbdHint = document.createElement('kbd');
         kbdHint.textContent = 'ESC';
-        kbdHint.style.cssText = 'font-size:11px;padding:2px 6px;border-radius:4px;background:var(--surface-secondary, #f1f5f9);color:var(--text-muted);border:1px solid var(--border-light);';
+        kbdHint.className = 'fd-command-kbd';
 
         inputWrap.appendChild(searchIcon);
         inputWrap.appendChild(paletteInput);
@@ -92,7 +89,7 @@
 
         // Results
         paletteResults = document.createElement('div');
-        paletteResults.style.cssText = 'max-height:340px;overflow-y:auto;padding:8px;';
+        paletteResults.className = 'fd-command-results';
 
         dialog.appendChild(inputWrap);
         dialog.appendChild(paletteResults);
@@ -102,19 +99,19 @@
 
     function getDefaultItems() {
         var items = [
-            { type: 'nav', label: 'Dashboard', desc: 'Open your main workspace dashboard', icon: '\u2302', action: function() { navigateTo('work'); } },
+            { type: 'nav', label: 'Dashboard', desc: 'Open your main workspace dashboard', icon: 'D', action: function() { navigateTo('work'); } },
             { type: 'nav', label: 'Analytics', desc: 'View analytics dashboard', icon: 'A', action: function() { navigateTo('dashboard'); } },
-            { type: 'nav', label: 'Tickets', desc: 'View all tickets', icon: '\uD83C\uDF9F', action: function() { navigateTo('tickets'); } },
-            { type: 'action', label: 'New Ticket', desc: 'Create a new ticket', icon: '\u2795', action: function() { navigateTo('new-ticket'); } },
-            { type: 'nav', label: 'My Profile', desc: 'Edit your profile', icon: '\uD83D\uDC64', action: function() { navigateTo('profile'); } }
+            { type: 'nav', label: 'Tickets', desc: 'View all tickets', icon: 'T', action: function() { navigateTo('tickets'); } },
+            { type: 'action', label: 'New Ticket', desc: 'Create a new ticket', icon: '+', action: function() { navigateTo('new-ticket'); } },
+            { type: 'nav', label: 'My Profile', desc: 'Edit your profile', icon: 'P', action: function() { navigateTo('profile'); } }
         ];
         if (cfg.isStaff) {
-            items.push({ type: 'nav', label: 'Time Reports', desc: 'View time reports', icon: '\uD83D\uDCCA', action: function() { navigateTo('admin', {section:'reports'}); } });
-            items.push({ type: 'nav', label: 'Settings', desc: 'System settings', icon: '\u2699', action: function() { navigateTo('admin', {section:'settings'}); } });
-            items.push({ type: 'nav', label: 'Users', desc: 'Manage users', icon: '\uD83D\uDC65', action: function() { navigateTo('admin', {section:'users'}); } });
-            items.push({ type: 'nav', label: 'Organizations', desc: 'Manage companies', icon: '\uD83C\uDFE2', action: function() { navigateTo('admin', {section:'organizations'}); } });
+            items.push({ type: 'nav', label: 'Time Reports', desc: 'View time reports', icon: 'R', action: function() { navigateTo('admin', {section:'reports'}); } });
+            items.push({ type: 'nav', label: 'Settings', desc: 'System settings', icon: 'S', action: function() { navigateTo('admin', {section:'settings'}); } });
+            items.push({ type: 'nav', label: 'Users', desc: 'Manage users', icon: 'U', action: function() { navigateTo('admin', {section:'users'}); } });
+            items.push({ type: 'nav', label: 'Organizations', desc: 'Manage companies', icon: 'O', action: function() { navigateTo('admin', {section:'organizations'}); } });
         }
-        items.push({ type: 'action', label: 'Toggle Dark Mode', desc: 'Switch light/dark theme', icon: '\uD83C\uDF13', action: function() { if (typeof toggleTheme === 'function') toggleTheme(); } });
+        items.push({ type: 'action', label: 'Toggle Dark Mode', desc: 'Switch light/dark theme', icon: 'M', action: function() { if (typeof toggleTheme === 'function') toggleTheme(); } });
         return items;
     }
 
@@ -131,7 +128,7 @@
         var header = document.createElement('div');
         header.className = 'cmd-palette-section';
         header.textContent = title;
-        header.style.cssText = 'padding:10px 12px 5px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);';
+        header.classList.add('fd-command-section');
         paletteResults.appendChild(header);
     }
 
@@ -142,8 +139,8 @@
 
         if (!items.length) {
             var empty = document.createElement('div');
-            empty.textContent = 'No results found';
-            empty.style.cssText = 'padding:16px;text-align:center;color:var(--text-muted);font-size:13px;';
+            empty.textContent = 'No matches';
+            empty.className = 'fd-command-empty';
             paletteResults.appendChild(empty);
             return;
         }
@@ -157,9 +154,9 @@
 
             var row = document.createElement('div');
             row.className = 'cmd-palette-item';
+            row.classList.add('fd-command-item');
             row.dataset.index = i;
-            row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:14px;transition:background 0.1s;';
-            if (i === 0) row.style.background = 'var(--surface-secondary, #f1f5f9)';
+            if (i === 0) row.classList.add('is-selected');
 
             row.addEventListener('click', function() { executeItem(item); });
             row.addEventListener('mouseenter', function() {
@@ -169,24 +166,24 @@
 
             var icon = document.createElement('span');
             icon.textContent = item.icon || '\u25CB';
-            icon.style.cssText = 'font-size:16px;width:24px;text-align:center;flex-shrink:0;';
+            icon.className = 'fd-command-icon';
 
             var texts = document.createElement('div');
-            texts.style.cssText = 'flex:1;min-width:0;';
+            texts.className = 'fd-command-text';
 
             var label = document.createElement('div');
-            label.style.cssText = 'font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+            label.className = 'fd-command-label';
             label.textContent = item.label;
 
             var desc = document.createElement('div');
-            desc.style.cssText = 'font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+            desc.className = 'fd-command-desc';
             desc.textContent = item.desc || '';
 
             texts.appendChild(label);
             if (item.desc) texts.appendChild(desc);
 
             var badge = document.createElement('span');
-            badge.style.cssText = 'font-size:10px;padding:2px 6px;border-radius:4px;background:var(--surface-secondary, #f1f5f9);color:var(--text-muted);flex-shrink:0;text-transform:uppercase;';
+            badge.className = 'fd-command-badge';
             badge.textContent = getItemTypeLabel(item);
 
             row.appendChild(icon);
@@ -245,7 +242,7 @@
     function highlightItem(index) {
         var items = paletteResults.querySelectorAll('.cmd-palette-item');
         items.forEach(function(el, i) {
-            el.style.background = i === index ? 'var(--surface-secondary, #f1f5f9)' : 'transparent';
+            el.classList.toggle('is-selected', i === index);
         });
     }
 

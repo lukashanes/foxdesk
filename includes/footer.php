@@ -148,7 +148,7 @@ if ('serviceWorker' in navigator) {
 </script>
 <!-- Image Preview Lightbox -->
 <div id="image-lightbox"
-     style="display:none; position:fixed; inset:0; z-index:9999; align-items:center; justify-content:center; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); padding:1rem; cursor:pointer;"
+     style="display:none; position:fixed; inset:0; z-index:9999; align-items:center; justify-content:center; background:rgba(0,0,0,0.75); padding:1rem; cursor:pointer;"
      onclick="if(event.target===this)closeImagePreview();">
     <div style="position:relative; display:flex; flex-direction:column; align-items:center; max-width:90vw; max-height:90vh; cursor:default;">
         <img id="lightbox-img" src="" alt=""
