@@ -1,6 +1,6 @@
 {
-    "version": "0.3.134",
-    "date": "2026-06-25",
+    "version": "0.3.135",
+    "date": "2026-06-29",
     "min_php": "8.1",
     "changelog": [
         "Work now includes the main working dashboard with exact personal and team time summaries",
@@ -9,7 +9,9 @@
         "Time overview shows exact worked minutes; invoice rounding is limited to explicit billing review",
         "Settings now use compact section cards instead of duplicate horizontal admin menus",
         "Time overview now shows concrete work log rows with agent, ticket, client, note, and exact tracked time",
-        "Self-hosted report summary styling is restored so report metrics render as cards instead of plain text"
+        "Self-hosted report summary styling is restored so report metrics render as cards instead of plain text",
+        "The visual system is cleaned up across app shell, ticket detail, reports, login, attachments, and command palette",
+        "Decorative blur, glow, heavy shadows, and inconsistent fallback boxes are replaced by shared design tokens"
     ],
     "delete_files": []
 }
