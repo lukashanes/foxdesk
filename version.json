@@ -1,6 +1,6 @@
 {
-    "version": "0.3.135",
-    "date": "2026-06-29",
+    "version": "0.3.136",
+    "date": "2026-06-30",
     "min_php": "8.1",
     "changelog": [
         "Work now includes the main working dashboard with exact personal and team time summaries",
@@ -15,7 +15,10 @@
         "Image preview now handles empty image sources safely, preventing broken image placeholders and unnecessary browser requests",
         "Work dashboard now includes the Active now KPI and a seven-day activity chart with per-agent details",
         "Hidden help panel state no longer creates horizontal overflow in generated screenshot smoke checks",
-        "Release metadata and self-hosted screenshot evidence are aligned with the current 0.3.135 release"
+        "Release metadata and self-hosted screenshot evidence are aligned with the current 0.3.136 release",
+        "Reports now use a compact laptop-friendly layout with less vertical whitespace",
+        "Duplicate report page headers are suppressed so the agenda starts higher in the viewport",
+        "Billing review, report filters, KPI totals, and report tables are denser and easier to use on MacBook screens"
     ],
     "delete_files": []
 }
