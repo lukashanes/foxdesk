@@ -11,7 +11,11 @@
         "Time overview now shows concrete work log rows with agent, ticket, client, note, and exact tracked time",
         "Self-hosted report summary styling is restored so report metrics render as cards instead of plain text",
         "The visual system is cleaned up across app shell, ticket detail, reports, login, attachments, and command palette",
-        "Decorative blur, glow, heavy shadows, and inconsistent fallback boxes are replaced by shared design tokens"
+        "Decorative blur, glow, heavy shadows, and inconsistent fallback boxes are replaced by shared design tokens",
+        "Image preview now handles empty image sources safely, preventing broken image placeholders and unnecessary browser requests",
+        "Work dashboard now includes the Active now KPI and a seven-day activity chart with per-agent details",
+        "Hidden help panel state no longer creates horizontal overflow in generated screenshot smoke checks",
+        "Release metadata and self-hosted screenshot evidence are aligned with the current 0.3.135 release"
     ],
     "delete_files": []
 }

@@ -419,14 +419,11 @@ include BASE_PATH . '/includes/components/page-header.php';
 
 
 <?php
-$is_closed_filter_active = ticket_registry_closed_filter_active($statuses, $status_id);
-$show_closed_tickets_inline = ticket_list_view_shows_closed_inline($ticket_list_view, $is_closed_filter_active);
-$ticket_registry_closed_mode_class = 'ticket-registry-page--closed-inline';
-if (!$show_closed_tickets_inline) {
-    $ticket_registry_closed_mode_class = 'ticket-registry-page--closed-collapsible';
-}
-$ticket_registry_model = ticket_registry_split_model($statuses, $tickets, $status_id, $ticket_list_view, $show_closed_tickets_inline);
+$ticket_registry_model = ticket_registry_split_model($statuses, $tickets, $status_id, $ticket_list_view);
 extract($ticket_registry_model, EXTR_SKIP);
+$ticket_registry_closed_mode_class = !empty($show_closed_tickets_inline)
+    ? 'ticket-registry-page--closed-inline'
+    : 'ticket-registry-page--closed-collapsible';
 $ticket_kanban_model = ticket_registry_kanban_model($statuses, $tickets, $statuses_by_id, $board_active_statuses, $board_closed_statuses, $show_closed_tickets_inline);
 $kanban_hide_closed_after_days = $ticket_kanban_model['hide_closed_after_days'];
 $kanban_main_tickets_by_status = $ticket_kanban_model['main_tickets_by_status'];

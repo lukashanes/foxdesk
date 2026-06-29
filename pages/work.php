@@ -46,6 +46,11 @@ $team_activity_filter = $time_work['team_activity_filter'] ?? $my_activity_filte
 $my_time_totals = $time_work['my_totals'];
 $my_activity_entries = $time_work['my_entries'] ?? [];
 $team_time_rows = $time_work['team'];
+$week_chart = $time_work['week_chart'] ?? [
+    'days' => [],
+    'max_minutes' => 0,
+    'total_minutes' => 0,
+];
 $current_work_timers = [];
 if ($is_staff
     && function_exists('ticket_time_table_exists')
@@ -53,6 +58,18 @@ if ($is_staff
     && function_exists('get_user_all_active_timers')
 ) {
     $current_work_timers = get_user_all_active_timers((int) ($user['id'] ?? 0));
+}
+$active_timer_minutes = 0;
+foreach ($current_work_timers as $timer) {
+    if (function_exists('calculate_timer_elapsed')) {
+        $active_timer_minutes += (int) floor(calculate_timer_elapsed($timer) / 60);
+        continue;
+    }
+
+    $started_at = strtotime((string) ($timer['started_at'] ?? ''));
+    if ($started_at) {
+        $active_timer_minutes += max(0, (int) floor((time() - $started_at) / 60));
+    }
 }
 $selected_period_key = (string) ($time_period['period'] ?? 'this_month');
 $show_selected_period_metric = !in_array($selected_period_key, ['today', 'this_week', 'this_month'], true);
@@ -279,12 +296,51 @@ require_once BASE_PATH . '/includes/header.php';
             <span><?php echo e(t('This month')); ?></span>
             <strong><?php echo e(format_duration_minutes((int) ($my_time_totals['month'] ?? 0))); ?></strong>
         </div>
-        <?php if ($show_selected_period_metric): ?>
-            <div class="work-time-metric work-time-metric--selected">
-                <span><?php echo e($time_period['label'] ?? t('Selected period')); ?></span>
-                <strong><?php echo e(format_duration_minutes((int) ($my_time_totals['selected'] ?? 0))); ?></strong>
-            </div>
-        <?php endif; ?>
+        <div class="work-time-metric work-time-metric--selected">
+            <span><?php echo e(t('Active now')); ?></span>
+            <strong><?php echo e(format_duration_minutes($active_timer_minutes)); ?></strong>
+        </div>
+    </div>
+
+    <?php
+    $chart_days = $week_chart['days'] ?? [];
+    $chart_max_minutes = max(1, (int) ($week_chart['max_minutes'] ?? 0));
+    ?>
+    <div class="work-week-chart" data-work-week-chart>
+        <div class="work-week-chart__header">
+            <h3><?php echo e(t('Weekly activity')); ?></h3>
+            <span><?php echo e(t('Last 7 days')); ?> · <?php echo e(format_duration_minutes((int) ($week_chart['total_minutes'] ?? 0))); ?></span>
+        </div>
+        <div class="work-week-chart__bars" role="list" aria-label="<?php echo e(t('Hours by day')); ?>">
+            <?php foreach ($chart_days as $day): ?>
+                <?php
+                $day_minutes = (int) ($day['minutes'] ?? 0);
+                $bar_height = $day_minutes > 0 ? max(8, (int) round(($day_minutes / $chart_max_minutes) * 100)) : 4;
+                $users_for_day = $day['users'] ?? [];
+                $day_label = (string) ($day['full_label'] ?? $day['label'] ?? '');
+                ?>
+                <div class="work-week-chart__day" role="listitem">
+                    <div class="work-week-chart__bar-track">
+                        <button type="button"
+                                class="work-week-chart__bar"
+                                style="--bar-height: <?php echo e((string) $bar_height); ?>%;"
+                                aria-label="<?php echo e(trim($day_label . ' ' . format_duration_minutes($day_minutes))); ?>">
+                            <span class="work-week-chart__tooltip" role="tooltip">
+                                <strong><?php echo e($day_label); ?></strong>
+                                <span><?php echo e(t('Total')); ?>: <?php echo e(format_duration_minutes($day_minutes)); ?></span>
+                                <?php foreach ($users_for_day as $chart_user): ?>
+                                    <span><?php echo e($chart_user['name'] ?? t('Agent')); ?>: <?php echo e(format_duration_minutes((int) ($chart_user['minutes'] ?? 0))); ?></span>
+                                <?php endforeach; ?>
+                                <?php if (empty($users_for_day)): ?>
+                                    <span><?php echo e(t('No activity')); ?></span>
+                                <?php endif; ?>
+                            </span>
+                        </button>
+                    </div>
+                    <span><?php echo e($day['label'] ?? ''); ?></span>
+                </div>
+            <?php endforeach; ?>
+        </div>
     </div>
 
 </section>

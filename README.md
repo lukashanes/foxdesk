@@ -3,7 +3,7 @@
 Open-source helpdesk and ticketing system built with PHP, Tailwind CSS, and Alpine.js.
 
 **Website:** [foxdesk.org](https://foxdesk.org)
-**Current Version:** `0.3.131` (`2026-06-18`)
+**Current Version:** `0.3.135` (`2026-06-29`)
 
 ## Release Boundary
 
@@ -111,6 +111,21 @@ updates, IMAP/self-hosted operations, and the one-way self-hosted to SaaS migrat
 - Pseudo-cron (works without system cron)
 - Remember-me persistent login
 - Allowed senders management for email ingest
+
+---
+
+## Screenshots
+
+Current self-hosted UI screenshots are stored in [docs/screenshots](docs/screenshots).
+Regenerate them from a clean local install with:
+
+```bash
+npm run local:screenshots
+```
+
+The screenshots are generated from the same Docker/Playwright environment used
+by the E2E tests, with a small local demo dataset for the dashboard, tickets,
+ticket detail, and reports.
 
 ---
 

@@ -21,6 +21,10 @@ assert_work_page(strpos($work, 'time_activity_work_model') !== false, 'work page
 assert_work_page(strpos($work, 'data-work-time-overview') !== false, 'work page must expose a stable time overview hook.');
 assert_work_page(strpos($work, 'work-range-controls') !== false, 'work page must group preset and custom date range controls together.');
 assert_work_page(strpos($work, 'class="work-custom-period"') < strpos($work, 'class="work-time-grid"'), 'custom date range controls must stay above KPI cards.');
+assert_work_page(strpos($work, 'data-work-week-chart') !== false, 'work page must render the weekly activity chart.');
+assert_work_page(strpos($work, "t('Active now')") !== false, 'work page must show active timer time as the fourth KPI.');
+assert_work_page(strpos($work, "t('Weekly activity')") !== false, 'work page must use a concise weekly chart title.');
+assert_work_page(strpos($work, 'calculate_timer_elapsed') !== false, 'active timer KPI must account for paused timers.');
 assert_work_page(strpos($work, 'data-work-current') !== false, 'work page must expose quick access to current in-progress work.');
 assert_work_page(strpos($work, 'data-work-team-time') !== false, 'admin work page must expose a stable team time hook.');
 assert_work_page(strpos($work, 'data-work-user-activity') !== false, 'work page must expose a stable user activity hook.');
@@ -59,6 +63,8 @@ assert_work_page(strpos($timeModel, "'search' => t('Search')") !== false, 'time 
 assert_work_page(strpos($timeModel, "'foxdesk_work_my_activity_filter'") !== false, 'my work filter must be remembered in session.');
 assert_work_page(strpos($timeModel, "'foxdesk_work_team_activity_filter'") !== false, 'team work filter must be remembered in session.');
 assert_work_page(strpos($timeModel, "'entries' => \$entries") !== false, 'team time model must return per-agent activity entries.');
+assert_work_page(strpos($timeModel, 'function time_activity_weekly_chart') !== false, 'time activity model must expose weekly chart data.');
+assert_work_page(strpos($timeModel, "'week_chart' => time_activity_weekly_chart") !== false, 'work model must pass weekly chart data to the page.');
 assert_work_page(strpos($timeModel, 'time_activity_team_summary($period, 80, $team_activity_filter[\'limit\'], $team_activity_period)') !== false, 'work model must pass the team activity filter into team summaries.');
 
 echo "Work page contract tests passed\n";

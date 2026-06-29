@@ -6,6 +6,7 @@
     "e2e:headed": "playwright test --headed",
     "e2e:debug": "PWDEBUG=1 playwright test --debug",
     "e2e:install": "playwright install chromium",
+    "local:screenshots": "E2E_RUN_ID=foxdesk-selfhosted-screenshots E2E_PORT=8091 node scripts/local/capture-self-hosted-screenshots.js",
     "lint:php": "./bin/lint-php.sh",
     "agent:mcp": "node examples/agent-api/mcp-server.js",
     "agent:prod-smoke": "node examples/agent-api/agent-prod-smoke.js",
