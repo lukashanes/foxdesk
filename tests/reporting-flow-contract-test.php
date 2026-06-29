@@ -50,5 +50,9 @@ $assert(str_contains($builder, '$_GET[\'organization_id\']'), 'Report builder mu
 $assert(str_contains($builder, '$_GET[\'date_from\']'), 'Report builder must accept a prefilled start date.');
 $assert(str_contains($builder, '$_GET[\'date_to\']'), 'Report builder must accept a prefilled end date.');
 $assert(str_contains($theme, '.reporting-flow-card'), 'Reporting flow styling is missing.');
+$assert(str_contains($theme, '.workflow-surface') && str_contains($theme, 'grid-template-columns: minmax(0, 1fr);'), 'Workflow surfaces must use a shrink-safe grid column.');
+$assert(str_contains($theme, 'width: 100%;') && str_contains($theme, 'min-width: 0;'), 'Reporting flow card must shrink inside the workspace shell.');
+$assert(str_contains($theme, '@media (max-width: 1280px)') && str_contains($theme, '.reporting-flow-side'), 'Reporting flow must collapse before it can overflow the workspace viewport.');
+$assert(str_contains($theme, '.reporting-flow-step strong') && str_contains($theme, 'overflow-wrap: anywhere;'), 'Reporting flow step labels must wrap instead of pushing the card off screen.');
 
 echo "Reporting flow contract OK\n";

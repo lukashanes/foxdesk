@@ -2165,12 +2165,17 @@ justify-content: flex-end;
 }
 .reporting-flow-card {
 display: grid;
-grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+grid-template-columns: minmax(0, 1fr) minmax(240px, 360px);
 gap: 1rem;
 padding: 1rem;
 border: 1px solid var(--border-light);
 border-radius: var(--fd-radius-control);
 background: var(--surface-primary);
+box-sizing: border-box;
+width: 100%;
+min-width: 0;
+max-width: 100%;
+overflow: hidden;
 }
 .reporting-flow-main,
 .reporting-flow-side {
@@ -2178,6 +2183,7 @@ display: flex;
 flex-direction: column;
 gap: 0.875rem;
 min-width: 0;
+max-width: 100%;
 }
 .reporting-flow-heading h2 {
 margin: 0;
@@ -2191,6 +2197,7 @@ display: grid;
 grid-template-columns: minmax(180px, 1fr) minmax(150px, 220px) auto;
 gap: 0.625rem;
 align-items: end;
+min-width: 0;
 }
 .reporting-flow-form label {
 display: flex;
@@ -2230,9 +2237,33 @@ font-weight: 750;
 flex: 0 0 auto;
 }
 .reporting-flow-step strong {
+min-width: 0;
 font-size: 0.75rem;
 line-height: 1.2;
 color: var(--text-primary);
+overflow-wrap: anywhere;
+word-break: normal;
+}
+@media (max-width: 1280px) {
+.reporting-flow-card {
+grid-template-columns: 1fr;
+}
+.reporting-flow-side {
+display: grid;
+grid-template-columns: minmax(0, 1fr) auto;
+align-items: start;
+}
+.reporting-flow-side .admin-hero-actions {
+justify-content: flex-end;
+}
+}
+@media (max-width: 980px) {
+.reporting-flow-side {
+grid-template-columns: 1fr;
+}
+.reporting-flow-side .admin-hero-actions {
+justify-content: flex-start;
+}
 }
 .admin-metric-grid {
 display: grid;
@@ -5328,6 +5359,7 @@ border: 1px solid var(--border-light);
 /* Core workflow surfaces */
 .workflow-surface {
 display: grid;
+grid-template-columns: minmax(0, 1fr);
 gap: 0.875rem;
 min-width: 0;
 }
