@@ -58,6 +58,82 @@ function time_activity_scope_from_request(array $request): array
     ];
 }
 
+function time_activity_log_filter_options(): array
+{
+    return [
+        'last3' => t('Last 3 tickets'),
+        'last10' => t('Last 10 tickets'),
+        'today' => t('Today'),
+        'this_week' => t('This week'),
+        'this_month' => t('This month'),
+        'search' => t('Search'),
+    ];
+}
+
+function time_activity_log_filter_from_request(array $request, string $param, string $session_key, string $default = 'last3'): array
+{
+    $options = time_activity_log_filter_options();
+    $stored = '';
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $stored = (string) ($_SESSION[$session_key] ?? '');
+    }
+
+    $key = array_key_exists($param, $request)
+        ? (string) $request[$param]
+        : ($stored !== '' ? $stored : $default);
+
+    if (!array_key_exists($key, $options)) {
+        $key = $default;
+    }
+
+    if (array_key_exists($param, $request) && session_status() === PHP_SESSION_ACTIVE) {
+        $_SESSION[$session_key] = $key;
+    }
+
+    $limit = match ($key) {
+        'last3' => 3,
+        'last10' => 10,
+        'today' => 80,
+        'this_week' => 120,
+        'this_month' => 180,
+        'search' => 200,
+        default => 3,
+    };
+
+    return [
+        'key' => $key,
+        'label' => $options[$key],
+        'limit' => $limit,
+        'is_search' => $key === 'search',
+        'options' => $options,
+    ];
+}
+
+function time_activity_period_for_log_filter(string $filter): array
+{
+    $period_key = match ($filter) {
+        'today' => 'today',
+        'this_week' => 'this_week',
+        'this_month' => 'this_month',
+        default => 'all',
+    };
+
+    if ($period_key !== 'all' && function_exists('get_time_range_bounds')) {
+        $bounds = get_time_range_bounds($period_key, '', '');
+        return [
+            'period' => (string) ($bounds['range'] ?? $period_key),
+            'start' => $bounds['start'] ?? date('Y-m-01 00:00:00'),
+            'end' => $bounds['end'] ?? date('Y-m-d 23:59:59'),
+        ];
+    }
+
+    return [
+        'period' => 'all',
+        'start' => '1970-01-01 00:00:00',
+        'end' => date('Y-m-d 23:59:59'),
+    ];
+}
+
 function time_activity_tenant_filter(string $table, string $alias, array &$params): string
 {
     if (!function_exists('column_exists') || !column_exists($table, 'tenant_id') || !function_exists('current_tenant_id')) {
@@ -192,15 +268,16 @@ function time_activity_staff_users(): array
     ", $params);
 }
 
-function time_activity_team_summary(array $period, int $limit = 50, ?int $entry_limit = 1): array
+function time_activity_team_summary(array $period, int $limit = 50, ?int $entry_limit = 1, ?array $entry_period = null): array
 {
     $users = array_slice(time_activity_staff_users(), 0, max(1, min(200, $limit)));
     $rows = [];
+    $entry_period = $entry_period ?: $period;
 
     foreach ($users as $staff_user) {
         $user_id = (int) ($staff_user['id'] ?? 0);
         $totals = time_activity_user_totals($user_id, $period);
-        $entries = time_activity_user_entries($user_id, $period, $entry_limit);
+        $entries = time_activity_user_entries($user_id, $entry_period, $entry_limit);
         $latest = $entries[0] ?? null;
         $name = trim((string) (($staff_user['first_name'] ?? '') . ' ' . ($staff_user['last_name'] ?? '')));
         $rows[] = [
@@ -223,16 +300,25 @@ function time_activity_team_summary(array $period, int $limit = 50, ?int $entry_
 function time_activity_work_model(array $user, array $request): array
 {
     $period = time_activity_period_from_request($request);
-    $activity_scope = time_activity_scope_from_request($request);
+    $my_activity_filter = time_activity_log_filter_from_request($request, 'my_activity', 'foxdesk_work_my_activity_filter');
+    $team_activity_filter = time_activity_log_filter_from_request($request, 'team_activity', 'foxdesk_work_team_activity_filter');
+    $my_activity_period = time_activity_period_for_log_filter($my_activity_filter['key']);
+    $team_activity_period = time_activity_period_for_log_filter($team_activity_filter['key']);
     $user_id = (int) ($user['id'] ?? 0);
     $is_admin_user = function_exists('is_admin') ? is_admin() : (($user['role'] ?? '') === 'admin');
 
     return [
         'period' => $period,
         'period_options' => time_activity_period_options(),
-        'activity_scope' => $activity_scope,
+        'activity_scope' => [
+            'key' => $my_activity_filter['key'],
+            'limit' => $my_activity_filter['limit'],
+            'options' => $my_activity_filter['options'],
+        ],
+        'my_activity_filter' => $my_activity_filter,
+        'team_activity_filter' => $team_activity_filter,
         'my_totals' => time_activity_user_totals($user_id, $period),
-        'my_entries' => time_activity_user_entries($user_id, $period, $activity_scope['limit']),
-        'team' => $is_admin_user ? time_activity_team_summary($period, 80, $activity_scope['limit']) : [],
+        'my_entries' => time_activity_user_entries($user_id, $my_activity_period, $my_activity_filter['limit']),
+        'team' => $is_admin_user ? time_activity_team_summary($period, 80, $team_activity_filter['limit'], $team_activity_period) : [],
     ];
 }

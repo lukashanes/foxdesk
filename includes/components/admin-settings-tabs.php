@@ -78,9 +78,10 @@ function render_admin_settings_management_links(): void
 {
     ?>
     <section class="settings-management-panel" data-settings-management>
-        <div class="settings-management-panel__head">
-            <p class="settings-management-panel__kicker"><?php echo e(t('Workspace management')); ?></p>
-            <h2><?php echo e(t('Admin areas')); ?></h2>
+        <div class="fd-section-header settings-management-panel__head">
+            <div class="fd-section-main">
+                <h2 class="fd-section-title"><?php echo e(t('Admin areas')); ?></h2>
+            </div>
         </div>
         <div class="settings-section-nav settings-section-nav--management">
             <?php foreach (admin_settings_management_links() as $item): ?>
