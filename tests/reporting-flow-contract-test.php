@@ -31,12 +31,17 @@ $assert(str_contains($billing, 'function billing_review_adjusted_rate'), 'Billin
 $assert(str_contains($billing, 'function billing_review_rate_from_target_amount'), 'Billing review target total helper is missing.');
 $assert(str_contains($billing, "'discount_amount'"), 'Billing review must support amount discounts.');
 $assert(str_contains($reports, 'class="reporting-flow-card"'), 'Reports page must render the compact billing review flow.');
+$assert(str_contains($reports, 'data-report-generation-card'), 'Reports page must mark the report generation form.');
+$assert(str_contains($reports, 'data-report-preview'), 'Billing review must render a generated report preview surface.');
+$assert(str_contains($reports, 'data-report-preview-empty'), 'Billing review must render a clear preview empty state before a client is selected.');
 $assert(str_contains($reports, '$page_header_suppressed = true;'), 'Reports page must suppress the duplicate page header for laptop density.');
 $assert(str_contains($reports, 'name="organizations[]"'), 'Billing review must submit the selected client as a report filter.');
 $assert(str_contains($reports, 'name="tab" value="billing"'), 'Billing review must open the billing review mode.');
 $assert(str_contains($reports, 'name="show_money" value="1"'), 'Billing review must show money columns.');
 $assert(str_contains($reports, 'reporting_flow_steps()'), 'Reports page must render workflow steps from the helper.');
 $assert(str_contains($reports, 'reporting_flow_builder_url('), 'Create report link must preserve selected client and period.');
+$assert(str_contains($reports, 'class="report-preview-actions"'), 'Billing review actions must be aligned inside the report preview.');
+$assert(str_contains($reports, 'class="report-preview-metrics"'), 'Billing review preview must show report metrics before publishing.');
 $assert(str_contains($reports, 'billing_review_adjustment_actions()'), 'Detailed rows must use shared item adjustment actions.');
 $assert(str_contains($reports, 'billing_review_bulk_adjustment_actions()'), 'Bulk adjustment form must use shared actions.');
 $assert(str_contains($reports, 'name="bulk_discount_amount"'), 'Bulk billing review must allow amount discounts.');
@@ -51,6 +56,9 @@ $assert(str_contains($builder, '$_GET[\'organization_id\']'), 'Report builder mu
 $assert(str_contains($builder, '$_GET[\'date_from\']'), 'Report builder must accept a prefilled start date.');
 $assert(str_contains($builder, '$_GET[\'date_to\']'), 'Report builder must accept a prefilled end date.');
 $assert(str_contains($theme, '.reporting-flow-card'), 'Reporting flow styling is missing.');
+$assert(str_contains($theme, '.report-preview-card'), 'Report preview styling is missing.');
+$assert(str_contains($theme, '.report-preview-actions'), 'Report preview action styling is missing.');
+$assert(str_contains($theme, '.report-preview-metrics'), 'Report preview metrics styling is missing.');
 $assert(str_contains($theme, '.workflow-surface') && str_contains($theme, 'grid-template-columns: minmax(0, 1fr);'), 'Workflow surfaces must use a shrink-safe grid column.');
 $assert(str_contains($theme, 'width: 100%;') && str_contains($theme, 'min-width: 0;'), 'Reporting flow card must shrink inside the workspace shell.');
 $assert(str_contains($theme, '@media (max-width: 1280px)') && str_contains($theme, '.reporting-flow-side'), 'Reporting flow must collapse before it can overflow the workspace viewport.');

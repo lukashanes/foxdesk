@@ -593,56 +593,65 @@ include BASE_PATH . '/includes/components/page-header.php';
             </div>
 
             <?php if ($new_profile_api_token): ?>
-                <div class="mb-4 p-3 rounded-lg border border-green-200 bg-green-50 text-green-900">
-                    <p class="text-sm font-medium mb-2"><?php echo e(t('Copy this API key now. It will not be shown again.')); ?></p>
-                    <code class="block p-2 rounded bg-white border text-xs font-mono break-all select-all"><?php echo e($new_profile_api_token); ?></code>
+                <div class="mb-5 p-4 rounded-lg border border-green-200 bg-green-50 text-green-950" data-api-key-ready>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <p class="text-sm font-semibold"><?php echo e(t('API key created. Copy it now.')); ?></p>
+                            <p class="text-sm mt-1"><?php echo e(t('Copy this API key now. It will not be shown again.')); ?></p>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm" data-api-key-copy
+                            onclick="copyProfileApiKey('profile-generated-api-token', this)">
+                            <?php echo get_icon('copy', 'w-4 h-4 mr-1'); ?><?php echo e(t('Copy')); ?>
+                        </button>
+                    </div>
+                    <code id="profile-generated-api-token" class="block mt-3 p-3 rounded bg-white border text-xs font-mono break-all select-all"><?php echo e($new_profile_api_token); ?></code>
                     <?php if (!empty($new_profile_api_token_scopes)): ?>
                         <p class="text-xs mt-2"><?php echo e(t('Scopes')); ?>: <?php echo e(implode(', ', $new_profile_api_token_scopes)); ?></p>
                     <?php endif; ?>
                 </div>
-            <?php endif; ?>
-
-            <form method="post" class="space-y-4 mb-5">
-                <?php echo csrf_field(); ?>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label for="api-token-name" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Token name')); ?></label>
-                        <input type="text" name="api_token_name" id="api-token-name" class="form-input"
-                            placeholder="<?php echo e(t('Codex local assistant')); ?>" maxlength="120">
-                    </div>
-                    <div>
-                        <label for="api-token-expiry" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Expires')); ?></label>
-                        <select name="api_token_expiry" id="api-token-expiry" class="form-select">
-                            <option value="30"><?php echo e(t('30 days')); ?></option>
-                            <option value="90" selected><?php echo e(t('90 days')); ?></option>
-                            <option value="365"><?php echo e(t('1 year')); ?></option>
-                            <option value="never"><?php echo e(t('Never')); ?></option>
-                        </select>
-                    </div>
-                </div>
-
-                <?php if (!empty($api_scope_catalog)): ?>
-                    <div>
-                        <div class="text-sm font-medium mb-2 text-theme-secondary"><?php echo e(t('Allowed actions')); ?></div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <?php foreach ($api_scope_catalog as $scope => $label): ?>
-                                <label class="flex items-start gap-2 text-sm cursor-pointer rounded-lg border p-2 border-theme-light">
-                                    <input type="checkbox" name="api_token_scopes[]" value="<?php echo e($scope); ?>" class="mt-0.5 rounded"
-                                        <?php echo in_array($scope, ['work:read', 'tickets:read', 'tickets:write', 'comments:write'], true) ? 'checked' : ''; ?>>
-                                    <span>
-                                        <span class="font-medium text-theme-primary"><?php echo e($scope); ?></span>
-                                        <span class="block text-xs text-theme-muted"><?php echo e(t($label)); ?></span>
-                                    </span>
-                                </label>
-                            <?php endforeach; ?>
+            <?php else: ?>
+                <form method="post" class="space-y-4 mb-5">
+                    <?php echo csrf_field(); ?>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="api-token-name" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Token name')); ?></label>
+                            <input type="text" name="api_token_name" id="api-token-name" class="form-input"
+                                placeholder="<?php echo e(t('Codex local assistant')); ?>" maxlength="120">
+                        </div>
+                        <div>
+                            <label for="api-token-expiry" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Expires')); ?></label>
+                            <select name="api_token_expiry" id="api-token-expiry" class="form-select">
+                                <option value="30"><?php echo e(t('30 days')); ?></option>
+                                <option value="90" selected><?php echo e(t('90 days')); ?></option>
+                                <option value="365"><?php echo e(t('1 year')); ?></option>
+                                <option value="never"><?php echo e(t('Never')); ?></option>
+                            </select>
                         </div>
                     </div>
-                <?php endif; ?>
 
-                <button type="submit" name="create_api_token" class="btn btn-primary">
-                    <?php echo e(t('Create API key')); ?>
-                </button>
-            </form>
+                    <?php if (!empty($api_scope_catalog)): ?>
+                        <div>
+                            <div class="text-sm font-medium mb-2 text-theme-secondary"><?php echo e(t('Allowed actions')); ?></div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <?php foreach ($api_scope_catalog as $scope => $label): ?>
+                                    <label class="flex items-start gap-2 text-sm cursor-pointer rounded-lg border p-2 border-theme-light">
+                                        <input type="checkbox" name="api_token_scopes[]" value="<?php echo e($scope); ?>" class="mt-0.5 rounded"
+                                            <?php echo in_array($scope, ['work:read', 'tickets:read', 'tickets:write', 'comments:write'], true) ? 'checked' : ''; ?>>
+                                        <span>
+                                            <span class="font-medium text-theme-primary"><?php echo e($scope); ?></span>
+                                            <span class="block text-xs text-theme-muted"><?php echo e(t($label)); ?></span>
+                                        </span>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <button type="submit" name="create_api_token" class="btn btn-primary">
+                        <?php echo e(t('Create API key')); ?>
+                    </button>
+                </form>
+            <?php endif; ?>
 
             <div class="overflow-x-auto">
                 <table class="w-full tickets-table">
@@ -943,6 +952,46 @@ document.addEventListener('DOMContentLoaded', function () {
 <?php endif; ?>
 
 <script>
+function copyProfileApiKey(fieldId, button) {
+    var field = document.getElementById(fieldId);
+    if (!field || !button) return;
+
+    var value = field.textContent.trim();
+    var originalHtml = button.innerHTML;
+    var copiedText = <?php echo json_encode(t('Copied')); ?>;
+
+    var showCopied = function () {
+        button.textContent = copiedText;
+        setTimeout(function () {
+            button.innerHTML = originalHtml;
+        }, 1800);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(value).then(showCopied).catch(function () {
+            fallbackCopyProfileApiKey(value, showCopied);
+        });
+        return;
+    }
+
+    fallbackCopyProfileApiKey(value, showCopied);
+}
+
+function fallbackCopyProfileApiKey(value, done) {
+    var textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', 'readonly');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+    } catch (e) {}
+    document.body.removeChild(textarea);
+    done();
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const avatarInput = document.getElementById('avatar-file-input');
     const avatarFileName = document.getElementById('avatar-file-name');

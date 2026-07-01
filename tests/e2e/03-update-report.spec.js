@@ -114,6 +114,44 @@ test('public report token works and expired token is rejected', async ({ page })
     function current_user() { return ['id' => 1]; }
     require_once BASE_PATH . '/includes/report-functions.php';
     $org = db_insert('organizations', ['name' => 'E2E Org', 'is_active' => 1]);
+    $status_row = db_fetch_one("SELECT id FROM statuses ORDER BY id ASC LIMIT 1");
+    $status = $status_row['id'] ?? null;
+    if (!$status) {
+      $status = db_insert('statuses', ['name' => 'Open', 'color' => '#3b82f6', 'is_closed' => 0, 'sort_order' => 1]);
+    }
+    $ticket = db_insert('tickets', [
+      'hash' => 'e2ereport' . substr(bin2hex(random_bytes(4)), 0, 4),
+      'title' => 'E2E ticket summary row',
+      'description' => 'Report detail test ticket',
+      'user_id' => 1,
+      'organization_id' => $org,
+      'status_id' => $status,
+      'source' => 'web',
+      'created_at' => date('Y-m-d H:i:s', strtotime('-1 day')),
+      'updated_at' => date('Y-m-d H:i:s')
+    ]);
+    $comment = db_insert('comments', [
+      'ticket_id' => $ticket,
+      'user_id' => 1,
+      'content' => '<p>Prepared customer-facing report detail.</p>',
+      'is_internal' => 0,
+      'time_spent' => 45,
+      'created_at' => date('Y-m-d H:i:s', strtotime('-1 day +45 minutes'))
+    ]);
+    db_insert('ticket_time_entries', [
+      'ticket_id' => $ticket,
+      'user_id' => 1,
+      'comment_id' => $comment,
+      'started_at' => date('Y-m-d H:i:s', strtotime('-1 day')),
+      'ended_at' => date('Y-m-d H:i:s', strtotime('-1 day +45 minutes')),
+      'duration_minutes' => 45,
+      'is_billable' => 1,
+      'billable_rate' => 1200,
+      'cost_rate' => 0,
+      'is_manual' => 1,
+      'summary' => 'Prepared customer-facing report detail',
+      'created_at' => date('Y-m-d H:i:s', strtotime('-1 day +45 minutes'))
+    ]);
     $report = create_report_template([
       'organization_id' => $org,
       'created_by_user_id' => 1,
@@ -129,6 +167,9 @@ test('public report token works and expired token is rejected', async ({ page })
 
   await page.goto(`/index.php?page=report-public&token=${encodeURIComponent(token)}`);
   await expect(page.locator('body')).toContainText('E2E Public Report');
+  await expect(page.locator('[data-report-ticket-row]').first()).toContainText('E2E ticket summary row');
+  await page.locator('[data-report-ticket-row]').first().click();
+  await expect(page.locator('[data-report-comment-row]').first()).toContainText('Prepared customer-facing report detail');
 
   php(`
     define('BASE_PATH', '/var/www/html');

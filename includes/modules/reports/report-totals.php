@@ -70,6 +70,174 @@ function report_billable_time_notice(array $totals, int $rounding): ?array
     ];
 }
 
+function report_detail_plain_text($html): string
+{
+    if (function_exists('app_contract_plain_text')) {
+        return app_contract_plain_text($html);
+    }
+
+    $text = (string) ($html ?? '');
+    $text = preg_replace('/<(br|hr)\b[^>]*>/i', "\n", $text);
+    $text = preg_replace('/<\/(p|div|li|ul|ol|h[1-6]|tr|blockquote)>/i', "\n", $text);
+    $text = preg_replace('/<(p|div|li|ul|ol|h[1-6]|tr|blockquote)\b[^>]*>/i', "\n", $text);
+    $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = preg_replace('/[ \t\x{00A0}]+/u', ' ', $text);
+    $text = preg_replace('/ *\R */u', "\n", $text);
+    $text = preg_replace('/\R{2,}/u', "\n", $text);
+
+    return trim($text ?? '');
+}
+
+function report_entry_public_comment_visible(array $entry, bool $public): bool
+{
+    return !$public || empty($entry['comment_is_internal']);
+}
+
+function report_entry_comment_text(array $entry, bool $public): string
+{
+    if (!report_entry_public_comment_visible($entry, $public)) {
+        return '';
+    }
+
+    return report_detail_plain_text($entry['comment_content'] ?? '');
+}
+
+function report_entry_comment_html(array $entry, bool $public): string
+{
+    if (!report_entry_public_comment_visible($entry, $public)) {
+        return '';
+    }
+
+    return trim((string) ($entry['comment_content'] ?? ''));
+}
+
+function report_entry_work_summary(array $entry, bool $public): string
+{
+    $comment_text = report_entry_comment_text($entry, $public);
+    if ($comment_text !== '') {
+        return mb_substr(preg_replace('/\s+/u', ' ', $comment_text), 0, 180);
+    }
+
+    $summary = trim((string) ($entry['time_entry_summary'] ?? $entry['summary'] ?? ''));
+    if ($summary !== '') {
+        return $summary;
+    }
+
+    return t('Work logged');
+}
+
+function report_entry_model_minutes(array $entry, array $template): int
+{
+    if (isset($entry['actual_minutes'])) {
+        return max(0, (int) $entry['actual_minutes']);
+    }
+
+    $minutes = max(0, (int) ($entry['duration_minutes'] ?? 0));
+    $rounding = max(0, (int) ($template['rounding_minutes'] ?? 0));
+    if ($rounding > 0 && function_exists('round_minutes_nearest')) {
+        return round_minutes_nearest($minutes, $rounding);
+    }
+
+    return $minutes;
+}
+
+function report_entry_model_billable_minutes(array $entry, array $template): int
+{
+    if (isset($entry['billable_minutes'])) {
+        return max(0, (int) $entry['billable_minutes']);
+    }
+
+    if (empty($entry['is_billable'])) {
+        return 0;
+    }
+
+    return report_entry_model_minutes($entry, $template);
+}
+
+function report_entry_model_amount(array $entry, array $template): float
+{
+    if (isset($entry['billable_amount'])) {
+        return (float) $entry['billable_amount'];
+    }
+
+    if (empty($entry['is_billable'])) {
+        return 0.0;
+    }
+
+    $rate = function_exists('get_report_entry_billable_rate')
+        ? get_report_entry_billable_rate($entry, $template)
+        : (float) ($entry['billable_rate'] ?? 0);
+
+    return (report_entry_model_billable_minutes($entry, $template) / 60) * $rate;
+}
+
+function report_ticket_detail_model(array $entries, array $template = [], bool $public = false): array
+{
+    $tickets = [];
+    $ticket_order = [];
+
+    foreach ($entries as $entry) {
+        $ticket_id = (int) ($entry['ticket_id'] ?? 0);
+        $ticket_key = (string) $ticket_id;
+        if (!isset($tickets[$ticket_key])) {
+            $ticket_order[] = $ticket_key;
+            $tickets[$ticket_key] = [
+                'id' => $ticket_id,
+                'code' => function_exists('get_ticket_code') ? get_ticket_code($ticket_id) : ('#' . $ticket_id),
+                'title' => (string) ($entry['ticket_title'] ?? ''),
+                'organization_name' => (string) ($entry['organization_name'] ?? ''),
+                'tags' => $entry['ticket_tags'] ?? '',
+                'minutes' => 0,
+                'billable_minutes' => 0,
+                'amount' => 0.0,
+                'entries_count' => 0,
+                'entries' => [],
+            ];
+        }
+
+        $actual_minutes = report_entry_model_minutes($entry, $template);
+        $billable_minutes = report_entry_model_billable_minutes($entry, $template);
+        $amount = report_entry_model_amount($entry, $template);
+        $comment_text = report_entry_comment_text($entry, $public);
+        $comment_html = report_entry_comment_html($entry, $public);
+
+        $tickets[$ticket_key]['minutes'] += $actual_minutes;
+        $tickets[$ticket_key]['billable_minutes'] += $billable_minutes;
+        $tickets[$ticket_key]['amount'] += $amount;
+        $tickets[$ticket_key]['entries_count']++;
+        $tickets[$ticket_key]['entries'][] = [
+            'id' => (int) ($entry['id'] ?? 0),
+            'ticket_id' => $ticket_id,
+            'comment_id' => isset($entry['comment_id']) ? (int) $entry['comment_id'] : null,
+            'comment_is_internal' => !empty($entry['comment_is_internal']),
+            'comment_html' => $comment_html,
+            'comment_text' => $comment_text,
+            'summary' => report_entry_work_summary($entry, $public),
+            'has_public_comment' => $comment_text !== '',
+            'date' => (string) ($entry['entry_date'] ?? (!empty($entry['started_at']) ? date('Y-m-d', strtotime($entry['started_at'])) : '')),
+            'started_at' => $entry['started_at'] ?? null,
+            'ended_at' => $entry['ended_at'] ?? null,
+            'time_range' => function_exists('format_time_range') ? format_time_range($entry) : '',
+            'duration_minutes' => $actual_minutes,
+            'billable_minutes' => $billable_minutes,
+            'amount' => $amount,
+            'agent_name' => trim((string) (($entry['first_name'] ?? '') . ' ' . ($entry['last_name'] ?? ''))),
+            'source' => (string) ($entry['_source'] ?? $entry['source'] ?? ''),
+        ];
+    }
+
+    $ordered = [];
+    foreach ($ticket_order as $ticket_key) {
+        $ordered[] = $tickets[$ticket_key];
+    }
+
+    return [
+        'tickets' => $ordered,
+        'ticket_count' => count($ordered),
+        'entry_count' => count($entries),
+    ];
+}
+
 function report_entry_enrich(array $entry, int $rounding): array
 {
     if (empty($entry['ended_at']) && !empty($entry['started_at']) && function_exists('calculate_timer_elapsed')) {

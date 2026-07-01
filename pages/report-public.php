@@ -57,9 +57,8 @@ $page_title = t('Time Report');
 $time_entries = get_report_time_entries($template);
 $kpis = calculate_report_kpis($time_entries, $template);
 $chart_data = generate_report_chart_data($time_entries, $template);
-
-// Group entries if configured
-$display_entries = group_report_entries($time_entries, $template['group_by'], $template);
+$ticket_detail_model = report_ticket_detail_model($time_entries, $template, true);
+$ticket_detail_rows = $ticket_detail_model['tickets'];
 
 // Get branding settings
 $report_company_logo = get_setting('report_company_logo', '');
@@ -359,178 +358,95 @@ $extract_report_tags = static function ($value) {
                 <?php echo e(t('Detailed Time Log')); ?>
             </h2>
 
-            <?php if ($template['group_by'] !== 'none' && count($display_entries) > 0): ?>
-                <!-- Grouped View -->
-                <div class="space-y-4">
-                    <?php foreach ($display_entries as $group): ?>
-                        <div class="border border-gray-200 rounded-lg overflow-hidden">
-                            <!-- Group Header (Collapsible) -->
-                            <div class="bg-gray-50 px-4 py-3 cursor-pointer hover:bg-gray-100 transition"
-                                onclick="toggleGroup('group-<?php echo e($group['group_key']); ?>')">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center">
-                                        <span id="icon-<?php echo e($group['group_key']); ?>"
-                                            class="group-icon mr-3 text-gray-400 transition-transform inline-block">
-                                            <?php echo get_icon('chevron-right'); ?>
+            <?php if (count($ticket_detail_rows) > 0): ?>
+                <div class="report-ticket-list">
+                    <?php foreach ($ticket_detail_rows as $ticket): ?>
+                        <?php $detail_id = 'report-ticket-' . (int) $ticket['id']; ?>
+                        <div class="report-ticket-card">
+                            <button type="button"
+                                class="report-ticket-summary"
+                                data-report-ticket-row
+                                aria-expanded="false"
+                                aria-controls="<?php echo e($detail_id); ?>"
+                                onclick="toggleReportTicket('<?php echo e($detail_id); ?>', this)">
+                                <span class="report-ticket-summary__main">
+                                    <span class="report-ticket-summary__icon" aria-hidden="true"><?php echo get_icon('chevron-right'); ?></span>
+                                    <span>
+                                        <span class="report-ticket-summary__title"><?php echo e($ticket['title']); ?></span>
+                                        <span class="report-ticket-summary__meta">
+                                            <?php echo e($ticket['code']); ?> · <?php echo e((string) $ticket['entries_count']); ?> <?php echo e(t('work records')); ?>
                                         </span>
-                                        <div>
-                                            <div class="font-semibold text-gray-900"><?php echo e($group['group_label']); ?>
-                                            </div>
-                                            <div class="text-sm text-gray-500"><?php echo count($group['entries']); ?>
-                                                <?php echo e(t('entries')); ?>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="text-right">
-                                        <div class="font-bold text-gray-900">
-                                            <?php echo format_duration_minutes($group['total_minutes']); ?>
-                                        </div>
-                                        <?php if ($template['show_financials']): ?>
-                                            <div class="text-sm text-gray-600"><?php echo format_money($group['total_cost']); ?>
-                                            </div>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </div>
+                                    </span>
+                                </span>
+                                <span class="report-ticket-summary__totals">
+                                    <strong><?php echo e(format_duration_minutes($ticket['minutes'])); ?></strong>
+                                    <?php if ($template['show_financials']): ?>
+                                        <span><?php echo e(format_money($ticket['amount'])); ?></span>
+                                    <?php endif; ?>
+                                </span>
+                            </button>
 
-                            <!-- Group Details (Expandable) -->
-                            <div id="group-<?php echo e($group['group_key']); ?>" class="hidden bg-white">
-                                <table class="w-full">
-                                    <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
-                                        <tr>
-                                            <th class="px-4 py-3 text-left"><?php echo e(t('Date')); ?></th>
-                                            <th class="px-4 py-3 text-left"><?php echo e(t('Task')); ?></th>
-                                            <th class="px-4 py-3 text-left"><?php echo e(t('Time Range')); ?></th>
-                                            <th class="px-4 py-3 text-right"><?php echo e(t('Duration')); ?></th>
-                                            <?php if ($template['show_team_attribution']): ?>
-                                                <th class="px-4 py-3 text-left"><?php echo e(t('Member')); ?></th>
-                                            <?php endif; ?>
-                                            <?php if ($template['show_financials'] && $template['show_cost_breakdown']): ?>
-                                                <th class="px-4 py-3 text-right"><?php echo e(t('Cost')); ?></th>
-                                            <?php endif; ?>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-200">
-                                        <?php foreach ($group['entries'] as $entry): ?>
-                                            <tr class="hover:bg-gray-50">
-                                                <td class="px-4 py-3 text-sm text-gray-600">
-                                                    <?php echo e(function_exists('format_date') ? format_date($entry['entry_date'], 'd.m.Y') : date('d.m.Y', strtotime($entry['entry_date']))); ?>
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    <div class="text-sm font-medium text-gray-900">
-                                                        <?php echo e($entry['ticket_title']); ?>
-                                                    </div>
-                                                    <div class="text-xs text-gray-500">#<?php echo $entry['ticket_id']; ?></div>
-                                                    <?php $entry_tags = $extract_report_tags($entry['ticket_tags'] ?? ''); ?>
-                                                    <?php if (!empty($entry_tags)): ?>
-                                                        <div class="mt-1 flex flex-wrap gap-1">
-                                                            <?php foreach ($entry_tags as $tag): ?>
-                                                                <span
-                                                                    class="badge-inline bg-indigo-50 text-indigo-700">#<?php echo e($tag); ?></span>
-                                                            <?php endforeach; ?>
-                                                        </div>
-                                                    <?php endif; ?>
-                                                </td>
-                                                <td class="px-4 py-3 text-sm text-gray-600 font-mono">
-                                                    <?php echo format_time_range($entry); ?>
-                                                </td>
-                                                <td class="px-4 py-3 text-sm text-right font-medium text-gray-900">
-                                                    <?php echo format_duration_minutes($entry['duration_minutes']); ?>
-                                                </td>
+                            <div id="<?php echo e($detail_id); ?>" class="report-ticket-details hidden" data-report-ticket-details>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full">
+                                        <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
+                                            <tr>
+                                                <th class="px-4 py-3 text-left"><?php echo e(t('Date')); ?></th>
+                                                <th class="px-4 py-3 text-left"><?php echo e(t('Work details')); ?></th>
+                                                <th class="px-4 py-3 text-left"><?php echo e(t('Time Range')); ?></th>
+                                                <th class="px-4 py-3 text-right"><?php echo e(t('Duration')); ?></th>
                                                 <?php if ($template['show_team_attribution']): ?>
-                                                    <td class="px-4 py-3 text-sm text-gray-600">
-                                                        <?php echo e(trim($entry['first_name'] . ' ' . $entry['last_name'])); ?>
-                                                    </td>
+                                                    <th class="px-4 py-3 text-left"><?php echo e(t('Member')); ?></th>
                                                 <?php endif; ?>
                                                 <?php if ($template['show_financials'] && $template['show_cost_breakdown']): ?>
-                                                    <td class="px-4 py-3 text-sm text-right font-medium text-gray-900">
-                                                        <?php
-                                                        $rate = function_exists('get_report_entry_billable_rate')
-                                                            ? get_report_entry_billable_rate($entry, $template)
-                                                            : ((float) ($entry['billable_rate'] ?? 0));
-                                                        $cost = ($entry['duration_minutes'] / 60) * $rate;
-                                                        echo format_money($cost);
-                                                        ?>
-                                                    </td>
+                                                    <th class="px-4 py-3 text-right"><?php echo e(t('Amount')); ?></th>
                                                 <?php endif; ?>
                                             </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-200">
+                                            <?php foreach ($ticket['entries'] as $entry): ?>
+                                                <tr data-report-comment-row>
+                                                    <td class="px-4 py-3 text-sm text-gray-600">
+                                                        <?php echo e($entry['date'] !== '' && function_exists('format_date') ? format_date($entry['date'], 'd.m.Y') : $entry['date']); ?>
+                                                    </td>
+                                                    <td class="px-4 py-3">
+                                                        <?php if ($entry['comment_html'] !== ''): ?>
+                                                            <div class="report-comment-body">
+                                                                <?php echo safe_html($entry['comment_html']); ?>
+                                                            </div>
+                                                        <?php else: ?>
+                                                            <div class="text-sm text-gray-700"><?php echo e($entry['summary']); ?></div>
+                                                            <div class="text-xs text-gray-500"><?php echo e(t('No public comment was added for this time entry.')); ?></div>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td class="px-4 py-3 text-sm text-gray-600 font-mono">
+                                                        <?php echo e($entry['time_range']); ?>
+                                                    </td>
+                                                    <td class="px-4 py-3 text-sm text-right font-medium text-gray-900">
+                                                        <?php echo e(format_duration_minutes($entry['duration_minutes'])); ?>
+                                                    </td>
+                                                    <?php if ($template['show_team_attribution']): ?>
+                                                        <td class="px-4 py-3 text-sm text-gray-600">
+                                                            <?php echo e($entry['agent_name']); ?>
+                                                        </td>
+                                                    <?php endif; ?>
+                                                    <?php if ($template['show_financials'] && $template['show_cost_breakdown']): ?>
+                                                        <td class="px-4 py-3 text-sm text-right font-medium text-gray-900">
+                                                            <?php echo e(format_money($entry['amount'])); ?>
+                                                        </td>
+                                                    <?php endif; ?>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
-            <?php else: ?>
-                <!-- Flat View (No Grouping) -->
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
-                            <tr>
-                                <th class="px-4 py-3 text-left"><?php echo e(t('Date')); ?></th>
-                                <th class="px-4 py-3 text-left"><?php echo e(t('Project / Task')); ?></th>
-                                <th class="px-4 py-3 text-left"><?php echo e(t('Time Range')); ?></th>
-                                <th class="px-4 py-3 text-right"><?php echo e(t('Duration')); ?></th>
-                                <?php if ($template['show_team_attribution']): ?>
-                                    <th class="px-4 py-3 text-left"><?php echo e(t('Member')); ?></th>
-                                <?php endif; ?>
-                                <?php if ($template['show_financials'] && $template['show_cost_breakdown']): ?>
-                                    <th class="px-4 py-3 text-right"><?php echo e(t('Cost')); ?></th>
-                                <?php endif; ?>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            <?php foreach ($display_entries as $entry): ?>
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-4 py-3 text-sm text-gray-600">
-                                        <?php echo e(function_exists('format_date') ? format_date($entry['entry_date'], 'd.m.Y') : date('d.m.Y', strtotime($entry['entry_date']))); ?>
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        <div class="text-sm font-medium text-gray-900"><?php echo e($entry['ticket_title']); ?>
-                                        </div>
-                                        <?php if (!empty($entry['ticket_type'])): ?>
-                                            <span class="text-xs text-gray-500"><?php echo e($entry['ticket_type']); ?></span>
-                                        <?php endif; ?>
-                                        <?php $entry_tags = $extract_report_tags($entry['ticket_tags'] ?? ''); ?>
-                                        <?php if (!empty($entry_tags)): ?>
-                                            <div class="mt-1 flex flex-wrap gap-1">
-                                                <?php foreach ($entry_tags as $tag): ?>
-                                                    <span
-                                                        class="badge-inline bg-indigo-50 text-indigo-700">#<?php echo e($tag); ?></span>
-                                                <?php endforeach; ?>
-                                            </div>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="px-4 py-3 text-sm text-gray-600 font-mono">
-                                        <?php echo format_time_range($entry); ?>
-                                    </td>
-                                    <td class="px-4 py-3 text-sm text-right font-medium text-gray-900">
-                                        <?php echo format_duration_minutes($entry['duration_minutes']); ?>
-                                    </td>
-                                    <?php if ($template['show_team_attribution']): ?>
-                                        <td class="px-4 py-3 text-sm text-gray-600">
-                                            <?php echo e(trim($entry['first_name'] . ' ' . $entry['last_name'])); ?>
-                                        </td>
-                                    <?php endif; ?>
-                                    <?php if ($template['show_financials'] && $template['show_cost_breakdown']): ?>
-                                        <td class="px-4 py-3 text-sm text-right font-medium text-gray-900">
-                                            <?php
-                                            $rate = function_exists('get_report_entry_billable_rate')
-                                                ? get_report_entry_billable_rate($entry, $template)
-                                                : ((float) ($entry['billable_rate'] ?? 0));
-                                            $cost = ($entry['duration_minutes'] / 60) * $rate;
-                                            echo format_money($cost);
-                                            ?>
-                                        </td>
-                                    <?php endif; ?>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
             <?php endif; ?>
 
-            <?php if (count($display_entries) === 0): ?>
+            <?php if (count($ticket_detail_rows) === 0): ?>
                 <div class="text-center py-12 text-gray-500">
                     <?php echo get_icon('inbox', 'text-4xl mb-4 opacity-50 inline-block'); ?>
                     <p><?php echo e(t('No time entries found for this period')); ?></p>
@@ -619,17 +535,14 @@ $extract_report_tags = static function ($value) {
             });
         });
 
-        // Toggle group expand/collapse
-        function toggleGroup(groupId) {
-            const group = document.getElementById(groupId);
-            const icon = document.getElementById('icon-' + groupId.replace('group-', ''));
+        function toggleReportTicket(detailId, button) {
+            const detail = document.getElementById(detailId);
+            if (!detail) return;
 
-            if (group.classList.contains('hidden')) {
-                group.classList.remove('hidden');
-                icon.style.transform = 'rotate(90deg)';
-            } else {
-                group.classList.add('hidden');
-                icon.style.transform = 'rotate(0deg)';
+            const isOpening = detail.classList.contains('hidden');
+            detail.classList.toggle('hidden', !isOpening);
+            if (button) {
+                button.setAttribute('aria-expanded', isOpening ? 'true' : 'false');
             }
         }
     </script>

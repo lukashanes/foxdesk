@@ -85,6 +85,9 @@ $assert(str_contains($contents['upload'], "empty(\$GLOBALS['is_api_token_auth'])
 $assert(str_contains($contents['profile'], 'create_api_token'), 'Profile must allow users to create scoped API keys.');
 $assert(str_contains($contents['profile'], 'revoke_api_token'), 'Profile must allow users to revoke scoped API keys.');
 $assert(str_contains($contents['profile'], 'api_token_scope_catalog'), 'Profile must render the shared scope catalog.');
+$assert(str_contains($contents['profile'], 'data-api-key-ready'), 'Profile must show the generated API key inside the API access flow.');
+$assert(str_contains($contents['profile'], 'data-api-key-copy'), 'Profile must provide a direct copy action for generated API keys.');
+$assert(str_contains($contents['profile'], 'copyProfileApiKey('), 'Profile generated API key copy action must be wired.');
 $assert(str_contains($contents['docs'], 'idempotency'), 'Agent API docs must describe idempotency.');
 $assert(str_contains($contents['docs'], 'inherits the creator'), 'Agent API docs must describe permission inheritance.');
 

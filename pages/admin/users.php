@@ -757,23 +757,6 @@ include BASE_PATH . '/includes/components/page-header.php';
         <!-- AI AGENTS TAB -->
         <!-- ============================================= -->
 
-        <?php if ($new_ai_token): ?>
-                <div class="mb-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <p class="text-sm font-medium text-green-800 mb-1">
-                        <?php echo e(t('New API token (copy now — it won\'t be shown again):')); ?>
-                    </p>
-                    <code class="block p-2 border rounded text-sm font-mono break-all select-all"
-                        style="background: var(--bg-primary);"><?php echo e($new_ai_token); ?></code>
-                    <?php if ($new_ai_agent_id): ?>
-                            <a href="<?php echo url('admin', ['section' => 'agent-connect', 'id' => $new_ai_agent_id]); ?>"
-                                class="inline-flex items-center gap-1 mt-2 text-sm font-medium text-purple-700 hover:text-purple-900">
-                                <?php echo get_icon('link', 'w-4 h-4'); ?>
-                                <?php echo e(t('Get connection instructions for AI tools')); ?>
-                            </a>
-                    <?php endif; ?>
-                </div>
-        <?php endif; ?>
-
         <div class="admin-two-column">
             <!-- AI Agents List -->
             <div class="admin-main-column">
@@ -927,6 +910,30 @@ include BASE_PATH . '/includes/components/page-header.php';
             <!-- Add AI Agent Form -->
             <div class="admin-side-column">
                 <div class="card card-body">
+                    <?php if ($new_ai_token): ?>
+                        <div data-ai-agent-key-ready>
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <h3 class="font-semibold text-theme-primary"><?php echo e(t('API token generated. Copy it now.')); ?></h3>
+                                    <p class="text-sm mt-1 text-theme-secondary">
+                                        <?php echo e(t('Copy this API key now. It will not be shown again.')); ?>
+                                    </p>
+                                </div>
+                                <button type="button" class="btn btn-primary btn-sm" data-ai-agent-key-copy
+                                    onclick="copyGeneratedAgentKey('generated-ai-agent-token', this)">
+                                    <?php echo get_icon('copy', 'w-4 h-4 mr-1'); ?><?php echo e(t('Copy')); ?>
+                                </button>
+                            </div>
+                            <code id="generated-ai-agent-token" class="block mt-3 p-3 rounded bg-theme-secondary border text-xs font-mono break-all select-all border-theme-light"><?php echo e($new_ai_token); ?></code>
+                            <?php if ($new_ai_agent_id): ?>
+                                <a href="<?php echo url('admin', ['section' => 'agent-connect', 'id' => $new_ai_agent_id]); ?>"
+                                    class="inline-flex items-center gap-1 mt-3 text-sm font-medium text-purple-700 hover:text-purple-900">
+                                    <?php echo get_icon('link', 'w-4 h-4'); ?>
+                                    <?php echo e(t('Get connection instructions for AI tools')); ?>
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    <?php else: ?>
                     <h3 class="font-semibold mb-4 text-theme-primary"><?php echo e(t('Add AI agent')); ?></h3>
                     <form method="post" id="aiAddAgentForm" class="space-y-4">
                         <?php echo csrf_field(); ?>
@@ -1015,6 +1022,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                             <?php echo e(t('Add AI agent')); ?>
                         </button>
                     </form>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -1160,6 +1168,46 @@ include BASE_PATH . '/includes/components/page-header.php';
             var _aiAgentReturnFocus = null;
             var _aiAgentTokenGroupScopes = <?php echo json_encode($ai_agent_token_group_scopes, JSON_UNESCAPED_SLASHES); ?>;
             var _aiAgentDefaultTokenGroups = <?php echo json_encode($ai_agent_token_default_scope_groups, JSON_UNESCAPED_SLASHES); ?>;
+
+            function copyGeneratedAgentKey(fieldId, button) {
+                var field = document.getElementById(fieldId);
+                if (!field || !button) return;
+
+                var value = field.textContent.trim();
+                var originalHtml = button.innerHTML;
+                var copiedText = <?php echo json_encode(t('Copied')); ?>;
+
+                var showCopied = function () {
+                    button.textContent = copiedText;
+                    setTimeout(function () {
+                        button.innerHTML = originalHtml;
+                    }, 1800);
+                };
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(value).then(showCopied).catch(function () {
+                        fallbackCopyGeneratedAgentKey(value, showCopied);
+                    });
+                    return;
+                }
+
+                fallbackCopyGeneratedAgentKey(value, showCopied);
+            }
+
+            function fallbackCopyGeneratedAgentKey(value, done) {
+                var textarea = document.createElement('textarea');
+                textarea.value = value;
+                textarea.setAttribute('readonly', 'readonly');
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                } catch (e) {}
+                document.body.removeChild(textarea);
+                done();
+            }
 
             /**
              * Double-confirmation for deleting an agent.

@@ -47,6 +47,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_admin()) {
 
 $from_date = $range_start ? substr((string) $range_start, 0, 10) : '';
 $to_date = $range_end ? substr((string) $range_end, 0, 10) : '';
+$time_range_labels = [
+    'all' => t('All time'),
+    'today' => t('Today'),
+    'yesterday' => t('Yesterday'),
+    'last_7_days' => t('Last 7 days'),
+    'last_30_days' => t('Last 30 days'),
+    'this_week' => t('This week'),
+    'last_week' => t('Last week'),
+    'this_month' => t('This month'),
+    'last_month' => t('Last month'),
+    'this_quarter' => t('This quarter'),
+    'last_quarter' => t('Last quarter'),
+    'this_year' => t('This year'),
+    'last_year' => t('Last year'),
+    'custom' => ($from_date && $to_date) ? $from_date . ' – ' . $to_date : t('Custom range'),
+];
 
 $report_data = report_query_time_entries($report_filter_state, $current_user, $tags_supported, $rounding, $_ai_user_ids);
 $entries = $report_data['entries'];
@@ -57,13 +73,62 @@ $by_ticket = $report_data['by_ticket'];
 $by_week = $report_data['by_week'];
 $by_source = $report_data['by_source'];
 $billable_time_notice = $tab === 'billing' ? report_billable_time_notice($totals, $rounding) : null;
-
 $has_cost_data = abs((float) ($totals['cost_amount'] ?? 0)) > 0.001;
+$billing_ticket_details = ($tab === 'billing' && !empty($entries))
+    ? report_ticket_detail_model($entries, [
+        'show_financials' => (bool) $show_money,
+        'show_team_attribution' => true,
+        'show_cost_breakdown' => (bool) ($show_money && $has_cost_data),
+        'rounding_minutes' => 1,
+    ], false)
+    : ['tickets' => [], 'ticket_count' => 0, 'entry_count' => 0];
+
 report_export_csv_if_requested($_GET, $tab, $entries, $by_org, $tags_supported, (bool) $show_money, $has_cost_data);
 
 $base_params = $_GET;
 $base_params['page'] = 'admin';
 $base_params['section'] = 'reports';
+$selected_positive_orgs = array_values(array_filter($selected_orgs, static function ($id) {
+    return (int) $id > 0;
+}));
+$selected_flow_org = count($selected_positive_orgs) === 1 ? (int) $selected_positive_orgs[0] : null;
+$selected_flow_org_name = null;
+if ($selected_flow_org !== null) {
+    foreach ($organizations as $org) {
+        if ((int) $org['id'] === $selected_flow_org) {
+            $selected_flow_org_name = (string) $org['name'];
+            break;
+        }
+    }
+}
+$report_period_label = $time_range_labels[$time_range] ?? $time_range;
+$report_export_params = $base_params;
+$report_export_params['export'] = 'csv';
+$billing_col_defs = [];
+if ($tab === 'billing') {
+    $billing_col_defs = [
+        'ticket' => t('Ticket'),
+        'company' => t('Company'),
+    ];
+    if ($tags_supported) {
+        $billing_col_defs['tags'] = t('Tags');
+    }
+    $billing_col_defs += [
+        'duration' => t('Duration'),
+        'billable' => t('Billable'),
+        'agent' => t('Agent'),
+        'source' => t('Source'),
+        'start' => t('Start time'),
+        'end' => t('End time'),
+    ];
+    if ($show_money) {
+        $billing_col_defs['amount'] = t('Amount');
+    }
+    if ($show_money && $has_cost_data) {
+        $billing_col_defs['cost'] = t('Cost');
+        $billing_col_defs['profit'] = t('Profit');
+    }
+}
 
 require_once BASE_PATH . '/includes/header.php';
 ?>
@@ -75,11 +140,11 @@ include BASE_PATH . '/includes/components/page-header.php';
 
 <div class="workflow-surface workflow-surface--reports admin-legacy-page" data-core-workflow-surface="reports">
     <?php if (is_admin() && $tab === 'billing'): ?>
-    <section class="reporting-flow-card">
+    <section class="reporting-flow-card" data-report-generation-card>
         <div class="reporting-flow-main">
             <div class="reporting-flow-heading">
-                <p class="admin-eyebrow"><?php echo e(t('Billing review')); ?></p>
-                <h2><?php echo e(t('Review client work before publishing')); ?></h2>
+                <h2><?php echo e(t('Create client report')); ?></h2>
+                <p><?php echo e(t('Choose a client and period, then review the work before publishing.')); ?></p>
             </div>
             <form method="GET" action="index.php" class="reporting-flow-form">
                 <input type="hidden" name="page" value="admin">
@@ -111,7 +176,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                     </select>
                 </label>
                 <button type="submit" class="btn btn-primary btn-sm">
-                    <?php echo get_icon('search', 'w-3.5 h-3.5'); ?><?php echo e(t('Review items')); ?>
+                    <?php echo get_icon('search', 'w-3.5 h-3.5'); ?><?php echo e(t('Review work')); ?>
                 </button>
             </form>
         </div>
@@ -124,20 +189,10 @@ include BASE_PATH . '/includes/components/page-header.php';
                     </div>
                 <?php endforeach; ?>
             </div>
-            <?php
-            $selected_positive_orgs = array_values(array_filter($selected_orgs, static function ($id) {
-                return (int) $id > 0;
-            }));
-            $selected_flow_org = count($selected_positive_orgs) === 1 ? (int) $selected_positive_orgs[0] : null;
-            ?>
             <div class="admin-hero-actions">
             <a href="<?php echo url('admin', ['section' => 'reports-list']); ?>"
                 class="btn btn-secondary btn-sm">
                 <?php echo get_icon('list', 'w-3.5 h-3.5'); ?><?php echo e(t('Client reports')); ?>
-            </a>
-            <a href="<?php echo reporting_flow_builder_url($selected_flow_org, $time_range); ?>"
-                class="btn btn-primary btn-sm">
-                <?php echo get_icon('plus', 'w-3.5 h-3.5'); ?><?php echo e(t('Create report')); ?>
             </a>
             </div>
         </div>
@@ -166,52 +221,9 @@ include BASE_PATH . '/includes/components/page-header.php';
             <?php endforeach; ?>
         </div>
 
-        <?php if (in_array($tab, ['billing', 'time'], true) && !empty($entries)): ?>
+        <?php if ($tab === 'time' && !empty($entries)): ?>
         <div class="report-actions">
-            <?php if ($tab === 'billing'): ?>
-            <!-- Column Picker -->
-            <div class="relative" id="col-picker-wrap">
-                <button type="button" onclick="document.getElementById('col-picker-dropdown').classList.toggle('hidden')"
-                    class="report-mini-action"
-                    title="<?php echo e(t('Columns')); ?>">
-                    <?php echo get_icon('columns', 'w-3 h-3 inline-block'); ?><?php echo e(t('Columns')); ?>
-                </button>
-                <div id="col-picker-dropdown" class="report-col-picker-dropdown hidden absolute right-0 mt-1 w-44 rounded-lg shadow-lg border z-50 p-1.5">
-                    <?php
-                    $col_defs = [
-                        'ticket' => t('Ticket'),
-                        'company' => t('Company'),
-                    ];
-                    if ($tags_supported) $col_defs['tags'] = t('Tags');
-                    $col_defs += [
-                        'duration' => t('Duration'),
-                        'billable' => t('Billable'),
-                        'agent' => t('Agent'),
-                        'source' => t('Source'),
-                        'start' => t('Start time'),
-                        'end' => t('End time'),
-                    ];
-                    if ($show_money) {
-                        $col_defs['amount'] = t('Amount');
-                        $col_defs['cost'] = t('Cost');
-                        $col_defs['profit'] = t('Profit');
-                    }
-                    foreach ($col_defs as $col_key => $col_label): ?>
-                    <label class="flex items-center gap-2 px-2 py-1 text-xs rounded cursor-pointer text-theme-primary">
-                        <input type="checkbox" class="rounded col-toggle" data-col="<?php echo e($col_key); ?>" checked>
-                        <?php echo e($col_label); ?>
-                    </label>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php endif; ?>
-
-            <!-- Export CSV -->
-            <?php
-            $export_params = $base_params;
-            $export_params['export'] = 'csv';
-            ?>
-            <a href="index.php?<?php echo http_build_query($export_params); ?>"
+            <a href="index.php?<?php echo http_build_query($report_export_params); ?>"
                 class="report-mini-action"
                 title="<?php echo e(t('Export CSV')); ?>">
                 <?php echo get_icon('download', 'w-3 h-3 inline-block'); ?><?php echo e(t('Export CSV')); ?>
@@ -236,15 +248,6 @@ include BASE_PATH . '/includes/components/page-header.php';
             <?php
             // Compute active filters for pills display
             $active_filters = [];
-            $time_range_labels = [
-                'today' => t('Today'), 'yesterday' => t('Yesterday'),
-                'last_7_days' => t('Last 7 days'), 'last_30_days' => t('Last 30 days'),
-                'this_week' => t('This week'), 'last_week' => t('Last week'),
-                'this_month' => t('This month'), 'last_month' => t('Last month'),
-                'this_quarter' => t('This quarter'), 'last_quarter' => t('Last quarter'),
-                'this_year' => t('This year'), 'last_year' => t('Last year'),
-                'custom' => ($from_date && $to_date) ? $from_date . ' – ' . $to_date : t('Custom range'),
-            ];
             if ($time_range !== 'all' && $time_range !== 'this_month') {
                 $active_filters[] = ['type' => 'time_range', 'label' => $time_range_labels[$time_range] ?? $time_range, 'param' => 'time_range'];
             }
@@ -1045,7 +1048,157 @@ include BASE_PATH . '/includes/components/page-header.php';
             </div>
             <?php endif; ?>
         <?php elseif ($tab === 'billing'): ?>
-            <?php if (empty($entries)): ?>
+            <?php if ($selected_flow_org !== null): ?>
+            <section class="report-preview-card" data-report-preview>
+                <div class="report-preview-header">
+                    <div>
+                        <p class="report-preview-kicker"><?php echo e(t('Report preview')); ?></p>
+                        <h3><?php echo e($selected_flow_org_name ?: t('Selected client')); ?></h3>
+                        <p><?php echo e($report_period_label); ?> · <?php echo e(empty($entries) ? t('No billable items found yet.') : t('Review the numbers before creating the client-facing report.')); ?></p>
+                    </div>
+                    <div class="report-preview-actions">
+                        <?php if (!empty($entries)): ?>
+                        <div class="relative" id="col-picker-wrap">
+                            <button type="button" onclick="document.getElementById('col-picker-dropdown').classList.toggle('hidden')"
+                                class="report-mini-action"
+                                title="<?php echo e(t('Columns')); ?>">
+                                <?php echo get_icon('columns', 'w-3 h-3 inline-block'); ?><?php echo e(t('Columns')); ?>
+                            </button>
+                            <div id="col-picker-dropdown" class="report-col-picker-dropdown hidden absolute right-0 mt-1 w-44 fd-rounded-card shadow-lg border z-50 p-1.5">
+                                <?php foreach ($billing_col_defs as $col_key => $col_label): ?>
+                                <label class="flex items-center gap-2 px-2 py-1 text-xs fd-rounded-control cursor-pointer text-theme-primary">
+                                    <input type="checkbox" class="fd-rounded-control col-toggle" data-col="<?php echo e($col_key); ?>" checked>
+                                    <?php echo e($col_label); ?>
+                                </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <a href="index.php?<?php echo http_build_query($report_export_params); ?>"
+                            class="report-mini-action"
+                            title="<?php echo e(t('Export CSV')); ?>">
+                            <?php echo get_icon('download', 'w-3 h-3 inline-block'); ?><?php echo e(t('Export CSV')); ?>
+                        </a>
+                        <button type="button" onclick="window.print()"
+                            class="report-mini-action"
+                            title="<?php echo e(t('Print')); ?>">
+                            <?php echo get_icon('print', 'w-3 h-3 inline-block'); ?><?php echo e(t('Print')); ?>
+                        </button>
+                        <a href="<?php echo reporting_flow_builder_url($selected_flow_org, $time_range); ?>"
+                            class="btn btn-primary btn-sm">
+                            <?php echo get_icon('file-text', 'w-3.5 h-3.5'); ?><?php echo e(t('Create report')); ?>
+                        </a>
+                        <?php else: ?>
+                        <a href="<?php echo url('admin', ['section' => 'reports-list']); ?>"
+                            class="btn btn-secondary btn-sm">
+                            <?php echo get_icon('list', 'w-3.5 h-3.5'); ?><?php echo e(t('Client reports')); ?>
+                        </a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div class="report-preview-metrics">
+                    <div class="report-preview-metric">
+                        <span><?php echo e(t('Items')); ?></span>
+                        <strong><?php echo e((string) count($entries)); ?></strong>
+                    </div>
+                    <div class="report-preview-metric">
+                        <span><?php echo e(t('Total time')); ?></span>
+                        <strong><?php echo e(format_duration_minutes($totals['minutes'])); ?></strong>
+                    </div>
+                    <div class="report-preview-metric">
+                        <span><?php echo e(t('Billable time')); ?></span>
+                        <strong><?php echo e(format_duration_minutes($totals['billable_minutes'])); ?></strong>
+                    </div>
+                    <?php if ($show_money): ?>
+                    <div class="report-preview-metric">
+                        <span><?php echo e(t('Billable amount')); ?></span>
+                        <strong><?php echo e(format_money($totals['billable_amount'])); ?></strong>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <?php if (!empty($billing_ticket_details['tickets'])): ?>
+                <div class="report-ticket-preview" data-report-ticket-preview>
+                    <?php foreach ($billing_ticket_details['tickets'] as $ticket): ?>
+                        <?php $preview_detail_id = 'billing-ticket-' . (int) $ticket['id']; ?>
+                        <div class="report-ticket-card">
+                            <button type="button"
+                                class="report-ticket-summary"
+                                data-report-ticket-row
+                                aria-expanded="false"
+                                aria-controls="<?php echo e($preview_detail_id); ?>"
+                                onclick="toggleReportTicketPreview('<?php echo e($preview_detail_id); ?>', this)">
+                                <span class="report-ticket-summary__main">
+                                    <span class="report-ticket-summary__icon" aria-hidden="true"><?php echo get_icon('chevron-right'); ?></span>
+                                    <span>
+                                        <span class="report-ticket-summary__title"><?php echo e($ticket['title']); ?></span>
+                                        <span class="report-ticket-summary__meta">
+                                            <?php echo e($ticket['code']); ?> · <?php echo e((string) $ticket['entries_count']); ?> <?php echo e(t('work records')); ?>
+                                        </span>
+                                    </span>
+                                </span>
+                                <span class="report-ticket-summary__totals">
+                                    <strong><?php echo e(format_duration_minutes($ticket['minutes'])); ?></strong>
+                                    <?php if ($show_money): ?>
+                                        <span><?php echo e(format_money($ticket['amount'])); ?></span>
+                                    <?php endif; ?>
+                                </span>
+                            </button>
+                            <div id="<?php echo e($preview_detail_id); ?>" class="report-ticket-preview__details hidden" data-report-ticket-details>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full">
+                                        <thead class="bg-theme-secondary">
+                                            <tr>
+                                                <th class="px-3 py-2 text-left th-label"><?php echo e(t('Date')); ?></th>
+                                                <th class="px-3 py-2 text-left th-label"><?php echo e(t('Work details')); ?></th>
+                                                <th class="px-3 py-2 text-left th-label"><?php echo e(t('Time Range')); ?></th>
+                                                <th class="px-3 py-2 text-right th-label"><?php echo e(t('Duration')); ?></th>
+                                                <th class="px-3 py-2 text-left th-label"><?php echo e(t('Agent')); ?></th>
+                                                <?php if ($show_money): ?>
+                                                    <th class="px-3 py-2 text-right th-label"><?php echo e(t('Amount')); ?></th>
+                                                <?php endif; ?>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y">
+                                            <?php foreach ($ticket['entries'] as $entry): ?>
+                                            <tr data-report-comment-row>
+                                                <td class="px-3 py-2 text-xs text-theme-secondary"><?php echo e($entry['date'] !== '' ? format_date($entry['date'], 'd.m.Y') : '-'); ?></td>
+                                                <td class="px-3 py-2 text-xs">
+                                                    <div class="font-medium text-theme-primary"><?php echo e($entry['summary']); ?></div>
+                                                    <?php if (!empty($entry['comment_is_internal'])): ?>
+                                                        <div class="text-[11px] text-theme-muted"><?php echo e(t('Internal note')); ?></div>
+                                                    <?php elseif (!$entry['has_public_comment']): ?>
+                                                        <div class="text-[11px] text-theme-muted"><?php echo e(t('No public comment was added for this time entry.')); ?></div>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="px-3 py-2 text-xs text-theme-secondary"><?php echo e($entry['time_range']); ?></td>
+                                                <td class="px-3 py-2 text-xs text-right text-theme-primary"><?php echo e(format_duration_minutes($entry['duration_minutes'])); ?></td>
+                                                <td class="px-3 py-2 text-xs text-theme-secondary"><?php echo e($entry['agent_name']); ?></td>
+                                                <?php if ($show_money): ?>
+                                                    <td class="px-3 py-2 text-xs text-right text-theme-primary"><?php echo e(format_money($entry['amount'])); ?></td>
+                                                <?php endif; ?>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+            </section>
+            <?php else: ?>
+            <section class="report-preview-card report-preview-card--empty" data-report-preview-empty>
+                <div class="report-preview-header">
+                    <div>
+                        <p class="report-preview-kicker"><?php echo e(t('Report preview')); ?></p>
+                        <h3><?php echo e(t('Choose a client first')); ?></h3>
+                        <p><?php echo e(t('Pick one client above to preview work, adjust billing, and create a report.')); ?></p>
+                    </div>
+                </div>
+            </section>
+            <?php endif; ?>
+            <?php if ($selected_flow_org === null): ?>
+            <?php elseif (empty($entries)): ?>
                 <div class="card card-body p-8 text-center">
                     <div class="text-4xl mb-3 text-theme-muted">📋</div>
                     <div class="font-semibold mb-1 text-theme-primary"><?php echo e(t('No time entries found')); ?></div>
@@ -1841,6 +1994,16 @@ include BASE_PATH . '/includes/components/page-header.php';
         if (modal) {
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+        }
+    }
+
+    function toggleReportTicketPreview(detailId, button) {
+        var detail = document.getElementById(detailId);
+        if (!detail) return;
+        var isOpening = detail.classList.contains('hidden');
+        detail.classList.toggle('hidden', !isOpening);
+        if (button) {
+            button.setAttribute('aria-expanded', isOpening ? 'true' : 'false');
         }
     }
 

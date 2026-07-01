@@ -48,8 +48,16 @@ function report_query_time_entries(array $filter_state, array $current_user, boo
     $user_billable_rate_select = (function_exists('column_exists') && column_exists('users', 'billable_rate'))
         ? 'u.billable_rate as user_billable_rate,'
         : 'NULL as user_billable_rate,';
+    $has_comment_link = function_exists('column_exists') && column_exists('ticket_time_entries', 'comment_id') && function_exists('table_exists') && table_exists('comments');
+    $comment_select = $has_comment_link
+        ? 'tte.comment_id, tte.summary as time_entry_summary, c.content as comment_content, c.is_internal as comment_is_internal, c.created_at as comment_created_at,'
+        : 'NULL as comment_id, tte.summary as time_entry_summary, NULL as comment_content, 0 as comment_is_internal, NULL as comment_created_at,';
+    $comment_join = $has_comment_link
+        ? 'LEFT JOIN comments c ON tte.comment_id = c.id AND c.ticket_id = t.id'
+        : '';
 
     $sql = "SELECT tte.*,
+                   {$comment_select}
                    t.title as ticket_title,
                    t.organization_id,
                    {$ticket_custom_rate_select}
@@ -68,6 +76,7 @@ function report_query_time_entries(array $filter_state, array $current_user, boo
             LEFT JOIN statuses s ON t.status_id = s.id
             LEFT JOIN organizations o ON t.organization_id = o.id
             LEFT JOIN users u ON tte.user_id = u.id
+            {$comment_join}
             WHERE 1=1";
     $params = [];
     $sql .= report_query_tenant_ticket_filter($params);

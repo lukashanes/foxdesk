@@ -308,10 +308,18 @@ function get_report_time_entries($template) {
     $user_billable_rate_select = (function_exists('column_exists') && column_exists('users', 'billable_rate'))
         ? 'u.billable_rate as user_billable_rate,'
         : 'NULL as user_billable_rate,';
+    $has_comment_link = function_exists('column_exists') && column_exists('ticket_time_entries', 'comment_id') && function_exists('table_exists') && table_exists('comments');
+    $comment_select = $has_comment_link
+        ? 'te.comment_id, te.summary as time_entry_summary, c.content as comment_content, c.is_internal as comment_is_internal, c.created_at as comment_created_at,'
+        : 'NULL as comment_id, te.summary as time_entry_summary, NULL as comment_content, 0 as comment_is_internal, NULL as comment_created_at,';
+    $comment_join = $has_comment_link
+        ? 'LEFT JOIN comments c ON te.comment_id = c.id AND c.ticket_id = t.id'
+        : '';
 
     $sql = "
         SELECT
             te.id,
+            {$comment_select}
             te.ticket_id,
             te.user_id,
             te.started_at,
@@ -339,6 +347,7 @@ function get_report_time_entries($template) {
         LEFT JOIN ticket_types tt ON t.type = tt.id
         LEFT JOIN organizations o ON t.organization_id = o.id
         LEFT JOIN users u ON te.user_id = u.id
+        {$comment_join}
         WHERE t.organization_id = ?
           AND DATE(te.started_at) >= ?
           AND DATE(te.started_at) <= ?
