@@ -180,6 +180,7 @@ function closeImagePreview() {
 }
 function _lbEsc(e) { if (e.key === 'Escape') closeImagePreview(); }
 </script>
+<script defer src="assets/js/page-transitions.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
 <script defer src="assets/js/app-footer.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
 </body>
 

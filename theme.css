@@ -1165,9 +1165,38 @@ max-width: var(--app-content-max);
 margin: 0 auto;
 flex: 1 0 auto;
 padding: var(--app-shell-gutter);
+animation: fd-page-enter 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .app-content > * {
 max-width: 100%;
+}
+.app-shell-page.is-page-leaving .app-content {
+opacity: 0;
+transform: translateY(4px);
+transition: opacity 120ms ease, transform 120ms ease;
+pointer-events: none;
+will-change: opacity, transform;
+}
+@keyframes fd-page-enter {
+from {
+opacity: 0;
+transform: translateY(4px);
+}
+to {
+opacity: 1;
+transform: translateY(0);
+}
+}
+@media (prefers-reduced-motion: reduce) {
+.app-content {
+animation: none;
+}
+.app-shell-page.is-page-leaving .app-content {
+opacity: 1;
+transform: none;
+transition: none;
+will-change: auto;
+}
 }
 .desktop-header,
 .mobile-header {
