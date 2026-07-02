@@ -1437,6 +1437,7 @@ return [
     'Updates, backups, tasks, and upload limits.' => 'Updates, Backups, Aufgaben und Upload-Limits.',
     'Operational history and diagnostics.' => 'Betriebsverlauf und Diagnosen.',
     'Optional invoice rounding. Work and agent reports always show exact tracked minutes.' => 'Optionale Rechnungsrundung. Arbeits- und Agentenberichte zeigen immer exakt erfasste Minuten.',
+    'Run this command in your terminal to verify the token works through the API:' => 'Führen Sie diesen Befehl im Terminal aus, um zu prüfen, dass das Token über die API funktioniert:',
     'Work details' => 'Arbeitsdetails',
     'Work logged' => 'Arbeit erfasst',
     'work records' => 'Arbeitsaufzeichnungen',

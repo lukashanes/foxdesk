@@ -29,6 +29,27 @@ cp examples/agent-api/.env.example examples/agent-api/.env
 sh examples/agent-api/create-ticket.sh
 ```
 
+## Important: API access, not browser login
+
+When you receive a FoxDesk URL and an API token, do not open the web app or
+`/index.php?page=login`. The token is not a password and it will not create a
+browser session.
+
+Treat the URL as the API host and call FoxDesk with an `Authorization: Bearer`
+header:
+
+```bash
+FOXDESK_BASE_URL=https://helpdesk.example.com
+FOXDESK_API_TOKEN=fdx_replace_with_token_from_profile
+
+curl -fsS "$FOXDESK_BASE_URL/index.php?page=api&action=agent-me" \
+  -H "Authorization: Bearer $FOXDESK_API_TOKEN"
+```
+
+If a browser request redirects to login, switch back to the API endpoint. It
+means the request was missing the bearer header or was sent to the web UI
+instead of `/index.php?page=api&action=...`.
+
 ## Examples
 
 Create a ticket:

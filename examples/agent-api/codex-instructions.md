@@ -14,6 +14,16 @@ FOXDESK_API_TOKEN=fdx_replace_with_token_from_profile
 Never paste a production token into a shared prompt. Never print FOXDESK_API_TOKEN.
 Prefer the local `.env` file or your secret manager.
 
+## API, Not Browser Login
+
+Treat `FOXDESK_BASE_URL` as the API host. Do not open
+`/index.php?page=login`, do not wait for a browser session, and do not use
+cookies. A FoxDesk API token only works through HTTP requests that include:
+
+```bash
+Authorization: Bearer $FOXDESK_API_TOKEN
+```
+
 ## Allowed Tools
 
 Use only these scripts unless the user explicitly asks for a lower-level API

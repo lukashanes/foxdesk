@@ -102,6 +102,8 @@ You can create tickets, add comments, update statuses, and log time via the REST
 - **API Base URL:** `{$api_base}`
 - **Bearer Token:** `{$token_display}`
 - Include in every request: `Authorization: Bearer {$token_display}`
+- Do not open `/index.php?page=login` and do not wait for browser cookies. This
+  token works only through API calls with the bearer header.
 
 ## Available API Endpoints
 
@@ -169,6 +171,9 @@ URL: {$base_url}
 ## API Access
 
 API Base URL: {$api_base}
+
+Do not open `/index.php?page=login` and do not wait for browser cookies. Use the
+API base URL only with `Authorization: Bearer \${HELPDESK_API_TOKEN}`.
 
 The API token is stored in `.env` file (gitignored). Load it with:
 ```bash
@@ -466,7 +471,7 @@ include BASE_PATH . '/includes/components/page-header.php';
             <div class="flex-1 pt-0.5">
                 <p class="font-medium text-sm text-theme-primary"><?php echo e(t('Test the connection')); ?></p>
                 <p class="text-xs mt-0.5 mb-3 text-theme-muted">
-                    <?php echo e(t('Run this command in your terminal to verify the token works:')); ?>
+                    <?php echo e(t('Run this command in your terminal to verify the token works through the API:')); ?>
                 </p>
                 <?php echo ac_code('bot_test', "curl -s \"{$api_base}agent-me\" \\\n  -H \"Authorization: Bearer {$token_display}\"", 'curl', ['copy']); ?>
                 <p class="text-xs mt-2 text-theme-muted">

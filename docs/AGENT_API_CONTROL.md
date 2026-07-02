@@ -43,6 +43,9 @@ FOXDESK_API_TOKEN=fdx_...
 5. Codex, Claude, a CLI script, or a future MCP server uses the key through the
    public API. Pasting a key into a conversation can work for short tests, but a
    local environment secret is the safer default.
+6. The agent must treat the FoxDesk URL as an API host, not as a browser login
+   page. It must not open `/index.php?page=login` or wait for cookies; every
+   request uses `Authorization: Bearer $FOXDESK_API_TOKEN`.
 
 Important distinction:
 

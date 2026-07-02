@@ -1432,6 +1432,7 @@ return [
     'Updates, backups, tasks, and upload limits.' => 'Aktualizace, zálohy, úlohy a limity nahrávání.',
     'Operational history and diagnostics.' => 'Provozní historie a diagnostika.',
     'Optional invoice rounding. Work and agent reports always show exact tracked minutes.' => 'Volitelné fakturační zaokrouhlení. Práce a reporty agentů vždy ukazují přesné minuty.',
+    'Run this command in your terminal to verify the token works through the API:' => 'Spusťte tento příkaz v terminálu pro ověření, že token funguje přes API:',
     'Work details' => 'Detail práce',
     'Work logged' => 'Zapsaná práce',
     'work records' => 'záznamů práce',

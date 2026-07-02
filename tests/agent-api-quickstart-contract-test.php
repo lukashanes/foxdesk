@@ -53,6 +53,10 @@ $assert(str_contains($gitignore, 'examples/agent-api/.env'), 'Real Agent API .en
 
 foreach ([
     'Profile -> API access',
+    'API access, not browser login',
+    'do not open the web',
+    '/index.php?page=login',
+    'Authorization: Bearer',
     'cp examples/agent-api/.env.example examples/agent-api/.env',
     'create-ticket.sh',
     'log-time.sh',
@@ -107,6 +111,8 @@ foreach ([
 foreach ([$codex, $claude] as $agentDoc) {
     foreach ([
         'Never print FOXDESK_API_TOKEN',
+        '/index.php?page=login',
+        'Authorization: Bearer',
         '401',
         '403',
         'create-ticket.sh',

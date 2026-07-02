@@ -25,6 +25,10 @@ cp examples/agent-api/.env.example examples/agent-api/.env
 Edit `examples/agent-api/.env` and paste the token. The real `.env` file is
 ignored by git.
 
+Do not open the FoxDesk login page when using these examples. The URL in
+`FOXDESK_BASE_URL` is the API host, and every request must include
+`Authorization: Bearer $FOXDESK_API_TOKEN`.
+
 ## 3. Run examples
 
 ```bash

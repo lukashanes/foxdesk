@@ -18,6 +18,9 @@ Then edit `.env` and paste the key from **Profile -> API access**.
 ```text
 You can operate FoxDesk only through the scripts in examples/agent-api.
 Never print FOXDESK_API_TOKEN.
+Treat FOXDESK_BASE_URL as an API host, not a browser page. Do not open
+/index.php?page=login and do not wait for cookies. Use Authorization: Bearer
+FOXDESK_API_TOKEN on every request.
 Before write actions, confirm the target ticket or client when it is ambiguous.
 Use app-create-ticket for new work, app-add-comment for ticket updates,
 app-log-time for time entries, and app-reporting-review for report drafts.
