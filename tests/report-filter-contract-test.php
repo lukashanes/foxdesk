@@ -58,6 +58,32 @@ $assert($agent_state['show_money'] === 0, 'Non-admin users must never see money 
 $agent_billing_state = report_filter_state_from_request(['tab' => 'billing'], false);
 $assert($agent_billing_state['tab'] === 'time', 'Non-admin users must be kept in time overview.');
 
+$all_work_state = report_filter_state_from_request([
+    'tab' => 'billing',
+    'time_range' => 'this_month',
+    'agents' => ['9'],
+], true);
+$assert($all_work_state['tab'] === 'time', 'Billing without one client must show the overall time overview.');
+$assert($all_work_state['selected_agents'] === [9], 'Overall time overview must preserve the selected agent.');
+
+$client_review_state = report_filter_state_from_request([
+    'tab' => 'billing',
+    'organizations' => ['7'],
+    'agents' => ['9'],
+    'show_money' => '1',
+], true);
+$assert($client_review_state['tab'] === 'billing', 'One selected client must keep the billing review mode.');
+$assert($client_review_state['show_money'] === 1, 'Client billing review must keep financial columns enabled.');
+
+$blank_option_state = report_filter_state_from_request([
+    'tab' => 'billing',
+    'organizations' => [''],
+    'agents' => [''],
+], true);
+$assert($blank_option_state['selected_orgs'] === [], 'The All clients option must not become the unassigned-client sentinel.');
+$assert($blank_option_state['selected_agents'] === [], 'The All agents option must not become an invalid agent filter.');
+$assert($blank_option_state['tab'] === 'time', 'The All clients option must open the overall time overview.');
+
 $assert(str_contains($bootstrap, '/reports/report-filters.php'), 'Module bootstrap must load report filters.');
 $assert(str_contains($controller, 'report_filter_state_from_request($request, is_admin())'), 'Reports controller must consume report filter state.');
 $assert(!str_contains($controller, '$allowed_tabs ='), 'Reports controller must not own tab allow-list logic.');

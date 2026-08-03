@@ -23,6 +23,70 @@ test('admin can log in and see the work surface', async ({ page }) => {
   expect(bodyText).toMatch(/Work|Dashboard/);
 });
 
+test('reports can filter one agent across all clients', async ({ page }) => {
+  const stamp = Date.now();
+  const orgName = `E2E All Work Client ${stamp}`;
+  const agentEmail = `all.work.${stamp}@example.test`;
+  const ticketTitle = `All-client agent work ${stamp}`;
+
+  dbQuery(`
+    INSERT INTO organizations (name, billable_rate, is_active, created_at)
+    VALUES (${sqlString(orgName)}, 1000, 1, NOW());
+  `);
+  dbQuery(`
+    INSERT INTO users (email, password, first_name, last_name, role, is_active, created_at)
+    VALUES (
+      ${sqlString(agentEmail)},
+      '$2y$10$abcdefghijklmnopqrstuuF0I9oWV6x3p4GmD0Yj6Hf8wd2Kx0D5u',
+      'Report',
+      'Agent',
+      'agent',
+      1,
+      NOW()
+    );
+  `);
+
+  const ids = rowObject(dbQuery(`
+    SELECT
+      (SELECT id FROM organizations WHERE name = ${sqlString(orgName)} LIMIT 1) AS org_id,
+      (SELECT id FROM users WHERE email = ${sqlString(agentEmail)} LIMIT 1) AS agent_id,
+      (SELECT id FROM users WHERE email = 'admin@example.test' LIMIT 1) AS admin_id,
+      (SELECT id FROM statuses ORDER BY is_default DESC, id ASC LIMIT 1) AS status_id
+  `));
+  const ticketHash = `allwork${stamp}`.slice(0, 16);
+  dbQuery(`
+    INSERT INTO tickets (hash, title, description, user_id, organization_id, status_id, created_at, updated_at)
+    VALUES (${sqlString(ticketHash)}, ${sqlString(ticketTitle)}, 'All-client report test',
+      ${Number(ids.admin_id)}, ${Number(ids.org_id)}, ${Number(ids.status_id)}, NOW(), NOW());
+  `);
+  const ticket = rowObject(dbQuery(`SELECT id FROM tickets WHERE hash = ${sqlString(ticketHash)} LIMIT 1`));
+  dbQuery(`
+    INSERT INTO ticket_time_entries
+      (ticket_id, user_id, started_at, ended_at, duration_minutes, is_billable, billable_rate, is_manual, summary, created_at)
+    VALUES
+      (${Number(ticket.id)}, ${Number(ids.agent_id)}, NOW() - INTERVAL 42 MINUTE, NOW(), 42, 1, 1000, 1, 'Cross-client work', NOW());
+  `);
+
+  await login(page);
+  await page.goto('/index.php?page=admin&section=reports&tab=billing&time_range=this_month');
+
+  const form = page.locator('[data-report-create-form]');
+  const client = form.locator('[data-report-client-select]');
+  const agent = form.locator('[data-report-agent-select]');
+  await expect(client).not.toHaveAttribute('required', '');
+  await expect(client).toHaveValue('');
+  await agent.selectOption(String(ids.agent_id));
+  await form.locator('button[type="submit"]').click();
+
+  await expect(agent).toHaveValue(String(ids.agent_id));
+  await expect(client).toHaveValue('');
+  await expect(page.locator('.report-summary-strip')).toBeVisible();
+  await expect(page.locator('[data-report-time-overview-log]')).toContainText(ticketTitle);
+  await expect(page.locator('[data-report-preview-empty]')).toHaveCount(0);
+  const query = new URL(page.url()).searchParams;
+  expect(query.getAll('agents[]')).toEqual([String(ids.agent_id)]);
+});
+
 test('admin can create a ticket, upload an attachment, and download it', async ({ page }) => {
   const attachmentPath = path.join(os.tmpdir(), 'foxdesk-e2e-attachment.txt');
   fs.writeFileSync(attachmentPath, 'hello from foxdesk e2e\n');

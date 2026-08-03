@@ -2363,7 +2363,7 @@ color: var(--text-secondary);
 }
 .reporting-flow-form {
 display: grid;
-grid-template-columns: minmax(180px, 1fr) minmax(150px, 220px) auto;
+grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(140px, 190px) auto;
 gap: 0.625rem;
 align-items: end;
 min-width: 0;

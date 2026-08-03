@@ -39,9 +39,28 @@ function report_filter_state_from_request(array $request, bool $is_admin_user): 
         (string) ($request['to_date'] ?? '')
     );
 
-    $selected_orgs = array_map('intval', (array) ($request['organizations'] ?? []));
-    $selected_agents = array_map('intval', (array) ($request['agents'] ?? []));
+    $selected_orgs = array_map('intval', array_values(array_filter(
+        (array) ($request['organizations'] ?? []),
+        static fn ($value): bool => trim((string) $value) !== ''
+    )));
+    $selected_agents = array_map('intval', array_values(array_filter(
+        (array) ($request['agents'] ?? []),
+        static fn ($value): bool => trim((string) $value) !== ''
+    )));
     $selected_tags = normalize_ticket_tags($request['tags'] ?? '', true);
+
+    // A billing review needs one concrete client. Requests without a client
+    // belong to the overall time view, where an agent can be reviewed across
+    // every client instead of landing in an empty client-report state.
+    if ($is_admin_user && $tab === 'billing') {
+        $billable_organization_ids = array_values(array_unique(array_filter(
+            $selected_orgs,
+            static fn (int $organization_id): bool => $organization_id > 0
+        )));
+        if (count($billable_organization_ids) !== 1) {
+            $tab = 'time';
+        }
+    }
 
     $has_filters = isset($request['time_range'])
         || isset($request['organizations'])

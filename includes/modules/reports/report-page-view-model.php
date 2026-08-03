@@ -50,6 +50,30 @@ function report_page_selected_client(array $selected_orgs, array $organizations)
     ];
 }
 
+function report_page_selected_agent(array $selected_agents, array $agents): array
+{
+    $positive_ids = array_values(array_unique(array_filter(
+        array_map('intval', $selected_agents),
+        static fn (int $id): bool => $id > 0
+    )));
+    $agent_id = count($positive_ids) === 1 ? $positive_ids[0] : null;
+    $agent_name = null;
+
+    if ($agent_id !== null) {
+        foreach ($agents as $agent) {
+            if ((int) ($agent['id'] ?? 0) === $agent_id) {
+                $agent_name = trim((string) ($agent['first_name'] ?? '') . ' ' . (string) ($agent['last_name'] ?? ''));
+                break;
+            }
+        }
+    }
+
+    return [
+        'id' => $agent_id,
+        'name' => $agent_name,
+    ];
+}
+
 function report_page_billing_columns(bool $is_admin_user, bool $tags_supported, bool $show_money, bool $has_cost_data): array
 {
     if (!$is_admin_user) {

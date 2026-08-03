@@ -38,6 +38,9 @@ $assert(str_contains($reports, 'data-report-preview'), 'Billing review must rend
 $assert(str_contains($reports, 'data-report-preview-empty'), 'Billing review must render a clear preview empty state before a client is selected.');
 $assert(str_contains($reports, '$page_header_suppressed = true;'), 'Reports page must suppress the duplicate page header for laptop density.');
 $assert(str_contains($reports, 'name="organizations[]"'), 'Billing review must submit the selected client as a report filter.');
+$assert(str_contains($reports, 'name="agents[]"'), 'Reports must submit the selected agent as a report filter.');
+$assert(str_contains($reports, 'data-report-agent-select'), 'Reports must expose the agent selector in the main form.');
+$assert(!str_contains($reports, 'required data-report-client-select'), 'Reports must allow overall work without a client.');
 $assert(str_contains($reports, 'name="tab" value="billing"'), 'Billing review must open the billing review mode.');
 $assert(str_contains($reports, 'name="show_money" value="1"'), 'Billing review must show money columns.');
 $assert(str_contains($reports, 'reporting_flow_steps()'), 'Reports page must render workflow steps from the helper.');

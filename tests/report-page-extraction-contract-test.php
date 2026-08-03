@@ -72,6 +72,7 @@ $assert(!str_contains($route, "\$_SERVER['REQUEST_METHOD']"), 'Reports route mus
 foreach ([
     'function report_page_time_range_labels',
     'function report_page_selected_client',
+    'function report_page_selected_agent',
     'function report_page_billing_columns',
     'function report_page_active_filters',
     'function report_page_worklog_model',
@@ -96,6 +97,10 @@ foreach ([
 
 foreach ([
     'data-core-workflow-surface="reports"',
+    'data-report-create-form',
+    'data-report-client-select',
+    'data-report-agent-select',
+    'data-report-period-select',
     'reporting_flow_steps()',
     'report_render_partial(\'filters\'',
     'report_render_partial($report_partial',
@@ -107,6 +112,10 @@ foreach ([
 ] as $needle) {
     $assert(str_contains($pageView, $needle), 'Reports page view missing: ' . $needle);
 }
+$assert(str_contains($pageJs, "new Event('change', { bubbles: true })"), 'Quick report ranges must bubble their synthetic change event.');
+$assert(str_contains($pageView, '$report_page_asset_version'), 'Report page assets must use a cache-busting version helper.');
+$assert(str_contains($pageView, 'assets/js/report-page.js?v='), 'Report page JS must use a versioned URL.');
+$assert(!str_contains($pageView, 'required data-report-client-select'), 'The main report form must allow an all-client time overview.');
 
 foreach ([
     'report-filter-summary',

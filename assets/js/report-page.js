@@ -59,8 +59,8 @@
     function toggleRange() {
         var select = document.getElementById('report-time-range');
         var custom = document.getElementById('report-custom-range');
-        if (!select || !custom) return;
-        custom.classList.toggle('is-open', select.value === 'custom');
+        if (!select) return;
+        if (custom) custom.classList.toggle('is-open', select.value === 'custom');
         document.querySelectorAll('[data-report-range]').forEach(function (button) {
             button.classList.toggle('is-active', button.dataset.reportRange === select.value);
         });
@@ -314,7 +314,7 @@
         var range = document.getElementById('report-time-range');
         if (!range) return;
         range.value = rangeValue;
-        range.dispatchEvent(new Event('change'));
+        range.dispatchEvent(new Event('change', { bubbles: true }));
     };
 
     document.addEventListener('change', function (event) {
@@ -329,7 +329,7 @@
             var range = document.getElementById('report-time-range');
             if (range) {
                 range.value = rangeButton.dataset.reportRange;
-                range.dispatchEvent(new Event('change'));
+                range.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }
         var toggle = event.target.closest('[data-report-toggle-target]');

@@ -17,23 +17,23 @@ include BASE_PATH . '/includes/components/page-header.php';
 ?>
 
 <div class="workflow-surface workflow-surface--reports admin-legacy-page" data-core-workflow-surface="reports">
-    <?php if (is_admin() && $tab === 'billing'): ?>
+    <?php if (is_admin()): ?>
     <section class="reporting-flow-card" data-report-generation-card>
         <div class="reporting-flow-main">
             <div class="reporting-flow-heading">
-                <h2><?php echo e(t('Create client report')); ?></h2>
-                <p><?php echo e(t('Choose a client and period, then review the work before publishing.')); ?></p>
+                <h2><?php echo e(t('Reports')); ?></h2>
+                <p><?php echo e(t('Time Reports')); ?></p>
             </div>
-            <form method="GET" action="index.php" class="reporting-flow-form">
+            <form method="GET" action="index.php" class="reporting-flow-form" data-report-create-form>
                 <input type="hidden" name="page" value="admin">
                 <input type="hidden" name="section" value="reports">
                 <input type="hidden" name="tab" value="billing">
                 <input type="hidden" name="show_money" value="1">
                 <label>
                     <span><?php echo e(t('Client')); ?></span>
-                    <select name="organizations[]" class="form-select" required>
-                        <option value="" disabled <?php echo empty($selected_orgs) ? 'selected' : ''; ?>>
-                            <?php echo e(t('Choose client')); ?>
+                    <select name="organizations[]" class="form-select" data-report-client-select>
+                        <option value="" <?php echo $selected_flow_org === null ? 'selected' : ''; ?>>
+                            <?php echo e(t('All')); ?>
                         </option>
                         <?php foreach ($organizations as $org): ?>
                             <option value="<?php echo (int) $org['id']; ?>"
@@ -44,8 +44,23 @@ include BASE_PATH . '/includes/components/page-header.php';
                     </select>
                 </label>
                 <label>
+                    <span><?php echo e(t('Agent')); ?></span>
+                    <select name="agents[]" class="form-select" data-report-agent-select>
+                        <option value="" <?php echo $selected_flow_agent === null ? 'selected' : ''; ?>>
+                            <?php echo e(t('All')); ?>
+                        </option>
+                        <?php foreach ($agents as $agent): ?>
+                            <?php $agent_name = trim((string) $agent['first_name'] . ' ' . (string) $agent['last_name']); ?>
+                            <option value="<?php echo (int) $agent['id']; ?>"
+                                <?php echo (int) $agent['id'] === $selected_flow_agent ? 'selected' : ''; ?>>
+                                <?php echo e($agent_name); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label>
                     <span><?php echo e(t('Period')); ?></span>
-                    <select name="time_range" class="form-select">
+                    <select name="time_range" class="form-select" data-report-period-select>
                         <?php foreach (reporting_flow_time_presets() as $preset => $label): ?>
                             <option value="<?php echo e($preset); ?>" <?php echo $time_range === $preset ? 'selected' : ''; ?>>
                                 <?php echo e($label); ?>
@@ -137,8 +152,15 @@ window.FoxDeskReportPageConfig = <?php echo json_encode(
     JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
 ); ?>;
 </script>
-<script src="assets/js/chip-select.js"></script>
-<script src="assets/js/report-page.js"></script>
-<script src="assets/js/report-billing-review.js"></script>
-<script src="assets/js/report-time-delete.js"></script>
-<link rel="stylesheet" href="assets/css/report-page.css">
+<?php
+$report_page_asset_version = static function (string $path): string {
+    $base_version = defined('APP_VERSION') ? (string) APP_VERSION : '1';
+    $absolute_path = BASE_PATH . '/' . ltrim($path, '/');
+    return $base_version . '-' . (string) (@filemtime($absolute_path) ?: '0');
+};
+?>
+<script src="assets/js/chip-select.js?v=<?php echo e($report_page_asset_version('assets/js/chip-select.js')); ?>"></script>
+<script src="assets/js/report-page.js?v=<?php echo e($report_page_asset_version('assets/js/report-page.js')); ?>"></script>
+<script src="assets/js/report-billing-review.js?v=<?php echo e($report_page_asset_version('assets/js/report-billing-review.js')); ?>"></script>
+<script src="assets/js/report-time-delete.js?v=<?php echo e($report_page_asset_version('assets/js/report-time-delete.js')); ?>"></script>
+<link rel="stylesheet" href="assets/css/report-page.css?v=<?php echo e($report_page_asset_version('assets/css/report-page.css')); ?>">

@@ -80,6 +80,9 @@ function report_admin_page_context(array $request, array $post, array $server): 
     $selected_client = report_page_selected_client($selected_orgs, $organizations);
     $selected_flow_org = $selected_client['id'];
     $selected_flow_org_name = $selected_client['name'];
+    $selected_agent = report_page_selected_agent($selected_agents, $agents);
+    $selected_flow_agent = $selected_agent['id'];
+    $selected_flow_agent_name = $selected_agent['name'];
     $report_period_label = $time_range_labels[$time_range] ?? $time_range;
     $report_export_params = $base_params;
     $report_export_params['export'] = 'csv';
