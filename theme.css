@@ -5266,6 +5266,13 @@ box-shadow: var(--shadow-lg), 0 0 0 1px var(--border-light);
 background: #ffffff;
 overflow: hidden;
 }
+.modal-panel-form {
+display: flex;
+flex: 1 1 auto;
+flex-direction: column;
+min-height: 0;
+overflow: hidden;
+}
 [data-theme="dark"] .modal-panel {
 background: #1e293b;
 }

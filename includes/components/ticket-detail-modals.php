@@ -12,8 +12,9 @@
             aria-modal="true">
             <div class="modal-backdrop" onclick="closeEditTicketModal()"></div>
             <div class="modal-panel max-w-2xl">
-                <form method="post" id="edit-ticket-form">
+                <form method="post" id="edit-ticket-form" class="modal-panel-form">
                     <?php echo csrf_field(); ?>
+                    <input type="hidden" name="update_ticket" value="1">
                     <div class="modal-panel-body">
                         <h3 class="text-base font-semibold mb-4 flex items-center gap-2 text-theme-primary"
                             id="edit-ticket-title">
@@ -29,7 +30,7 @@
                             <div>
                                 <label class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Subject')); ?> *</label>
                                 <input type="text" name="edit_title" id="edit-ticket-title-input"
-                                    value="<?php echo e($ticket['title']); ?>" class="form-input w-full" required>
+                                    value="<?php echo e($ticket['title']); ?>" class="form-input w-full" maxlength="255" required>
                             </div>
 
                             <div data-quick-start-optional>
@@ -51,16 +52,56 @@
                             <?php endif; ?>
 
                             <?php if (is_agent()): ?>
-                                    <div>
-                                        <label class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Company')); ?></label>
-                                        <select name="edit_organization_id" class="form-select w-full">
-                                            <option value=""><?php echo e(t('-- No organization --')); ?></option>
-                                            <?php foreach ($organizations as $org): ?>
-                                                    <option value="<?php echo (int) $org['id']; ?>" <?php echo ((int) ($ticket['organization_id'] ?? 0) === (int) ($org['id'] ?? 0)) ? 'selected' : ''; ?>>
-                                                        <?php echo e($org['name']); ?>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" data-quick-start-optional>
+                                        <div>
+                                            <label for="edit-ticket-status" class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Status')); ?></label>
+                                            <select name="edit_status_id" id="edit-ticket-status" class="form-select w-full" required>
+                                                <?php foreach ($statuses as $status): ?>
+                                                    <option value="<?php echo (int) $status['id']; ?>" <?php echo ((int) ($ticket['status_id'] ?? 0) === (int) ($status['id'] ?? 0)) ? 'selected' : ''; ?>>
+                                                        <?php echo e($status['name']); ?>
                                                     </option>
-                                            <?php endforeach; ?>
-                                        </select>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="edit-ticket-priority" class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Priority')); ?></label>
+                                            <select name="edit_priority_id" id="edit-ticket-priority" class="form-select w-full">
+                                                <option value=""><?php echo e(t('-- Select --')); ?></option>
+                                                <?php foreach (($_sidebar_priorities ?? []) as $priority): ?>
+                                                    <option value="<?php echo (int) $priority['id']; ?>" <?php echo ((int) ($ticket['priority_id'] ?? 0) === (int) ($priority['id'] ?? 0)) ? 'selected' : ''; ?>>
+                                                        <?php echo e($priority['name']); ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="edit-ticket-assignee" class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Assigned')); ?></label>
+                                            <select name="edit_assignee_id" id="edit-ticket-assignee" class="form-select w-full">
+                                                <option value=""><?php echo e(t('-- Unassigned --')); ?></option>
+                                                <?php foreach (($_sidebar_agents ?? []) as $agent): ?>
+                                                    <option value="<?php echo (int) $agent['id']; ?>" <?php echo ((int) ($ticket['assignee_id'] ?? 0) === (int) ($agent['id'] ?? 0)) ? 'selected' : ''; ?>>
+                                                        <?php echo e(trim((string) (($agent['first_name'] ?? '') . ' ' . ($agent['last_name'] ?? '')))); ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="edit-ticket-client" class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Client')); ?></label>
+                                            <select name="edit_organization_id" id="edit-ticket-client" class="form-select w-full">
+                                                <option value=""><?php echo e(t('-- No Client --')); ?></option>
+                                                <?php foreach ($organizations as $org): ?>
+                                                        <option value="<?php echo (int) $org['id']; ?>" <?php echo ((int) ($ticket['organization_id'] ?? 0) === (int) ($org['id'] ?? 0)) ? 'selected' : ''; ?>>
+                                                            <?php echo e($org['name']); ?>
+                                                        </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div class="sm:col-span-2">
+                                            <label for="edit-ticket-due-date" class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Due date')); ?></label>
+                                            <input type="datetime-local" name="edit_due_date" id="edit-ticket-due-date"
+                                                value="<?php echo !empty($ticket['due_date']) ? e(date('Y-m-d\\TH:i', strtotime($ticket['due_date']))) : ''; ?>"
+                                                class="form-input w-full">
+                                        </div>
                                     </div>
                             <?php endif; ?>
 
@@ -81,7 +122,7 @@
                     <div class="modal-panel-footer">
                         <button type="button" onclick="closeEditTicketModal()"
                             class="btn btn-secondary"><?php echo e(t('Cancel')); ?></button>
-                        <button type="submit" name="update_ticket"
+                        <button type="submit"
                             class="btn btn-primary"><?php echo e(t('Save changes')); ?></button>
                     </div>
                 </form>

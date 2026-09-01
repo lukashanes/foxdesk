@@ -974,7 +974,7 @@ function update_ticket_with_history($ticket_id, $data, $user_id) {
     }
 
     foreach ($tracked_fields as $field) {
-        if (isset($data[$field])) {
+        if (array_key_exists($field, $data)) {
             $old_value = $current[$field] ?? null;
             $new_value = $data[$field];
 

@@ -111,7 +111,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('ticket', ['id' => $ticket_id]);
         }
 
-        // Prepare update data
+        if (mb_strlen($new_title) > 255) {
+            flash(t('Failed to update ticket.'), 'error');
+            redirect('ticket', ['id' => $ticket_id]);
+        }
+
         $update_data = [
             'title' => $new_title,
             'description' => $new_description
@@ -121,25 +125,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $update_data['tags'] = $normalized_tags !== '' ? $normalized_tags : null;
         }
 
-        if (is_agent() && array_key_exists('edit_organization_id', $_POST)) {
-            $new_org_id = null;
-            $org_input = trim((string) ($_POST['edit_organization_id'] ?? ''));
-            if ($org_input !== '') {
-                $candidate_org_id = (int) $org_input;
-                $org_allowed = false;
-                foreach ($organizations as $org) {
-                    if ((int) ($org['id'] ?? 0) === $candidate_org_id) {
-                        $org_allowed = true;
-                        break;
-                    }
-                }
-                if (!$org_allowed) {
-                    flash(t('Selected organization is not available.'), 'error');
+        $requested_status = null;
+        $assigned_user = null;
+        $old_assignee_id = isset($ticket['assignee_id']) ? (int) $ticket['assignee_id'] : null;
+
+        if (is_agent()) {
+            if (array_key_exists('edit_status_id', $_POST)) {
+                $new_status_id = (int) ($_POST['edit_status_id'] ?? 0);
+                $new_status = $new_status_id > 0 ? get_status($new_status_id) : null;
+                if (!$new_status) {
+                    flash(t('Failed to update ticket.'), 'error');
                     redirect('ticket', ['id' => $ticket_id]);
                 }
-                $new_org_id = $candidate_org_id;
+                if ($new_status_id !== (int) ($ticket['status_id'] ?? 0)) {
+                    $requested_status = [
+                        'old' => get_status((int) ($ticket['status_id'] ?? 0)) ?: [],
+                        'new' => $new_status,
+                    ];
+                }
             }
-            $update_data['organization_id'] = $new_org_id;
+
+            if (array_key_exists('edit_priority_id', $_POST)) {
+                $priority_input = trim((string) ($_POST['edit_priority_id'] ?? ''));
+                $new_priority_id = $priority_input === '' ? null : (int) $priority_input;
+                if ($new_priority_id !== null && !get_priority($new_priority_id)) {
+                    flash(t('Failed to update ticket.'), 'error');
+                    redirect('ticket', ['id' => $ticket_id]);
+                }
+                $update_data['priority_id'] = $new_priority_id;
+            }
+
+            if (array_key_exists('edit_assignee_id', $_POST)) {
+                $assignee_input = trim((string) ($_POST['edit_assignee_id'] ?? ''));
+                $new_assignee_id = $assignee_input === '' ? null : (int) $assignee_input;
+                $assigned_user = $new_assignee_id ? get_user($new_assignee_id) : null;
+                if ($new_assignee_id && (!$assigned_user || !can_user_assign_to_staff($assigned_user, $user))) {
+                    flash(t('User not found.'), 'error');
+                    redirect('ticket', ['id' => $ticket_id]);
+                }
+                $update_data['assignee_id'] = $new_assignee_id;
+            }
+
+            if (array_key_exists('edit_organization_id', $_POST)) {
+                $new_org_id = null;
+                $org_input = trim((string) ($_POST['edit_organization_id'] ?? ''));
+                if ($org_input !== '') {
+                    $candidate_org_id = (int) $org_input;
+                    $org_allowed = false;
+                    foreach ($organizations as $org) {
+                        if ((int) ($org['id'] ?? 0) === $candidate_org_id) {
+                            $org_allowed = true;
+                            break;
+                        }
+                    }
+                    if (!$org_allowed) {
+                        flash(t('Selected organization is not available.'), 'error');
+                        redirect('ticket', ['id' => $ticket_id]);
+                    }
+                    $new_org_id = $candidate_org_id;
+                }
+                $update_data['organization_id'] = $new_org_id;
+            }
+
+            if (array_key_exists('edit_due_date', $_POST)) {
+                $due_date_input = trim((string) ($_POST['edit_due_date'] ?? ''));
+                $due_date = normalize_due_date_input($due_date_input);
+                if ($due_date_input !== '' && $due_date === false) {
+                    flash(t('Invalid due date.'), 'error');
+                    redirect('ticket', ['id' => $ticket_id]);
+                }
+                $update_data['due_date'] = $due_date;
+            }
         }
 
         if (
@@ -153,19 +209,106 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 : null;
         }
 
-        // Update with history tracking
-        if (update_ticket_with_history($ticket_id, $update_data, $user['id'])) {
+        $id_fields = ['priority_id', 'assignee_id', 'organization_id'];
+        $changed_data = [];
+        foreach ($update_data as $field => $value) {
+            $old_value = $ticket[$field] ?? null;
+            if (in_array($field, $id_fields, true)) {
+                $old_value = $old_value === null || $old_value === '' ? null : (int) $old_value;
+                $value = $value === null || $value === '' ? null : (int) $value;
+            } elseif ($field === 'custom_billable_rate') {
+                $old_value = $old_value === null || $old_value === '' ? null : (float) $old_value;
+                $value = $value === null || $value === '' ? null : (float) $value;
+            } else {
+                $old_value = $old_value === null ? null : (string) $old_value;
+                $value = $value === null ? null : (string) $value;
+            }
+            if ($old_value !== $value) {
+                $changed_data[$field] = $value;
+            }
+        }
+
+        if ($changed_data === [] && $requested_status === null) {
+            flash(t('No changes to save.'), 'success');
+            redirect('ticket', ['id' => $ticket_id]);
+        }
+
+        $db = get_db();
+        $status_transition = null;
+        try {
+            $db->beginTransaction();
+            if ($changed_data !== [] && !update_ticket_with_history($ticket_id, $changed_data, $user['id'])) {
+                throw new RuntimeException('Ticket fields could not be updated.');
+            }
+            if ($requested_status !== null) {
+                $status_transition = ticket_transition_status(
+                    $ticket,
+                    $requested_status['old'],
+                    $requested_status['new'],
+                    (int) $user['id']
+                );
+                if (!empty($status_transition['status_changed']) && function_exists('log_ticket_history')) {
+                    log_ticket_history(
+                        $ticket_id,
+                        (int) $user['id'],
+                        'status_id',
+                        (int) ($ticket['status_id'] ?? 0),
+                        (int) ($requested_status['new']['id'] ?? 0)
+                    );
+                }
+            }
+            $db->commit();
+        } catch (Throwable $error) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            flash(t('Failed to update ticket.'), 'error');
+            redirect('ticket', ['id' => $ticket_id]);
+        }
+
+        $updated_ticket = get_ticket($ticket_id) ?: $ticket;
+
+        if ($changed_data !== []) {
             if (
                 function_exists('sync_ticket_time_entry_billable_rates')
-                && (array_key_exists('organization_id', $update_data) || array_key_exists('custom_billable_rate', $update_data))
+                && (array_key_exists('organization_id', $changed_data) || array_key_exists('custom_billable_rate', $changed_data))
             ) {
                 sync_ticket_time_entry_billable_rates($ticket_id);
             }
             log_activity($ticket_id, $user['id'], 'ticket_edited', 'Ticket details updated');
-            flash(t('Ticket updated.'), 'success');
-        } else {
-            flash(t('Failed to update ticket.'), 'error');
         }
+
+        if (array_key_exists('assignee_id', $changed_data)) {
+            $new_assignee_id = $changed_data['assignee_id'];
+            if ($new_assignee_id && $assigned_user) {
+                require_once BASE_PATH . '/includes/mailer.php';
+                send_ticket_assignment_notification($updated_ticket, $assigned_user, $user);
+                if (function_exists('ticket_event_dispatch_in_app')) {
+                    ticket_event_dispatch_in_app('ticket.assigned', $ticket_id, $user['id'], [
+                        'assignee_id' => (int) $new_assignee_id,
+                    ]);
+                }
+            }
+            if ($old_assignee_id && function_exists('resolve_action_notifications')) {
+                resolve_action_notifications($ticket_id, $old_assignee_id);
+            }
+        }
+
+        if ($requested_status !== null && !empty($status_transition['status_changed'])) {
+            require_once BASE_PATH . '/includes/mailer.php';
+            send_status_change_notification($updated_ticket, $requested_status['old'], $requested_status['new'], '', 0);
+            if (function_exists('ticket_event_dispatch_in_app')) {
+                ticket_event_dispatch_in_app('ticket.status_changed', $ticket_id, $user['id'], [
+                    'old_status' => $requested_status['old']['name'] ?? '',
+                    'new_status' => $requested_status['new']['name'] ?? '',
+                ]);
+            }
+            if (!empty($requested_status['new']['is_closed']) && function_exists('resolve_action_notifications')) {
+                resolve_action_notifications($ticket_id);
+            }
+        }
+
+        flash(t('Ticket updated.'), 'success');
         redirect('ticket', ['id' => $ticket_id]);
     }
 
