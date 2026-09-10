@@ -1,5 +1,23 @@
 # FoxDesk contributor instructions
 
+## Chat-first work preview
+
+- Start every task with a concise preview in chat before editing files or
+  running mutating commands. State the intended outcome, the affected FoxDesk
+  edition and components, and how the result will be verified. This is an
+  informational preview, not a request for confirmation unless the action
+  genuinely needs new authorization.
+- For every UI or visual task, include the current state when it is accessible,
+  then attach screenshots of the actual implementation in chat before commit
+  or deployment. Show at least the relevant desktop and 390 px mobile states,
+  using realistic populated data and the changed area clearly visible.
+- If authentication or infrastructure prevents a real rendered preview, state
+  that limitation explicitly and do not claim visual verification. A passing
+  build or screenshot test alone is not a visual preview.
+- Before deployment, summarize in chat exactly what will be deployed and the
+  evidence already collected. After deployment, report live verification as a
+  separate state.
+
 ## RTL / i18n
 
 - `locales/catalogs/*.json` is the translation source. Files in

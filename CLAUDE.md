@@ -2,6 +2,16 @@
 
 Follow `AGENTS.md` for the complete repository rules.
 
+## Chat-first work preview
+
+- Before editing or running mutating commands, send a concise chat preview of
+  the intended result, affected product area, and verification plan.
+- For UI work, post actual rendered desktop and 390 px mobile screenshots in
+  chat before commit or deployment. Use realistic populated data; if a real
+  preview is blocked, say so and do not claim visual QA.
+- State deployment scope and existing evidence in chat before deployment, then
+  report live production verification separately.
+
 ## RTL / i18n
 
 - Edit canonical JSON in `locales/catalogs/`, sync draft locales, then build
