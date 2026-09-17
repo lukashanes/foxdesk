@@ -1,0 +1,14 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const source = fs.readFileSync(require('node:path').join(__dirname,'../assets/js/ticket-workflow.js'),'utf8');
+const match = source.match(/if \(target\) location\.assign\(target\);\s*else location\.reload\(\);/);
+assert.ok(match, 'After a successful mutation, refresh the current document even at a #time-entry fragment');
+let reloads=0, destination=null;
+const location={reload(){reloads++;},assign(url){destination=url;}};
+vm.runInNewContext(match[0],{location,target:undefined});
+assert.equal(reloads,1);
+vm.runInNewContext(match[0],{location,target:'index.php?page=ticket&id=42'});
+assert.equal(destination,'index.php?page=ticket&id=42');
+assert.equal(reloads,1,'Complete-and-next keeps explicit navigation');
+console.log('Ticket workflow fragment reload/next navigation passed');

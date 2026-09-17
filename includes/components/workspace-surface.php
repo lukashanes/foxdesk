@@ -100,21 +100,23 @@ function workspace_render_queue_page(array $options): void
                             </p>
                         <?php endif; ?>
                     </div>
+                    <?php if (is_callable($options['render_mode_switch'] ?? null)) ($options['render_mode_switch'])(); ?>
                     <a href="<?php echo e($view_all_url); ?>" class="btn btn-secondary btn-sm fd-button fd-button--secondary fd-button--sm"><?php echo e(t('View all')); ?></a>
                 </div>
 
-                <?php if ($is_canvas): ?>
+                <?php if ($is_canvas && !is_callable($options['render_content'] ?? null)): ?>
                     <div class="workspace-ticket-table-head" aria-hidden="true">
                         <span><?php echo e(t('Ticket')); ?></span>
                         <span><?php echo e(t('Subject')); ?></span>
                         <span><?php echo e(t('Client')); ?></span>
-                        <span><?php echo e(t('Priority')); ?></span>
+                        <span><?php echo e(t('Status')); ?></span>
                         <span><?php echo e(t('Updated')); ?></span>
                         <span><?php echo e(t('Time')); ?></span>
                         <span></span>
                     </div>
                 <?php endif; ?>
-                <?php workspace_render_ticket_rows($active_items, array_merge($row_options, $is_canvas ? ['layout' => 'table'] : [])); ?>
+                <?php if (is_callable($options['render_content'] ?? null)) ($options['render_content'])();
+                else workspace_render_ticket_rows($active_items, array_merge($row_options, $is_canvas ? ['layout' => 'table'] : [])); ?>
             </section>
         </div>
     </div>
@@ -161,15 +163,14 @@ function workspace_render_ticket_row(array $ticket, array $options = []): void
     <a href="<?php echo e(ticket_url($ticket)); ?>" class="workspace-ticket-row workspace-ticket-row--table">
         <span class="workspace-ticket-cell workspace-ticket-cell--ticket" data-label="<?php echo e(t('Ticket')); ?>">
             <strong><?php echo e(get_ticket_code((int) ($ticket['id'] ?? 0))); ?></strong>
-            <?php if ($status_name !== ''): ?><small><?php echo e($status_name); ?></small><?php endif; ?>
         </span>
         <span class="workspace-ticket-cell workspace-ticket-cell--subject" data-label="<?php echo e(t('Subject')); ?>">
             <strong><?php echo e($ticket['title'] ?? ''); ?></strong>
             <?php if ($show_assignee && $assignee !== ''): ?><small><?php echo e($assignee); ?></small><?php endif; ?>
         </span>
         <span class="workspace-ticket-cell" data-label="<?php echo e(t('Client')); ?>"><?php echo $organization !== '' ? e($organization) : '<span aria-hidden="true">—</span>'; ?></span>
-        <span class="workspace-ticket-cell workspace-ticket-cell--priority workspace-ticket-cell--priority-<?php echo e($priority_key !== '' ? $priority_key : 'none'); ?>" data-label="<?php echo e(t('Priority')); ?>">
-            <?php echo $priority !== '' ? e($priority) : '<span aria-hidden="true">—</span>'; ?>
+        <span class="workspace-ticket-cell workspace-ticket-cell--status" data-label="<?php echo e(t('Status')); ?>">
+            <span class="workspace-status-pill" style="--workspace-status-color: <?php echo e(preg_match('/^#[0-9a-f]{6}$/i', $ticket['status_color'] ?? '') ? $ticket['status_color'] : '#5279c5'); ?>"><?php echo $status_name !== '' ? e($status_name) : '—'; ?></span>
         </span>
         <span class="workspace-ticket-cell" data-label="<?php echo e(t('Updated')); ?>"><?php echo $date_value !== '' ? e(format_date($date_value)) : '<span aria-hidden="true">—</span>'; ?></span>
         <span class="workspace-ticket-cell workspace-ticket-cell--time" data-label="<?php echo e(t('Time')); ?>">

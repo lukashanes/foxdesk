@@ -268,10 +268,10 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 <?php $is_work = ($page ?? '') === 'work'; ?>
                 <a href="<?php echo url('work'); ?>"
                     class="nav-item <?php echo $is_work ? 'active' : ''; ?>"
-                    title="<?php echo e(t('Work')); ?>"
+                    title="<?php echo e(t('Dashboard')); ?>"
                     <?php echo $is_work ? 'aria-current="page"' : ''; ?>>
                     <?php echo get_icon('home', 'nav-item__icon'); ?>
-                    <span><?php echo e(t('Work')); ?></span>
+                    <span><?php echo e(t('Dashboard')); ?></span>
                 </a>
 
                 <?php $is_tickets = ($page ?? '') === 'tickets' && ($_GET['archived'] ?? '') !== '1'; ?>

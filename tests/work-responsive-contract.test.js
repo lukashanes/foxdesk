@@ -1,0 +1,14 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const css = fs.readFileSync(path.join(__dirname, '../theme.css'), 'utf8');
+const repaired = css.slice(css.indexOf('/* Dashboard: adapt to the available card width'));
+assert.match(repaired, /@media\s*\(max-width:\s*1799px\)/, 'Stack equal-width panels before the ticket table becomes clipped');
+assert.match(repaired, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, 'Paired panels must have equal widths');
+assert.match(repaired, /align-items:\s*stretch/, 'Paired panels must share their bottom edge');
+assert.match(repaired, /\.work-canvas-main\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/, 'Queue surface must fill its grid cell, not just its wrapper');
+assert.match(repaired, /container:\s*work-tickets\s*\/\s*inline-size/, 'Measure available ticket-card width');
+assert.match(repaired, /@container work-tickets\s*\(max-width:\s*680px\)/, 'Use compact rows when sidebar consumes the viewport');
+assert.match(repaired, /workspace-ticket-cell--status/, 'Keep ticket status visible in compact rows');
+assert.match(repaired, /nth-child\(5\)[\s\S]*display:\s*flex/, 'Keep last update visible in compact rows');
+console.log('Dashboard responsive contract passed');

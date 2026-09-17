@@ -33,3 +33,11 @@ jobs:
 
       - name: Validate self-hosted parity metadata
         run: npm run test:core-parity
+
+      - name: Shared compact workspace regressions
+        run: |
+          node tests/ui-system-contract.test.js
+          node tests/work-responsive-contract.test.js
+          node tests/ticket-workflow-fragment-test.js
+          node tests/public-compact-ui-contract.test.js
+          php tests/self-hosted-security-boundary-contract-test.php

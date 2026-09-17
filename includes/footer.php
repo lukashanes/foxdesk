@@ -220,6 +220,8 @@ function _lbEsc(e) { if (e.key === 'Escape') closeImagePreview(); }
 </script>
 <script defer src="assets/js/page-transitions.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
 <script defer src="assets/js/app-footer.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
+<span hidden data-soft-select-config data-search="<?php echo e(t('Search')); ?>" data-empty="<?php echo e(t('No entries')); ?>" data-scope="self-hosted-<?php echo (int) (current_user()['id'] ?? 0); ?>"></span>
+<script defer src="assets/js/soft-select.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/soft-select.js'); ?>"></script>
 <?php if (in_array($page ?? '', ['ticket', 'tickets', 'work'], true)): ?>
 <script id="ticket-workflow-script" data-scope="<?php echo (int) (current_user()['tenant_id'] ?? 0) . '-' . (int) (current_user()['id'] ?? 0); ?>" src="assets/js/ticket-workflow.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/ticket-workflow.js'); ?>" defer></script>
 <?php endif; ?>

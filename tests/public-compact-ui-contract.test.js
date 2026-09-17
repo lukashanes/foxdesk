@@ -1,0 +1,17 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+const css = read('theme.css');
+const footer = read('includes/footer.php');
+const picker = read('assets/js/soft-select.js');
+assert.match(read('pages/work.php'), /work-canvas-grid--self-hosted/, 'Use the public edition layout adapter');
+assert.match(css, /\.work-canvas-grid--self-hosted > \.work-canvas-main\s*\{\s*grid-row: 1;/, 'Do not leave an empty SaaS metrics row above the public queue');
+assert.match(css, /\.work-canvas-grid--self-hosted > \.work-canvas-side\s*\{[^}]*grid-column: 1; grid-row: auto;/, 'Stack both public panels on narrow screens');
+assert.match(footer, /data-soft-select-config[^\n]+data-scope="self-hosted-/, 'Scope recent choices to this edition and user');
+assert.match(footer, /assets\/js\/soft-select\.js/, 'Load the shared select component');
+assert.match(picker, /compositionend/, 'Preserve IME input');
+assert.match(picker, /aria-expanded/, 'Expose picker state to assistive technology');
+assert.match(picker, /dispatchEvent\(new Event\('change'/, 'Keep native select change handlers working');
+assert.match(read('includes/components/new-ticket-form.php'), /new-ticket-properties-title/, 'Keep core ticket properties visible');
+console.log('Public compact UI compatibility contracts passed');

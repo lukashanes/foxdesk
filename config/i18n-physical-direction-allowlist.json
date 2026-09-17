@@ -9,6 +9,12 @@
   ],
   "scripts": [
     {
+      "file": "assets/js/soft-select.js",
+      "pattern": ".style.left",
+      "maxMatches": 1,
+      "reason": "Viewport-coordinate placement of the accessible picker, clamped in both LTR and RTL."
+    },
+    {
       "file": "assets/js/ticket-list-actions.js",
       "pattern": ".style.left",
       "maxMatches": 2,

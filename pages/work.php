@@ -263,7 +263,7 @@ require_once BASE_PATH . '/includes/header.php';
     <h1><?php echo e(t('Work')); ?></h1>
     <a class="btn btn-primary" href="<?php echo url('new-ticket'); ?>"><?php echo get_icon('plus', 'w-4 h-4'); ?> <?php echo e(t('New ticket')); ?></a>
 </header>
-<div class="work-canvas-grid">
+<div class="work-canvas-grid work-canvas-grid--self-hosted">
     <div class="work-canvas-main"><?php
 workspace_render_queue_page([
     'title' => 'Tickets',

@@ -196,7 +196,10 @@
                 var data = await response.json(); if (!response.ok || !data.success) throw new Error(data.error || copy.save_failed);
                 var result = data.data || data;
                 if (result.workflow.status_id !== before && !expected) save(sessionStorage,key+'_undo',{status:before,revision:result.workflow.revision,expires:Date.now()+10000});
-                location.href = target || location.href;
+                // Assigning the same URL with a fragment only scrolls; it does not
+                // reload the saved state/revision after completing or reopening.
+                if (target) location.assign(target);
+                else location.reload();
             } catch (error) { announce(error.message || copy.save_failed,true); var headerStatus = document.getElementById('ticket-header-status'); if (headerStatus) headerStatus.value = meta.status_id; }
             finally { pending = false; surface.removeAttribute('aria-busy'); }
         }
@@ -254,7 +257,7 @@
             } catch(error) { if(control) control.value=control.dataset.savedValue; announce(error.message,true); }
             finally { if(control) control.disabled=false; }
         };
-        var help = document.createElement('p'); help.className='workflow-shortcuts'; help.textContent=copy.keyboard; nav.append(help);
+        nav.title = copy.keyboard;
         document.addEventListener('keydown',function(event){
             if(event.isComposing || composing || event.ctrlKey || event.metaKey || event.altKey || event.target.closest('input,textarea,select,[contenteditable="true"]')) return;
             if(event.key === 'r' || event.key === 'R'){event.preventDefault();form.scrollIntoView({block:'start'});(document.getElementById('is_internal_toggle')?.checked ? window.internalEditor : window.commentEditor)?.focus();}
