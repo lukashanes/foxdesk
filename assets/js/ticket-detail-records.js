@@ -1,9 +1,11 @@
 (function (window, document) {
     'use strict';
 
-    var runtime = window.FoxDeskTicketDetailRuntime;
-    if (!runtime) throw new Error('FoxDesk ticket detail core was not loaded.');
+    var features = window.FoxDeskTicketDetailFeatures = window.FoxDeskTicketDetailFeatures || {};
+    features.records = function (runtime) {
     var config = runtime.config;
+    var labels = runtime.labels;
+    var icons = runtime.icons;
     var ticketId = runtime.ticketId;
     var csrfToken = runtime.csrfToken;
     var t = runtime.t;
@@ -12,12 +14,39 @@
     var showUndoToast = runtime.showUndoToast;
     var fadeRemove = runtime.fadeRemove;
     var fillTemplate = runtime.fillTemplate;
-    var pad2 = runtime.pad2;
+    var quillFieldValue = runtime.quillFieldValue;
+    var loadQuillContent = runtime.loadQuillContent;
     var formatDateInput = runtime.formatDateInput;
     var formatTimeInput = runtime.formatTimeInput;
     var formatDateTimeLocal = runtime.formatDateTimeLocal;
-    var editCommentEditor = null;
+    var pad2 = runtime.pad2;
+    var quillToolbar = runtime.quillToolbar;
 
+    function initAgentCcDropdown() {
+        var toggle = document.getElementById('agent-cc-toggle');
+        var list = document.getElementById('agent-cc-list');
+        var display = document.getElementById('agent-cc-display');
+        var checkboxes = document.querySelectorAll('.agent-cc-checkbox');
+        if (!toggle || !list || !display) return;
+
+        var noneText = toggle.dataset.noneText || 'Select users...';
+        var selectedText = toggle.dataset.selectedText || 'Selected';
+        function update() {
+            var checked = document.querySelectorAll('.agent-cc-checkbox:checked');
+            display.textContent = checked.length === 0 ? noneText : selectedText + ': ' + checked.length;
+        }
+        toggle.addEventListener('click', function (event) {
+            event.preventDefault();
+            list.classList.toggle('hidden');
+        });
+        checkboxes.forEach(function (checkbox) { checkbox.addEventListener('change', update); });
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest('#agent-cc-dropdown-container')) list.classList.add('hidden');
+        });
+        update();
+    }
+
+    var editCommentEditor = null;
     window.openEditCommentModal = function (commentId, content) {
         var modal = document.getElementById('edit-comment-modal');
         var input = document.getElementById('edit-comment-id');
@@ -28,14 +57,11 @@
             editCommentEditor = new window.Quill('#edit-comment-editor', {
                 theme: 'snow',
                 placeholder: t('editCommentPlaceholder', 'Edit your comment...'),
-                modules: { toolbar: [[{ header: [1, 2, 3, false] }], ['bold', 'italic', 'underline', 'strike'], [{ list: 'ordered' }, { list: 'bullet' }], ['link'], ['clean']] }
+                modules: { toolbar: quillToolbar() }
             });
+            if (window.initQuillImageUpload) window.initQuillImageUpload(editCommentEditor, config.quillUpload || {});
         }
-        if (String(content || '').indexOf('<') !== -1 && String(content || '').indexOf('>') !== -1) {
-            editCommentEditor.root.innerHTML = content;
-        } else {
-            editCommentEditor.setText(content || '');
-        }
+        loadQuillContent(editCommentEditor, content);
         setTimeout(function () { editCommentEditor.focus(); }, 100);
     };
 
@@ -51,8 +77,7 @@
         var commentId = form.querySelector('#edit-comment-id').value;
         var content = '';
         if (editCommentEditor) {
-            var html = editCommentEditor.root.innerHTML;
-            content = (html === '<p><br></p>' || html === '<p></p>') ? '' : html;
+            content = quillFieldValue(editCommentEditor);
         }
         if (!content) {
             window.alert(t('commentEmpty', 'Comment cannot be empty.'));
@@ -105,9 +130,11 @@
                 if (data.success) {
                     var comment = document.getElementById('comment-' + commentId);
                     fadeRemove(comment);
-                    data.undo_token
-                        ? showUndoToast(data.message || t('commentDeleted', 'Comment deleted.'), data)
-                        : showToast(data.message || t('commentDeleted', 'Comment deleted.'), 'success');
+                    if (data.undo_token) {
+                        showUndoToast(data.message || t('commentDeleted', 'Comment deleted.'), data);
+                    } else {
+                        showToast(data.message || t('commentDeleted', 'Comment deleted.'), 'success');
+                    }
                 } else {
                     window.alert(data.error || t('commentDeleteFailed', 'Failed to delete comment.'));
                 }
@@ -121,38 +148,52 @@
         var formData = new FormData();
         formData.append('entry_id', entryId);
         formData.append('csrf_token', csrfToken);
+
         fetch('index.php?page=api&action=delete-time-entry', { method: 'POST', body: formData })
             .then(function (response) { return response.json(); })
             .then(function (data) {
                 if (data.success) {
                     document.querySelectorAll('[data-time-entry-id="' + entryId + '"]').forEach(fadeRemove);
-                    data.undo_token
-                        ? showUndoToast(data.message || t('timeEntryDeleted', 'Time entry deleted.'), data)
-                        : showToast(data.message || t('timeEntryDeleted', 'Time entry deleted.'), 'success');
+                    if (data.undo_token) {
+                        showUndoToast(data.message || t('timeEntryDeleted', 'Time entry deleted.'), data);
+                    } else {
+                        showToast(data.message || t('timeEntryDeleted', 'Time entry deleted.'), 'success');
+                    }
                 } else {
                     window.alert(data.error || t('timeEntryDeleteFailed', 'Failed to delete time entry.'));
                 }
             })
-            .catch(function () { window.alert(t('genericError', 'An error occurred.')); });
+            .catch(function () {
+                window.alert(t('genericError', 'An error occurred.'));
+            });
     };
 
     window.deleteAttachment = function (attachmentId) {
         var formData = new FormData();
         formData.append('attachment_id', attachmentId);
         formData.append('csrf_token', csrfToken);
+
         fetch('index.php?page=api&action=delete-attachment', { method: 'POST', body: formData })
             .then(function (response) { return response.json(); })
             .then(function (data) {
                 if (data.success) {
-                    document.querySelectorAll('[data-attachment-id="' + attachmentId + '"]').forEach(fadeRemove);
-                    data.undo_token
-                        ? showUndoToast(data.message || t('attachmentDeleted', 'Attachment deleted.'), data)
-                        : showToast(data.message || t('attachmentDeleted', 'Attachment deleted.'), 'success');
+                    document.querySelectorAll('[data-attachment-id="' + attachmentId + '"]').forEach(function (item) {
+                        item.style.opacity = '0';
+                        item.style.transition = 'opacity 0.2s';
+                        setTimeout(function () { item.remove(); }, 220);
+                    });
+                    if (data.undo_token) {
+                        showUndoToast(data.message || t('attachmentDeleted', 'Attachment deleted.'), data);
+                    } else {
+                        showToast(data.message || t('attachmentDeleted', 'Attachment deleted.'), 'success');
+                    }
                 } else {
                     window.alert(data.error || t('attachmentDeleteFailed', 'Failed to delete attachment.'));
                 }
             })
-            .catch(function () { window.alert(t('genericError', 'An error occurred.')); });
+            .catch(function () {
+                window.alert(t('genericError', 'An error occurred.'));
+            });
     };
 
     window.openEditTimeEntry = function (entry) {
@@ -245,7 +286,8 @@
                 selected: currentTags.slice(),
                 name: 'tags[]',
                 allowCreate: true,
-                noMatchText: t('noMatches', 'No matches')
+                noMatchText: t('noMatches', 'No matches'),
+                removeLabel: t('remove', 'Remove')
             });
         }
 
@@ -304,163 +346,13 @@
                     currentTags.forEach(function (tag) {
                         html += '<a href="' + filterUrlBase + '&tags=' + encodeURIComponent(tag) + '" class="ticket-tag-pill" title="' + escapeHtml(t('filterByTag', 'Filter by this tag')) + '">#' + escapeHtml(tag) + '</a>';
                     });
-                    display.innerHTML = html || '<span class="text-xs" style="color: var(--text-muted);">-</span>';
+                    display.innerHTML = html || '<span class="text-xs theme-text-muted">-</span>';
                     hideEditor();
                 })
                 .catch(function () { saveButton.disabled = false; });
         });
     }
 
-    function quillToolbar() {
-        return [[{ header: [1, 2, 3, false] }], ['bold', 'italic', 'underline', 'strike'], [{ list: 'ordered' }, { list: 'bullet' }], ['link', 'image'], ['clean']];
-    }
-
-    var editTicketReturnFocus = null;
-    var editDescriptionEditor = null;
-    window.openEditTicketModal = function () {
-        editTicketReturnFocus = document.activeElement;
-        var modal = document.getElementById('edit-ticket-modal');
-        if (!modal) return;
-        modal.classList.remove('hidden');
-        if (!editDescriptionEditor && typeof window.Quill !== 'undefined') {
-            var editor = document.getElementById('edit-description-editor');
-            if (editor) {
-                editDescriptionEditor = new window.Quill('#edit-description-editor', {
-                    theme: 'snow',
-                    placeholder: t('descriptionPlaceholder', 'Description...'),
-                    modules: { toolbar: quillToolbar() }
-                });
-                if (window.initQuillImageUpload) window.initQuillImageUpload(editDescriptionEditor, config.quillUpload || {});
-                var existing = document.getElementById('edit-description-input').value;
-                if (existing) editDescriptionEditor.clipboard.dangerouslyPasteHTML(existing);
-            }
-        }
-        var first = modal.querySelector('input:not([type="hidden"]), select, textarea');
-        if (first) first.focus();
-        if (typeof window.trapFocus === 'function') window.trapFocus(modal);
+        return { initAgentCcDropdown: initAgentCcDropdown, initEditTimeForm: initEditTimeForm, initTags: initTags };
     };
-
-    window.closeEditTicketModal = function () {
-        var modal = document.getElementById('edit-ticket-modal');
-        if (modal) {
-            if (typeof window.releaseFocus === 'function') window.releaseFocus(modal);
-            modal.classList.add('hidden');
-        }
-        if (editTicketReturnFocus) {
-            editTicketReturnFocus.focus();
-            editTicketReturnFocus = null;
-        }
-    };
-
-    function initQuillEditors() {
-        if (typeof window.Quill === 'undefined') return;
-        var upload = config.quillUpload || {};
-        var commentEl = document.getElementById('comment-editor');
-        if (commentEl) {
-            window.commentEditor = new window.Quill('#comment-editor', {
-                theme: 'snow',
-                placeholder: t('replyPlaceholder', 'Write a reply...'),
-                modules: { toolbar: quillToolbar() }
-            });
-            if (window.initQuillImageUpload) window.initQuillImageUpload(window.commentEditor, upload);
-        }
-        var internalEl = document.getElementById('internal-editor');
-        if (internalEl) {
-            window.internalEditor = new window.Quill('#internal-editor', {
-                theme: 'snow',
-                placeholder: t('internalPlaceholder', 'Internal note for agents...'),
-                modules: { toolbar: quillToolbar() }
-            });
-            if (window.initQuillImageUpload) window.initQuillImageUpload(window.internalEditor, upload);
-        }
-
-        var form = document.getElementById('comment-form');
-        if (form) {
-            form.addEventListener('submit', function (event) {
-                var uploadValidation = window.enforceCommentUploadLimits ? window.enforceCommentUploadLimits() : { hadErrors: false };
-                var fileInput = document.getElementById('comment-file-input');
-                if (uploadValidation.hadErrors && fileInput && fileInput.files.length === 0) {
-                    event.preventDefault();
-                    return;
-                }
-                var isInternal = document.getElementById('is_internal_toggle') && document.getElementById('is_internal_toggle').checked;
-                var commentText = document.getElementById('comment-text');
-                var internalText = document.getElementById('internal-text');
-                if (isInternal && window.internalEditor) {
-                    var internalHtml = window.internalEditor.root.innerHTML;
-                    if (internalText) internalText.value = (internalHtml === '<p><br></p>' || internalHtml === '<p></p>') ? '' : internalHtml;
-                    if (commentText) commentText.value = '';
-                } else if (window.commentEditor) {
-                    var publicHtml = window.commentEditor.root.innerHTML;
-                    if (commentText) commentText.value = (publicHtml === '<p><br></p>' || publicHtml === '<p></p>') ? '' : publicHtml;
-                    if (internalText) internalText.value = '';
-                }
-                var stop = document.getElementById('stop-timer-toggle');
-                if (stop && stop.checked && !stop.disabled) {
-                    var manualStart = document.querySelector('input[name="manual_start_time"]');
-                    var manualEnd = document.querySelector('input[name="manual_end_time"]');
-                    if (manualStart) manualStart.value = '';
-                    if (manualEnd) manualEnd.value = '';
-                }
-            });
-        }
-
-        var editForm = document.getElementById('edit-ticket-form');
-        if (editForm) {
-            editForm.addEventListener('submit', function () {
-                if (!editDescriptionEditor) return;
-                var html = editDescriptionEditor.root.innerHTML;
-                document.getElementById('edit-description-input').value = (html === '<p><br></p>' || html === '<p></p>') ? '' : html;
-            });
-        }
-    }
-
-    function initImagePreview() {
-        function getName(img) {
-            var alt = (img.getAttribute('alt') || '').trim();
-            if (alt) return alt;
-            var src = img.currentSrc || img.getAttribute('src') || '';
-            if (!src) return '';
-            try {
-                var url = new URL(src, window.location.origin);
-                var fileParam = url.searchParams.get('f');
-                if (fileParam) return decodeURIComponent(fileParam.split('/').pop() || fileParam);
-                return decodeURIComponent(url.pathname.split('/').pop() || '');
-            } catch (error) {
-                var fallback = src.split('/').pop() || '';
-                return decodeURIComponent((fallback.split('?')[0] || fallback));
-            }
-        }
-
-        document.addEventListener('click', function (event) {
-            var img = event.target.closest('.rich-content img.rich-inline-image');
-            if (!img || img.closest('.link-preview-card')) return;
-            event.preventDefault();
-            event.stopPropagation();
-            if (typeof window.openImagePreview === 'function') {
-                window.openImagePreview(img.currentSrc || img.src, getName(img));
-            }
-        });
-    }
-
-    function initAutosave() {
-        if (document.querySelector('[data-workflow]')) return;
-        if (!window.FoxDeskAutosave || !window.commentEditor || !ticketId) return;
-        var draft = window.FoxDeskAutosave.create({
-            key: 'foxdesk_draft_comment_' + ticketId,
-            formSelector: '#comment-form',
-            quillEditors: { comment: window.commentEditor },
-            fields: [{ name: 'comment', type: 'quill', editorKey: 'comment', selector: '#comment-text' }],
-            onRestore: function (relativeTime) {
-                showToast(t('draftRestored', 'Draft restored') + ' (' + relativeTime + ')', 'info');
-            }
-        });
-        draft.init();
-    }
-
-    runtime.initEditTimeForm = initEditTimeForm;
-    runtime.initTags = initTags;
-    runtime.initQuillEditors = initQuillEditors;
-    runtime.initImagePreview = initImagePreview;
-    runtime.initAutosave = initAutosave;
 })(window, document);

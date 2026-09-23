@@ -59,7 +59,7 @@ function ensure_notifications_table(): void
  * @param int|null $actor_id
  * @param array    $data
  */
-function create_notifications_for_users(array $user_ids, string $type, ?int $ticket_id, ?int $actor_id, array $data = []): void
+function create_notifications_for_users(array $user_ids, string $type, ?int $ticket_id, ?int $actor_id, array $data = [], bool $push = true): void
 {
     if (!notifications_table_exists()) return;
 
@@ -114,7 +114,7 @@ function create_notifications_for_users(array $user_ids, string $type, ?int $tic
     }
 
     // Dispatch browser push notifications (N9)
-    if (!empty($notified_user_ids)) {
+    if ($push && !empty($notified_user_ids)) {
         try {
             if (file_exists(BASE_PATH . '/includes/web-push.php')) {
                 require_once BASE_PATH . '/includes/web-push.php';
@@ -528,20 +528,8 @@ function mark_ticket_notifications_read(int $ticket_id, int $user_id): bool
         [$ticket_id, $user_id]
     );
 
-    if (column_exists('notifications', 'is_resolved')) {
-        try {
-            db_execute(
-                "UPDATE notifications SET is_resolved = 1
-                 WHERE ticket_id = ? AND user_id = ? AND is_resolved = 0
-                 AND (type IN ('assigned_to_you', 'due_date_reminder')
-                      OR (type = 'new_comment' AND JSON_EXTRACT(data, '$.action_required') = true))",
-                [$ticket_id, $user_id]
-            );
-        } catch (Throwable $e) {
-            // Silent — don't break read-state updates
-        }
-    }
-
+    // Opening a ticket acknowledges reading, not completion of the requested action.
+    // Explicit review and actual workflow transitions resolve action notifications separately.
     return true;
 }
 
@@ -723,6 +711,8 @@ function is_action_required_notification(string $type, array $data = []): bool
         case 'due_date_reminder':
             return true;
         case 'new_comment':
+        case 'status_changed':
+        case 'ticket_updated':
             return !empty($data['action_required']);
         default:
             return false;
@@ -797,6 +787,8 @@ function dispatch_ticket_notifications(string $event_type, int $ticket_id, int $
         case 'status_changed':
             // Notify all ticket participants (creator, assignee, commenters)
             $recipients = get_ticket_participants($ticket_id, $actor_id);
+            $data['action_required'] = function_exists('ticket_status_group_for_status_id')
+                && ticket_status_group_for_status_id((int) $ticket['status_id']) === 'done';
             break;
 
         case 'assigned_to_you':
@@ -880,6 +872,7 @@ function format_notification_text(array $notification): string
                 'due_date' => t('due date'),
                 'type'     => t('type'),
                 'company'  => t('company'),
+                'time_entry' => t('Work log'),
             ];
             $field_label = $field_labels[$field] ?? $field;
             if ($detail) {
@@ -939,6 +932,7 @@ function format_notification_action(array $notification): string
                 'due_date' => t('due date'),
                 'type'     => t('type'),
                 'company'  => t('company'),
+                'time_entry' => t('Work log'),
             ];
             $fl = $field_labels[$field] ?? $field;
             if ($detail) {

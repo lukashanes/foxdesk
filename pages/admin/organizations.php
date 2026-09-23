@@ -18,6 +18,7 @@ $range_end = $range_data['end'];
 $time_tracking_available = ticket_time_table_exists();
 $org_time_totals = [];
 $org_user_counts = [];
+$org_entry_counts = [];
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -213,11 +214,12 @@ foreach ($organizations as $org) {
 $users_sql = "SELECT id, first_name, last_name, email, role, is_active, organization_id, permissions, avatar
               FROM users
               WHERE email NOT LIKE 'deleted-user-%@invalid.local'";
+$users_params = [];
 if (function_exists('users_deleted_at_column_exists') && users_deleted_at_column_exists()) {
     $users_sql .= " AND deleted_at IS NULL";
 }
 $users_sql .= " ORDER BY last_name, first_name";
-$all_users = db_fetch_all($users_sql);
+$all_users = db_fetch_all($users_sql, $users_params);
 
 foreach ($all_users as $u) {
     $uid = (int) ($u['id'] ?? 0);
@@ -280,50 +282,140 @@ foreach ($organizations as $org) {
 
 // Organization time totals
 if ($time_tracking_available) {
-    $dur = sql_timer_duration_minutes('tte.');
-    $sql = "SELECT t.organization_id, SUM({$dur}) as total_minutes
+    $dur = 'tte.duration_minutes';
+    $organization_time_entry_join_scope = '';
+    $sql = "SELECT t.organization_id, tte.user_id, SUM({$dur}) as total_minutes, COUNT(*) AS entry_count
             FROM ticket_time_entries tte
-            JOIN tickets t ON tte.ticket_id = t.id
-            WHERE t.organization_id IS NOT NULL";
+            JOIN tickets t ON tte.ticket_id = t.id{$organization_time_entry_join_scope}
+            WHERE t.organization_id IS NOT NULL AND tte.ended_at IS NOT NULL AND tte.duration_minutes > 0";
     $params = [];
     if ($range_start && $range_end) {
         $sql .= " AND tte.started_at >= ? AND tte.started_at <= ?";
         $params[] = $range_start;
         $params[] = $range_end;
     }
-    $sql .= " GROUP BY t.organization_id";
+    $sql .= " GROUP BY t.organization_id, tte.user_id";
     $rows = db_fetch_all($sql, $params);
     foreach ($rows as $row) {
-        $org_time_totals[(int) $row['organization_id']] = (int) $row['total_minutes'];
+        $org_id = (int) $row['organization_id'];
+        $user_id = (int) ($row['user_id'] ?? 0);
+        $minutes = (int) $row['total_minutes'];
+        $org_time_totals[$org_id] = ($org_time_totals[$org_id] ?? 0) + $minutes;
+        $org_entry_counts[$org_id] = ($org_entry_counts[$org_id] ?? 0) + (int) $row['entry_count'];
+        if ($user_id > 0) {
+            $org_user_time_totals[$org_id][$user_id] = $minutes;
+        }
     }
 }
 
+
+// Compact client directory: one workspace aggregate per metric, not a query per row.
+$client_ticket_metrics = [];
+foreach (db_fetch_all("SELECT t.organization_id,
+    SUM(CASE WHEN COALESCE(s.is_closed, 0) = 0 AND COALESCE(t.is_archived, 0) = 0 THEN 1 ELSE 0 END) AS open_count,
+    MAX(t.updated_at) AS last_updated
+    FROM tickets t LEFT JOIN statuses s ON s.id = t.status_id
+    WHERE t.organization_id IS NOT NULL GROUP BY t.organization_id", []) as $row) {
+    $client_ticket_metrics[(int) $row['organization_id']] = $row;
+}
+$client_today_minutes = [];
+if ($time_tracking_available) {
+    foreach (db_fetch_all("SELECT t.organization_id, SUM(tte.duration_minutes) AS minutes
+        FROM ticket_time_entries tte JOIN tickets t ON t.id = tte.ticket_id{$organization_time_entry_join_scope}
+        WHERE tte.ended_at IS NOT NULL AND tte.duration_minutes > 0
+        AND tte.started_at >= ? AND tte.started_at <= ? GROUP BY t.organization_id",
+        [date('Y-m-d 00:00:00'), date('Y-m-d 23:59:59')]) as $row) {
+        $client_today_minutes[(int) $row['organization_id']] = (int) $row['minutes'];
+    }
+}
+
+$organization_count = count($organizations);
+$active_organization_count = count(array_filter($organizations, static fn(array $org): bool => !empty($org['is_active'])));
+$assigned_user_ids = [];
+foreach ($org_users as $members) {
+    foreach ($members as $member) {
+        $assigned_user_ids[(int) ($member['id'] ?? 0)] = true;
+    }
+}
+unset($assigned_user_ids[0]);
+$tracked_total_minutes = array_sum($org_time_totals);
+$currency = get_currency_label();
+$tracked_value = 0.0;
+foreach ($organizations as $org) {
+    $org_id = (int) ($org['id'] ?? 0);
+    $tracked_value += (($org_time_totals[$org_id] ?? 0) / 60) * (float) ($org['billable_rate'] ?? 0);
+}
+$time_range_label = match ($time_range) {
+    'this_week' => t('This week'),
+    'this_month' => t('This month'),
+    'last_month' => t('Last month'),
+    'custom' => trim($from_date . ' – ' . $to_date, ' –'),
+    default => t('All time'),
+};
+
+require_once BASE_PATH . '/includes/modules/clients/client-directory.php';
+$directory = client_directory_page($organizations, $_GET, $org_entry_counts, $org_time_totals);
+$organizations = $directory['rows'];
+$directory_link = static function (int $target) {
+    $params = $_GET; unset($params['page']); $params['section'] = 'organizations'; $params['p'] = $target;
+    return url('admin', $params);
+};
 require_once BASE_PATH . '/includes/header.php';
 ?>
 
 <?php
 $page_header_title = $page_title;
 $page_header_subtitle = '';
-$page_header_actions = '<a href="#new-client-company" class="btn btn-primary">'
+$page_header_actions = '<button type="button" class="btn btn-primary" onclick="openCreateOrgModal()" aria-haspopup="dialog">'
     . get_icon('plus', 'w-4 h-4')
-    . '<span>' . e(t('Add organization')) . '</span></a>';
+    . '<span>' . e(t('Add organization')) . '</span></button>';
 include BASE_PATH . '/includes/components/page-header.php';
 include BASE_PATH . '/includes/components/client-management-nav.php';
 ?>
 
-<div class="admin-two-column client-companies-page">
+<section class="client-summary-grid" aria-label="<?php echo e(t('Clients')); ?>">
+    <article class="client-summary-card">
+        <span><?php echo e(t('Clients')); ?></span>
+        <strong><?php echo $active_organization_count; ?> / <?php echo $organization_count; ?></strong>
+        <small><?php echo e(t('Active')); ?></small>
+    </article>
+    <article class="client-summary-card">
+        <span><?php echo e(t('Total time')); ?></span>
+        <strong><?php echo e(format_duration_minutes($tracked_total_minutes)); ?></strong>
+        <small><?php echo e($time_range_label); ?></small>
+    </article>
+    <article class="client-summary-card">
+        <span><?php echo e(t('Users')); ?></span>
+        <strong><?php echo count($assigned_user_ids); ?></strong>
+        <small><?php echo e(t('Team')); ?></small>
+    </article>
+    <article class="client-summary-card" title="<?php echo e(t('Rate') . ' × ' . t('Time')); ?>">
+        <span><?php echo e(t('Value')); ?></span>
+        <strong><?php echo e(number_format($tracked_value, 0, ',', ' ') . ' ' . $currency); ?></strong>
+        <small><?php echo e(t('Rate') . ' × ' . t('Time')); ?></small>
+    </article>
+</section>
+
+<div class="admin-two-column client-companies-page client-companies-dashboard">
     <!-- Organizations List -->
     <div class="admin-main-column">
     <div class="admin-list-card">
-        <div class="px-6 py-3 border-b flex items-center justify-between">
-            <h3 class="font-semibold text-theme-primary"><?php echo e(t('Companies')); ?></h3>
-            <span class="text-sm text-theme-muted"><?php echo e(t('Click row to expand members')); ?></span>
+        <div class="client-list-heading px-6 py-3 border-b flex items-center justify-between">
+            <div>
+                <h3 class="font-semibold text-theme-primary"><?php echo e(t('Companies')); ?></h3>
+                <span class="text-sm text-theme-muted"><?php echo e($time_range_label); ?></span>
+            </div>
+            <span class="text-sm text-theme-muted"><?php echo (int) $directory['count']; ?> <?php echo e(t('Clients')); ?></span>
         </div>
 
         <div class="admin-filter-bar">
             <form method="get" class="flex flex-wrap items-end gap-3">
                 <input type="hidden" name="page" value="admin">
                 <input type="hidden" name="section" value="organizations">
+                <label><?php echo e(t('Search')); ?><input type="search" class="form-input" name="search" value="<?php echo e($directory['search']); ?>"></label>
+                <label><?php echo e(t('Status')); ?><select name="state" class="form-select"><?php foreach (['' => t('All'), 'active' => t('Active'), 'inactive' => t('Inactive')] as $key => $label): ?><option value="<?php echo e($key); ?>" <?php echo $directory['state'] === $key ? 'selected' : ''; ?>><?php echo e($label); ?></option><?php endforeach; ?></select></label>
+                <label><?php echo e(t('Sort')); ?><select name="sort" class="form-select"><?php foreach (['records' => t('Entries'), 'time' => t('Time'), 'name' => t('Name')] as $key => $label): ?><option value="<?php echo e($key); ?>" <?php echo $directory['sort'] === $key ? 'selected' : ''; ?>><?php echo e($label); ?></option><?php endforeach; ?></select></label>
+                <label><?php echo e(t('Clients')); ?><select name="page_size" class="form-select"><?php foreach (['10','20','50','all'] as $size): ?><option value="<?php echo e($size); ?>" <?php echo $directory['size'] === $size ? 'selected' : ''; ?>><?php echo e($size === 'all' ? t('All') : $size); ?></option><?php endforeach; ?></select></label>
                 <div>
                     <label class="block text-xs mb-1 text-theme-muted"><?php echo e(t('Time range')); ?></label>
                     <select name="time_range" id="orgs-time-range" class="form-select">
@@ -365,70 +457,30 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
                 <p><?php echo e(t('No organizations yet.')); ?></p>
             </div>
         <?php else: ?>
-            <div class="divide-y border-theme-light">
-                <?php foreach ($organizations as $org):
-                    $users_count = $org_user_counts[$org['id']] ?? 0;
-                    $total_minutes = $org_time_totals[$org['id']] ?? 0;
-                    $currency = get_currency_label();
-                    $members = $org_users[$org['id']] ?? [];
+            <div class="admin-responsive-table-wrap">
+                <table class="fd-table client-directory-table">
+                    <thead><tr>
+                        <?php foreach ([t('Client'), t('Contacts'), t('Open'), t('Today'), $time_range_label, t('Updated'), t('Actions')] as $column): ?><th><?php echo e($column); ?></th><?php endforeach; ?>
+                    </tr></thead>
+                    <tbody>
+                    <?php foreach ($organizations as $org):
+                        $users_count = $org_user_counts[$org['id']] ?? 0;
+                        $total_minutes = $org_time_totals[$org['id']] ?? 0;
+                        $members = $org_users[$org['id']] ?? [];
+                        $metrics = $client_ticket_metrics[$org['id']] ?? [];
                     ?>
-                    <!-- Organization Row -->
-                    <div class="org-item <?php echo !$org['is_active'] ? 'opacity-60' : ''; ?>">
-                        <div class="org-header px-6 py-3 flex items-center justify-between cursor-pointer transition-colors tr-hover"
-                             onclick="toggleOrgMembers(<?php echo $org['id']; ?>)">
-                            <div class="flex items-center gap-4 flex-1 min-w-0">
-                                <!-- Expand/Collapse Icon -->
-                                <span class="org-toggle transition-transform" id="toggle-icon-<?php echo $org['id']; ?>" style="color: var(--text-muted);">
-                                    <?php echo get_icon('chevron-right', 'w-5 h-5'); ?>
-                                </span>
-
-                                <!-- Logo -->
-                                <?php if (!empty($org['logo'])): ?>
-                                    <img src="<?php echo e(upload_url($org['logo'])); ?>" alt="" class="w-8 h-8 rounded-lg object-cover flex-shrink-0">
-                                <?php else: ?>
-                                    <div class="w-8 h-8 fd-rounded-control flex items-center justify-center flex-shrink-0 bg-theme-tertiary text-theme-secondary">
-                                        <span class="text-xs font-bold"><?php echo strtoupper(substr($org['name'], 0, 1)); ?></span>
-                                    </div>
-                                <?php endif; ?>
-
-                                <!-- Organization Info -->
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex items-center gap-3">
-                                        <a href="<?php echo url('client', ['id' => (int) $org['id']]); ?>"
-                                           class="font-medium hover:underline text-theme-primary"
-                                           onclick="event.stopPropagation();">
-                                            <?php echo e($org['name']); ?>
-                                        </a>
-                                        <?php if ($org['is_active']): ?>
-                                            <span class="badge bg-green-100 text-green-800 text-xs"><?php echo e(t('Active')); ?></span>
-                                        <?php else: ?>
-                                            <span class="badge text-xs" style="background: var(--surface-secondary); color: var(--text-primary);"><?php echo e(t('Inactive')); ?></span>
-                                        <?php endif; ?>
-                                    </div>
-                                    <?php if (!empty($org['contact_email'])): ?>
-                                        <div class="text-sm text-theme-muted"><?php echo e($org['contact_email']); ?></div>
-                                    <?php endif; ?>
-                                </div>
-
-                                <!-- Stats -->
-                                <div class="hidden md:flex items-center gap-3 text-sm text-theme-secondary">
-                                    <div class="text-center">
-                                        <div class="font-medium"><?php echo $users_count; ?></div>
-                                        <div class="text-xs text-theme-muted"><?php echo e(t('Users')); ?></div>
-                                    </div>
-                                    <div class="text-center">
-                                        <div class="font-medium"><?php echo $total_minutes > 0 ? e(format_duration_minutes($total_minutes)) : '-'; ?></div>
-                                        <div class="text-xs text-theme-muted"><?php echo e(t('Time')); ?></div>
-                                    </div>
-                                    <div class="text-center">
-                                        <div class="font-medium"><?php echo $org['billable_rate'] ? e(number_format((float) $org['billable_rate'], 0) . ' ' . $currency) : '-'; ?></div>
-                                        <div class="text-xs text-theme-muted"><?php echo e(t('Rate')); ?></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Actions -->
-                            <div class="flex items-center gap-2 ml-4" onclick="event.stopPropagation()">
+                    <tr class="org-item <?php echo !$org['is_active'] ? 'opacity-60' : ''; ?>">
+                        <td><a class="client-directory-name" href="<?php echo e(url('client', ['id' => (int) $org['id']])); ?>">
+                            <?php if (!empty($org['logo'])): ?><img src="<?php echo e(upload_url($org['logo'])); ?>" alt=""><?php else: ?><span class="client-directory-avatar" aria-hidden="true"><?php echo e(mb_strtoupper(mb_substr($org['name'], 0, 1))); ?></span><?php endif; ?>
+                            <span><strong><bdi dir="auto"><?php echo e($org['name']); ?></bdi></strong><small><bdi dir="auto"><?php echo e($org['contact_email'] ?? ''); ?></bdi></small></span>
+                            <?php if (!$org['is_active']): ?><span class="badge"><?php echo e(t('Inactive')); ?></span><?php endif; ?>
+                        </a></td>
+                        <td><button type="button" class="btn btn-ghost btn-sm org-toggle" id="toggle-icon-<?php echo (int) $org['id']; ?>" onclick="toggleOrgMembers(<?php echo (int) $org['id']; ?>)" aria-expanded="false" aria-controls="members-<?php echo (int) $org['id']; ?>" aria-label="<?php echo e(t('Contacts') . ' · ' . $org['name']); ?>"><span data-org-member-count="<?php echo (int) $org['id']; ?>"><?php echo (int) $users_count; ?></span><?php echo get_icon('chevron-down', 'w-3 h-3'); ?></button></td>
+                        <td><?php echo (int) ($metrics['open_count'] ?? 0); ?></td>
+                        <td><?php echo e(format_duration_minutes($client_today_minutes[$org['id']] ?? 0)); ?></td>
+                        <td><strong><?php echo e(format_duration_minutes($total_minutes)); ?></strong></td>
+                        <td><?php echo !empty($metrics['last_updated']) ? e(format_date($metrics['last_updated'])) : '—'; ?></td>
+                        <td><button type="button" class="btn btn-secondary btn-sm" popovertarget="client-actions-<?php echo (int) $org['id']; ?>" aria-label="<?php echo e(t('Actions') . ' · ' . $org['name']); ?>"><?php echo get_icon('ellipsis-h', 'w-4 h-4'); ?></button><div class="report-row-actions" data-row-action-menu popover="auto" id="client-actions-<?php echo (int) $org['id']; ?>">
                                 <button type="button" onclick="openEditOrgModal(<?php echo htmlspecialchars(json_encode([
                                     'id' => $org['id'],
                                     'name' => $org['name'],
@@ -440,7 +492,7 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
                                     'billable_rate' => $org['billable_rate'] ?? ''
                                 ]), ENT_QUOTES, 'UTF-8'); ?>)"
                                     class="text-blue-500 hover:text-blue-700 p-2" title="<?php echo e(t('Edit')); ?>">
-                                    <?php echo get_icon('edit', 'w-4 h-4'); ?>
+                                    <?php echo get_icon('edit', 'w-4 h-4'); ?><?php echo e(t('Edit')); ?>
                                 </button>
                                 <form method="post" class="inline"
                                     onsubmit="return confirm('<?php echo e(t('Are you sure you want to change the status?')); ?>')">
@@ -449,7 +501,7 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
                                     <button type="submit" name="toggle"
                                         class="<?php echo $org['is_active'] ? 'text-yellow-500 hover:text-yellow-700' : 'text-green-500 hover:text-green-700'; ?> p-2"
                                         title="<?php echo e($org['is_active'] ? t('Deactivate') : t('Activate')); ?>">
-                                        <?php echo get_icon($org['is_active'] ? 'pause' : 'play', 'w-4 h-4'); ?>
+                                        <?php echo get_icon($org['is_active'] ? 'pause' : 'play', 'w-4 h-4'); ?><?php echo e($org['is_active'] ? t('Deactivate') : t('Activate')); ?>
                                     </button>
                                 </form>
                                 <form method="post" class="inline"
@@ -458,21 +510,23 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
                                     <input type="hidden" name="id" value="<?php echo $org['id']; ?>">
                                     <button type="submit" name="delete" class="text-red-500 hover:text-red-700 p-2"
                                         title="<?php echo e(t('Delete')); ?>">
-                                        <?php echo get_icon('trash', 'w-4 h-4'); ?>
+                                        <?php echo get_icon('trash', 'w-4 h-4'); ?><?php echo e(t('Delete')); ?>
                                     </button>
                                 </form>
-                            </div>
-                        </div>
-
-                        <!-- Collapsible Members Section -->
-                        <div class="org-members hidden border-t" id="members-<?php echo $org['id']; ?>" style="background: var(--surface-secondary); border-color: var(--border-light);">
+                            </div></td>
+                    </tr>
+                        <tr class="org-members hidden" id="members-<?php echo $org['id']; ?>" style="background: var(--surface-secondary); border-color: var(--border-light);"><td colspan="7">
                             <div class="px-6 py-3 pl-14">
+                                <div class="client-member-heading">
+                                    <strong><?php echo e(t('Team')); ?></strong>
+                                    <span><?php echo e(t('Time')); ?> · <?php echo e($time_range_label); ?></span>
+                                </div>
                                 <div class="members-list space-y-2 mb-4" id="members-list-<?php echo $org['id']; ?>">
                                     <?php if (empty($members)): ?>
                                         <div class="text-sm py-2 empty-message text-theme-muted"><?php echo e(t('No users in this organization.')); ?></div>
                                     <?php else: ?>
                                         <?php foreach ($members as $u): ?>
-                                            <div class="member-row flex items-center justify-between rounded-lg px-4 py-2 shadow-sm" data-user-id="<?php echo $u['id']; ?>" style="background: var(--surface-primary);">
+                                            <div class="member-row flex items-center justify-between fd-rounded-card px-4 py-2 shadow-sm" data-user-id="<?php echo $u['id']; ?>" style="background: var(--surface-primary);">
                                                 <div class="flex items-center gap-3">
                                                     <?php echo render_user_avatar($u, 'sm'); ?>
                                                     <div>
@@ -483,7 +537,11 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
                                                         <?php echo e(ucfirst($u['role'])); ?>
                                                     </span>
                                                 </div>
-                                                <div class="flex items-center gap-2">
+                                                <div class="client-member-actions flex items-center gap-2">
+                                                    <span class="client-member-time" title="<?php echo e(t('Time')); ?>">
+                                                        <?php $member_minutes = (int) ($org_user_time_totals[(int) $org['id']][(int) $u['id']] ?? 0); ?>
+                                                        <?php echo $member_minutes > 0 ? e(format_duration_minutes($member_minutes)) : '—'; ?>
+                                                    </span>
                                                     <a href="<?php echo url('admin', ['section' => 'users', 'edit' => $u['id']]); ?>"
                                                         class="text-blue-500 hover:text-blue-700 p-1" title="<?php echo e(t('Edit user')); ?>">
                                                         <?php echo get_icon('edit', 'w-4 h-4'); ?>
@@ -514,30 +572,46 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
+                        </td></tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
         <?php endif; ?>
     </div>
     </div>
 
-    <!-- Add Organization Form (Sidebar) -->
-    <div class="admin-side-column">
-    <div class="card card-body h-fit" id="new-client-company">
-        <h3 class="font-semibold mb-4 text-theme-primary"><?php echo e(t('Add organization')); ?></h3>
+    <nav class="registry-pagination" aria-label="<?php echo e(t('Clients')); ?>">
+        <span><?php echo $directory['count']; ?> <?php echo e(t('Clients')); ?> · <?php echo $directory['page']; ?> / <?php echo $directory['pages']; ?></span>
+        <?php foreach ([-1 => t('Previous'), 1 => t('Next')] as $step => $label): $target = $directory['page'] + $step; ?>
+            <?php if ($target >= 1 && $target <= $directory['pages']): ?><a class="btn btn-secondary btn-sm" href="<?php echo e($directory_link($target)); ?>"><?php echo e($label); ?></a><?php else: ?><button class="btn btn-secondary btn-sm" disabled><?php echo e($label); ?></button><?php endif; ?>
+        <?php endforeach; ?>
+    </nav>
 
-        <form method="post" enctype="multipart/form-data" class="space-y-4">
+    <!-- Add Organization Form -->
+    <div id="createOrgModal" class="client-create-modal hidden fixed inset-0 items-center justify-center z-50"
+        role="dialog" aria-modal="true" aria-labelledby="create-org-title">
+    <div class="admin-side-column client-create-modal__panel">
+    <div class="card card-body h-fit">
+        <div class="client-create-modal__header">
+            <h3 id="create-org-title" class="font-semibold text-theme-primary"><?php echo e(t('Add organization')); ?></h3>
+            <button type="button" class="client-create-modal__close" onclick="closeCreateOrgModal()"
+                aria-label="<?php echo e(t('Close')); ?>">
+                <?php echo get_icon('times', 'w-4 h-4'); ?>
+            </button>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-4" id="createOrgForm">
             <?php echo csrf_field(); ?>
 
             <div>
-                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Organization name')); ?> *</label>
-                <input type="text" name="name" required class="form-input">
+                <label for="create_org_name" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Organization name')); ?> *</label>
+                <input type="text" name="name" id="create_org_name" required aria-required="true" class="form-input">
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Logo')); ?></label>
-                <div id="org-logo-create-zone" class="rounded-lg p-2.5 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors border-theme-light">
+                <label for="org-logo-create-input" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Logo')); ?></label>
+                <div id="org-logo-create-zone" class="fd-rounded-card p-2.5 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors border-theme-light">
                     <input type="file" name="org_logo_create" id="org-logo-create-input" accept="image/jpeg,image/png,image/gif,image/webp" class="hidden">
                     <div class="flex items-center gap-2 text-xs">
                         <span class="text-theme-muted"><?php echo get_icon('cloud-upload-alt', 'text-base flex-shrink-0'); ?></span>
@@ -549,46 +623,52 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Company ID')); ?></label>
-                <input type="text" name="ico" class="form-input">
+                <label for="create_org_ico" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Company ID')); ?></label>
+                <input type="text" name="ico" id="create_org_ico" class="form-input">
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Address')); ?></label>
-                <textarea name="address" rows="2" class="form-textarea"></textarea>
+                <label for="create_org_address" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Address')); ?></label>
+                <textarea name="address" id="create_org_address" rows="2" class="form-textarea"></textarea>
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Contact email')); ?></label>
-                <input type="email" name="contact_email" class="form-input">
+                <label for="create_org_contact_email" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Contact email')); ?></label>
+                <input type="email" name="contact_email" id="create_org_contact_email" class="form-input">
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Phone')); ?></label>
-                <input type="text" name="contact_phone" class="form-input">
+                <label for="create_org_contact_phone" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Phone')); ?></label>
+                <input type="text" name="contact_phone" id="create_org_contact_phone" class="form-input">
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Notes')); ?></label>
-                <textarea name="notes" rows="2" class="form-textarea"></textarea>
+                <label for="create_org_notes" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Notes')); ?></label>
+                <textarea name="notes" id="create_org_notes" rows="2" class="form-textarea"></textarea>
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Billable rate (per hour)')); ?></label>
-                <input type="number" name="billable_rate" step="0.01" min="0" class="form-input">
+                <label for="create_org_billable_rate" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Billable rate (per hour)')); ?></label>
+                <input type="number" name="billable_rate" id="create_org_billable_rate" step="0.01" min="0" class="form-input">
             </div>
 
-            <button type="submit" name="create" class="btn btn-primary w-full">
-                <?php echo e(t('Add organization')); ?>
-            </button>
+            <div class="client-create-modal__actions">
+                <button type="button" class="btn btn-secondary" onclick="closeCreateOrgModal()">
+                    <?php echo e(t('Cancel')); ?>
+                </button>
+                <button type="submit" name="create" class="btn btn-primary">
+                    <?php echo e(t('Add organization')); ?>
+                </button>
+            </div>
         </form>
     </div>
     </div>
 </div>
+</div>
 
 <!-- Edit Organization Modal -->
 <div id="editOrgModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="edit-org-title">
-    <div class="rounded-xl shadow-xl max-w-lg w-full mx-4 p-4 max-h-[90vh] overflow-y-auto" style="background: var(--surface-primary);">
+    <div class="fd-rounded-card shadow-xl max-w-lg w-full mx-4 p-4 max-h-[90vh] overflow-y-auto bg-theme-primary">
         <h3 id="edit-org-title" class="font-semibold mb-4 text-theme-primary"><?php echo e(t('Edit organization')); ?></h3>
 
         <!-- Logo upload (separate form) -->
@@ -604,7 +684,7 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="org_id" id="edit_org_logo_org_id">
                     <input type="hidden" name="upload_org_logo" value="1">
-                    <div id="org-logo-edit-zone" class="rounded-lg p-2 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors border-theme-light">
+                    <div id="org-logo-edit-zone" class="fd-rounded-card p-2 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors border-theme-light">
                         <input type="file" name="org_logo" id="org-logo-edit-input" accept="image/jpeg,image/png,image/gif,image/webp" class="hidden"
                                onchange="this.form.submit()">
                         <div class="flex items-center gap-2 text-xs">
@@ -680,23 +760,6 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
     </div>
 </div>
 
-<style>
-.org-toggle {
-    transition: transform 0.2s ease;
-}
-.org-toggle.rotated {
-    transform: rotate(90deg);
-}
-.org-members {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-}
-.org-members.expanded {
-    max-height: 1000px;
-}
-</style>
-
 <script>
     const csrfToken = window.csrfToken || '';
 
@@ -707,6 +770,35 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
         div.textContent = String(str);
         return div.innerHTML;
     }
+
+    var _createOrgReturnFocus = null;
+
+    function openCreateOrgModal() {
+        _createOrgReturnFocus = document.activeElement;
+        const modal = document.getElementById('createOrgModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+        document.getElementById('create_org_name').focus();
+        if (typeof trapFocus === 'function') trapFocus(modal);
+    }
+
+    function closeCreateOrgModal() {
+        const modal = document.getElementById('createOrgModal');
+        if (modal.classList.contains('hidden')) return;
+        if (typeof releaseFocus === 'function') releaseFocus(modal);
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+        if (_createOrgReturnFocus) {
+            _createOrgReturnFocus.focus();
+            _createOrgReturnFocus = null;
+        }
+    }
+
+    document.getElementById('createOrgModal').addEventListener('click', function(e) {
+        if (e.target === this) closeCreateOrgModal();
+    });
 
     // Edit Organization Modal Functions
     var _editOrgReturnFocus = null;
@@ -772,6 +864,7 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
     // Close modal on Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
+            closeCreateOrgModal();
             closeEditOrgModal();
         }
     });
@@ -784,10 +877,12 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
             membersDiv.classList.remove('hidden');
             setTimeout(() => membersDiv.classList.add('expanded'), 10);
             toggleIcon.classList.add('rotated');
+            toggleIcon.setAttribute('aria-expanded', 'true');
         } else {
             membersDiv.classList.remove('expanded');
             setTimeout(() => membersDiv.classList.add('hidden'), 300);
             toggleIcon.classList.remove('rotated');
+            toggleIcon.setAttribute('aria-expanded', 'false');
         }
     }
 
@@ -831,7 +926,7 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
                 const safeOrgId = parseInt(orgId, 10);
 
                 const memberHtml = `
-                    <div class="member-row flex items-center justify-between fd-rounded-control px-4 py-2 bg-theme-primary" data-user-id="${safeId}">
+                    <div class="member-row flex items-center justify-between fd-rounded-card px-4 py-2 shadow-sm bg-theme-primary" data-user-id="${safeId}">
                         <div class="flex items-center gap-3">
                             <div class="w-8 h-8 fd-rounded-pill flex items-center justify-center text-xs font-bold bg-theme-tertiary text-theme-secondary">${escHtml(initial)}</div>
                             <div>
@@ -897,7 +992,7 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
                     // Remove from list with animation
                     memberRow.style.transition = 'opacity 0.2s, transform 0.2s';
                     memberRow.style.opacity = '0';
-                    memberRow.style.transform = 'translateX(var(--fd-inline-remove-x, -10px))';
+                    memberRow.style.transform = 'translateX(-10px)';
                     setTimeout(() => {
                         memberRow.remove();
 
@@ -931,14 +1026,8 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
     }
 
     function updateOrgUserCount(orgId, delta) {
-        const orgHeader = document.querySelector(`[onclick="toggleOrgMembers(${orgId})"]`);
-        if (orgHeader) {
-            const countEl = orgHeader.querySelector('.text-center .font-medium');
-            if (countEl) {
-                const current = parseInt(countEl.textContent) || 0;
-                countEl.textContent = Math.max(0, current + delta);
-            }
-        }
+        const countEl = document.querySelector('[data-org-member-count="' + orgId + '"]');
+        if (countEl) countEl.textContent = Math.max(0, (parseInt(countEl.textContent) || 0) + delta);
     }
 
     const orgTimeRangeSelect = document.getElementById('orgs-time-range');
@@ -996,4 +1085,5 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
     }
 </script>
 
-<?php require_once BASE_PATH . '/includes/footer.php'; 
+<script defer src="assets/js/row-action-menu.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/row-action-menu.js'); ?>"></script>
+<?php require_once BASE_PATH . '/includes/footer.php';

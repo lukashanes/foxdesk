@@ -168,8 +168,8 @@
                 <section class="admin-panel">
                     <div class="admin-panel-header">
                         <div>
-                            <h3><?php echo e(t('Background tasks')); ?></h3>
-                            <p><?php echo e(t('Email ingest, recurring tasks, and maintenance.')); ?></p>
+                            <h3><?php echo e(t('Background tasks')); ?> · PHP</h3>
+                            <p><?php echo e(t('Tasks run in the background on page loads. No server cron job needed.')); ?></p>
                         </div>
                         <?php $pseudo_cron_enabled = (string) get_setting('pseudo_cron_enabled', '1') !== '0'; ?>
                         <span class="admin-status <?php echo $pseudo_cron_enabled ? 'is-success' : 'is-warning'; ?>">
@@ -242,7 +242,7 @@
                     <div class="admin-panel-header">
                         <div>
                             <h3><?php echo e(t('Backups')); ?></h3>
-                            <p><?php echo e(t('Restore points for files and database.')); ?></p>
+                            <p><?php echo e(t('settings.system.backup_scope')); ?></p>
                         </div>
                         <span class="admin-status"><?php echo e((string) count($backups)); ?></span>
                     </div>

@@ -47,7 +47,11 @@ function ticket_list_view_shows_closed_inline(string $view, bool $is_closed_filt
 
 function ticket_list_view_default_sort(string $view): string
 {
-    return ticket_list_view_normalize($view, true) === 'done' ? 'completed' : 'newest';
+    return match (ticket_list_view_normalize($view, true)) {
+        'done' => 'completed',
+        'new' => 'newest',
+        default => 'last_updated',
+    };
 }
 
 function ticket_list_view_effective_sort(string $view, string $sort, bool $sort_is_explicit = false): string

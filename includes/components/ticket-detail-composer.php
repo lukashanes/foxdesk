@@ -7,7 +7,7 @@
  */
 ?>
             <!-- Add Comment Form -->
-            <form method="post" enctype="multipart/form-data" class="p-3 lg:p-4 border-t bg-theme-secondary"
+            <form method="post" enctype="multipart/form-data" class="ticket-composer"
                 data-ticket-composer-surface
                 id="comment-form">
                 <?php echo csrf_field(); ?>
@@ -24,23 +24,23 @@
 
                 <?php if (is_agent()): ?>
                         <!-- Comment Mode Toggle - Primary Choice -->
-                        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-                            <div class="inline-flex items-center gap-0.5 rounded-lg p-1 bg-theme-secondary">
+                        <div class="ticket-composer-mode-row">
+                            <div class="ticket-composer-mode-tabs">
                                 <button type="button"
-                                    class="comment-mode-btn flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all"
+                                    class="comment-mode-btn ticket-composer-mode-button"
                                     data-mode="public" title="<?php echo e(t('Public reply')); ?>">
                                     <?php echo get_icon('eye', 'w-4 h-4'); ?>
                                     <span><?php echo e(t('Public')); ?></span>
                                 </button>
                                 <button type="button"
-                                    class="comment-mode-btn flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all"
+                                    class="comment-mode-btn ticket-composer-mode-button"
                                     data-mode="internal" title="<?php echo e(t('Internal note')); ?>">
                                     <?php echo get_icon('lock', 'w-4 h-4'); ?>
                                     <span><?php echo e(t('Internal')); ?></span>
                                 </button>
                             </div>
                             <input type="checkbox" id="is_internal_toggle" name="is_internal" class="hidden">
-                            <p class="text-xs text-theme-muted" id="comment-mode-hint">
+                            <p class="ticket-composer-mode-hint" id="comment-mode-hint">
                                 <?php echo e(t('Visible to customer')); ?></p>
                         </div>
                 <?php endif; ?>
@@ -48,7 +48,7 @@
                 <!-- Public Reply Section -->
                 <div id="public-comment-section">
                     <?php if (!is_agent()): ?>
-                            <label class="block text-sm mb-2 text-theme-secondary"><?php echo e(t('Your reply')); ?>
+                            <label class="ticket-composer-label"><?php echo e(t('Your reply')); ?>
                                 <span class="text-red-500">*</span></label>
                     <?php endif; ?>
                     <div class="editor-wrapper">
@@ -68,22 +68,23 @@
                 <?php endif; ?>
 
                 <!-- Status + Attachments -->
-                <div class="mt-3">
+                <div class="ticket-composer-tools">
                     <?php if (is_agent()): ?>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="ticket-composer-tool-grid">
                                 <div>
-                                    <select name="status_id" class="form-select text-sm w-full" style="height: 42px;">
-                                        <?php foreach ($statuses as $status): ?>
-                                                <option value="<?php echo $status['id']; ?>" <?php echo $status['id'] == $ticket['status_id'] ? 'selected' : ''; ?>>
-                                                    <?php echo e(t('Status')); ?>: <?php echo e(bidi_isolate($status['name'])); ?>
-                                                </option>
-                                        <?php endforeach; ?>
-                                    </select>
+                                    <label class="form-label-sm"><?php echo e(t('Created at')); ?></label>
+                                    <input type="datetime-local"
+                                        name="comment_created_at"
+                                        max="<?php echo e(date('Y-m-d\TH:i')); ?>"
+                                        class="form-input ticket-composer-status-select"
+                                        aria-label="<?php echo e(t('Created at')); ?>">
+                                </div>
+                                <div>
+                                    <input type="hidden" name="status_id" value="<?php echo (int) $ticket['status_id']; ?>">
                                 </div>
                                 <div>
                                     <div id="comment-upload-zone"
-                                        class="upload-zone rounded-lg text-center cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors flex items-center justify-center"
-                                        style="border-color: var(--border-light); height: 42px;">
+                                        class="upload-zone ticket-composer-upload-zone">
                                         <input type="file" name="comment_attachments[]" id="comment-file-input" multiple
                                             class="hidden"
                                             accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar">
@@ -102,7 +103,7 @@
                             <!-- Non-agent: attachments only -->
                             <div>
                                 <div id="comment-upload-zone"
-                                    class="upload-zone rounded-lg p-2.5 text-center cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors border-theme-light">
+                                    class="upload-zone ticket-composer-upload-zone ticket-composer-upload-zone--standalone">
                                     <input type="file" name="comment_attachments[]" id="comment-file-input" multiple
                                         class="hidden"
                                         accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar">
@@ -119,112 +120,44 @@
                             </div>
                     <?php endif; ?>
                 </div>
-                <?php if (get_request_upload_limit() > 0): ?>
-                <p class="mt-2 text-xs text-theme-muted">
-                    <?php echo e(t('Total upload per request is limited to {size}.', ['size' => format_file_size(get_request_upload_limit())])); ?>
-                </p>
-                <?php endif; ?>
-
                 <?php if (is_agent() && $time_tracking_available): ?>
-                        <!-- Manual Time Entry (expandable, between attachments and submit row) -->
-                        <div id="manual-entry-row" class="hidden mt-2 pt-2 border-t border-theme-light">
-                            <input type="hidden" name="manual_start_at" id="manual-start-at">
-                            <input type="hidden" name="manual_end_at" id="manual-end-at">
-                            <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                                <div>
-                                    <label class="form-label-sm mb-1"><?php echo e(t('Time (min)')); ?></label>
-                                    <input type="number" name="manual_duration_minutes" id="manual-duration-minutes"
-                                        min="1" max="1440" step="1" placeholder="15"
-                                        class="form-input text-sm h-9">
-                                </div>
-                                <div>
-                                    <label class="form-label-sm mb-1"><?php echo e(t('Date')); ?></label>
-                                    <input type="date" name="manual_date" value="<?php echo e(date('Y-m-d')); ?>"
-                                        class="form-input text-sm h-9">
-                                </div>
-                                <div>
-                                    <label class="form-label-sm mb-1"><?php echo e(t('Start')); ?></label>
-                                    <input type="time" name="manual_start_time" class="form-input text-sm h-9">
-                                </div>
-                                <div>
-                                    <label class="form-label-sm mb-1"><?php echo e(t('End')); ?></label>
-                                    <input type="time" name="manual_end_time" class="form-input text-sm h-9">
-                                </div>
-                            </div>
-                            <div class="mt-2 flex flex-wrap gap-2">
-                                <button type="button" class="manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="5">+5</button>
-                                <button type="button" class="manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="10">+10</button>
-                                <button type="button" class="manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="15">+15</button>
-                                <button type="button" class="manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="30">+30</button>
-                                <button type="button" class="manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="60">+60</button>
-                            </div>
+                    <fieldset id="reply-time-fields" class="ticket-reply-time" data-reply-time-fields hidden disabled aria-labelledby="reply-time-heading"
+                        data-range-error="<?php echo e(t('Start and end time are required.')); ?>"
+                        data-conflict-error="<?php echo e(t('workflow.timer_manual_conflict')); ?>">
+                        <div id="reply-time-heading" class="ticket-reply-time__heading"><?php echo get_icon('clock', 'w-4 h-4'); ?><?php echo e(t('workflow.add_time')); ?></div>
+                        <input type="hidden" name="reply_manual_time" value="1">
+                        <div class="ticket-reply-time__fields">
+                            <label for="reply-work-date"><?php echo e(t('Date')); ?><input type="date" id="reply-work-date" name="manual_date" class="form-input" required value="<?php echo date('Y-m-d'); ?>"></label>
+                            <label for="reply-work-minutes"><?php echo e(t('Time (min)')); ?><input type="number" id="reply-work-minutes" name="manual_duration_minutes" class="form-input" min="1" max="1440" step="1" required></label>
                         </div>
+                        <details class="ticket-reply-time__exact">
+                            <summary><?php echo e(t('workflow.exact_time')); ?></summary>
+                            <div class="ticket-reply-time__fields">
+                                <label for="reply-work-start"><?php echo e(t('Start')); ?><input type="time" id="reply-work-start" name="manual_start_time" class="form-input"></label>
+                                <label for="reply-work-end"><?php echo e(t('End')); ?><input type="time" id="reply-work-end" name="manual_end_time" class="form-input"></label>
+                            </div>
+                        </details>
+                        <div class="ticket-reply-time__actions">
+                            <button type="button" class="btn btn-ghost btn-sm" data-workspace-time-add="0"><?php echo e(t('ticket.workspace.standalone')); ?></button>
+                            <button type="button" class="btn btn-ghost btn-sm" data-reply-time-remove><?php echo e(t('Remove')); ?></button>
+                        </div>
+                    </fieldset>
                 <?php endif; ?>
-
-                <!-- Submit row: timer + notification on LEFT, CC + send on RIGHT -->
-                <div class="mt-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
-                    <div class="flex items-center gap-2 flex-wrap min-w-0">
-                        <?php if (is_agent() && $time_tracking_available): ?>
-                                <!-- Unified timer control — single button that changes state -->
-                                <div id="timer-controls" data-ticket-id="<?php echo $ticket_id; ?>"
-                                    data-paused="<?php echo $timer_is_paused ? '1' : '0'; ?>" class="flex items-center gap-2">
-                                    <button type="button" id="btn-timer-action"
-                                        class="btn <?php echo $timer_state === 'running' ? 'btn-warning' : 'btn-success'; ?> px-3 py-1.5 text-sm inline-flex items-center gap-1.5 transition-colors"
-                                        data-state="<?php echo $timer_state; ?>"
-                                        title="<?php echo $timer_state === 'running' ? e(t('Pause timer')) : ($timer_state === 'paused' ? e(t('Resume timer')) : e(t('Start timer'))); ?>">
-                                        <span class="btn-timer-icon">
-                                            <?php if ($timer_state === 'running'): ?>
-                                                    <?php echo get_icon('pause', 'w-4 h-4'); ?>
-                                            <?php else: ?>
-                                                    <?php echo get_icon('play', 'w-4 h-4'); ?>
-                                            <?php endif; ?>
-                                        </span>
-                                        <span class="btn-timer-text">
-                                            <?php if ($timer_state === 'stopped'): ?>
-                                                    <?php echo e(t('Start timer')); ?>
-                                            <?php else: ?>
-                                                    <span id="timer-elapsed" class="tabular-nums"
-                                                        data-started="<?php echo strtotime($active_timer['started_at']); ?>"
-                                                        data-paused-seconds="<?php echo (int) ($active_timer['paused_seconds'] ?? 0); ?>"
-                                                        <?php if ($timer_is_paused && !empty($active_timer['paused_at'])): ?>
-                                                                data-paused-at="<?php echo strtotime($active_timer['paused_at']); ?>" <?php endif; ?>><?php echo format_duration_minutes($active_timer_elapsed); ?></span>
-                                                    <?php if ($timer_state === 'paused'): ?>
-                                                            <span class="text-xs uppercase ml-1"><?php echo e(t('Paused')); ?></span>
-                                                    <?php endif; ?>
-                                            <?php endif; ?>
-                                        </span>
-                                    </button>
-                                    <!-- Log on submit checkbox (visible when timer active) -->
-                                    <label id="timer-log-toggle"
-                                        class="<?php echo $timer_state === 'stopped' ? 'hidden' : ''; ?> inline-flex items-center gap-1.5 text-xs cursor-pointer select-none whitespace-nowrap text-theme-secondary">
-                                        <input type="checkbox" name="stop_timer" id="stop-timer-toggle" value="1" <?php echo $timer_state !== 'stopped' ? 'checked' : 'disabled'; ?>
-                                            class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4">
-                                        <span><?php echo e(t('Log on submit')); ?></span>
-                                    </label>
-                                    <!-- Discard button (visible when timer active) -->
-                                    <button type="button" id="btn-discard-timer"
-                                        class="<?php echo $timer_state === 'stopped' ? 'hidden' : ''; ?> btn btn-ghost px-2 py-1.5 hover:text-red-500 transition-colors text-theme-muted" title="<?php echo e(t('Discard timer')); ?>">
-                                        <?php echo get_icon('trash', 'w-4 h-4'); ?>
-                                    </button>
-                                </div>
-                                <!-- Manual entry toggle -->
-                                <button type="button" id="manual-toggle" class="btn btn-ghost px-2 py-1.5 text-theme-muted" aria-expanded="false"
-                                    title="<?php echo e(t('Manual entry')); ?>">
-                                    <?php echo get_icon('pen', 'w-4 h-4'); ?>
-                                </button>
-                        <?php endif; ?>
-                        <label class="flex items-center text-sm cursor-pointer whitespace-nowrap text-theme-secondary">
-                            <input type="checkbox" name="skip_notification" value="1" class="mr-2 rounded">
+                <!-- Reply actions -->
+                <div class="ticket-composer-submit-row">
+                    <div class="ticket-composer-submit-left">
+                        <?php include BASE_PATH . '/includes/components/ticket-workspace-timer.php'; ?>
+                        <label class="ticket-composer-skip-notification">
+                            <input type="checkbox" name="skip_notification" value="1" class="ticket-composer-checkbox">
                             <span><?php echo e(t('Do not send email notification')); ?></span>
                         </label>
                     </div>
-                    <div class="flex items-center gap-2 flex-shrink-0">
+                    <div class="ticket-composer-submit-right">
                         <?php if (is_agent()): ?>
                                 <!-- CC compact -->
-                                <div class="relative" id="agent-cc-dropdown-container">
+                                <div class="ticket-composer-cc-dropdown" id="agent-cc-dropdown-container">
                                     <button type="button" id="agent-cc-toggle"
-                                        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm border rounded-lg transition-colors"
-                                        style="color: var(--text-secondary); background: var(--bg-primary); border-color: var(--border-light);"
+                                        class="ticket-composer-cc-toggle"
                                         data-none-text="<?php echo e(t('CC')); ?>"
                                         data-selected-text="<?php echo e(t('CC')); ?>">
                                         <?php echo get_icon('users', 'w-3.5 h-3.5 td-text-muted'); ?>
@@ -232,23 +165,25 @@
                                         <?php echo get_icon('chevron-down', 'w-3 h-3 td-text-muted flex-shrink-0'); ?>
                                     </button>
                                     <div id="agent-cc-list"
-                                        class="hidden absolute z-50 bottom-full mb-1 right-0 w-64 border rounded-lg shadow-lg max-h-48 overflow-y-auto"
-                                        style="background: var(--bg-primary); border-color: var(--border-light);">
+                                        class="ticket-composer-cc-list hidden">
                                         <?php foreach ($all_users as $u): ?>
                                                 <?php if ($u['id'] !== $user['id'] && $u['id'] !== $ticket['user_id']): ?>
-                                                        <label class="flex items-center px-3 py-2 cursor-pointer tr-hover">
+                                                        <label class="ticket-composer-cc-option">
                                                             <input type="checkbox" name="cc_users[]" value="<?php echo $u['id']; ?>"
-                                                                data-email="<?php echo e($u['email'] ?? ''); ?>" class="agent-cc-checkbox rounded text-blue-600 mr-2">
+                                                                data-email="<?php echo e($u['email'] ?? ''); ?>" class="agent-cc-checkbox ticket-composer-checkbox">
                                                             <span
-                                                                class="text-sm truncate"><?php echo e($u['first_name'] . ' ' . $u['last_name']); ?></span>
+                                                                class="ticket-composer-cc-name"><?php echo e($u['first_name'] . ' ' . $u['last_name']); ?></span>
                                                         </label>
                                                 <?php endif; ?>
                                         <?php endforeach; ?>
                                     </div>
                                 </div>
                         <?php endif; ?>
+                        <?php if (is_agent() && $time_tracking_available): ?>
+                            <button type="button" class="btn btn-secondary ticket-composer-log-time" data-reply-time-toggle aria-expanded="false" aria-controls="reply-time-fields"><?php echo get_icon('clock', 'w-3.5 h-3.5'); ?><?php echo e(t('Log time')); ?></button>
+                        <?php endif; ?>
                         <button type="submit" name="add_comment" id="comment-submit-btn"
-                            class="btn btn-primary whitespace-nowrap"
+                            class="btn btn-primary ticket-composer-submit-button"
                             data-default-text="<?php echo e(t('Send update')); ?>"
                             data-log-time-text="<?php echo e(t('Log time & send update')); ?>"
                             data-stop-text="<?php echo e(t('Stop timer & send update')); ?>"

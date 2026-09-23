@@ -453,6 +453,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $manual_range_requested = is_agent() && ($manual_start_input !== '' || $manual_end_input !== '' || $manual_start_time_input !== '' || $manual_end_time_input !== '');
         $manual_snapshot_requested = $manual_quick_requested && $manual_start_at_input !== '' && $manual_end_at_input !== '';
         $manual_requested = $manual_range_requested || $manual_quick_requested;
+        $reply_manual_requested = is_agent() && !empty($_POST['reply_manual_time']);
+        if ($reply_manual_requested && !$manual_requested) {
+            flash(t('Please fill in all required fields.'), 'error');
+            redirect('ticket', ['id' => $ticket_id]);
+        }
+        // The composer also accepts time-only work. Empty Quill markup is not a reply.
+        if ($reply_manual_requested && trim(str_replace("\xC2\xA0", ' ', $pending_public_comment_text)) === '' && !preg_match('/<img\\b/i', $content)) {
+            $content = '';
+        }
         $log_time_requested = $stop_timer || $manual_requested;
         $comment_time_spent = 0;
         $manual_start_dt = null;
@@ -467,6 +476,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($manual_requested) {
+            if ($reply_manual_requested) {
+                $work_date = DateTime::createFromFormat('!Y-m-d', $manual_date_input);
+                if (!$work_date || $work_date->format('Y-m-d') !== $manual_date_input || ($manual_quick_requested && !preg_match('/^[0-9]+$/', $manual_duration_input))) {
+                    flash(t('Invalid time range.'), 'error');
+                    redirect('ticket', ['id' => $ticket_id]);
+                }
+            }
             if ($manual_quick_requested && ($manual_duration_minutes < 1 || $manual_duration_minutes > 1440)) {
                 flash(t('Duration must be between 1 and 1440 minutes.'), 'error');
                 redirect('ticket', ['id' => $ticket_id]);
@@ -475,6 +491,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($manual_snapshot_requested) {
                 $manual_start_dt = DateTime::createFromFormat('Y-m-d\\TH:i', $manual_start_at_input);
                 $manual_end_dt = DateTime::createFromFormat('Y-m-d\\TH:i', $manual_end_at_input);
+            } elseif ($reply_manual_requested && $manual_quick_requested && !$manual_range_requested) {
+                // Quick minutes end at the current clock time on the selected work date.
+                $manual_end_dt = new DateTime();
+                $manual_end_dt->setDate((int) $work_date->format('Y'), (int) $work_date->format('m'), (int) $work_date->format('d'));
+                $manual_start_dt = (clone $manual_end_dt)->modify('-' . $manual_duration_minutes . ' minutes');
             } elseif ($manual_quick_requested && !$manual_range_requested) {
                 $manual_end_dt = new DateTime();
                 $manual_start_dt = (clone $manual_end_dt)->modify('-' . $manual_duration_minutes . ' minutes');
@@ -620,6 +641,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'comment_id' => $comment_id
                 ], 'id = ?', [$active_timer['id']]);
                 log_activity($ticket_id, $user['id'], 'time_stopped', "Timer stopped ({$timer_duration} min)");
+                notify_saved_time_entry((int) $active_timer['id'], (int) $user['id']);
             }
 
             if ($manual_requested && !($stop_timer && $active_timer) && $manual_start_dt && $manual_end_dt) {
@@ -639,11 +661,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (function_exists('time_entry_source_column_exists') && time_entry_source_column_exists()) {
                     $manual_insert['source'] = 'manual';
                 }
-                db_insert('ticket_time_entries', $manual_insert);
+                if ($reply_manual_requested && function_exists('ticket_time_work_metadata_columns_exist') && ticket_time_work_metadata_columns_exist()) {
+                    $manual_insert['worked_on'] = $manual_start_dt->format('Y-m-d');
+                    $manual_insert['time_precision'] = 'exact';
+                }
+                $manual_entry_id = db_insert('ticket_time_entries', $manual_insert);
+                notify_saved_time_entry((int) $manual_entry_id, (int) $user['id']);
                 log_activity($ticket_id, $user['id'], 'time_manual', "Manual time added ({$manual_duration} min)");
             }
         }
 
+            if ($reply_manual_requested && !$comment_id) {
+                db_update('tickets', ['updated_at' => $comment_created_at], 'id = ?', [$ticket_id]);
+            }
             $workflow_db->commit();
         } catch (Throwable $error) {
             if ($workflow_db->inTransaction()) $workflow_db->rollBack();

@@ -23,10 +23,6 @@
                             <span data-edit-ticket-title><?php echo e(t('Edit ticket')); ?></span>
                         </h3>
 
-                        <p class="quick-start-ticket-note hidden" data-quick-start-note>
-                            <?php echo e(t('The timer is running. Add a subject and client now; everything else can wait.')); ?>
-                        </p>
-
                         <div class="space-y-3">
                             <div>
                                 <label class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Subject')); ?> *</label>
@@ -53,7 +49,7 @@
                             <?php endif; ?>
 
                             <?php if (is_agent()): ?>
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" data-quick-start-optional>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
                                             <label for="edit-ticket-status" class="block text-xs font-medium mb-1 text-theme-muted"><?php echo e(t('Status')); ?></label>
                                             <select name="edit_status_id" id="edit-ticket-status" class="form-select w-full" required>
@@ -131,28 +127,6 @@
         </div>
 <?php endif; ?>
 
-<?php if (can_permanently_delete_tickets($user)): ?>
-    <div id="ticket-permanent-delete-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="ticket-permanent-delete-title">
-        <button type="button" class="modal-backdrop" data-close-permanent-delete aria-label="<?php echo e(t('Cancel')); ?>"></button>
-        <div class="modal-panel max-w-lg">
-            <div class="modal-panel-body space-y-4">
-                <div>
-                    <h3 id="ticket-permanent-delete-title" class="text-lg font-semibold text-red-700"><?php echo e(t('Permanently delete ticket')); ?></h3>
-                    <p class="mt-2 text-sm text-theme-secondary"><?php echo e(t('This action cannot be undone. Check what will be removed before you continue.')); ?></p>
-                </div>
-                <div class="card-body bg-theme-secondary fd-rounded-control text-sm space-y-2" data-permanent-delete-summary>
-                    <?php echo e(t('Loading deletion summary...')); ?>
-                </div>
-                <p class="text-sm text-red-600 hidden" data-permanent-delete-error></p>
-            </div>
-            <div class="modal-panel-footer">
-                <button type="button" class="btn btn-secondary" data-close-permanent-delete><?php echo e(t('Cancel')); ?></button>
-                <button type="button" class="btn btn-danger" disabled data-confirm-permanent-delete><?php echo e(t('Delete permanently')); ?></button>
-            </div>
-        </div>
-    </div>
-<?php endif; ?>
-
 <!-- Edit Comment Modal -->
 <?php if (is_admin() || is_agent()): ?>
         <div id="edit-comment-modal" class="modal-overlay hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -160,7 +134,7 @@
             <div class="modal-panel max-w-lg">
                 <form id="edit-comment-form" onsubmit="submitEditComment(event)">
                     <div class="modal-panel-body">
-                        <h3 class="text-lg font-medium mb-4" id="modal-title" style="color: var(--text-primary);">
+                        <h3 class="text-lg font-medium mb-4 text-theme-primary" id="modal-title">
                             <?php echo e(t('Edit comment')); ?></h3>
                         <input type="hidden" name="comment_id" id="edit-comment-id">
                         <div class="editor-wrapper">
@@ -229,7 +203,7 @@
                             <div>
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="checkbox" name="is_billable" id="edit-time-billable" value="1"
-                                        class="rounded text-blue-600 focus:ring-blue-500">
+                                        class="fd-rounded-control text-blue-600 focus:ring-blue-500">
                                     <span class="text-sm text-theme-secondary"><?php echo e(t('Billable')); ?></span>
                                 </label>
                             </div>
@@ -245,3 +219,34 @@
             </div>
         </div>
 <?php endif; ?>
+
+<?php if (can_permanently_delete_tickets($user)): ?>
+    <div id="ticket-permanent-delete-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="ticket-permanent-delete-title">
+        <button type="button" class="modal-backdrop" data-close-permanent-delete aria-label="<?php echo e(t('Cancel')); ?>"></button>
+        <div class="modal-panel max-w-lg">
+            <div class="modal-panel-body space-y-4">
+                <div>
+                    <h3 id="ticket-permanent-delete-title" class="text-lg font-semibold text-red-700"><?php echo e(t('Permanently delete ticket')); ?></h3>
+                    <p class="mt-2 text-sm text-theme-secondary"><?php echo e(t('This action cannot be undone. Check what will be removed before you continue.')); ?></p>
+                </div>
+                <div class="card-body bg-theme-secondary fd-rounded-control text-sm space-y-2" data-permanent-delete-summary>
+                    <?php echo e(t('Loading deletion summary...')); ?>
+                </div>
+                <p class="text-sm text-red-600 hidden" data-permanent-delete-error></p>
+            </div>
+            <div class="modal-panel-footer">
+                <button type="button" class="btn btn-secondary" data-close-permanent-delete><?php echo e(t('Cancel')); ?></button>
+                <button type="button" class="btn btn-danger" disabled data-confirm-permanent-delete><?php echo e(t('Delete permanently')); ?></button>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
+<?php
+$ticket_detail_modal_asset_version = isset($ticket_detail_asset_version) && is_callable($ticket_detail_asset_version)
+    ? $ticket_detail_asset_version
+    : static function (string $path): string {
+        return (defined('APP_VERSION') ? (string) APP_VERSION : '1') . '-' . (string) (@filemtime(BASE_PATH . '/' . $path) ?: '0');
+    };
+?>
+<script src="assets/js/upload-preview.js?v=<?php echo e($ticket_detail_modal_asset_version('assets/js/upload-preview.js')); ?>"></script>

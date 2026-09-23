@@ -148,8 +148,13 @@ if (isset($_GET['ajax_history'])) {
 }
 
 include BASE_PATH . '/includes/header.php';
+require_once BASE_PATH . '/includes/components/admin-settings-tabs.php';
 ?>
 
+<div class="settings-workspace" data-settings-workspace>
+<?php render_admin_settings_tabs('recurring-tasks'); ?>
+<div class="settings-workspace__content">
+<?php render_admin_settings_subtabs('recurring-tasks'); ?>
 <div class="admin-legacy-page">
     <section class="admin-hero">
         <div>
@@ -209,9 +214,10 @@ include BASE_PATH . '/includes/header.php';
             </button>
         </div>
     <?php else: ?>
-        <div class="admin-list-card admin-table">
-            <table class="w-full">
-                <thead class="border-b" style="background: var(--surface-secondary); border-color: var(--border-light);">
+        <div class="admin-list-card admin-table recurring-table-wrap">
+            <table class="w-full recurring-table">
+                <colgroup><col style="width:28%"><col style="width:14%"><col style="width:16%"><col style="width:12%"><col style="width:12%"><col style="width:10%"><col style="width:8%"></colgroup>
+                <thead class="border-b bg-theme-secondary border-theme-light">
                     <tr>
                         <th class="px-6 py-3 text-left th-label"><?php echo e(t('Task')); ?></th>
                         <th class="px-6 py-3 text-left th-label"><?php echo e(t('Assigned To')); ?></th>
@@ -319,27 +325,28 @@ include BASE_PATH . '/includes/header.php';
                                 <?php endif; ?>
                             </td>
                             <td class="px-6 py-4 text-right">
-                                <div class="flex items-center justify-end gap-1">
+                                <button type="button" class="btn btn-secondary btn-sm" popovertarget="recurring-actions-<?php echo (int) $task['id']; ?>" aria-label="<?php echo e(t('Actions') . ' · ' . $task['title']); ?>"><?php echo get_icon('ellipsis-h', 'w-4 h-4'); ?></button>
+                                <div class="report-row-actions" data-row-action-menu popover="auto" id="recurring-actions-<?php echo (int) $task['id']; ?>">
                                     <!-- Run Now -->
                                     <form method="POST" class="inline" onsubmit="return confirm('<?php echo e(t('Run this task now? A new ticket will be created immediately.')); ?>');">
                                         <?php echo csrf_field(); ?>
                                         <input type="hidden" name="action" value="run_now">
                                         <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
                                         <button type="submit" class="text-green-600 hover:text-green-800 text-sm font-medium px-1" title="<?php echo e(t('Run Now')); ?>">
-                                            <?php echo get_icon('play', 'inline-block'); ?>
+                                            <?php echo get_icon('play', 'inline-block'); ?><?php echo e(t('Run Now')); ?>
                                         </button>
                                     </form>
 
                                     <!-- Edit -->
                                     <button onclick='editTask(<?php echo json_encode($task, JSON_HEX_APOS | JSON_HEX_QUOT); ?>)'
                                         class="text-blue-600 hover:text-blue-800 text-sm font-medium px-1" title="<?php echo e(t('Edit')); ?>">
-                                        <?php echo get_icon('edit', 'inline-block'); ?>
+                                        <?php echo get_icon('edit', 'inline-block'); ?><?php echo e(t('Edit')); ?>
                                     </button>
 
                                     <!-- Preview -->
                                     <button onclick='openPreviewModal(<?php echo json_encode($task, JSON_HEX_APOS | JSON_HEX_QUOT); ?>)'
                                         class="hover:text-blue-800 text-sm font-medium px-1 text-theme-muted" title="<?php echo e(t('Preview Ticket')); ?>">
-                                        <?php echo get_icon('eye', 'inline-block'); ?>
+                                        <?php echo get_icon('eye', 'inline-block'); ?><?php echo e(t('Preview Ticket')); ?>
                                     </button>
 
                                     <!-- Duplicate -->
@@ -348,7 +355,7 @@ include BASE_PATH . '/includes/header.php';
                                         <input type="hidden" name="action" value="duplicate">
                                         <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
                                         <button type="submit" class="hover:text-blue-800 text-sm font-medium px-1 text-theme-muted" title="<?php echo e(t('Duplicate')); ?>">
-                                            <?php echo get_icon('copy', 'inline-block'); ?>
+                                            <?php echo get_icon('copy', 'inline-block'); ?><?php echo e(t('Duplicate')); ?>
                                         </button>
                                     </form>
 
@@ -356,7 +363,7 @@ include BASE_PATH . '/includes/header.php';
                                     <?php if ($task['is_active']): ?>
                                         <button type="button" onclick="openPauseModal(<?php echo $task['id']; ?>, <?php echo e(json_encode($task['title'])); ?>)"
                                             class="text-orange-600 hover:text-orange-800 text-sm font-medium px-1" title="<?php echo e(t('Pause')); ?>">
-                                            <?php echo get_icon('pause-circle', 'inline-block'); ?>
+                                            <?php echo get_icon('pause-circle', 'inline-block'); ?><?php echo e(t('Pause')); ?>
                                         </button>
                                     <?php else: ?>
                                         <form method="POST" class="inline">
@@ -364,7 +371,7 @@ include BASE_PATH . '/includes/header.php';
                                             <input type="hidden" name="action" value="resume">
                                             <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
                                             <button type="submit" class="text-green-600 hover:text-green-800 text-sm font-medium px-1" title="<?php echo e(t('Resume')); ?>">
-                                                <?php echo get_icon('play', 'inline-block'); ?>
+                                                <?php echo get_icon('play', 'inline-block'); ?><?php echo e(t('Resume')); ?>
                                             </button>
                                         </form>
                                     <?php endif; ?>
@@ -376,7 +383,7 @@ include BASE_PATH . '/includes/header.php';
                                         <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="task_id" value="<?php echo $task['id']; ?>">
                                         <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-medium px-1" title="<?php echo e(t('Delete')); ?>">
-                                            <?php echo get_icon('trash', 'inline-block'); ?>
+                                            <?php echo get_icon('trash', 'inline-block'); ?><?php echo e(t('Delete')); ?>
                                         </button>
                                     </form>
                                 </div>
@@ -965,4 +972,7 @@ include BASE_PATH . '/includes/header.php';
     }
 </script>
 
+</div>
+</div>
+<script src="assets/js/settings-workspace.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/settings-workspace.js'); ?>" defer></script>
 <?php include BASE_PATH . '/includes/footer.php';

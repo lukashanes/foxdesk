@@ -98,12 +98,9 @@ include BASE_PATH . '/includes/components/page-header.php';
             </div>
             <?php endif; ?>
 
-            <!-- Advanced Settings (collapsible) -->
-            <details class="group">
-                <summary class="flex items-center gap-2 cursor-pointer py-2 text-sm font-medium text-theme-secondary">
-                    <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                    <?php echo e(t('Advanced')); ?>
-                </summary>
+            <!-- Core ticket properties are visible without expanding advanced options. -->
+            <section class="new-ticket-properties" aria-labelledby="new-ticket-properties-title">
+                <h2 id="new-ticket-properties-title" class="text-sm font-semibold text-theme-primary"><?php echo e(t('Ticket properties')); ?></h2>
                 <div class="pt-2 space-y-4">
                     <!-- Priority, Ticket Type, Due Date, Assign To, On Behalf Of -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -203,7 +200,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                     </div>
                 </div>
-            </details>
+            </section>
         </div>
 
         <?php if (is_agent() && function_exists('ticket_time_table_exists') && ticket_time_table_exists()): ?>

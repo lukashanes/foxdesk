@@ -1,0 +1,9 @@
+{
+  "package": "pdfjs-dist",
+  "version": "6.3.289",
+  "files": {
+    "pdf.min.mjs": "f80490490320511e5df18c580b9edd6b5db8058dceebaf6f161992e0a964b9e2",
+    "pdf.worker.min.mjs": "8ab0e5e30031b4a06ecfddd5ae9562f0227f830ee7ec9ed1a968b134243d2386",
+    "LICENSE": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+  }
+}

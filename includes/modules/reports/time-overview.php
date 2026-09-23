@@ -14,6 +14,7 @@ function report_time_overview_work_log_rows(array $entries, int $limit = 120): a
         $ended_at = (string) ($entry['ended_at'] ?? '');
         $summary = trim((string) ($entry['summary'] ?? ''));
         $agent = trim((string) ($entry['first_name'] ?? '') . ' ' . (string) ($entry['last_name'] ?? ''));
+        $exact_time = ($entry['time_precision'] ?? 'exact') === 'exact';
 
         $rows[] = [
             'id' => (int) ($entry['id'] ?? 0),
@@ -24,8 +25,8 @@ function report_time_overview_work_log_rows(array $entries, int $limit = 120): a
             'agent' => $agent !== '' ? $agent : t('Unknown agent'),
             'started_at' => $started_at,
             'ended_at' => $ended_at,
-            'started_label' => $started_at !== '' ? date('d.m. H:i', strtotime($started_at)) : '-',
-            'ended_label' => $ended_at !== '' ? date('H:i', strtotime($ended_at)) : '',
+            'started_label' => $started_at !== '' ? date($exact_time ? 'd.m. H:i' : 'd.m.', strtotime($started_at)) : '-',
+            'ended_label' => $ended_at !== '' && $exact_time ? date('H:i', strtotime($ended_at)) : '',
             'minutes' => (int) ($entry['actual_minutes'] ?? $entry['duration_minutes'] ?? 0),
             'summary' => $summary !== '' ? $summary : t('No note'),
             'is_billable' => !empty($entry['is_billable']),

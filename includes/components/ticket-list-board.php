@@ -1,4 +1,5 @@
             <?php
+            // Board mode owns only Kanban-specific layout and status columns.
             $can_drag = is_agent() || is_admin();
             $main_column_count = max(1, count($kanban_main_statuses));
             $center_wide_board = $main_column_count <= 2;
@@ -10,11 +11,11 @@
             if ($fill_wide_board) {
                 $main_board_classes .= ' kanban-board--fill';
             }
-            $main_board_style = ($center_wide_board || $fill_wide_board)
-                ? '--kanban-column-count: ' . $main_column_count . ';'
-                : '';
+            if ($center_wide_board || $fill_wide_board) {
+                $main_board_classes .= ' kanban-board--count-' . $main_column_count;
+            }
             ?>
-            <div class="<?php echo e($main_board_classes); ?>"<?php echo $main_board_style !== '' ? ' style="' . e($main_board_style) . '"' : ''; ?> data-kanban-scope="main">
+            <div class="<?php echo e($main_board_classes); ?>" data-kanban-scope="main">
                 <?php foreach ($kanban_main_statuses as $status): ?>
                     <?php
                     $status_key = (int) ($status['id'] ?? 0);
@@ -25,8 +26,10 @@
                          data-is-closed="<?php echo !empty($status['is_closed']) ? '1' : '0'; ?>"
                          data-kanban-scope="main">
                         <div class="kanban-column-header">
-                            <span class="kanban-dot" style="background: <?php echo e($status['color']); ?>;"></span>
-                            <span class="kanban-status-name"><?php echo e($status['name']); ?></span>
+                            <?php echo function_exists('ticket_status_color_dot_svg')
+                                ? ticket_status_color_dot_svg($status, 'kanban-dot-svg')
+                                : '<span class="' . e(ticket_registry_status_dot_class(ticket_registry_status_group_from_status($status), 'kanban-dot')) . '"></span>'; ?>
+                            <span class="kanban-status-name"><?php echo e($status_display_name($status)); ?></span>
                             <span class="kanban-count"><?php echo count($status_tickets); ?></span>
                         </div>
                         <div class="kanban-cards"
@@ -54,10 +57,10 @@
                                                 </span>
                                             <?php endif; ?>
                                         </div>
-                                        <div class="kanban-card-title" dir="auto"><?php echo e($ticket['title']); ?></div>
+                                        <div class="kanban-card-title"><bdi dir="auto"><?php echo e($ticket['title']); ?></bdi></div>
                                         <div class="kanban-card-meta">
                                             <?php if (!empty($ticket['priority_name'])): ?>
-                                                <span class="kanban-card-priority" style="background: <?php echo e($priority_color); ?>20; color: <?php echo e($priority_color); ?>;">
+                                                <span class="<?php echo e(ticket_registry_priority_badge_class($ticket['priority_name'], 'kanban-card-priority ticket-priority-inline')); ?>">
                                                     <?php echo e($ticket['priority_name']); ?>
                                                 </span>
                                             <?php endif; ?>
@@ -73,11 +76,11 @@
                                     </a>
                                     <?php if ($can_drag): ?>
                                         <select class="kanban-mobile-status" data-ticket-id="<?php echo (int) $ticket['id']; ?>" aria-label="<?php echo e(t('Move to')); ?>">
-                                            <?php foreach ($statuses as $opt_status): ?>
+                                            <?php foreach ($workflow_statuses as $opt_status): ?>
                                                 <option value="<?php echo (int) $opt_status['id']; ?>"
                                                         data-is-closed="<?php echo !empty($opt_status['is_closed']) ? '1' : '0'; ?>"
                                                         <?php echo (int) $opt_status['id'] === (int) $ticket['status_id'] ? 'selected' : ''; ?>>
-                                                    <?php echo e($opt_status['name']); ?>
+                                                    <?php echo e($status_display_name($opt_status)); ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
@@ -88,7 +91,6 @@
                     </div>
                 <?php endforeach; ?>
             </div>
-
             <?php if ($kanban_archived_closed_count > 0): ?>
                 <button type="button"
                         class="kanban-closed-toggle"
@@ -109,8 +111,10 @@
                                  data-is-closed="1"
                                  data-kanban-scope="archived">
                                 <div class="kanban-column-header">
-                                    <span class="kanban-dot" style="background: <?php echo e($status['color']); ?>;"></span>
-                                    <span class="kanban-status-name"><?php echo e($status['name']); ?></span>
+                                    <?php echo function_exists('ticket_status_color_dot_svg')
+                                        ? ticket_status_color_dot_svg($status, 'kanban-dot-svg')
+                                        : '<span class="' . e(ticket_registry_status_dot_class(ticket_registry_status_group_from_status($status), 'kanban-dot')) . '"></span>'; ?>
+                                    <span class="kanban-status-name"><?php echo e($status_display_name($status)); ?></span>
                                     <span class="kanban-count"><?php echo count($status_tickets); ?></span>
                                 </div>
                                 <div class="kanban-cards"
@@ -138,10 +142,10 @@
                                                         </span>
                                                     <?php endif; ?>
                                                 </div>
-                                                <div class="kanban-card-title" dir="auto"><?php echo e($ticket['title']); ?></div>
+                                                <div class="kanban-card-title"><bdi dir="auto"><?php echo e($ticket['title']); ?></bdi></div>
                                                 <div class="kanban-card-meta">
                                                     <?php if (!empty($ticket['priority_name'])): ?>
-                                                        <span class="kanban-card-priority" style="background: <?php echo e($priority_color); ?>20; color: <?php echo e($priority_color); ?>;">
+                                                        <span class="<?php echo e(ticket_registry_priority_badge_class($ticket['priority_name'], 'kanban-card-priority ticket-priority-inline')); ?>">
                                                             <?php echo e($ticket['priority_name']); ?>
                                                         </span>
                                                     <?php endif; ?>
@@ -157,11 +161,11 @@
                                             </a>
                                             <?php if ($can_drag): ?>
                                                 <select class="kanban-mobile-status" data-ticket-id="<?php echo (int) $ticket['id']; ?>" aria-label="<?php echo e(t('Move to')); ?>">
-                                                    <?php foreach ($statuses as $opt_status): ?>
+                                                    <?php foreach ($workflow_statuses as $opt_status): ?>
                                                         <option value="<?php echo (int) $opt_status['id']; ?>"
                                                                 data-is-closed="<?php echo !empty($opt_status['is_closed']) ? '1' : '0'; ?>"
                                                                 <?php echo (int) $opt_status['id'] === (int) $ticket['status_id'] ? 'selected' : ''; ?>>
-                                                            <?php echo e($opt_status['name']); ?>
+                                                            <?php echo e($status_display_name($opt_status)); ?>
                                                         </option>
                                                     <?php endforeach; ?>
                                                 </select>

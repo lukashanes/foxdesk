@@ -185,41 +185,26 @@ if ('serviceWorker' in navigator) {
 })();
 </script>
 <!-- Image Preview Lightbox -->
-<div id="image-lightbox"
-     style="display:none; position:fixed; inset:0; z-index:9999; align-items:center; justify-content:center; background:rgba(0,0,0,0.75); padding:1rem; cursor:pointer;"
-     onclick="if(event.target===this)closeImagePreview();">
-    <div style="position:relative; display:flex; flex-direction:column; align-items:center; max-width:90vw; max-height:90vh; cursor:default;">
-        <img id="lightbox-img" alt=""
-             style="max-width:90vw; max-height:85vh; width:auto; height:auto; object-fit:contain; border-radius: var(--fd-radius-control); box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
-        <div id="lightbox-name" style="text-align:center; color:#fff; font-size:0.875rem; margin-top:0.5rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;"></div>
-        <button onclick="closeImagePreview();"
-                style="position:absolute; top:-0.75rem; inset-inline-end:-0.75rem; width:2rem; height:2rem; border-radius:50%; background:rgba(0,0,0,0.6); color:#fff; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1.25rem; line-height:1; transition:background 0.15s;"
-                onmouseover="this.style.background='rgba(0,0,0,0.85)'" onmouseout="this.style.background='rgba(0,0,0,0.6)'">&times;</button>
+<div id="image-lightbox" class="image-lightbox" hidden aria-hidden="true">
+    <div class="image-lightbox__dialog" role="dialog" aria-modal="true" aria-labelledby="lightbox-name">
+        <img id="lightbox-img" class="image-lightbox__image" alt="">
+        <div id="lightbox-name" class="image-lightbox__name"></div>
+        <button type="button" class="image-lightbox__close" data-image-preview-close aria-label="<?php echo e(t('Close')); ?>">&times;</button>
     </div>
 </div>
-<script>
-function openImagePreview(src, name) {
-    var lb = document.getElementById('image-lightbox');
-    var img = document.getElementById('lightbox-img');
-    if (src) {
-        img.src = src;
-    } else {
-        img.removeAttribute('src');
-    }
-    document.getElementById('lightbox-name').textContent = name || '';
-    lb.style.display = 'flex';
-    document.addEventListener('keydown', _lbEsc);
-}
-function closeImagePreview() {
-    var lb = document.getElementById('image-lightbox');
-    lb.style.display = 'none';
-    document.getElementById('lightbox-img').removeAttribute('src');
-    document.removeEventListener('keydown', _lbEsc);
-}
-function _lbEsc(e) { if (e.key === 'Escape') closeImagePreview(); }
-</script>
+<script defer src="assets/js/image-preview.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/image-preview.js'); ?>"></script>
+<dialog class="document-dialog" data-document-dialog aria-labelledby="document-preview-title" data-loading="<?php echo e(t('Loading...')); ?>" data-unavailable="<?php echo e(t('media.preview_unavailable')); ?>">
+    <header><h2 id="document-preview-title" data-document-title dir="auto"></h2><a class="btn btn-secondary btn-sm" data-document-download download><?php echo e(t('Download')); ?></a><button class="btn btn-secondary btn-sm" type="button" data-document-close><?php echo e(t('Close')); ?></button></header>
+    <p role="status" data-document-status></p><div class="document-dialog__body" data-document-body></div>
+    <footer><button class="btn btn-secondary btn-sm" type="button" data-document-prev><?php echo e(t('Previous')); ?></button><span data-document-pager></span><button class="btn btn-secondary btn-sm" type="button" data-document-next><?php echo e(t('Next')); ?></button></footer>
+</dialog>
+<script type="module" src="assets/js/document-preview.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/document-preview.js'); ?>"></script>
 <script defer src="assets/js/page-transitions.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
-<script defer src="assets/js/app-footer.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
+<script defer src="assets/js/app-api-client.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/app-api-client.js'); ?>"></script>
+<script defer src="assets/js/app-footer.js?v=<?php echo (defined('APP_VERSION') ? APP_VERSION : '1') . '-' . (int) filemtime(BASE_PATH . '/assets/js/app-footer.js'); ?>"></script>
+<span hidden data-soft-select-config data-search="<?php echo e(t('Search')); ?>" data-empty="<?php echo e(t('No entries')); ?>" data-scope="self-hosted-<?php echo (int) (current_user()['id'] ?? 0); ?>"></span>
+<script defer src="assets/js/soft-select.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/soft-select.js'); ?>"></script>
+<script defer src="assets/js/row-action-menu.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/row-action-menu.js'); ?>"></script>
 <?php if (in_array($page ?? '', ['ticket', 'tickets', 'work'], true)): ?>
 <script id="ticket-workflow-script" data-scope="<?php echo (int) (current_user()['tenant_id'] ?? 0) . '-' . (int) (current_user()['id'] ?? 0); ?>" src="assets/js/ticket-workflow.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/ticket-workflow.js'); ?>" defer></script>
 <?php endif; ?>

@@ -34,8 +34,11 @@ foreach ($component_attachments as $_att) {
     <?php foreach ($_images as $_img): ?>
         <?php $_src = attachment_download_url($_img); ?>
         <a href="<?php echo e($_src); ?>" target="_blank"
-           class="attachment-thumb group fd-attachment-thumb <?php echo $_layout === 'grid' ? '' : 'fd-attachment-thumb--inline'; ?>"
-           onclick="event.preventDefault(); openImagePreview('<?php echo e($_src); ?>', '<?php echo e($_img['original_name']); ?>');">
+           class="attachment-thumb ticket-attachment-link group fd-attachment-thumb <?php echo $_layout === 'grid' ? '' : 'fd-attachment-thumb--inline'; ?>"
+           data-image-preview-trigger
+           data-image-unavailable="<?php echo e(t('media.preview_unavailable')); ?>"
+           data-image-preview-src="<?php echo e($_src); ?>"
+           data-image-preview-name="<?php echo e($_img['original_name']); ?>">
             <img src="<?php echo e($_src); ?>" alt="<?php echo e($_img['original_name']); ?>"
                  class="object-cover"
                  loading="lazy">
@@ -52,10 +55,13 @@ foreach ($component_attachments as $_att) {
 <?php if (!empty($_files)): ?>
 <div class="flex flex-wrap gap-2 <?php echo !empty($_images) ? 'mt-2' : 'mt-2'; ?>">
     <?php foreach ($_files as $_f): ?>
+        <?php $_previewable = in_array($_f['mime_type'] ?? '', ['application/pdf','text/plain','text/csv','application/json'], true) && (int) ($_f['file_size'] ?? 0) <= 20 * 1024 * 1024; ?>
         <a href="<?php echo e(attachment_download_url($_f)); ?>" target="_blank"
-           class="fd-attachment-file">
+           class="ticket-attachment-link fd-attachment-file <?php echo $_previewable ? 'document-thumb' : ''; ?>"
+           <?php if ($_previewable): ?>data-document-preview data-mime="<?php echo e($_f['mime_type']); ?>" data-size="<?php echo (int) $_f['file_size']; ?>" data-name="<?php echo e($_f['original_name']); ?>" aria-label="<?php echo e(t('media.preview') . ': ' . $_f['original_name']); ?>"<?php endif; ?>>
+            <?php if ($_previewable): ?><span class="document-thumb__sheet" data-document-thumb><?php echo get_icon(get_file_icon($_f['mime_type']), 'w-6 h-6'); ?></span><?php endif; ?>
             <?php echo get_icon(get_file_icon($_f['mime_type']), 'w-3.5 h-3.5 flex-shrink-0'); ?>
-            <bdi class="truncate max-w-[140px]"><?php echo e($_f['original_name']); ?></bdi>
+            <span class="truncate max-w-[140px]"><?php echo e($_f['original_name']); ?></span>
             <span class="text-xs text-theme-muted"><?php echo format_file_size($_f['file_size']); ?></span>
         </a>
     <?php endforeach; ?>

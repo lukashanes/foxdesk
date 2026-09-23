@@ -77,14 +77,14 @@ for (const absolute of sourceFiles) {
     fail(`${relative}: physical JavaScript positioning is not documented in the allowlist.`);
     continue;
   }
-  const allowedMatches = source.split(rule.pattern).length - 1;
+  const allowedMatches = (rule.patterns || [rule.pattern]).reduce((count, pattern) => count + source.split(pattern).length - 1, 0);
   if (allowedMatches !== matches.length || matches.length > rule.maxMatches) {
     fail(`${relative}: physical JavaScript allowlist no longer matches source (${matches.length} occurrences).`);
   }
 }
 for (const rule of scriptRules.values()) {
   const source = fs.readFileSync(path.join(root, rule.file), 'utf8');
-  const count = source.split(rule.pattern).length - 1;
+  const count = (rule.patterns || [rule.pattern]).reduce((count, pattern) => count + source.split(pattern).length - 1, 0);
   if (count === 0) {
     fail(`${rule.file}: remove stale physical-direction allowlist entry.`);
   }

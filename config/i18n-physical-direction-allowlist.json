@@ -9,6 +9,12 @@
   ],
   "scripts": [
     {
+      "file": "assets/js/soft-select.js",
+      "pattern": ".style.left",
+      "maxMatches": 1,
+      "reason": "Viewport-coordinate placement of the accessible picker, clamped in both LTR and RTL."
+    },
+    {
       "file": "assets/js/ticket-list-actions.js",
       "pattern": ".style.left",
       "maxMatches": 2,
@@ -16,9 +22,21 @@
     },
     {
       "file": "assets/js/ticket-list.js",
-      "pattern": ".style.left",
-      "maxMatches": 4,
+      "patterns": [".style.left", ".style.right"],
+      "maxMatches": 5,
       "reason": "Viewport-coordinate placement for detached dropdowns; this is geometry, not reading direction."
+    },
+    {
+      "file": "assets/js/ticket-list-due-date.js",
+      "pattern": ".style.left",
+      "maxMatches": 1,
+      "reason": "Viewport-coordinate placement for the detached due-date popover, not reading direction."
+    },
+    {
+      "file": "assets/js/ticket-list-time.js",
+      "pattern": ".style.left",
+      "maxMatches": 2,
+      "reason": "Viewport-coordinate placement for detached time-entry popovers, not reading direction."
     }
   ]
 }

@@ -114,6 +114,18 @@ window.showAppToast = function(message, type, options) {
     text.className = 'text-sm';
     text.textContent = String(message);
 
+    var action = null;
+    if (options.actionLabel && typeof options.onAction === 'function') {
+        action = document.createElement('button');
+        action.type = 'button';
+        action.className = 'text-sm font-semibold underline underline-offset-2';
+        action.textContent = String(options.actionLabel);
+        action.addEventListener('click', function() {
+            options.onAction();
+            dismissFlashMessage(wrapper);
+        });
+    }
+
     var close = document.createElement('button');
     close.type = 'button';
     close.className = 'flash-close';
@@ -121,6 +133,7 @@ window.showAppToast = function(message, type, options) {
     close.innerHTML = '&times;';
 
     row.appendChild(text);
+    if (action) row.appendChild(action);
     row.appendChild(close);
     wrapper.appendChild(row);
     stack.appendChild(wrapper);
@@ -671,13 +684,18 @@ document.addEventListener('click', function(event) {
         fetch(apiUrl)
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (data.success) renderSidebarTimers(data.timers || []);
+                if (data.success) {
+                    renderSidebarTimers(data.timers || []);
+                    document.dispatchEvent(new CustomEvent('activeTimersUpdated', {detail: {timers: data.timers || []}}));
+                }
             })
             .catch(function(err) { console.warn('Sidebar timers poll failed:', err.message || err); });
     }
 
     // Poll every 30s (don't poll immediately — PHP already rendered initial state)
     setInterval(pollSidebarTimers, 30000);
+    // Seed the dashboard from the same authoritative timer state as the sidebar.
+    pollSidebarTimers();
 
     // Instant refresh when timer state changes on current page
     document.addEventListener('timerStateChanged', function() {

@@ -1208,6 +1208,46 @@ function page_views_table_exists()
     return $exists;
 }
 
+/** Normalize a backdated datetime-local input; null for empty, false for invalid/future. */
+function foxdesk_normalize_backdated_datetime_input($value)
+{
+    $raw = trim((string) $value);
+    if ($raw === '') {
+        return null;
+    }
+
+    $formats = [
+        'Y-m-d\TH:i:s',
+        'Y-m-d\TH:i',
+        'Y-m-d H:i:s',
+        'Y-m-d H:i',
+    ];
+
+    foreach ($formats as $format) {
+        $dt = DateTime::createFromFormat($format, $raw);
+        if (!$dt) {
+            continue;
+        }
+
+        $errors = DateTime::getLastErrors();
+        if (is_array($errors) && (($errors['warning_count'] ?? 0) > 0 || ($errors['error_count'] ?? 0) > 0)) {
+            continue;
+        }
+
+        if ($format === 'Y-m-d\TH:i' || $format === 'Y-m-d H:i') {
+            $dt->setTime((int) $dt->format('H'), (int) $dt->format('i'), 0);
+        }
+
+        if ($dt->getTimestamp() > time() + 60) {
+            return false;
+        }
+
+        return $dt->format('Y-m-d H:i:s');
+    }
+
+    return false;
+}
+
 /** Check whether the installed schema supports page-view tracking. */
 function ensure_page_views_table()
 {

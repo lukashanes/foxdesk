@@ -555,3 +555,47 @@ function time_activity_work_model(array $user, array $request, bool $remember = 
         'week_chart' => time_activity_weekly_chart($user_id, $view_scope['key'] === 'team'),
     ];
 }
+
+function time_activity_recent_reports(int $limit = 3): array
+{
+    if (!function_exists('table_exists') || !table_exists('report_templates')) {
+        return [];
+    }
+
+    $limit = max(1, min(5, $limit));
+    $reports_are_tenant_scoped = function_exists('column_exists') && column_exists('report_templates', 'tenant_id');
+    if ($reports_are_tenant_scoped && !function_exists('tenant_sql_filter')) {
+        return [];
+    }
+
+    $params = [];
+    $tenant_filter = function_exists('tenant_sql_filter')
+        ? tenant_sql_filter('report_templates', 'rt', $params)
+        : '';
+    $organization_join_scope = function_exists('tenant_scoped_table_has_column')
+        && tenant_scoped_table_has_column('report_templates')
+        && tenant_scoped_table_has_column('organizations')
+        ? ' AND o.tenant_id = rt.tenant_id'
+        : '';
+    $archived_filter = function_exists('column_exists') && column_exists('report_templates', 'is_archived')
+        ? ' AND rt.is_archived = 0'
+        : '';
+
+    return (array) db_fetch_all("
+        SELECT
+            rt.id,
+            rt.title,
+            rt.date_from,
+            rt.date_to,
+            rt.is_draft,
+            rt.created_at,
+            o.name AS organization_name
+        FROM report_templates rt
+        LEFT JOIN organizations o ON o.id = rt.organization_id{$organization_join_scope}
+        WHERE 1 = 1
+          {$tenant_filter}
+          {$archived_filter}
+        ORDER BY rt.created_at DESC, rt.id DESC
+        LIMIT {$limit}
+    ", $params);
+}
