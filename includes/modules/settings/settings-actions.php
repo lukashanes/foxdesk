@@ -744,6 +744,6 @@ function settings_handle_post_request(callable $settings_audit): void
             }
         }
 
-        redirect('admin', ['section' => 'settings', 'tab' => 'templates', 'lang' => $lang]);
+        redirect('admin', ['section' => 'settings', 'tab' => 'templates', 'lang' => $lang, 'template' => $key]);
     }
 }

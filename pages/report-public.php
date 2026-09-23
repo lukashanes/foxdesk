@@ -10,20 +10,40 @@ set_time_limit(60);
 // Enable output buffering to prevent partial output
 ob_start();
 
+function render_public_report_error_page(string $title, string $message, string $meta = '', int $status = 400): void
+{
+    http_response_code($status);
+    $theme_version = (defined('APP_VERSION') ? (string) APP_VERSION : (string) time())
+        . '-' . (string) (@filemtime(BASE_PATH . '/assets/css/theme.min.css') ?: '0');
+    echo '<!DOCTYPE html><html lang="' . e(get_app_language()) . '" dir="' . e(get_app_direction()) . '"><head><meta charset="UTF-8">';
+    echo '<meta name="viewport" content="width=device-width, initial-scale=1.0">';
+    echo '<meta name="robots" content="noindex, nofollow">';
+    echo '<title>' . e($title) . '</title>';
+    echo '<link href="tailwind.min.css?v=' . e($theme_version) . '" rel="stylesheet">';
+    echo '<link href="assets/css/theme.min.css?v=' . e($theme_version) . '" rel="stylesheet">';
+    echo '</head><body class="report-public-error-page">';
+    echo '<main class="report-public-error-card">';
+    echo '<h1>' . e($title) . '</h1>';
+    echo '<p>' . e($message) . '</p>';
+    if ($meta !== '') {
+        echo '<p class="report-public-error-meta">' . e($meta) . '</p>';
+    }
+    echo '</main></body></html>';
+    exit;
+}
+
 // Get report share token parameter
 $token = $_GET['token'] ?? '';
 
 if (empty($token)) {
-    http_response_code(400);
-    die('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' . e(t('Error')) . '</title></head><body style="font-family:sans-serif;max-width:600px;margin:100px auto;text-align:center;"><h1 style="color:#dc2626;">' . e(t('Invalid report token')) . '</h1></body></html>');
+    render_public_report_error_page(t('Error'), t('Invalid report token'), '', 400);
 }
 
 // Fetch report template
 $template = get_report_template_by_public_token($token);
 
 if (!$template) {
-    http_response_code(404);
-    die('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Error</title></head><body style="font-family:sans-serif;max-width:600px;margin:100px auto;text-align:center;"><h1 style="color:#dc2626;">' . e(t('Report not found or access denied')) . '</h1></body></html>');
+    render_public_report_error_page(t('Error'), t('Report not found or access denied'), '', 404);
 }
 
 // Set language for this report (save original and override temporarily)
@@ -41,12 +61,12 @@ if (!empty($template['expires_at'])) {
         $expired_on_label = function_exists('format_date')
             ? format_date(date('Y-m-d H:i:s', $expires_timestamp), 'd.m.Y H:i')
             : date('d.m.Y H:i', $expires_timestamp);
-        http_response_code(410);
-        die('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' . e(t('Report Expired')) . '</title></head><body><div style="font-family: sans-serif; max-width: 600px; margin: 100px auto; text-align: center;">
-            <h1 style="color: #dc2626; font-size: 24px; margin-bottom: 16px;">' . e(t('Report Expired')) . '</h1>
-            <p style="color: #6b7280; font-size: 16px;">' . e(t('This report link has expired and is no longer accessible.')) . '</p>
-            <p style="color: #9ca3af; font-size: 14px; margin-top: 24px;">' . e(t('Expired on')) . ': ' . e($expired_on_label) . '</p>
-        </div></body></html>');
+        render_public_report_error_page(
+            t('Report Expired'),
+            t('This report link has expired and is no longer accessible.'),
+            t('Expired on') . ': ' . $expired_on_label,
+            410
+        );
     }
 }
 
@@ -66,25 +86,6 @@ $report_company_name = get_setting('report_company_name', defined('APP_NAME') ? 
 $show_branding = !$template['hide_branding'] && get_setting('report_show_branding', '1') == '1';
 
 // Theme color
-$theme_color = $template['theme_color'] ?: $template['organization_theme_color'] ?: '#3B82F6';
-
-// Helper function to darken a hex color
-function darken_color($hex, $percent = 20)
-{
-    $hex = ltrim($hex, '#');
-    if (strlen($hex) == 3) {
-        $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
-    }
-    $r = hexdec(substr($hex, 0, 2));
-    $g = hexdec(substr($hex, 2, 2));
-    $b = hexdec(substr($hex, 4, 2));
-    $r = max(0, $r - ($r * $percent / 100));
-    $g = max(0, $g - ($g * $percent / 100));
-    $b = max(0, $b - ($b * $percent / 100));
-    return sprintf('#%02x%02x%02x', $r, $g, $b);
-}
-$theme_color_dark = darken_color($theme_color, 25);
-
 // Format dates
 $date_from_formatted = function_exists('format_date')
     ? format_date($template['date_from'], 'd.m.Y')
@@ -102,176 +103,65 @@ $extract_report_tags = static function ($value) {
     $parts = array_filter(array_map('trim', explode(',', (string) $value)));
     return array_slice(array_values($parts), 0, 4);
 };
+$report_public_theme_version = (defined('APP_VERSION') ? (string) APP_VERSION : '1')
+    . '-' . (string) (@filemtime(BASE_PATH . '/assets/css/theme.min.css') ?: '0');
+$report_public_tailwind_version = (defined('APP_VERSION') ? (string) APP_VERSION : '1')
+    . '-' . (string) (@filemtime(BASE_PATH . '/tailwind.min.css') ?: '0');
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo $template['report_language'] ?? 'en'; ?>" dir="<?php echo get_app_direction($template['report_language'] ?? 'en'); ?>">
+<html lang="<?php echo e($template['report_language'] ?? 'en'); ?>" dir="<?php echo e(get_app_direction($template['report_language'] ?? 'en')); ?>">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
     <title><?php echo e($template['title']); ?> - <?php echo e($template['organization_name']); ?></title>
 
-    <!-- Tailwind CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-
-    <!-- Font Awesome (Removed) -->
-    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> -->
-
-    <!-- Inter font is loaded via assets/css/theme.min.css @font-face -->
+    <link href="tailwind.min.css?v=<?php echo e($report_public_tailwind_version); ?>" rel="stylesheet">
+    <link href="assets/css/theme.min.css?v=<?php echo e($report_public_theme_version); ?>" rel="stylesheet">
+    <link href="index.php?page=report-theme&amp;token=<?php echo e(rawurlencode($token)); ?>&amp;v=<?php echo e($report_public_theme_version); ?>" rel="stylesheet">
 
     <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        @media print {
-            .no-print {
-                display: none !important;
-            }
-
-            .page-break {
-                page-break-before: always;
-            }
-
-            body {
-                font-size: 10pt;
-            }
-
-            a[href]:after {
-                content: none !important;
-            }
-        }
-
-        .kpi-card {
-            background: var(--surface-primary);
-            border: 1px solid var(--border-light);
-            box-shadow: var(--shadow-sm);
-            color: var(--text-primary);
-            transition: border-color 0.15s ease, background 0.15s ease;
-        }
-
-        .kpi-card:hover {
-            border-color: var(--border-medium);
-        }
-
-        .kpi-card-alt-1 {
-            background: var(--surface-primary);
-            border: 1px solid var(--border-light);
-            box-shadow: var(--shadow-sm);
-            color: var(--text-primary);
-            transition: border-color 0.15s ease, background 0.15s ease;
-        }
-
-        .kpi-card-alt-1:hover {
-            border-color: var(--border-medium);
-        }
-
-        .kpi-card-alt-2 {
-            background: var(--surface-primary);
-            border: 1px solid var(--border-light);
-            box-shadow: var(--shadow-sm);
-            color: var(--text-primary);
-            transition: border-color 0.15s ease, background 0.15s ease;
-        }
-
-        .kpi-card-alt-2:hover {
-            border-color: var(--border-medium);
-        }
-
-        .kpi-card-alt-3 {
-            background: var(--surface-primary);
-            border: 1px solid var(--border-light);
-            box-shadow: var(--shadow-sm);
-            color: var(--text-primary);
-            transition: border-color 0.15s ease, background 0.15s ease;
-        }
-
-        .kpi-card-alt-3:hover {
-            border-color: var(--border-medium);
-        }
-
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-
-        thead th {
-            background-color: #f9fafb;
-            border-bottom: 2px solid #e5e7eb;
-            padding: 12px 16px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #6b7280;
-        }
-
-        tbody td {
-            padding: 12px 16px;
-            border-bottom: 1px solid #f3f4f6;
-            color: #374151;
-            font-size: 14px;
-        }
-
-        tbody tr:hover {
-            background-color: #f9fafb;
-        }
-
-        tbody tr:last-child td {
-            border-bottom: none;
-        }
-    </style>
+    <script src="assets/vendor/chartjs/4.4.0/chart.umd.js?v=<?php echo e((string) APP_VERSION); ?>"></script>
 </head>
 
-<body class="bg-gray-50">
+<body class="report-public-page bg-gray-50">
 
     <!-- Report Container -->
-    <div class="max-w-7xl mx-auto p-4 lg:p-8">
+    <div class="report-public-container max-w-7xl mx-auto p-4 lg:p-8">
 
         <!-- Report Header -->
-        <div class="card card-body mb-5">
-            <div class="flex items-start justify-between">
+        <div class="card card-body report-public-header-card mb-5">
+            <div class="report-public-header">
                 <!-- Left: Report Company Logo -->
-                <div class="flex-shrink-0">
+                <div class="report-public-header__brand">
                     <?php if ($report_company_logo): ?>
-                        <img src="<?php echo e(upload_url($report_company_logo)); ?>" alt="Company Logo" class="h-16 object-contain">
+                        <img src="<?php echo e(upload_url($report_company_logo)); ?>" alt="Company Logo" class="report-public-header__logo">
                     <?php else: ?>
-                        <div class="text-2xl font-bold" style="color: <?php echo $theme_color; ?>;">
+                        <div class="report-public-header__company report-theme-text font-bold">
                             <?php echo e($report_company_name); ?>
                         </div>
                     <?php endif; ?>
                 </div>
 
                 <!-- Center: Report Title -->
-                <div class="flex-1 text-center px-4">
-                    <h1 class="text-3xl lg:text-4xl font-bold text-gray-900"><?php echo e($template['title']); ?></h1>
-                    <div class="mt-2 inline-flex items-center px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-full">
-                        <?php echo get_icon('calendar-alt', 'text-blue-600 mr-2 inline-block'); ?>
-                        <span class="text-sm font-medium text-blue-900">
+                <div class="report-public-header__title">
+                    <h1 class="report-public-header__heading font-bold text-gray-900"><?php echo e($template['title']); ?></h1>
+                    <div class="report-public-header__period fd-rounded-pill">
+                        <span class="report-public-header__period-icon" aria-hidden="true"><?php echo get_icon('calendar-alt'); ?></span>
+                        <span class="report-public-header__period-label font-medium">
                             <?php echo e($date_from_formatted); ?> - <?php echo e($date_to_formatted); ?>
                         </span>
                     </div>
                 </div>
 
                 <!-- Right: Client Logo -->
-                <div class="flex-shrink-0">
+                <div class="report-public-header__client">
                     <?php if ($template['organization_logo']): ?>
                         <img src="<?php echo e(upload_url($template['organization_logo'])); ?>"
-                            alt="<?php echo e($template['organization_name']); ?>" class="h-16 object-contain">
+                            alt="<?php echo e($template['organization_name']); ?>" class="report-public-header__logo">
                     <?php else: ?>
-                        <div class="text-lg font-semibold text-gray-600 text-right">
+                        <div class="report-public-header__client-name font-semibold">
                             <?php echo e($template['organization_name']); ?>
                         </div>
                     <?php endif; ?>
@@ -283,8 +173,7 @@ $extract_report_tags = static function ($value) {
         <?php if (!empty($template['executive_summary'])): ?>
             <div class="card card-body mb-5">
                 <h2 class="text-xl font-bold text-gray-900 mb-4">
-                    <span
-                        style="color: <?php echo $theme_color; ?>;"><?php echo get_icon('file-alt', 'mr-2 inline-block'); ?></span>
+                    <span class="report-theme-text"><?php echo get_icon('file-alt', 'mr-2 inline-block'); ?></span>
                     <?php echo e(t('Executive Summary')); ?>
                 </h2>
                 <div class="prose max-w-none text-gray-700 leading-relaxed">
@@ -294,46 +183,46 @@ $extract_report_tags = static function ($value) {
         <?php endif; ?>
 
         <!-- KPI Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-5">
+        <?php if ((int) ($template['rounding_minutes'] ?? 0) > 1): ?>
+            <p class="text-sm text-theme-secondary mb-3"><?php echo e(t('Billable time is rounded up per billable item by the report rounding setting ({minutes} min). It can be higher than tracked time.', ['minutes'=>(int)$template['rounding_minutes']])); ?></p>
+        <?php endif; ?>
+        <div class="report-public-kpis mb-5">
             <!-- Total Time -->
-            <div class="kpi-card fd-rounded-card p-6">
-                <div class="flex items-center justify-between mb-2">
-                    <?php echo get_icon('clock', 'text-3xl opacity-80 inline-block'); ?>
-                    <span class="text-xs font-semibold uppercase tracking-wide"><?php echo e(t('Total Time')); ?></span>
-                </div>
-                <div class="text-4xl font-bold"><?php echo e(format_duration_minutes((int) ($kpis['total_minutes'] ?? 0))); ?></div>
+            <div class="report-public-kpi kpi-card fd-rounded-card">
+                <span class="report-public-kpi__icon" aria-hidden="true"><?php echo get_icon('clock'); ?></span>
+                <span class="report-public-kpi__label"><?php echo e(t('Total Time')); ?></span>
+                <div class="report-public-kpi__value"><?php echo e(format_duration_minutes((int) ($kpis['total_minutes'] ?? 0))); ?></div>
+            </div>
+
+            <!-- Billable Time -->
+            <div class="report-public-kpi kpi-card-alt-1 fd-rounded-card">
+                <span class="report-public-kpi__icon" aria-hidden="true"><?php echo get_icon('credit-card'); ?></span>
+                <span class="report-public-kpi__label"><?php echo e(t('Billable time')); ?></span>
+                <div class="report-public-kpi__value"><?php echo e(format_duration_minutes((int) ($kpis['billable_minutes'] ?? 0))); ?></div>
             </div>
 
             <!-- Total Tasks -->
-            <div class="kpi-card-alt-1 fd-rounded-card p-6">
-                <div class="flex items-center justify-between mb-2">
-                    <?php echo get_icon('tasks', 'text-3xl opacity-80 inline-block'); ?>
-                    <span class="text-xs font-semibold uppercase tracking-wide"><?php echo e(t('Tasks')); ?></span>
-                </div>
-                <div class="text-4xl font-bold"><?php echo $kpis['total_tasks']; ?></div>
+            <div class="report-public-kpi kpi-card-alt-2 fd-rounded-card">
+                <span class="report-public-kpi__icon" aria-hidden="true"><?php echo get_icon('tasks'); ?></span>
+                <span class="report-public-kpi__label"><?php echo e(t('Tasks')); ?></span>
+                <div class="report-public-kpi__value"><?php echo $kpis['total_tasks']; ?></div>
             </div>
 
             <!-- Total Amount (if enabled) -->
             <?php if ($template['show_financials']): ?>
-                <div class="kpi-card-alt-2 fd-rounded-card p-6">
-                    <div class="flex items-center justify-between mb-2">
-                        <?php echo get_icon('coins', 'text-3xl opacity-80 inline-block'); ?>
-                        <span
-                            class="text-xs font-semibold uppercase tracking-wide"><?php echo e(t('Total Amount')); ?></span>
-                    </div>
-                    <div class="text-4xl font-bold"><?php echo format_money($kpis['total_cost']); ?></div>
+                <div class="report-public-kpi kpi-card-alt-3 fd-rounded-card">
+                    <span class="report-public-kpi__icon" aria-hidden="true"><?php echo get_icon('coins'); ?></span>
+                    <span class="report-public-kpi__label"><?php echo e(t('Total Amount')); ?></span>
+                    <div class="report-public-kpi__value"><?php echo format_money($kpis['total_cost']); ?></div>
                 </div>
             <?php endif; ?>
 
             <!-- Team Members (if enabled) -->
             <?php if ($template['show_team_attribution']): ?>
-                <div class="kpi-card-alt-3 fd-rounded-card p-6">
-                    <div class="flex items-center justify-between mb-2">
-                        <?php echo get_icon('users', 'text-3xl opacity-80 inline-block'); ?>
-                        <span
-                            class="text-xs font-semibold uppercase tracking-wide"><?php echo e(t('Team Members')); ?></span>
-                    </div>
-                    <div class="text-4xl font-bold"><?php echo $kpis['team_member_count']; ?></div>
+                <div class="report-public-kpi kpi-card-alt-1 fd-rounded-card">
+                    <span class="report-public-kpi__icon" aria-hidden="true"><?php echo get_icon('users'); ?></span>
+                    <span class="report-public-kpi__label"><?php echo e(t('Team Members')); ?></span>
+                    <div class="report-public-kpi__value"><?php echo $kpis['team_member_count']; ?></div>
                 </div>
             <?php endif; ?>
         </div>
@@ -341,11 +230,10 @@ $extract_report_tags = static function ($value) {
         <!-- Time Distribution Chart -->
         <div class="card card-body mb-5">
             <h2 class="text-xl font-bold text-gray-900 mb-5">
-                <span
-                    style="color: <?php echo $theme_color; ?>;"><?php echo get_icon('chart-bar', 'mr-2 inline-block'); ?></span>
+                <span class="report-theme-text"><?php echo get_icon('chart-bar', 'mr-2 inline-block'); ?></span>
                 <?php echo e(t('Time Distribution')); ?>
             </h2>
-            <div style="height: 300px;">
+            <div class="report-chart-shell">
                 <canvas id="timeChart"></canvas>
             </div>
         </div>
@@ -353,8 +241,7 @@ $extract_report_tags = static function ($value) {
         <!-- Detailed Time Log -->
         <div class="card card-body mb-5">
             <h2 class="text-xl font-bold text-gray-900 mb-5">
-                <span
-                    style="color: <?php echo $theme_color; ?>;"><?php echo get_icon('list', 'mr-2 inline-block'); ?></span>
+                <span class="report-theme-text"><?php echo get_icon('list', 'mr-2 inline-block'); ?></span>
                 <?php echo e(t('Detailed Time Log')); ?>
             </h2>
 
@@ -362,23 +249,23 @@ $extract_report_tags = static function ($value) {
                 <div class="report-ticket-list">
                     <?php foreach ($ticket_detail_rows as $ticket): ?>
                         <?php $detail_id = 'report-ticket-' . (int) $ticket['id']; ?>
-                        <div class="report-ticket-card">
+                        <div class="report-ticket-card fd-report-ticket-card">
                             <button type="button"
-                                class="report-ticket-summary"
+                                class="report-ticket-summary fd-report-ticket-summary"
                                 data-report-ticket-row
                                 aria-expanded="false"
                                 aria-controls="<?php echo e($detail_id); ?>"
                                 onclick="toggleReportTicket('<?php echo e($detail_id); ?>', this)">
-                                <span class="report-ticket-summary__main">
-                                    <span class="report-ticket-summary__icon" aria-hidden="true"><?php echo get_icon('chevron-right'); ?></span>
-                                    <span>
-                                        <span class="report-ticket-summary__title" dir="auto"><?php echo e($ticket['title']); ?></span>
-                                        <span class="report-ticket-summary__meta">
+                                <span class="report-ticket-summary__main fd-report-ticket-main">
+                                    <span class="report-ticket-summary__icon fd-report-ticket-icon" aria-hidden="true"><?php echo get_icon('chevron-right'); ?></span>
+                                    <span class="fd-report-ticket-copy">
+                                        <span class="report-ticket-summary__title fd-report-ticket-title"><bdi dir="auto"><?php echo e($ticket['title']); ?></bdi></span>
+                                        <span class="report-ticket-summary__meta fd-report-ticket-meta">
                                             <?php echo e($ticket['code']); ?> · <?php echo e((string) $ticket['entries_count']); ?> <?php echo e(t('work records')); ?>
                                         </span>
                                     </span>
                                 </span>
-                                <span class="report-ticket-summary__totals">
+                                <span class="report-ticket-summary__totals fd-report-ticket-totals">
                                     <strong><?php echo e(format_duration_minutes($ticket['minutes'])); ?></strong>
                                     <?php if ($template['show_financials']): ?>
                                         <span><?php echo e(format_money($ticket['amount'])); ?></span>
@@ -455,7 +342,7 @@ $extract_report_tags = static function ($value) {
         </div>
 
         <!-- Action Buttons -->
-        <div class="flex justify-center gap-4 mb-5 no-print">
+        <div class="flex justify-center space-x-4 mb-5 no-print">
             <button onclick="window.print()" class="fd-button fd-button--primary">
                 <?php echo get_icon('print', 'mr-2 inline-block'); ?><?php echo e(t('Print / Save as PDF')); ?>
             </button>
@@ -496,14 +383,17 @@ $extract_report_tags = static function ($value) {
                     datasets: [{
                         label: chartData.datasets[0].label,
                         data: chartData.datasets[0].data,
-                        backgroundColor: chartData.datasets[0].backgroundColor + '80', // 50% opacity
-                        borderColor: chartData.datasets[0].borderColor,
-                        borderWidth: 2
+                        backgroundColor: '#a9bfeb',
+                        hoverBackgroundColor: '#8daadc',
+                        borderWidth: 0,
+                        borderRadius: 5,
+                        maxBarThickness: 30
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: { duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 350 },
                     plugins: {
                         legend: {
                             display: false
@@ -511,7 +401,11 @@ $extract_report_tags = static function ($value) {
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
-                                    return context.parsed.y + ' <?php echo e(t('Hours')); ?>';
+                                    const minutes = Math.round(context.parsed.y * 60);
+                                    const locale = document.documentElement.lang || 'en';
+                                    const hoursLabel = new Intl.NumberFormat(locale, { style: 'unit', unit: 'hour', unitDisplay: 'short' });
+                                    const minutesLabel = new Intl.NumberFormat(locale, { style: 'unit', unit: 'minute', unitDisplay: 'short' });
+                                    return (minutes >= 60 ? hoursLabel.format(Math.floor(minutes / 60)) + ' ' : '') + minutesLabel.format(minutes % 60);
                                 }
                             }
                         }
@@ -519,12 +413,18 @@ $extract_report_tags = static function ($value) {
                     scales: {
                         y: {
                             beginAtZero: true,
+                            border: { display: false },
+                            grid: { color: '#edf1f7', drawTicks: false },
+                            ticks: { maxTicksLimit: 5, padding: 12, color: '#65748b' },
                             title: {
                                 display: true,
                                 text: '<?php echo e(t('Hours')); ?>'
                             }
                         },
                         x: {
+                            border: { display: false },
+                            grid: { display: false },
+                            ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 12, padding: 10, color: '#65748b' },
                             title: {
                                 display: true,
                                 text: '<?php echo e(t('Date')); ?>'

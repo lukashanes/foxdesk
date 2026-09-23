@@ -384,6 +384,7 @@ function api_stop_timer() {
     ], 'id = ?', [$active['id']]);
 
     log_activity($ticket_id, $user['id'], 'time_stopped', "Timer stopped ({$duration} min)");
+    notify_saved_time_entry((int) $active['id'], (int) $user['id']);
     if (function_exists('log_ticket_history')) {
         log_ticket_history($ticket_id, $user['id'], 'timer_stopped', null, date('Y-m-d H:i:s'));
     }
@@ -1017,6 +1018,7 @@ function api_quick_log_time() {
         $insert['source'] = 'manual';
     }
     $entry_id = (int) db_insert('ticket_time_entries', $insert);
+    notify_saved_time_entry($entry_id, (int) $user['id']);
 
     log_activity($ticket_id, $user['id'], 'time_manual', "Quick-logged {$duration} min");
     if (function_exists('log_ticket_history')) {

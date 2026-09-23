@@ -20,8 +20,9 @@ window.FoxDeskTicketListConfig = {
     }
 };
 </script>
-<script src="assets/js/ticket-list.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>" defer></script>
-<script src="assets/js/ticket-list-actions.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>" defer></script>
+<script src="assets/js/ticket-list.js?v=<?php echo e($ticket_list_asset_version('assets/js/ticket-list.js')); ?>" defer></script>
+<script src="assets/js/ticket-list-due-date.js?v=<?php echo e($ticket_list_asset_version('assets/js/ticket-list-due-date.js')); ?>" defer></script>
+<script src="assets/js/ticket-list-time.js?v=<?php echo e($ticket_list_asset_version('assets/js/ticket-list-time.js')); ?>" defer></script>
 <template id="tl-due-popover-tpl">
     <div class="tl-due-popover" role="dialog" aria-label="<?php echo e(t('Due date')); ?>">
         <input type="date" class="tl-due-popover__input">

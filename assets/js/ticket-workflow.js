@@ -96,6 +96,98 @@
         var cc = document.getElementById('agent-cc-dropdown-container'); if (cc) more.append(cc);
         var notification = form.querySelector('[name="skip_notification"]')?.closest('label'); if (notification) more.append(notification);
         var manual = document.getElementById('manual-entry-row');
+        var replyTime = form.querySelector('[data-reply-time-fields]');
+        var replyTimeToggle = form.querySelector('[data-reply-time-toggle]');
+        var replyDuration = replyTime?.querySelector('[name="manual_duration_minutes"]');
+        var replyStart = replyTime?.querySelector('[name="manual_start_time"]');
+        var replyEnd = replyTime?.querySelector('[name="manual_end_time"]');
+        var replyTimeAnchor, replyTimeBadge, replyTimeError;
+        function hasReplyTime() { return !!(replyDuration?.value || replyStart?.value || replyEnd?.value); }
+        function updateReplyTimeBadge() {
+            if (!replyTimeBadge) return;
+            replyTimeBadge.textContent = replyDuration.value ? replyDuration.value + ' min' : '';
+            replyTimeBadge.hidden = !replyDuration.value;
+        }
+        function showReplyTime(show, clear) {
+            if (!replyTime) return;
+            if (clear) {
+                [replyDuration, replyStart, replyEnd].forEach(function (input) { input.value = ''; input.setCustomValidity(''); });
+                replyTime.querySelector('details').open = false;
+                if (replyTimeError) replyTimeError.textContent = '';
+                replyTime.querySelectorAll('[aria-invalid]').forEach(function(input) { input.removeAttribute('aria-invalid'); });
+            }
+            // Dismissing the popover keeps pending work; only Remove discards it.
+            replyTime.hidden = !show; replyTime.disabled = !show && !hasReplyTime();
+            replyTime.querySelector('[name="reply_manual_time"]').value = replyTime.disabled ? '' : '1';
+            replyTimeToggle.setAttribute('aria-expanded', String(show));
+            validateReplyTime(); updateReplyTimeBadge(); submitLabel();
+        }
+        function validateReplyTime() {
+            if (!replyTime) return true;
+            var range = !!(replyStart.value || replyEnd.value);
+            replyDuration.required = !range;
+            replyDuration.readOnly = range;
+            replyEnd.required = !!replyStart.value;
+            replyStart.required = !!replyEnd.value;
+            replyEnd.setCustomValidity('');
+            if (replyStart.value && replyEnd.value) {
+                var minutes = function(value) { var parts = value.split(':'); return Number(parts[0]) * 60 + Number(parts[1]); };
+                var elapsed = (minutes(replyEnd.value) - minutes(replyStart.value) + 1440) % 1440;
+                replyDuration.value = elapsed || '';
+                if (!elapsed) replyEnd.setCustomValidity(replyTime.dataset.rangeError);
+            }
+            return !range || (!!replyStart.value && !!replyEnd.value && replyEnd.validity.valid);
+        }
+        if (replyTime) {
+            replyTimeAnchor = document.createElement('div'); replyTimeAnchor.className = 'ticket-reply-time-anchor';
+            replyTimeToggle.before(replyTimeAnchor); replyTimeAnchor.append(replyTimeToggle, replyTime);
+            replyTimeBadge = document.createElement('span'); replyTimeBadge.className = 'ticket-reply-time-badge'; replyTimeBadge.hidden = true;
+            replyTimeToggle.append(replyTimeBadge);
+            replyTimeError = document.createElement('p'); replyTimeError.className = 'ticket-reply-time__error'; replyTimeError.id = 'reply-time-error'; replyTimeError.setAttribute('role', 'alert');
+            replyTime.querySelector('.ticket-reply-time__actions').before(replyTimeError);
+            replyTimeToggle.addEventListener('click', function () {
+                showReplyTime(replyTime.hidden, false); schedule();
+                if (!replyTime.hidden) replyDuration.focus({preventScroll: true});
+            });
+            replyTime.querySelector('[data-reply-time-remove]').addEventListener('click', function () { showReplyTime(false, true); schedule(); replyTimeToggle.focus({preventScroll: true}); });
+            replyTime.querySelector('[data-workspace-time-add]').addEventListener('click', function () { showReplyTime(false, true); schedule(); });
+            document.addEventListener('click', function(event) {
+                // Flatpickr renders its calendar outside the fieldset.
+                if (!replyTime.hidden && !replyTimeAnchor.contains(event.target) && !event.target.closest('.flatpickr-calendar')) showReplyTime(false, false);
+            });
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape' && !replyTime.hidden) {
+                    event.preventDefault(); showReplyTime(false, false); replyTimeToggle.focus({preventScroll: true});
+                }
+            });
+            replyTimeAnchor.addEventListener('focusout', function(event) {
+                if (event.relatedTarget && !replyTimeAnchor.contains(event.relatedTarget) && !event.relatedTarget.closest('.flatpickr-calendar')) showReplyTime(false, false);
+            });
+            replyTime.addEventListener('invalid', function(event) {
+                event.preventDefault(); showReplyTime(true, false);
+                replyTimeError.textContent = event.target.validationMessage;
+                event.target.setAttribute('aria-invalid', 'true');
+                event.target.setAttribute('aria-describedby', replyTimeError.id);
+                event.target.focus({preventScroll: true});
+            }, true);
+            replyTime.addEventListener('input', function(event) {
+                replyTimeError.textContent = '';
+                event.target.removeAttribute('aria-invalid');
+            });
+            [replyStart, replyEnd, replyDuration].forEach(function (input) {
+                input.addEventListener('input', function () { validateReplyTime(); updateReplyTimeBadge(); submitLabel(); });
+            });
+            form.addEventListener('submit', function(event) {
+                if (replyTime.disabled) return;
+                var stop = document.getElementById('stop-timer-toggle');
+                var fieldsValid = Array.from(replyTime.querySelectorAll('input')).every(function(input) { return input.reportValidity(); });
+                if (!validateReplyTime() || !fieldsValid || (stop?.checked && !stop.disabled)) {
+                    event.preventDefault(); event.stopImmediatePropagation();
+                    form.removeAttribute('aria-busy');
+                    if (stop?.checked && !stop.disabled) announce(replyTime.dataset.conflictError, true);
+                }
+            }, true);
+        }
         var timeBox = null, exact = null;
         if (manual) {
             timeBox = disclosure(copy.add_time); manual.before(timeBox); timeBox.append(manual); manual.classList.remove('hidden');
@@ -127,15 +219,17 @@
         }
         var submit = document.getElementById('comment-submit-btn');
         var outcome = document.createElement('select'); outcome.name = 'workflow_outcome'; outcome.className = 'form-select workflow-outcome'; outcome.setAttribute('aria-label', copy.send);
-        [['',copy.send],['waiting',copy.send_waiting],['done',copy.send_done]].forEach(function (entry) {
+        [['',copy.send]].forEach(function (entry) {
             if (entry[0] && (!meta.allowed_actions.length || !meta.targets[entry[0]])) return;
             var option = new Option(entry[1],entry[0]); outcome.add(option);
         });
+        outcome.hidden = true;
         submit.before(outcome);
         function submitLabel() {
             recipientLabel();
             var internal = !!document.getElementById('is_internal_toggle')?.checked;
             submit.querySelector('.btn-text').textContent = internal && !outcome.value ? copy.save_note : outcome.selectedOptions[0].textContent;
+            if (replyTime && !replyTime.disabled && hasReplyTime()) submit.querySelector('.btn-text').textContent += ' · ' + copy.add_time;
             var stop = document.getElementById('stop-timer-toggle');
             var timerState = document.getElementById('btn-timer-action')?.dataset.state;
             if ((stop?.checked && !stop.disabled) || (outcome.value === 'done' && timerState && timerState !== 'stopped')) submit.querySelector('.btn-text').textContent += ' · ' + copy.stop_timer;
@@ -161,6 +255,7 @@
             var modeButton = form.querySelector('[data-mode="' + (internalMode ? 'internal' : 'public') + '"]'); if (modeButton) modeButton.click();
             if (timeBox && form.querySelector('[name="manual_duration_minutes"]')?.value) timeBox.open = true;
             if (exact && form.querySelector('[name="manual_start_time"]')?.value) { timeBox.open = true; exact.open = true; }
+            if (replyTime && hasReplyTime()) { showReplyTime(false, false); if (replyStart.value || replyEnd.value) replyTime.querySelector('details').open = true; }
             announce(copy.draft_restored + (draft.files?.length ? ' ' + copy.attachments_reselect + ': ' + draft.files.join(', ') : ''));
             submitLabel();
         }

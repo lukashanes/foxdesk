@@ -111,6 +111,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('profile');
     }
 
+    // Send a password setup/reset link to the signed-in user. This keeps
+    // magic-link signup users from being stuck with a hidden random password.
+    if (isset($_POST['send_password_setup_link'])) {
+        $token = generate_reset_token();
+        $token_hash = hash_reset_token($token);
+        $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+        password_reset_store_user_token($user, $token_hash, $expires);
+
+        require_once BASE_PATH . '/includes/mailer.php';
+        $reset_link = rtrim(function_exists('get_app_url') ? get_app_url() : APP_URL, '/') . '/index.php?page=reset-password&token=' . urlencode($token);
+        $sent = send_password_reset_email($user['email'], trim((string) ($user['first_name'] ?? '')), $reset_link);
+
+        if ($sent) {
+            log_security_event('profile_password_setup_requested', $user['id'], 'email=' . $user['email']);
+            flash(t('Password setup link sent. Check your email.'), 'success');
+        } else {
+            log_security_event('profile_password_setup_failed', $user['id'], 'email=' . $user['email']);
+            flash(t('We could not send the password setup link. Try again later.'), 'error');
+        }
+        redirect('profile');
+    }
+
     // Notification preferences
     if (isset($_POST['update_notifications']) && $notification_preferences_available) {
         $updates = [
@@ -141,6 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('profile');
     }
 
+    // Legacy API access forms now live in Settings -> API & agents.
     // API access
     if (isset($_POST['create_api_token']) && function_exists('generate_api_token')) {
         $token_name = trim((string) ($_POST['api_token_name'] ?? ''));
@@ -181,14 +205,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
             try {
                 $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                $result = upload_file($_FILES['avatar'], $allowed, 2 * 1024 * 1024, 'public');
+                $result = upload_file($_FILES['avatar'], $allowed, 2 * 1024 * 1024, 'public', 'avatar');
 
                 // Delete old avatar if exists
                 if (!empty($user['avatar']) && strpos($user['avatar'], 'data:') !== 0) {
                     $old_path = function_exists('upload_absolute_path') ? upload_absolute_path($user['avatar']) : (BASE_PATH . '/' . UPLOAD_DIR . basename($user['avatar']));
-                    if ($old_path && file_exists($old_path)) {
-                        @unlink($old_path);
-                    }
+                if ($old_path && file_exists($old_path)) {
+                    delete_upload_file((string) $user['avatar']);
+                }
                 }
 
                 $avatar_url = UPLOAD_DIR . $result['filename'];
@@ -220,7 +244,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!empty($user['avatar']) && strpos($user['avatar'], 'data:') !== 0) {
             $old_path = function_exists('upload_absolute_path') ? upload_absolute_path($user['avatar']) : (BASE_PATH . '/' . UPLOAD_DIR . basename($user['avatar']));
             if ($old_path && file_exists($old_path)) {
-                @unlink($old_path);
+                delete_upload_file((string) $user['avatar']);
             }
         }
 
@@ -327,14 +351,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Refresh user data
 $user = current_user();
-$api_scope_catalog = function_exists('api_token_scope_catalog') ? api_token_scope_catalog($user) : [];
-$profile_api_tokens = [];
-if (function_exists('api_tokens_table_exists') && api_tokens_table_exists()) {
-    $profile_api_tokens = db_fetch_all("SELECT * FROM api_tokens WHERE user_id = ? ORDER BY created_at DESC", [(int) $user['id']]);
-}
-$new_profile_api_token = $_SESSION['new_profile_api_token'] ?? null;
-$new_profile_api_token_scopes = $_SESSION['new_profile_api_token_scopes'] ?? [];
-unset($_SESSION['new_profile_api_token'], $_SESSION['new_profile_api_token_scopes']);
 
 require_once BASE_PATH . '/includes/header.php';
 ?>
@@ -345,13 +361,19 @@ $page_header_subtitle = t('Manage your account details and security.');
 include BASE_PATH . '/includes/components/page-header.php';
 ?>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+<div class="profile-workspace" data-profile-workspace>
+    <nav class="profile-section-nav" aria-label="<?php echo e(t('My profile')); ?>">
+        <?php foreach (['personal' => t('Personal information'), 'notifications' => t('Notifications'), 'security' => t('Security'), 'integrations' => t('API & agents')] as $profile_key => $profile_label): ?>
+        <a class="profile-section-link" href="#<?php echo e($profile_key); ?>" data-profile-tab="<?php echo e($profile_key); ?>"><?php echo e($profile_label); ?></a>
+        <?php endforeach; ?>
+    </nav>
+    <div class="profile-section-content">
 
     <!-- Left column: Avatar + Notifications -->
-    <div class="lg:col-span-1 space-y-4">
+    <div class="profile-section-column">
 
         <!-- Avatar -->
-        <div class="card card-body">
+        <div class="card card-body" data-profile-panel="personal">
             <h3 class="text-sm font-semibold uppercase tracking-wider mb-4 text-theme-muted"><?php echo e(t('Profile picture')); ?></h3>
 
             <div class="flex flex-col items-center text-center">
@@ -400,7 +422,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
         <?php if ($notification_preferences_available): ?>
         <!-- Notification Preferences -->
-        <div class="card card-body">
+        <div class="card card-body" data-profile-panel="notifications">
             <h3 class="text-sm font-semibold uppercase tracking-wider mb-4 text-theme-muted"><?php echo e(t('Notification settings')); ?></h3>
 
             <form method="post" class="space-y-3">
@@ -408,7 +430,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                 <?php if (in_array($user['role'], ['user', 'agent'], true)): ?>
                 <label class="flex items-center gap-2 text-sm cursor-pointer text-theme-secondary">
-                    <input type="checkbox" name="email_notifications_enabled" class="rounded"
+                    <input type="checkbox" name="email_notifications_enabled" class="fd-rounded-control"
                         <?php echo (int) ($user['email_notifications_enabled'] ?? 1) === 1 ? 'checked' : ''; ?>>
                     <?php echo e(t('Email notifications')); ?>
                 </label>
@@ -416,13 +438,13 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                 <label class="flex items-center gap-2 text-sm cursor-pointer text-theme-secondary">
                     <input type="checkbox" name="in_app_notifications_enabled" id="profile_in_app_notifications_enabled"
-                        class="rounded" <?php echo (int) ($user['in_app_notifications_enabled'] ?? 1) === 1 ? 'checked' : ''; ?>>
+                        class="fd-rounded-control" <?php echo (int) ($user['in_app_notifications_enabled'] ?? 1) === 1 ? 'checked' : ''; ?>>
                     <?php echo e(t('In-app notifications')); ?>
                 </label>
 
                 <label class="flex items-center gap-2 text-sm cursor-pointer ml-5 text-theme-secondary">
                     <input type="checkbox" name="in_app_sound_enabled" id="profile_in_app_sound_enabled"
-                        class="rounded" <?php echo (int) ($user['in_app_sound_enabled'] ?? 0) === 1 ? 'checked' : ''; ?>>
+                        class="fd-rounded-control" <?php echo (int) ($user['in_app_sound_enabled'] ?? 0) === 1 ? 'checked' : ''; ?>>
                     <?php echo e(t('Play sound')); ?>
                 </label>
 
@@ -443,7 +465,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                 ? get_notification_preferences((int) $user['id'])
                 : array_fill_keys(array_keys($notif_type_labels), true);
         ?>
-        <div class="card card-body">
+        <div class="card card-body" data-profile-panel="notifications">
             <h3 class="text-sm font-semibold uppercase tracking-wider mb-4 text-theme-muted"><?php echo e(t('Notification types')); ?></h3>
             <p class="text-xs mb-3 text-theme-muted"><?php echo e(t('Choose which notification types you want to receive.')); ?></p>
 
@@ -451,7 +473,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                 <?php echo csrf_field(); ?>
                 <?php foreach ($notif_type_labels as $type_key => $type_label): ?>
                 <label class="flex items-center gap-2 text-sm cursor-pointer text-theme-secondary">
-                    <input type="checkbox" name="notif_type_<?php echo e($type_key); ?>" class="rounded"
+                    <input type="checkbox" name="notif_type_<?php echo e($type_key); ?>" class="fd-rounded-control"
                         <?php echo !empty($notif_prefs[$type_key]) ? 'checked' : ''; ?>>
                     <?php echo e($type_label); ?>
                 </label>
@@ -467,10 +489,10 @@ include BASE_PATH . '/includes/components/page-header.php';
     </div>
 
     <!-- Right column: Personal info + Email + Password -->
-    <div class="lg:col-span-2 space-y-4">
+    <div class="profile-section-column">
 
         <!-- Personal Information -->
-        <div class="card card-body">
+        <div class="card card-body" data-profile-panel="personal">
             <h3 class="text-sm font-semibold uppercase tracking-wider mb-4 text-theme-muted"><?php echo e(t('Personal information')); ?></h3>
 
             <form method="post" class="space-y-4">
@@ -512,7 +534,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                                 'language' => foxdesk_locale_option_label(foxdesk_workspace_language()),
                             ])); ?>
                         </option>
-                        <?php foreach (get_supported_languages() as $code => $lang_info): ?>
+                        <?php foreach (get_supported_languages() as $code => $language): ?>
                             <option value="<?php echo e($code); ?>" <?php echo foxdesk_user_language_override($user) === $code ? 'selected' : ''; ?>><?php echo e(foxdesk_locale_option_label($code)); ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -526,7 +548,7 @@ include BASE_PATH . '/includes/components/page-header.php';
         </div>
 
         <!-- Change Email -->
-        <div class="card card-body">
+        <div class="card card-body" data-profile-panel="security">
             <h3 class="text-sm font-semibold uppercase tracking-wider mb-4 text-theme-muted"><?php echo e(t('Change email')); ?></h3>
 
             <form method="post" class="space-y-4">
@@ -535,7 +557,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                     <div>
                         <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Current email')); ?></label>
                         <input type="email" value="<?php echo e($user['email']); ?>" disabled autocomplete="email"
-                            inputmode="email" autocapitalize="none" class="form-input" style="background: var(--surface-secondary); color: var(--text-muted);">
+                            inputmode="email" autocapitalize="none" class="form-input fd-readonly-field">
                     </div>
                     <div>
                         <label for="profile-new-email" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('New email')); ?></label>
@@ -560,7 +582,7 @@ include BASE_PATH . '/includes/components/page-header.php';
         </div>
 
         <!-- Change Password -->
-        <div class="card card-body">
+        <div class="card card-body" data-profile-panel="security">
             <h3 class="text-sm font-semibold uppercase tracking-wider mb-4 text-theme-muted"><?php echo e(t('Change password')); ?></h3>
 
             <form method="post" class="space-y-4">
@@ -589,116 +611,26 @@ include BASE_PATH . '/includes/components/page-header.php';
                     <?php echo e(t('Change password')); ?>
                 </button>
             </form>
-        </div>
 
-        <!-- API Access -->
-        <div class="card card-body">
-            <div class="mb-4">
-                <h3 class="text-sm font-semibold uppercase tracking-wider text-theme-muted"><?php echo e(t('API access')); ?></h3>
-                <p class="text-sm mt-1 text-theme-secondary"><?php echo e(t('Create a scoped key for assistants, CLI tools, or automations.')); ?></p>
-            </div>
-
-            <?php if ($new_profile_api_token): ?>
-                <div class="mb-5 p-4 rounded-lg border border-green-200 bg-green-50 text-green-950" data-api-key-ready>
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                            <p class="text-sm font-semibold"><?php echo e(t('API key created. Copy it now.')); ?></p>
-                            <p class="text-sm mt-1"><?php echo e(t('Copy this API key now. It will not be shown again.')); ?></p>
-                        </div>
-                        <button type="button" class="btn btn-primary btn-sm" data-api-key-copy
-                            onclick="copyProfileApiKey('profile-generated-api-token', this)">
-                            <?php echo get_icon('copy', 'w-4 h-4 mr-1'); ?><?php echo e(t('Copy')); ?>
-                        </button>
-                    </div>
-                    <code id="profile-generated-api-token" class="block mt-3 p-3 rounded bg-white border text-xs font-mono break-all select-all"><?php echo e($new_profile_api_token); ?></code>
-                    <?php if (!empty($new_profile_api_token_scopes)): ?>
-                        <p class="text-xs mt-2"><?php echo e(t('Scopes')); ?>: <?php echo e(implode(', ', $new_profile_api_token_scopes)); ?></p>
-                    <?php endif; ?>
-                </div>
-            <?php else: ?>
-                <form method="post" class="space-y-4 mb-5">
-                    <?php echo csrf_field(); ?>
+            <div class="mt-5 fd-rounded-card border border-blue-200 bg-blue-50 p-4">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <label for="api-token-name" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Token name')); ?></label>
-                        <input type="text" name="api_token_name" id="api-token-name" class="form-input"
-                            placeholder="<?php echo e(t('Codex local assistant')); ?>" maxlength="120">
+                        <p class="font-medium text-blue-900"><?php echo e(t('Do not know your current password?')); ?></p>
+                        <p class="mt-1 text-sm text-blue-800">
+                            <?php echo e(t('Send yourself a secure link to set a new password.')); ?>
+                        </p>
                     </div>
-                    <p class="text-xs text-theme-muted"><?php echo e(t('The key stays active until you revoke it.')); ?></p>
-
-                    <?php if (!empty($api_scope_catalog)): ?>
-                        <div>
-                            <div class="text-sm font-medium mb-2 text-theme-secondary"><?php echo e(t('Allowed actions')); ?></div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <?php foreach ($api_scope_catalog as $scope => $label): ?>
-                                    <label class="flex items-start gap-2 text-sm cursor-pointer rounded-lg border p-2 border-theme-light">
-                                        <input type="checkbox" name="api_token_scopes[]" value="<?php echo e($scope); ?>" class="mt-0.5 rounded"
-                                            <?php echo in_array($scope, ['work:read', 'tickets:read', 'tickets:write', 'comments:write'], true) ? 'checked' : ''; ?>>
-                                        <span>
-                                            <span class="font-medium text-theme-primary"><?php echo e($scope); ?></span>
-                                            <span class="block text-xs text-theme-muted"><?php echo e(t($label)); ?></span>
-                                        </span>
-                                    </label>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-
-                    <button type="submit" name="create_api_token" class="btn btn-primary">
-                        <?php echo e(t('Create API key')); ?>
-                    </button>
-                </form>
-            <?php endif; ?>
-
-            <div class="overflow-x-auto">
-                <table class="w-full tickets-table">
-                    <thead>
-                        <tr>
-                            <th class="th-label text-left py-2"><?php echo e(t('Name')); ?></th>
-                            <th class="th-label text-left py-2"><?php echo e(t('Prefix')); ?></th>
-                            <th class="th-label text-left py-2"><?php echo e(t('Scopes')); ?></th>
-                            <th class="th-label text-left py-2"><?php echo e(t('Last used')); ?></th>
-                            <th class="th-label text-right py-2"><?php echo e(t('Actions')); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($profile_api_tokens)): ?>
-                            <tr>
-                                <td colspan="5" class="py-4 text-sm text-theme-muted"><?php echo e(t('No API keys yet.')); ?></td>
-                            </tr>
-                        <?php endif; ?>
-                        <?php foreach ($profile_api_tokens as $token): ?>
-                            <?php
-                            $token_scopes = !empty($token['scopes_json']) ? json_decode((string) $token['scopes_json'], true) : ['*'];
-                            if (!is_array($token_scopes) || empty($token_scopes)) {
-                                $token_scopes = ['*'];
-                            }
-                            $is_active_token = !empty($token['is_active']) && empty($token['revoked_at']);
-                            ?>
-                            <tr class="<?php echo $is_active_token ? '' : 'opacity-60'; ?>">
-                                <td class="py-2 text-sm text-theme-primary"><?php echo e($token['name']); ?></td>
-                                <td class="py-2 text-xs font-mono text-theme-muted"><?php echo e($token['token_prefix']); ?>...</td>
-                                <td class="py-2 text-xs text-theme-muted"><?php echo e(implode(', ', $token_scopes)); ?></td>
-                                <td class="py-2 text-xs text-theme-muted"><?php echo e(!empty($token['last_used_at']) ? format_date($token['last_used_at']) : t('Never')); ?></td>
-                                <td class="py-2 text-right">
-                                    <?php if ($is_active_token): ?>
-                                        <form method="post" class="inline">
-                                            <?php echo csrf_field(); ?>
-                                            <input type="hidden" name="token_id" value="<?php echo (int) $token['id']; ?>">
-                                            <button type="submit" name="revoke_api_token" class="btn btn-danger btn-sm"
-                                                onclick="return confirm('<?php echo e(t('Revoke this API key?')); ?>')">
-                                                <?php echo e(t('Revoke')); ?>
-                                            </button>
-                                        </form>
-                                    <?php else: ?>
-                                        <span class="text-xs text-theme-muted"><?php echo e(t('Revoked')); ?></span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                    <form method="post" class="shrink-0">
+                        <?php echo csrf_field(); ?>
+                        <button type="submit" name="send_password_setup_link" class="btn btn-secondary btn-sm">
+                            <?php echo e(t('Send setup link')); ?>
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
+
+        <?php include BASE_PATH . '/includes/components/profile-api-access.php'; ?>
 
         <!-- Two-Factor Authentication -->
         <?php
@@ -708,12 +640,12 @@ include BASE_PATH . '/includes/components/page-header.php';
         $setup_secret = $_SESSION['2fa_setup_secret'] ?? '';
         $forced_setup = !empty($_SESSION['2fa_setup_required']);
         ?>
-        <div class="card card-body" id="two-factor-section">
+        <div class="card card-body" id="two-factor-section" data-profile-panel="security" data-profile-force="<?php echo ($show_setup || $show_backup_codes || $forced_setup) ? 'security' : ''; ?>">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-sm font-semibold uppercase tracking-wider text-theme-muted"><?php echo e(t('Two-factor authentication')); ?></h3>
                 <?php if ($totp_enabled): ?>
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                        <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 fd-rounded-pill text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        <span class="w-1.5 h-1.5 fd-rounded-pill bg-green-500"></span>
                         <?php echo e(t('Enabled')); ?>
                     </span>
                 <?php endif; ?>
@@ -721,7 +653,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
             <?php if ($forced_setup && !$totp_enabled): ?>
                 <!-- Forced setup banner -->
-                <div class="rounded-lg p-3 mb-4 text-sm" style="background: var(--warning-bg, #fef3c7); color: var(--warning-text, #92400e); border: 1px solid var(--warning-border, #fde68a);">
+                <div class="fd-rounded-card p-3 mb-4 text-sm fd-warning-panel">
                     <?php echo get_icon('exclamation-triangle', 'w-4 h-4 inline mr-1'); ?>
                     <?php echo e(t('Your administrator requires two-factor authentication. Please set it up to continue.')); ?>
                 </div>
@@ -731,12 +663,12 @@ include BASE_PATH . '/includes/components/page-header.php';
                 <!-- ═══ Backup codes display (shown once after enabling) ═══ -->
                 <?php $backup_codes = $_SESSION['2fa_backup_codes_show']; unset($_SESSION['2fa_backup_codes_show']); ?>
                 <div class="space-y-4">
-                    <div class="rounded-lg p-3 text-sm" style="background: var(--warning-bg, #fef3c7); color: var(--warning-text, #92400e); border: 1px solid var(--warning-border, #fde68a);">
+                    <div class="fd-rounded-card p-3 text-sm fd-warning-panel">
                         <?php echo get_icon('exclamation-triangle', 'w-4 h-4 inline mr-1'); ?>
                         <?php echo e(t('Save these backup codes in a safe place. Each code can only be used once. This is the only time they will be shown.')); ?>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-2 p-4 rounded-lg font-mono text-sm bg-theme-secondary" id="backup-codes-list">
+                    <div class="grid grid-cols-2 gap-2 p-4 fd-rounded-card font-mono text-sm bg-theme-secondary" id="backup-codes-list">
                         <?php foreach ($backup_codes as $code): ?>
                             <div class="py-1 px-2 text-center text-theme-primary"><?php echo e($code); ?></div>
                         <?php endforeach; ?>
@@ -793,12 +725,12 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                     <!-- QR Code -->
                     <div class="flex flex-col items-center gap-3">
-                        <div class="p-3 rounded-lg bg-white">
+                        <div class="p-3 fd-rounded-card bg-white">
                             <canvas id="totp-qr-code"></canvas>
                         </div>
                         <details class="w-full">
                             <summary class="text-xs cursor-pointer text-theme-muted"><?php echo e(t("Can't scan? Enter code manually")); ?></summary>
-                            <div class="mt-2 p-3 rounded-lg font-mono text-sm text-center tracking-wider break-all" style="background: var(--surface-secondary); color: var(--text-primary);">
+                            <div class="mt-2 p-3 fd-rounded-card font-mono text-sm text-center tracking-wider break-all bg-theme-secondary text-theme-primary">
                                 <?php echo e(format_totp_secret($setup_secret)); ?>
                             </div>
                         </details>
@@ -826,7 +758,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                     </form>
                 </div>
 
-                <script src="https://cdn.jsdelivr.net/npm/qrcode@1/build/qrcode.min.js"></script>
+                <script src="assets/vendor/qrcode/1.5.3/qrcode.min.js?v=<?php echo APP_VERSION; ?>"></script>
                 <script>
                 document.addEventListener('DOMContentLoaded', function() {
                     var canvas = document.getElementById('totp-qr-code');
@@ -875,8 +807,8 @@ include BASE_PATH . '/includes/components/page-header.php';
                 </div>
 
                 <!-- Disable 2FA modal -->
-                <div id="disable-2fa-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.5);">
-                    <div class="rounded-xl shadow-xl w-full max-w-sm p-6" style="background: var(--surface-primary);">
+                <div id="disable-2fa-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 fd-modal-backdrop">
+                    <div class="fd-rounded-card shadow-xl w-full max-w-sm p-6 bg-theme-primary">
                         <h4 class="text-base font-semibold mb-2 text-theme-primary"><?php echo e(t('Disable two-factor authentication')); ?></h4>
                         <p class="text-sm mb-4 text-theme-secondary"><?php echo e(t('Enter your password to confirm.')); ?></p>
                         <form method="post" class="space-y-3">
@@ -892,8 +824,8 @@ include BASE_PATH . '/includes/components/page-header.php';
                 </div>
 
                 <!-- Regenerate backup codes modal -->
-                <div id="regen-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.5);">
-                    <div class="rounded-xl shadow-xl w-full max-w-sm p-6" style="background: var(--surface-primary);">
+                <div id="regen-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 fd-modal-backdrop">
+                    <div class="fd-rounded-card shadow-xl w-full max-w-sm p-6 bg-theme-primary">
                         <h4 class="text-base font-semibold mb-2 text-theme-primary"><?php echo e(t('Regenerate backup codes')); ?></h4>
                         <p class="text-sm mb-4 text-theme-secondary"><?php echo e(t('This will invalidate all existing backup codes. Enter your password to confirm.')); ?></p>
                         <form method="post" class="space-y-3">
@@ -927,6 +859,8 @@ include BASE_PATH . '/includes/components/page-header.php';
     </div>
 </div>
 
+</div>
+<script defer src="assets/js/profile-workspace.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/profile-workspace.js'); ?>"></script>
 <?php if ($notification_preferences_available): ?>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -948,46 +882,6 @@ document.addEventListener('DOMContentLoaded', function () {
 <?php endif; ?>
 
 <script>
-function copyProfileApiKey(fieldId, button) {
-    var field = document.getElementById(fieldId);
-    if (!field || !button) return;
-
-    var value = field.textContent.trim();
-    var originalHtml = button.innerHTML;
-    var copiedText = <?php echo json_encode(t('Copied')); ?>;
-
-    var showCopied = function () {
-        button.textContent = copiedText;
-        setTimeout(function () {
-            button.innerHTML = originalHtml;
-        }, 1800);
-    };
-
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(value).then(showCopied).catch(function () {
-            fallbackCopyProfileApiKey(value, showCopied);
-        });
-        return;
-    }
-
-    fallbackCopyProfileApiKey(value, showCopied);
-}
-
-function fallbackCopyProfileApiKey(value, done) {
-    var textarea = document.createElement('textarea');
-    textarea.value = value;
-    textarea.setAttribute('readonly', 'readonly');
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.select();
-    try {
-        document.execCommand('copy');
-    } catch (e) {}
-    document.body.removeChild(textarea);
-    done();
-}
-
 document.addEventListener('DOMContentLoaded', function () {
     const avatarInput = document.getElementById('avatar-file-input');
     const avatarFileName = document.getElementById('avatar-file-name');

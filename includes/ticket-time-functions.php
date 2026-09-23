@@ -425,6 +425,7 @@ function stop_active_ticket_timer($ticket_id, $user_id, ?int $comment_id = null)
 
     db_update('ticket_time_entries', $update, 'id = ?', [(int) $active['id']]);
     log_activity($ticket_id, $user_id, 'time_stopped', "Timer stopped ({$duration} min)");
+    notify_saved_time_entry((int) $active['id'], (int) $user_id);
 
     if (function_exists('log_ticket_history')) {
         log_ticket_history($ticket_id, $user_id, 'timer_stopped', null, date('Y-m-d H:i:s'));
@@ -504,7 +505,9 @@ function add_manual_time_entry($ticket_id, $user_id, $data) {
             }
         }
 
-        return db_insert('ticket_time_entries', $insert);
+        $entry_id = db_insert('ticket_time_entries', $insert);
+        notify_saved_time_entry((int) $entry_id, (int) $user_id);
+        return $entry_id;
     } catch (Exception $e) {
         return false;
     }
@@ -513,6 +516,50 @@ function add_manual_time_entry($ticket_id, $user_id, $data) {
 /**
  * Check if `source` column exists on ticket_time_entries
  */
+/**
+ * Persist an in-app review item in the same transaction as saved work.
+ * No email/push is sent here: a surrounding transaction may not have committed yet.
+ * Only participating staff receive details; visibility and preferences still apply.
+ */
+function notify_saved_time_entry(int $entry_id, int $actor_id): void {
+    if ($entry_id <= 0 || !function_exists('create_notifications_for_users')) return;
+    try {
+        $entry = db_fetch_one('SELECT id, ticket_id, duration_minutes, ended_at FROM ticket_time_entries WHERE id = ?', [$entry_id]);
+        if (!$entry || empty($entry['ended_at']) || (int) $entry['duration_minutes'] <= 0) return;
+        $ticket = get_ticket((int) $entry['ticket_id']);
+        if (!$ticket) return;
+        $recipients = array_values(array_intersect(
+            get_ticket_participants((int) $ticket['id'], $actor_id), get_staff_user_ids($actor_id)
+        ));
+        if (!$recipients) return;
+        $actor = get_user($actor_id);
+        create_notifications_for_users($recipients, 'ticket_updated', (int) $ticket['id'], $actor_id, [
+            'ticket_id' => (int) $ticket['id'], 'ticket_subject' => $ticket['title'],
+            'actor_name' => trim(($actor['first_name'] ?? '') . ' ' . ($actor['last_name'] ?? '')),
+            'field' => 'time_entry', 'time_entry_id' => $entry_id,
+            'detail' => format_duration_minutes((int) $entry['duration_minutes']),
+            'action_required' => true,
+        ], false);
+    } catch (Throwable $error) {
+        error_log('Work-log review notification could not be stored.');
+    }
+}
+
+/** Display a saved interval without inventing times for duration-only records. */
+function ticket_time_entry_display_range(array $entry): string
+{
+    $date = (string) ($entry['worked_on'] ?? $entry['started_at'] ?? '');
+    if (ticket_time_entry_precision($entry) !== 'exact') {
+        return format_date($date, 'd.m.Y') . ' · ' . t('ticket.workspace.no_exact_time');
+    }
+    $start = (string) ($entry['started_at'] ?? '');
+    if ($start === '') return '—';
+    $end = (string) ($entry['ended_at'] ?? '');
+    $end_label = $end === '' ? t(empty($entry['paused_at']) ? 'Running' : 'Paused')
+        : format_date($end, substr($start, 0, 10) === substr($end, 0, 10) ? 'H:i' : 'd.m.Y H:i');
+    return format_date($start, 'd.m.Y') . ' · ' . format_date($start, 'H:i') . ' – ' . $end_label;
+}
+
 function time_entry_source_column_exists() {
     return column_exists('ticket_time_entries', 'source');
 }

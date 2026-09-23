@@ -337,6 +337,10 @@ switch ($page) {
         require_once BASE_PATH . '/pages/work.php';
         break;
 
+    case 'time':
+        require_once BASE_PATH . '/pages/time.php';
+        break;
+
     case 'inbox':
         require_once BASE_PATH . '/pages/inbox.php';
         break;

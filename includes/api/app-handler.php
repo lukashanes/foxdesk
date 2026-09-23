@@ -576,6 +576,7 @@ function api_app_log_time()
     }
 
     $entry_id = add_manual_time_entry((int) $ticket['id'], (int) $user['id'], [
+        'comment_id' => api_app_time_comment_id($input, (int) $ticket['id']),
         'worked_on' => $time_input['worked_on'],
         'time_precision' => $time_input['time_precision'],
         'started_at' => $time_input['started_at'],
@@ -702,6 +703,7 @@ function api_app_ticket_timer_action()
             'paused_at' => null,
         ], 'id = ?', [(int) $active['id']]);
         log_activity($ticket_id, (int) $user['id'], 'time_stopped', "Timer stopped ({$duration} min)");
+        notify_saved_time_entry((int) $active['id'], (int) $user['id']);
         $result = [
             'success' => true,
             'entry_id' => (int) $active['id'],

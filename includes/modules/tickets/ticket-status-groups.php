@@ -95,6 +95,106 @@ function ticket_status_group_from_status(array $status): string
     return 'active';
 }
 
+function ticket_status_group_status_is_canceled(array $status): bool
+{
+    $text = ticket_status_group_search_text(implode(' ', array_filter([
+        (string) ($status['name'] ?? ''),
+        (string) ($status['slug'] ?? ''),
+        (string) ($status['key'] ?? ''),
+        (string) ($status['code'] ?? ''),
+    ])));
+
+    if ($text === '') {
+        return false;
+    }
+
+    return (bool) preg_match('/\b(cancel|canceled|cancelled|storno|zrusen|reject|rejected|decline|declined|void|trash)\b/u', $text);
+}
+
+function ticket_status_group_done_status_score(array $status): int
+{
+    if (empty($status['id']) || ticket_status_group_status_is_canceled($status)) {
+        return -1;
+    }
+
+    $text = ticket_status_group_search_text(implode(' ', array_filter([
+        (string) ($status['name'] ?? ''),
+        (string) ($status['slug'] ?? ''),
+        (string) ($status['key'] ?? ''),
+        (string) ($status['code'] ?? ''),
+    ])));
+
+    if ($text === 'done') {
+        return 120;
+    }
+    if (preg_match('/\bdone\b/u', $text)) {
+        return 110;
+    }
+    if (preg_match('/\b(complete|completed|hotovo|dokonceno)\b/u', $text)) {
+        return 100;
+    }
+    if (preg_match('/\b(resolve|resolved|vyreseno)\b/u', $text)) {
+        return 90;
+    }
+    if (preg_match('/\b(close|closed|uzavreno)\b/u', $text)) {
+        return 80;
+    }
+    if (preg_match('/\b(finish|finished)\b/u', $text)) {
+        return 70;
+    }
+
+    return ticket_status_group_from_status($status) === 'done' ? 50 : -1;
+}
+
+function ticket_status_group_visible_workflow_statuses(array $statuses, array $preserve_ids = []): array
+{
+    $preserve_lookup = array_flip(array_map('intval', $preserve_ids));
+    $best_done_id = null;
+    $best_done_score = -1;
+
+    foreach ($statuses as $status) {
+        $score = ticket_status_group_done_status_score($status);
+        if ($score > $best_done_score) {
+            $best_done_id = (int) ($status['id'] ?? 0);
+            $best_done_score = $score;
+        }
+    }
+
+    $visible = [];
+    foreach ($statuses as $status) {
+        $status_id = (int) ($status['id'] ?? 0);
+        $preserve = isset($preserve_lookup[$status_id]);
+
+        if (!$preserve && ticket_status_group_status_is_canceled($status)) {
+            continue;
+        }
+
+        if (!$preserve
+            && ticket_status_group_from_status($status) === 'done'
+            && $best_done_id !== null
+            && $status_id !== $best_done_id) {
+            continue;
+        }
+
+        $visible[] = $status;
+    }
+
+    return $visible;
+}
+
+function ticket_status_group_display_name(array $status): string
+{
+    $name = trim((string) ($status['name'] ?? ''));
+    $search_name = ticket_status_group_search_text($name);
+    if (ticket_status_group_from_status($status) === 'done'
+        || ticket_status_group_status_is_canceled($status)
+        || preg_match('/\b(close|closed|uzavreno)\b/u', $search_name)) {
+        return function_exists('t') ? t('Done') : 'Done';
+    }
+
+    return $name !== '' ? $name : (function_exists('t') ? t('Status') : 'Status');
+}
+
 function ticket_status_group_for_status_id(?int $status_id): string
 {
     if (!$status_id || !function_exists('get_status')) {

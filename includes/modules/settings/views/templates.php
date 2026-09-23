@@ -2,6 +2,8 @@
         <?php
         $template_info = settings_email_template_catalog();
         $display_templates = settings_email_template_display_rows($templates, $template_lang);
+        $selected_template = (string) ($_GET['template'] ?? ($display_templates[0]['template_key'] ?? ''));
+        if (!in_array($selected_template, array_column($display_templates, 'template_key'), true)) $selected_template = (string) ($display_templates[0]['template_key'] ?? '');
         ?>
 
         <div class="mb-2 flex justify-between items-center">
@@ -11,6 +13,10 @@
                 <input type="hidden" name="page" value="admin">
                 <input type="hidden" name="section" value="settings">
                 <input type="hidden" name="tab" value="templates">
+                <label class="text-sm text-theme-secondary" for="settings-template-picker"><?php echo e(t('Templates')); ?></label>
+                <select id="settings-template-picker" name="template" onchange="this.form.submit()" class="form-select">
+                    <?php foreach ($display_templates as $choice): ?><option value="<?php echo e($choice['template_key']); ?>" <?php echo $selected_template === $choice['template_key'] ? 'selected' : ''; ?>><?php echo e($template_info[$choice['template_key']]['name'] ?? $choice['template_key']); ?></option><?php endforeach; ?>
+                </select>
 
                 <label class="text-sm text-theme-secondary"><?php echo e(t('Language:')); ?></label>
                 <select name="lang" onchange="this.form.submit()" class="form-select form-select-sm w-auto">
@@ -23,6 +29,7 @@
 
         <div class="space-y-3">
             <?php foreach ($display_templates as $template):
+                if ($template['template_key'] !== $selected_template) continue;
                 $info = $template_info[$template['template_key']] ?? null;
                 ?>
                 <div class="admin-list-card">

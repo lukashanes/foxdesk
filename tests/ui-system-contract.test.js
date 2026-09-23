@@ -82,7 +82,7 @@ assert(!theme.includes('border-radius: calc(var(--fd-radius-control)'), 'UI cont
 assert(work.includes('fd-card fd-page-section work-overview-card'), 'Work overview must use the shared card primitive.');
 assert(work.includes('fd-segmented work-period-switch'), 'Work period switch must use the segmented primitive.');
 assert(work.includes('fd-segmented__item work-period-link'), 'Work period links must use segmented items.');
-assert(work.includes('fd-table work-team-table'), 'Work team table must use the shared table primitive.');
+assert(work.includes('work-client-matrix') && work.includes('class="fd-table"'), 'Work client time matrix must use the shared table primitive.');
 assert(work.includes("'title' => 'Tickets'"), 'Work queue section should not duplicate the Dashboard page title.');
 assert(work.includes("'primary_action' => ''"), 'Work queue section must suppress duplicate New ticket CTA.');
 

@@ -286,7 +286,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
 
 
                 <?php if (is_admin() || is_agent()): ?>
-                    <a href="<?php echo url('work'); ?>#time-overview" class="nav-item" title="<?php echo e(t('Time')); ?>">
+                    <a href="<?php echo url('time'); ?>" class="nav-item <?php echo ($page ?? '') === 'time' ? 'active' : ''; ?>" title="<?php echo e(t('Time')); ?>">
                         <?php echo get_icon('clock', 'nav-item__icon'); ?>
                         <span><?php echo e(t('Time')); ?></span>
                     </a>
@@ -397,7 +397,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
             <?php $is_settings = ($page ?? '') === 'admin' && ($_GET['section'] ?? '') === 'settings'; ?>
             <div class="px-2.5 pb-0.5">
                 <a href="<?php echo url('admin', ['section' => 'settings']); ?>"
-                    class="nav-item <?php echo $is_settings ? 'active' : ''; ?>"
+                    class="nav-item sidebar-utility-item <?php echo $is_settings ? 'active' : ''; ?>"
                     title="<?php echo e(t('Settings')); ?>"
                     <?php echo $is_settings ? 'aria-current="page"' : ''; ?>>
                     <?php echo get_icon('cog', 'nav-item__icon'); ?>
@@ -409,7 +409,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
         <!-- Help Button -->
         <div class="px-2.5 pb-0.5">
             <button onclick="toggleHelpPanel()" id="help-panel-btn"
-                class="w-full flex items-center gap-3 p-2 rounded-xl transition-all sidebar-hover text-theme-muted"
+                class="w-full flex items-center gap-3 p-2 rounded-xl transition-all sidebar-hover text-theme-muted sidebar-utility-item"
                 title="<?php echo e(t('Help')); ?> (?)">
                 <?php echo get_icon('question-circle', 'nav-item__icon'); ?>
                 <span class="text-sm"><?php echo e(t('Help')); ?></span>

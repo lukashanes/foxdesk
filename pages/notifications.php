@@ -59,7 +59,7 @@ function render_notif_card(array $notif, int $group_count = 1): void
     $n_actor_name = trim(($notif['actor_first_name'] ?? '') . ' ' . ($notif['actor_last_name'] ?? ''));
     $n_actor_avatar = $notif['actor_avatar'] ?? null;
     $n_initials = mb_strtoupper(mb_substr($notif['actor_first_name'] ?? '?', 0, 1));
-    $avatar_bg = 'hsl(' . abs(crc32($n_actor_name)) % 360 . ', 55%, 60%)';
+    $avatar_bg = 'hsl(' . abs(crc32($n_actor_name)) % 360 . ', 45%, 92%)';
 
     // Type icon + color
     $type_icon = 'bell';
@@ -836,7 +836,7 @@ function render_child_card(array $notif): void
     function avatarColor(name) {
         var h = 0;
         for (var i = 0; i < name.length; i++) h = (name.charCodeAt(i) + ((h << 5) - h));
-        return 'hsl(' + (Math.abs(h) % 360) + ', 55%, 60%)';
+        return 'hsl(' + (Math.abs(h) % 360) + ', 45%, 92%)';
     }
 
     function typeInfo(type) {
@@ -963,7 +963,7 @@ function render_child_card(array $notif): void
         groupCount = groupCount || 1;
         var data = n.data || {};
         var isRead = !!n.is_read;
-        var isAction = isActionRequired(n);
+        var isAction = isActionRequired(n) && !n.is_resolved;
         var actorName = ((n.actor_first_name || '') + ' ' + (n.actor_last_name || '')).trim();
         var initials = (n.actor_first_name || '?').charAt(0).toUpperCase();
         var snippet = n.snippet || data.comment_preview || '';
@@ -995,7 +995,9 @@ function render_child_card(array $notif): void
         html += '<div class="notif-card-action">' + esc(actionText) + '</div>';
         if (snippet) html += '<div class="notif-card-snippet">' + esc(snippet) + '</div>';
         html += '<div class="notif-card-meta">';
+        if (actorName) html += '<span class="notif-card-actor">' + esc(actorName) + '</span>';
         html += '<span class="notif-card-time">' + esc(n.time_ago || '') + '</span>';
+        if (n.is_resolved) html += '<span>' + esc(<?php echo json_encode(t('Resolved')); ?>) + '</span>';
         if (isAction) html += '<span class="notif-action-badge">' + esc(<?php echo json_encode(t('Action required')); ?>) + '</span>';
         html += '</div></a>';
         html += '<div class="notif-card-actions">';
@@ -1007,9 +1009,11 @@ function render_child_card(array $notif): void
             html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
             html += '</button>';
         }
-        html += '<a href="' + esc(href) + '" class="notif-mark-read-btn">';
-        html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>';
-        html += '</a></div></div>';
+        if (ticketId) {
+            html += '<a href="' + esc(href) + '" class="btn btn-secondary btn-sm">' + esc(<?php echo json_encode(t('View ticket')); ?>) + '</a>';
+            html += '<a href="' + esc(href.split('#')[0] + '#comment-form') + '" class="btn btn-secondary btn-sm">' + esc(<?php echo json_encode(t('Reply')); ?>) + '</a>';
+        }
+        html += '</div></div>';
         return html;
     }
 
@@ -1017,7 +1021,7 @@ function render_child_card(array $notif): void
     function buildChildCard(n) {
         var data = n.data || {};
         var isRead = !!n.is_read;
-        var isAction = isActionRequired(n);
+        var isAction = isActionRequired(n) && !n.is_resolved;
         var ticketId = n.ticket_id || null;
         var commentId = data.comment_id || null;
         var href = '#';

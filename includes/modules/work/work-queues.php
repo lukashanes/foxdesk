@@ -10,6 +10,10 @@
 function work_queue_definitions(): array
 {
     return [
+        'all' => [
+            'label' => 'All',
+            'scope' => 'personal',
+        ],
         'mine' => [
             'label' => 'My work',
             'description' => 'Tickets assigned to the current user.',
@@ -104,12 +108,15 @@ function work_queue_filters(string $queue_key, array $user, int $limit = 8): arr
     return $filters;
 }
 
-function work_queue_items(string $queue_key, array $user, int $limit = 8): array
+function work_queue_items(string $queue_key, array $user, int $limit = 8, int $offset = 0, ?string $sort = null): array
 {
     if (!function_exists('get_tickets')) {
         return [];
     }
-    $items = get_tickets(work_queue_filters($queue_key, $user, $limit));
+    $filters = work_queue_filters($queue_key, $user, $limit);
+    $filters['offset'] = max(0, $offset);
+    if ($sort === 'last_updated') $filters['sort'] = $sort;
+    $items = get_tickets($filters);
     if (($user['role'] ?? '') === 'user') {
         return $items;
     }

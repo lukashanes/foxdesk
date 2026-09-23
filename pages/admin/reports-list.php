@@ -69,6 +69,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash(t('Failed to duplicate report.'), 'error');
             }
         }
+    } elseif ($action === 'create_share' && $report_id > 0) {
+        $template = get_report_template($report_id);
+        if ($template && empty($template['is_draft'])) {
+            $share_token = create_report_template_share($report_id, (int) $template['organization_id']);
+            flash($share_token ? t('Saved') : t('Failed to create share link.'), $share_token ? 'success' : 'error');
+        }
     } elseif ($action === 'publish' && $report_id > 0) {
         if (update_report_template($report_id, ['is_draft' => 0])) {
             $template = get_report_template($report_id);
@@ -106,39 +112,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('admin', ['section' => 'reports-list']);
 }
 
-// Get all reports
-$reports_where = [];
-if (function_exists('report_template_column_exists') && report_template_column_exists('is_archived')) {
-    $reports_where[] = 'rt.is_archived = 0';
-}
-
-$reports = db_fetch_all("
-    SELECT rt.*, o.name as organization_name,
-           u.first_name, u.last_name
-    FROM report_templates rt
-    LEFT JOIN organizations o ON rt.organization_id = o.id
-    LEFT JOIN users u ON rt.created_by_user_id = u.id
-    " . (!empty($reports_where) ? 'WHERE ' . implode(' AND ', $reports_where) : '') . "
-    ORDER BY rt.created_at DESC
-");
-
-foreach ($reports as &$report) {
-    $report['share_token'] = null;
-    if (empty($report['is_draft'])) {
-        $share = function_exists('get_active_report_template_share')
-            ? get_active_report_template_share((int) $report['id'])
-            : null;
-        if (!$share && function_exists('create_report_template_share')) {
-            $token = create_report_template_share((int) $report['id'], (int) $report['organization_id']);
-            if ($token) {
-                $report['share_token'] = $token;
-            }
-        } else {
-            $report['share_token'] = $share['token'] ?? null;
-        }
-    }
-}
-unset($report);
+require_once BASE_PATH . '/includes/modules/work/time-ledger.php';
+require_once BASE_PATH . '/includes/modules/reports/report-history.php';
+$history = report_history_model($_GET);
+$reports = $history['rows'];
+$history_link = static function (array $changes): string {
+    $params = $_GET; unset($params['page']);
+    return url('admin', array_merge($params, ['section' => 'reports-list'], $changes));
+};
 
 include BASE_PATH . '/includes/header.php';
 ?>
@@ -156,6 +137,13 @@ include BASE_PATH . '/includes/header.php';
         </div>
     </section>
 
+    <form method="get" class="card agenda-toolbar">
+        <input type="hidden" name="page" value="admin"><input type="hidden" name="section" value="reports-list">
+        <label><?php echo e(t('Search')); ?><input type="search" name="search" class="form-input" value="<?php echo e($history['search']); ?>"></label>
+        <label><?php echo e(t('Client')); ?><select name="client" data-soft-select><option value="0"><?php echo e(t('All')); ?></option><?php foreach (get_organizations(true) as $client): ?><option value="<?php echo (int) $client['id']; ?>" <?php echo (int) $client['id'] === $history['client'] ? 'selected' : ''; ?>><?php echo e($client['name']); ?></option><?php endforeach; ?></select></label>
+        <label><?php echo e(t('Status')); ?><select name="draft" data-soft-select><option value=""><?php echo e(t('All')); ?></option><option value="1" <?php echo ($_GET['draft'] ?? '') === '1' ? 'selected' : ''; ?>><?php echo e(t('Draft')); ?></option><option value="0" <?php echo ($_GET['draft'] ?? '') === '0' ? 'selected' : ''; ?>><?php echo e(t('Published')); ?></option></select></label>
+        <button class="btn btn-secondary" type="submit"><?php echo e(t('Apply')); ?></button>
+    </form>
     <!-- Reports List -->
     <?php if (empty($reports)): ?>
         <div class="card card-body p-12 text-center">
@@ -172,7 +160,7 @@ include BASE_PATH . '/includes/header.php';
     <?php else: ?>
         <div class="admin-list-card admin-table">
             <table class="w-full">
-                <thead style="background: var(--surface-secondary); border-color: var(--border-light);" class="border-b">
+                <thead class="bg-theme-secondary border-theme-light border-b">
                     <tr>
                         <th class="px-6 py-3 text-left th-label">
                             <?php echo e(t('Report')); ?>
@@ -186,6 +174,7 @@ include BASE_PATH . '/includes/header.php';
                         <th class="px-6 py-3 text-left th-label">
                             <?php echo e(t('Status')); ?>
                         </th>
+                        <th class="px-6 py-3 text-left th-label"><?php echo e(t('Time')); ?></th>
                         <th class="px-6 py-3 text-left th-label">
                             <?php echo e(t('Created')); ?>
                         </th>
@@ -198,8 +187,7 @@ include BASE_PATH . '/includes/header.php';
                     <?php foreach ($reports as $report): ?>
                         <tr class="tr-hover">
                             <td class="px-6 py-4">
-                                <div class="font-medium text-theme-primary"><?php echo e($report['title']); ?>
-                                </div>
+                                <a class="font-medium text-theme-primary" href="<?php echo e(url('admin', ['section' => 'report-builder', 'edit' => (int) $report['id']])); ?>"><bdi dir="auto"><?php echo e($report['title']); ?></bdi></a>
                                 <div class="text-xs text-theme-muted">
                                     <?php echo get_icon('globe', 'w-3 h-3 mr-1 inline-block'); ?>
                                     <?php echo e(strtoupper($report['report_language'])); ?>
@@ -237,6 +225,7 @@ include BASE_PATH . '/includes/header.php';
                                     </div>
                                 <?php endif; ?>
                             </td>
+                            <td class="px-6 py-4 whitespace-nowrap" title="<?php echo e(t('Saved')); ?>"><?php echo $report['saved_minutes'] !== null ? e(format_duration_minutes($report['saved_minutes'])) : '—'; ?></td>
                             <td class="px-6 py-4 text-sm text-theme-secondary">
                                 <?php echo date('M j, Y', strtotime($report['created_at'])); ?>
                                 <div class="text-xs text-theme-muted">
@@ -245,8 +234,8 @@ include BASE_PATH . '/includes/header.php';
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-right">
-                                <div class="flex items-center justify-end gap-2">
-                                    <?php if (!$report['is_draft']): ?>
+                                <button type="button" class="btn btn-secondary btn-sm" popovertarget="report-actions-<?php echo (int) $report['id']; ?>"><?php echo e(t('Actions')); ?><?php echo get_icon('chevron-down', 'w-3 h-3'); ?></button><div class="report-row-actions" data-row-action-menu popover="auto" id="report-actions-<?php echo (int) $report['id']; ?>">
+                                    <?php if (!$report['is_draft'] && !empty($report['share_token'])): ?>
                                         <!-- View Public Report -->
                                         <?php $report_share_url = APP_URL . '/index.php?page=report-public&token=' . rawurlencode((string) ($report['share_token'] ?? '')); ?>
                                         <a href="<?php echo e($report_share_url); ?>" target="_blank"
@@ -287,6 +276,12 @@ include BASE_PATH . '/includes/header.php';
                                             <?php echo get_icon('clock', 'w-3.5 h-3.5 mr-1 inline-block'); ?>
                                             <?php echo e(t('Expiration')); ?>
                                         </button>
+                                    <?php elseif (!$report['is_draft']): ?>
+                                        <form method="post" class="inline">
+                                            <?php echo csrf_field(); ?>
+                                            <input type="hidden" name="action" value="create_share"><input type="hidden" name="report_id" value="<?php echo (int) $report['id']; ?>">
+                                            <button type="submit" class="btn btn-secondary btn-sm"><?php echo e(t('Create share link')); ?></button>
+                                        </form>
                                     <?php else: ?>
                                         <!-- Publish Draft -->
                                         <form method="POST" class="inline">
@@ -338,11 +333,17 @@ include BASE_PATH . '/includes/header.php';
             </table>
         </div>
     <?php endif; ?>
+    <nav class="registry-pagination" aria-label="<?php echo e(t('Report history')); ?>">
+        <span><?php echo $history['paging']['page'] . ' / ' . $history['paging']['pages'] . ' · ' . $history['paging']['count']; ?></span>
+        <?php foreach (['10','20','50','all'] as $size): ?><a class="btn btn-secondary btn-sm" href="<?php echo e($history_link(['page_size'=>$size,'p'=>1])); ?>" <?php echo $history['paging']['size'] === $size ? 'aria-current="page"' : ''; ?>><?php echo $size === 'all' ? e(t('All')) : $size; ?></a><?php endforeach; ?>
+        <a class="btn btn-secondary btn-sm" href="<?php echo e($history_link(['p'=>max(1,$history['paging']['page']-1)])); ?>" <?php echo $history['paging']['page'] <= 1 ? 'aria-disabled="true" tabindex="-1"' : ''; ?>><?php echo e(t('Previous')); ?></a>
+        <a class="btn btn-secondary btn-sm" href="<?php echo e($history_link(['p'=>$history['paging']['page']+1])); ?>" <?php echo $history['paging']['page'] >= $history['paging']['pages'] ? 'aria-disabled="true" tabindex="-1"' : ''; ?>><?php echo e(t('Next')); ?></a>
+    </nav>
 </div>
 
 <!-- Expiration Modal -->
 <div id="expirationModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="rounded-xl shadow-xl max-w-md w-full mx-4 p-4" style="background: var(--surface-primary);">
+    <div class="fd-rounded-card shadow-xl max-w-md w-full mx-4 p-4 bg-theme-primary">
         <h3 class="text-lg font-semibold mb-4 text-theme-primary">
             <span
                 class="text-orange-600 inline-block mr-2"><?php echo get_icon('clock', 'w-5 h-5'); ?></span><?php echo e(t('Set Report Expiration')); ?>

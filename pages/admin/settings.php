@@ -160,11 +160,12 @@ $page_header_subtitle = '';
 include BASE_PATH . '/includes/components/page-header.php';
 ?>
 
-<div class="admin-shell settings-workspace">
+<div class="admin-shell settings-workspace" data-settings-workspace>
 
     <!-- Tabs -->
     <?php render_admin_settings_tabs($tab); ?>
-    <div class="settings-section-content">
+    <div class="settings-workspace__content settings-section-content">
+    <?php render_admin_settings_subtabs($tab); ?>
 
     <?php
     $settings_view = settings_view_file($tab);
@@ -177,4 +178,5 @@ include BASE_PATH . '/includes/components/page-header.php';
     ?>
     </div>
 </div>
+<script defer src="assets/js/settings-workspace.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/settings-workspace.js'); ?>"></script>
 <?php require_once BASE_PATH . '/includes/footer.php';

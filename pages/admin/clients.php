@@ -134,14 +134,14 @@ require_once BASE_PATH . '/includes/header.php';
 <?php
 $page_header_title = $page_title;
 $page_header_subtitle = '';
-$page_header_actions = '<a href="#new-client-contact" class="btn btn-primary">'
+$page_header_actions = '<button type="button" onclick="document.getElementById(\'new-client-contact\').showModal()" aria-haspopup="dialog" class="btn btn-primary">'
     . get_icon('plus', 'w-4 h-4')
-    . '<span>' . e(t('Add client')) . '</span></a>';
+    . '<span>' . e(t('Add')) . '</span></button>';
 include BASE_PATH . '/includes/components/page-header.php';
 include BASE_PATH . '/includes/components/client-management-nav.php';
 ?>
 
-<div class="admin-two-column client-contacts-page">
+<div class="client-contacts-page">
     <!-- Clients List -->
     <div class="admin-main-column">
         <div class="admin-list-card">
@@ -229,9 +229,9 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
     </div>
 
     <!-- Add New Client -->
-    <div class="admin-side-column" id="new-client-contact">
+    <dialog class="ledger-dialog settings-user-dialog" id="new-client-contact" aria-labelledby="new-contact-title">
         <div class="card card-body">
-            <h3 class="font-semibold mb-4 text-theme-primary"><?php echo e(t('Add client')); ?></h3>
+            <header class="flex items-center justify-between gap-3 mb-4"><h3 id="new-contact-title" class="font-semibold text-theme-primary"><?php echo e(t('Contacts')); ?></h3><button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('new-client-contact').close()"><?php echo e(t('Close')); ?></button></header>
 
             <form method="post" class="space-y-4">
                 <?php echo csrf_field(); ?>
@@ -261,11 +261,11 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
                 </div>
 
                 <button type="submit" name="add_client" class="btn btn-primary w-full">
-                    <?php echo e(t('Add client')); ?>
+                    <?php echo e(t('Add')); ?>
                 </button>
             </form>
         </div>
-    </div>
+    </dialog>
 </div>
 
 <!-- Edit Client Modal -->

@@ -25,20 +25,29 @@ if (is_agent()) {
 
         <dl class="ticket-side-list">
             <div class="ticket-side-row">
-                <dt class="ticket-side-label">ID</dt>
-                <dd class="ticket-side-value ticket-side-value--mono"><?php echo get_ticket_code($ticket_id); ?></dd>
-            </div>
-
-            <div class="ticket-side-row">
                 <dt class="ticket-side-label"><?php echo e(t('Status')); ?></dt>
-                <dd class="ticket-side-value"><?php ticket_detail_render_status_pill($ticket, $statuses); ?></dd>
+                <dd class="ticket-side-value ticket-side-value--control">
+                    <?php if (!empty($workflow_metadata['allowed_actions'])): ?>
+                        <form method="post" class="ticket-status-form" data-workflow-operation="status">
+                            <?php echo csrf_field(); ?>
+                            <input type="hidden" name="expected_revision" value="<?php echo e($workflow_metadata['revision']); ?>">
+                            <label class="sr-only" for="ticket-header-status"><?php echo e(t('Status')); ?></label>
+                            <select id="ticket-header-status" name="status_id" class="form-select ticket-header-status">
+                                <?php foreach (ticket_status_group_visible_workflow_statuses($statuses, [(int) $ticket['status_id']]) as $status): ?>
+                                <option value="<?php echo (int) $status['id']; ?>" <?php echo (int) $status['id'] === (int) $ticket['status_id'] ? 'selected' : ''; ?>><?php echo e(ticket_status_group_display_name($status)); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button type="submit" name="change_status" class="btn btn-secondary workflow-no-js"><?php echo e(t('Save')); ?></button>
+                        </form>
+                    <?php else: ticket_detail_render_status_pill($ticket, $statuses); endif; ?>
+                </dd>
             </div>
 
             <div class="ticket-side-row">
                 <dt class="ticket-side-label"><?php echo e(t('Client')); ?></dt>
                 <dd class="ticket-side-value ticket-side-value--control">
                     <?php if (is_agent()): ?>
-                        <select class="ticket-side-control ticket-side-select" onchange="quickEditField('quick-company', {organization_id: this.value})">
+                        <select name="organization_id" class="ticket-side-control ticket-side-select" onchange="quickEditField('quick-company', {organization_id: this.value})">
                             <option value=""><?php echo e(t('-- No Client --')); ?></option>
                             <?php foreach ($_sidebar_organizations as $_org): ?>
                                 <option value="<?php echo (int) $_org['id']; ?>" <?php echo ((int) ($ticket['organization_id'] ?? 0) === (int) $_org['id']) ? 'selected' : ''; ?>>
@@ -60,7 +69,7 @@ if (is_agent()) {
                 <div class="ticket-side-row">
                     <dt class="ticket-side-label"><?php echo e(t('workflow.assigned')); ?></dt>
                     <dd class="ticket-side-value ticket-side-value--control">
-                        <select class="ticket-side-control ticket-side-select" onchange="quickEditField('quick-assign', {assignee_id: this.value})">
+                        <select name="assigned_to" class="ticket-side-control ticket-side-select" onchange="quickEditField('quick-assign', {assignee_id: this.value})">
                             <option value=""><?php echo e(t('-- Unassigned --')); ?></option>
                             <?php foreach ($_sidebar_agents as $_ag): ?>
                                 <option value="<?php echo (int) $_ag['id']; ?>" <?php echo ((int) ($ticket['assignee_id'] ?? 0) === (int) $_ag['id']) ? 'selected' : ''; ?>>
@@ -128,64 +137,6 @@ if (is_agent()) {
                 </dd>
             </div>
 
-            <?php if ($tags_supported): ?>
-                <div class="ticket-side-row ticket-side-row--stack" id="sidebar-tags-section">
-                    <dt class="ticket-side-label ticket-side-label--wide">
-                        <?php echo e(t('Tags')); ?>
-                        <?php if (can_edit_ticket($ticket, $user)): ?>
-                            <button type="button" id="sidebar-tags-edit-btn" class="ticket-side-edit-button">
-                                <?php echo e(t('Edit')); ?>
-                            </button>
-                        <?php endif; ?>
-                    </dt>
-                    <dd id="sidebar-tags-display" class="ticket-side-value ticket-side-tags">
-                        <?php if (!empty($ticket_tags)): ?>
-                            <?php foreach ($ticket_tags as $tag): ?>
-                                <a href="<?php echo e($ticket_tag_filter_url($tag)); ?>" class="ticket-tag-pill"
-                                    title="<?php echo e(t('Filter by this tag')); ?>">
-                                    #<?php echo e($tag); ?>
-                                </a>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <span class="ticket-side-empty">—</span>
-                        <?php endif; ?>
-                    </dd>
-                    <?php if (can_edit_ticket($ticket, $user)): ?>
-                        <dd id="sidebar-tags-editor" class="hidden">
-                            <div class="chip-select" id="cs-tags-detail">
-                                <div class="chip-select__wrap" id="cs-tags-detail-wrap">
-                                    <div class="chip-select__chips" id="cs-tags-detail-chips"></div>
-                                    <input type="text" class="chip-select__input" id="cs-tags-detail-input"
-                                        placeholder="<?php echo e(t('Type to add tag...')); ?>" autocomplete="off">
-                                </div>
-                                <div class="chip-select__dropdown hidden" id="cs-tags-detail-dropdown"></div>
-                                <div id="cs-tags-detail-hidden"></div>
-                            </div>
-                            <div class="ticket-side-button-row">
-                                <button type="button" id="sidebar-tags-save" class="btn btn-primary btn-xs">
-                                    <?php echo e(t('Save')); ?>
-                                </button>
-                                <button type="button" id="sidebar-tags-cancel" class="btn btn-ghost btn-xs">
-                                    <?php echo e(t('Cancel')); ?>
-                                </button>
-                            </div>
-                        </dd>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
-
-            <div class="ticket-side-row">
-                <dt class="ticket-side-label"><?php echo e(t('Created')); ?></dt>
-                <dd class="ticket-side-value"><?php echo format_date($ticket['created_at']); ?></dd>
-            </div>
-
-            <?php if (!empty($attachment_list)): ?>
-                <div class="ticket-side-row">
-                    <dt class="ticket-side-label"><?php echo e(t('Attachments')); ?></dt>
-                    <dd class="ticket-side-value"><?php echo count($attachment_list); ?> <?php echo e(t('files')); ?></dd>
-                </div>
-            <?php endif; ?>
-
             <?php if ($time_tracking_available && can_view_time($user)): ?>
                 <div class="ticket-side-row">
                     <dt class="ticket-side-label"><?php echo e(t('Logged time')); ?></dt>
@@ -201,13 +152,8 @@ if (is_agent()) {
                 </div>
             <?php endif; ?>
 
-            <?php if (is_admin()): ?>
-                <div class="ticket-side-row">
-                    <dt class="ticket-side-label"><?php echo e(t('Billable rate')); ?></dt>
-                    <dd class="ticket-side-value"><?php echo format_money($ticket_effective_billable_rate); ?></dd>
-                </div>
-            <?php endif; ?>
         </dl>
+        <?php include BASE_PATH . '/includes/components/ticket-workspace-actions.php'; ?>
     </div>
 
     <?php if (function_exists('can_view_timeline') && can_view_timeline($user)): ?>
@@ -254,7 +200,9 @@ if (is_agent()) {
                             <?php if ($_is_img): ?>
                                 <a href="<?php echo $_att_url; ?>" target="_blank"
                                     class="ticket-attachment-thumb"
-                                    onclick="event.preventDefault(); openImagePreview('<?php echo $_att_url; ?>', '<?php echo e($attachment['original_name']); ?>');">
+                                    data-image-preview-trigger
+                                    data-image-preview-src="<?php echo $_att_url; ?>"
+                                    data-image-preview-name="<?php echo e($attachment['original_name']); ?>">
                                     <img src="<?php echo $_att_url; ?>" alt="" class="w-8 h-8 object-cover" loading="lazy">
                                 </a>
                             <?php else: ?>
@@ -264,12 +212,14 @@ if (is_agent()) {
                                 <?php if ($_is_img): ?>
                                     <a href="<?php echo $_att_url; ?>"
                                         class="ticket-attachment-link cursor-pointer"
-                                        onclick="event.preventDefault(); openImagePreview('<?php echo $_att_url; ?>', '<?php echo e($attachment['original_name']); ?>');">
-                                        <?php echo e($attachment['original_name']); ?>
+                                        data-image-preview-trigger
+                                        data-image-preview-src="<?php echo $_att_url; ?>"
+                                        data-image-preview-name="<?php echo e($attachment['original_name']); ?>">
+                                        <bdi dir="auto"><?php echo e($attachment['original_name']); ?></bdi>
                                     </a>
                                 <?php else: ?>
                                     <a href="<?php echo $_att_url; ?>" target="_blank" class="ticket-attachment-link">
-                                        <?php echo e($attachment['original_name']); ?>
+                                        <bdi dir="auto"><?php echo e($attachment['original_name']); ?></bdi>
                                     </a>
                                 <?php endif; ?>
                                 <div class="ticket-attachment-meta">
@@ -296,37 +246,55 @@ if (is_agent()) {
     <?php endif; ?>
 
     <?php if (is_agent()): ?>
-        <details class="card ticket-side-section">
+        <?php
+        $ticket_people = [];
+        foreach ([
+            [(int) $ticket['user_id'], trim(($ticket['first_name'] ?? '') . ' ' . ($ticket['last_name'] ?? '')), t('Created by')],
+            [(int) ($ticket['assignee_id'] ?? 0), trim(($ticket['assignee_first_name'] ?? '') . ' ' . ($ticket['assignee_last_name'] ?? '')), t('workflow.assigned')]
+        ] as [$person_id, $person_name, $person_role]) {
+            if ($person_id > 0) {
+                if (!isset($ticket_people[$person_id])) $ticket_people[$person_id] = ['name' => $person_name, 'roles' => []];
+                $ticket_people[$person_id]['roles'][] = $person_role;
+            }
+        }
+        foreach ($shared_users as $shared_person) {
+            $person_id = (int) $shared_person['id'];
+            if (!isset($ticket_people[$person_id])) $ticket_people[$person_id] = ['name' => trim($shared_person['first_name'] . ' ' . $shared_person['last_name']), 'roles' => []];
+            $ticket_people[$person_id]['shared'] = true;
+        }
+        ?>
+        <details class="card ticket-side-section" open data-ticket-people>
             <summary class="ticket-side-section__summary">
                 <span class="ticket-side-section__title">
                     <?php echo get_icon('users', 'w-4 h-4'); ?>
                     <?php echo e(t('Ticket access')); ?>
                 </span>
-                <span class="ticket-side-section__meta"><?php echo count($shared_users); ?></span>
+                <span class="ticket-side-section__meta"><?php echo count($ticket_people); ?></span>
                 <?php echo get_icon('chevron-down', 'ticket-side-section__chevron'); ?>
             </summary>
             <div class="ticket-side-section__body">
                 <div class="ticket-side-field">
-                    <label class="form-label-sm"><?php echo e(t('Ticket access')); ?></label>
-                    <?php if (!empty($shared_users)): ?>
-                        <div class="ticket-side-chip-list">
-                            <?php foreach ($shared_users as $shared_user): ?>
-                                <span class="ticket-side-user-chip" title="<?php echo e($shared_user['first_name'] . ' ' . $shared_user['last_name']); ?>">
-                                    <?php echo e($shared_user['first_name'] . ' ' . substr($shared_user['last_name'], 0, 1) . '.'); ?>
+                    <div class="ticket-people-list">
+                        <?php foreach ($ticket_people as $person_id => $person): ?>
+                            <div class="ticket-person">
+                                <span class="ticket-worklog-avatar" aria-hidden="true"><?php echo e(mb_strtoupper(mb_substr($person['name'], 0, 1))); ?></span>
+                                <span class="ticket-person__copy"><strong><bdi dir="auto"><?php echo e($person['name']); ?></bdi></strong><small><?php echo e(implode(' · ', $person['roles']) ?: t('Ticket access')); ?></small></span>
+                                <a class="btn btn-secondary btn-xs" href="<?php echo e(ticket_url($ticket) . '&preview_user=' . (int) $person_id); ?>" aria-label="<?php echo e(t('media.preview') . ': ' . $person['name']); ?>"><?php echo get_icon('eye', 'w-3.5 h-3.5'); ?></a>
+                                <?php if (!empty($person['shared'])): ?>
                                     <form method="post" class="inline">
                                         <?php echo csrf_field(); ?>
-                                        <input type="hidden" name="shared_user_id" value="<?php echo (int) $shared_user['id']; ?>">
-                                        <button type="submit" name="remove_shared_user" class="ticket-side-chip-remove" aria-label="<?php echo e(t('Remove')); ?>">
+                                        <input type="hidden" name="shared_user_id" value="<?php echo (int) $person_id; ?>">
+                                        <button type="submit" name="remove_shared_user" class="ticket-side-chip-remove" aria-label="<?php echo e(t('Remove') . ': ' . $person['name']); ?>">
                                             <?php echo get_icon('times', 'w-3 h-3'); ?>
                                         </button>
                                     </form>
-                                </span>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                     <form method="post" class="ticket-side-inline-form">
                         <?php echo csrf_field(); ?>
-                        <select name="shared_user_id" class="ticket-side-control ticket-side-select">
+                        <select name="shared_user_id" class="ticket-side-control ticket-side-select" aria-label="<?php echo e(t('Add user...')); ?>">
                             <option value=""><?php echo e(t('Add user...')); ?></option>
                             <?php
                             $shared_lookup = array_flip($shared_user_ids);
@@ -346,7 +314,7 @@ if (is_agent()) {
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <button type="submit" name="add_shared_user" class="btn btn-secondary btn-xs">
+                        <button type="submit" name="add_shared_user" class="btn btn-secondary btn-xs" aria-label="<?php echo e(t('Add user...')); ?>">
                             <?php echo get_icon('plus', 'w-3 h-3'); ?>
                         </button>
                     </form>
@@ -395,6 +363,60 @@ if (is_agent()) {
                 <?php echo get_icon('chevron-down', 'ticket-side-section__chevron'); ?>
             </summary>
             <div class="ticket-side-section__body">
+                <dl class="ticket-side-list">
+            <?php if ($tags_supported): ?>
+                <div class="ticket-side-row ticket-side-row--stack" id="sidebar-tags-section">
+                    <dt class="ticket-side-label ticket-side-label--wide">
+                        <?php echo e(t('Tags')); ?>
+                        <?php if (can_edit_ticket($ticket, $user)): ?>
+                            <button type="button" id="sidebar-tags-edit-btn" class="ticket-side-edit-button">
+                                <?php echo e(t('Edit')); ?>
+                            </button>
+                        <?php endif; ?>
+                    </dt>
+                    <dd id="sidebar-tags-display" class="ticket-side-value ticket-side-tags">
+                        <?php if (!empty($ticket_tags)): ?>
+                            <?php foreach ($ticket_tags as $tag): ?>
+                                <a href="<?php echo e($ticket_tag_filter_url($tag)); ?>" class="ticket-tag-pill"
+                                    title="<?php echo e(t('Filter by this tag')); ?>">
+                                    #<?php echo e($tag); ?>
+                                </a>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <span class="ticket-side-empty">—</span>
+                        <?php endif; ?>
+                    </dd>
+                    <?php if (can_edit_ticket($ticket, $user)): ?>
+                        <dd id="sidebar-tags-editor" class="hidden">
+                            <div class="chip-select" id="cs-tags-detail">
+                                <div class="chip-select__wrap" id="cs-tags-detail-wrap">
+                                    <div class="chip-select__chips" id="cs-tags-detail-chips"></div>
+                                    <input type="text" class="chip-select__input" id="cs-tags-detail-input"
+                                        placeholder="<?php echo e(t('Type to add tag...')); ?>" autocomplete="off">
+                                </div>
+                                <div class="chip-select__dropdown hidden" id="cs-tags-detail-dropdown"></div>
+                                <div id="cs-tags-detail-hidden"></div>
+                            </div>
+                            <div class="ticket-side-button-row">
+                                <button type="button" id="sidebar-tags-save" class="btn btn-primary btn-xs">
+                                    <?php echo e(t('Save')); ?>
+                                </button>
+                                <button type="button" id="sidebar-tags-cancel" class="btn btn-ghost btn-xs">
+                                    <?php echo e(t('Cancel')); ?>
+                                </button>
+                            </div>
+                        </dd>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if (is_admin()): ?>
+                <div class="ticket-side-row">
+                    <dt class="ticket-side-label"><?php echo e(t('Billable rate')); ?></dt>
+                    <dd class="ticket-side-value"><?php echo format_money($ticket_effective_billable_rate); ?></dd>
+                </div>
+            <?php endif; ?>
+                </dl>
                 <div class="ticket-side-field">
                     <label class="form-label-sm"><?php echo e(t('On behalf of')); ?></label>
                     <select class="ticket-side-control ticket-side-select" onchange="quickEditField('quick-behalf', {created_for_user_id: this.value})">

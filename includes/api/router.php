@@ -21,6 +21,7 @@ require_once __DIR__ . '/notification-handler.php';
 require_once __DIR__ . '/allowed-senders-handler.php';
 require_once __DIR__ . '/push-handler.php';
 require_once __DIR__ . '/app-handler.php';
+require_once __DIR__ . '/compact-workspace-handler.php';
 
 /**
  * Route API requests to appropriate handlers
@@ -146,6 +147,8 @@ function route_api_request($action) {
         'app-notifications' => 'api_app_notifications',
         'app-notifications-summary' => 'api_app_notifications_summary',
         'app-notification-read-state' => 'api_app_notification_read_state',
+        'app-notification-review' => 'api_app_notification_review',
+        'app-update-time-entry' => 'api_app_update_time_entry',
 
         // Dashboard layout
         'save-dashboard-layout' => 'api_save_dashboard_layout',

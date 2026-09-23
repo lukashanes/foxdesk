@@ -25,6 +25,7 @@ function settings_view_file(string $tab): ?string
 {
     $views = [
         'general' => 'general.php',
+        'api' => 'api.php',
         'email' => 'email.php',
         'templates' => 'templates.php',
         'system' => 'system.php',
