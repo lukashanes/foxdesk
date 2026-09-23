@@ -10,10 +10,14 @@ process.env.E2E_TMP_DIR = process.env.E2E_TMP_DIR || path.resolve(__dirname, '..
 const { chromium } = require('@playwright/test');
 const globalSetup = require('../../tests/e2e/global-setup');
 const globalTeardown = require('../../tests/e2e/global-teardown');
-const { baseURL, dbContainer, admin } = require('../../tests/e2e/env');
+const e2e = require('../../tests/e2e/env');
+const currentRelease = process.env.FOXDESK_CURRENT_SELF_DEMO === '1';
+const baseURL = currentRelease ? 'http://127.0.0.1:8097' : e2e.baseURL;
+const dbContainer = e2e.dbContainer;
+const admin = currentRelease ? { email: 'admin@example.test', password: 'AdminPass123!' } : e2e.admin;
 
 const repoRoot = path.resolve(__dirname, '../..');
-const screenshotDir = path.join(repoRoot, 'docs/screenshots');
+const screenshotDir = process.env.FOXDESK_SELF_SCREENSHOT_OUTPUT || path.join(repoRoot, 'docs/screenshots');
 
 function dockerExec(container, args, input) {
   return execFileSync('docker', ['exec', '-i', container, ...args], {
@@ -28,6 +32,16 @@ function sqlString(value) {
 }
 
 function dbQuery(sql) {
+  if (currentRelease) {
+    const source = Buffer.from(sql).toString('base64');
+    return dockerExec('foxdesk-redesign-self-app', ['php'], `<?php
+      require '/var/www/html/config.php';
+      if (DB_HOST !== 'db' || DB_NAME !== 'foxdesk') throw new Exception('Not a local demo database');
+      $db = new PDO('mysql:host=db;dbname=foxdesk;charset=utf8mb4', DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+      $q = $db->query(base64_decode('${source}'));
+      if ($q->columnCount()) { echo "value\\n"; foreach ($q->fetchAll(PDO::FETCH_NUM) as $row) echo implode("\\t", $row)."\\n"; }
+    `);
+  }
   return dockerExec(dbContainer, [
     'mariadb',
     '-ufoxdesk',
@@ -45,6 +59,8 @@ function firstValue(output) {
 }
 
 function seedDemoData() {
+  const existing = firstValue(dbQuery("SELECT id FROM tickets WHERE hash = 'demo0001' LIMIT 1;"));
+  if (existing) return existing;
   const now = 'NOW()';
   const agentPassword = '$2y$10$abcdefghijklmnopqrstuuF0I9oWV6x3p4GmD0Yj6Hf8wd2Kx0D5u';
 
@@ -115,8 +131,8 @@ function seedDemoData() {
   ];
   const agentEmails = [admin.email, people[0][0], people[1][0], people[2][0]];
   const organizationSql = organizations
-    .map(([name, email, rate]) => `(${sqlString(name)}, ${sqlString(email)}, ${rate.toFixed(2)}, 1, ${now})`)
-    .join(',\n      ');
+    .map(([name, email, rate]) => `INSERT INTO organizations (name, contact_email, billable_rate, is_active, created_at) SELECT ${sqlString(name)}, ${sqlString(email)}, ${rate.toFixed(2)}, 1, ${now} WHERE NOT EXISTS (SELECT 1 FROM organizations WHERE name = ${sqlString(name)});`)
+    .join('\n');
   const peopleSql = people
     .map(([email, firstName, lastName, role, costRate, billableRate]) =>
       `(${sqlString(email)}, '${agentPassword}', ${sqlString(firstName)}, ${sqlString(lastName)}, ${sqlString(role)}, ${costRate.toFixed(2)}, ${billableRate.toFixed(2)}, 1, ${now})`)
@@ -124,9 +140,9 @@ function seedDemoData() {
 
   const orgId = index => `(SELECT id FROM organizations WHERE name = ${sqlString(organizations[index][0])} LIMIT 1)`;
   const userId = email => `(SELECT id FROM users WHERE email = ${sqlString(email)} LIMIT 1)`;
-  const statusId = slug => `(SELECT id FROM statuses WHERE slug = ${sqlString(slug)} LIMIT 1)`;
+  const statusId = slug => `(SELECT id FROM statuses WHERE slug = ${sqlString(currentRelease ? ({new:'open',processing:'in-progress'}[slug] || slug) : slug)} LIMIT 1)`;
   const priorityId = slug => `(SELECT id FROM priorities WHERE slug = ${sqlString(slug)} LIMIT 1)`;
-  const typeId = slug => `(SELECT id FROM ticket_types WHERE slug = ${sqlString(slug)} LIMIT 1)`;
+  const typeId = slug => `(SELECT id FROM ticket_types WHERE slug = ${sqlString(currentRelease ? 'general' : slug)} LIMIT 1)`;
 
   const tickets = ticketSubjects.map((title, index) => {
     const number = String(index + 1).padStart(4, '0');
@@ -163,7 +179,7 @@ function seedDemoData() {
     const entryCount = index < 18 ? 3 : 2;
     for (let entry = 0; entry < entryCount; entry += 1) {
       const duration = 24 + ((index * 17 + entry * 13) % 74);
-      const dayOffset = (index * 2 + entry * 3) % 30;
+      const dayOffset = (index * 2 + entry * 3) % 7;
       const hour = 8 + ((index + entry) % 8);
       const startedAt = `DATE_ADD(DATE_SUB(CURDATE(), INTERVAL ${dayOffset} DAY), INTERVAL ${hour} HOUR)`;
       const agentEmail = agentEmails[(index + entry) % agentEmails.length];
@@ -180,9 +196,7 @@ function seedDemoData() {
     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
     UPDATE users SET first_name = 'Emma', last_name = 'Carter', cost_rate = 45.00, billable_rate = 110.00 WHERE email = ${sqlString(admin.email)};
 
-    INSERT INTO organizations (name, contact_email, billable_rate, is_active, created_at)
-    VALUES
-      ${organizationSql};
+    ${organizationSql}
 
     INSERT INTO users (email, password, first_name, last_name, role, cost_rate, billable_rate, is_active, created_at)
     VALUES
@@ -254,7 +268,11 @@ async function capturePage(browser, name, theme, urlPath, viewport = { width: 14
 
 async function main() {
   fs.mkdirSync(screenshotDir, { recursive: true });
-  await globalSetup();
+  if (currentRelease) {
+    const mounts = JSON.parse(execFileSync('docker', ['inspect', '--format', '{{json .Mounts}}', 'foxdesk-redesign-self-app'], { encoding: 'utf8' }));
+    const mount = mounts.find(entry => entry.Destination === '/var/www/html')?.Source || '';
+    if (!/FoxDesk_SaaS_Os[\\/]releases[\\/]app-redesign-20260907[\\/]self-hosted$/i.test(mount)) throw new Error('Unexpected self-hosted demo mount');
+  } else await globalSetup();
   const results = [];
 
   try {
@@ -270,7 +288,7 @@ async function main() {
     results.push(await capturePage(browser, 'ticket-detail-mobile', 'light', `/index.php?page=ticket&id=${encodeURIComponent(ticketId)}`, { width: 390, height: 844 }));
     await browser.close();
   } finally {
-    await globalTeardown();
+    if (!currentRelease) await globalTeardown();
   }
 
   console.log(JSON.stringify({ results }, null, 2));
