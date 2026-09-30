@@ -135,6 +135,15 @@ function api_agent_base_url(): string
     return rtrim($configured, '/');
 }
 
+/** Return the canonical browser link, including for installs below a URL subpath. */
+function api_agent_ticket_url(array $ticket): string
+{
+    $target = ticket_url($ticket);
+    return preg_match('#^https?://#i', $target)
+        ? $target
+        : api_agent_base_url() . '/' . ltrim($target, '/');
+}
+
 function api_agent_endpoint_url(string $action): string
 {
     return api_agent_base_url() . '/index.php?page=api&action=' . rawurlencode($action);

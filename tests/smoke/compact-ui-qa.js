@@ -88,6 +88,7 @@ async function main() {
               control: rect(controls[0]),
               counts: [...document.querySelectorAll('[data-ticket-view-count]')].map(element => element.innerText),
               firstRowY: firstRow?.getBoundingClientRect().top ?? null,
+              registryTop: document.querySelector('.ticket-registry-page')?.getBoundingClientRect().top ?? null,
               controlCount: controls.length,
               mobileTitle: rect(document.querySelector('.ticket-mobile-title')),
               mobileHeading: rect(document.querySelector('.ticket-mobile-heading')),
@@ -120,6 +121,8 @@ async function main() {
               }
             }
             if (name === 'tickets') {
+              const chromeHeight = metrics.firstRowY - metrics.registryTop;
+              assert(chromeHeight <= (viewport === 'desktop' ? 145 : 180), `${key}: wasted space above tickets (${chromeHeight}px of registry chrome)`);
               assert(metrics.tab.height <= (viewport === 'desktop' ? 34 : 44), `${key}: oversized ticket tabs`);
               assert.equal(metrics.activeTab.radius, '0px', `${key}: rounded active navigation`);
               assert.equal(metrics.activeTab.borderBottomWidth, '0px', `${key}: rejected active underline`);
@@ -139,6 +142,31 @@ async function main() {
       }
     }
     if (enforce) {
+      for (const width of [1024, 1100, 1280]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await page.goto('/index.php?page=tickets&view=list');
+        await page.waitForFunction(() => document.fonts.status === 'loaded');
+        await page.evaluate(() => {
+          for (const animation of document.getAnimations()) {
+            if (Number.isFinite(animation.effect.getComputedTiming().endTime)) animation.finish();
+          }
+        });
+        const density = await page.evaluate(() => {
+          const registry = document.querySelector('.ticket-registry-page').getBoundingClientRect();
+          const firstRow = document.querySelector('.ticket-row').getBoundingClientRect();
+          const filters = document.querySelector('.ticket-filter-toolbar').getBoundingClientRect();
+          const details = document.querySelector('.ticket-column-toggle')?.getBoundingClientRect();
+          const search = document.querySelector('.ticket-search-wrap').getBoundingClientRect();
+          return { chromeHeight: firstRow.top - registry.top, filterHeight: filters.height, detailsTop: details?.top, searchTop: search.top, overflow: document.documentElement.scrollWidth - innerWidth };
+        });
+        assert(density.overflow <= 1, `${width}px ticket document overflow`);
+        assert(density.chromeHeight <= 145, `${width}px wasted ticket chrome: ${density.chromeHeight}px`);
+        if (density.detailsTop !== undefined) {
+          assert(Math.abs(density.detailsTop - density.searchTop) <= 6, `${width}px Details must not reserve a separate row`);
+        }
+        await page.screenshot({ path: path.join(outputDir, `tickets-desktop-${width}.png`) });
+        summary.interactions.push({ check: 'intermediate desktop density', width, ...density });
+      }
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto('/index.php?page=tickets&view=list');
       const selectedView = page.locator('.ticket-segmented-control--icon .ticket-segmented-item.is-active');

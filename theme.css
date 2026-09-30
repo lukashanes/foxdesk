@@ -17139,6 +17139,77 @@ display: none;
 .app-shell-page .settings-workspace .settings-section-card { border-radius: 0; }
 .app-shell-page .settings-workspace .settings-section-card:hover { color: var(--text-primary); background: var(--surface-secondary); }
 .app-shell-page .settings-navigation__search .form-input { padding-inline-start: 36px; }
+
+/* Ticket chrome: navigation and filters are working rows, not stacked panels. */
+.app-shell-page[data-app-page="tickets"] .page-header {
+  margin-block-end: .5rem;
+  padding-block-end: .5rem;
+}
+
+.app-shell-page .ticket-mobile-filters {
+  padding: 0;
+}
+
+.app-shell-page .ticket-registry-page {
+  gap: .5rem;
+}
+
+.app-shell-page .ticket-registry-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .25rem .75rem;
+}
+
+.app-shell-page .ticket-registry-toolbar .ticket-view-tabs {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-shell-page .ticket-registry-toolbar .workflow-assignment-views {
+  flex-shrink: 0;
+  margin: 0;
+  gap: .375rem;
+}
+
+.app-shell-page .ticket-registry-toolbar .ticket-filter-summary {
+  flex-basis: 100%;
+}
+
+.app-shell-page .ticket-filter-toolbar {
+  gap: .375rem;
+  padding: .375rem .5rem;
+}
+
+.app-shell-page .ticket-filter-toolbar .ticket-search-wrap {
+  flex: 1 1 140px;
+  min-inline-size: 120px;
+}
+
+.app-shell-page .ticket-filter-toolbar .soft-select,
+.app-shell-page .ticket-filter-toolbar > .filter-select {
+  flex: 1 1 96px;
+  min-inline-size: 88px;
+  max-inline-size: 140px;
+}
+
+.app-shell-page .ticket-filter-toolbar .soft-select__trigger {
+  min-block-size: var(--fd-control-height);
+  padding-block: .375rem;
+}
+
+.app-shell-page .ticket-filter-toolbar .ticket-column-toggle {
+  flex-shrink: 0;
+  min-height: var(--fd-control-height);
+  padding: 0 .25rem;
+  white-space: nowrap;
+}
+
+.app-shell-page .ticket-filter-toolbar :is(.ticket-search-input, .filter-select) {
+  min-height: var(--fd-control-height);
+}
+
 @media (max-width: 720px) {
   :root .app-shell-page #sidebar :is(.nav-item, .nav-item.nav-item--cta) { min-height: 40px; }
   :root .app-shell-page :is(.workspace-queue-link, .work-period-link, .client-tab, .range-preset-btn, .fd-segmented__item, .ticket-segmented-item) { min-height: 40px; }

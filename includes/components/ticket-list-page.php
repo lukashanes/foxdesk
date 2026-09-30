@@ -28,9 +28,7 @@ $kanban_archived_closed_statuses = $ticket_kanban_model['archived_closed_statuse
             $ticket_list_include_archive,
             $_GET
         );
-        ticket_registry_render_filter_summary($total_tickets, $filter_notes, $ticket_clear_url, $has_filters);
         ?>
-    </div>
 
 <?php if (is_agent() && !$is_archive): ?>
     <nav class="workflow-assignment-views" aria-label="<?php echo e(t('workflow.assigned')); ?>">
@@ -45,6 +43,8 @@ $kanban_archived_closed_statuses = $ticket_kanban_model['archived_closed_statuse
         <?php endforeach; ?>
     </nav>
 <?php endif; ?>
+        <?php ticket_registry_render_filter_summary($total_tickets, $filter_notes, $ticket_clear_url, $has_filters); ?>
+    </div>
 <div class="card ticket-registry-card overflow-hidden <?php echo $ticket_view === 'board' ? 'kanban-board-wrapper' : ''; ?>">
     <?php if (empty($tickets)): ?>
         <?php

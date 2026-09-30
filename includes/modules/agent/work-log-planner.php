@@ -476,6 +476,7 @@ function api_agent_apply_work_log_plan(): void
                 'ticket_id' => $ticket_id,
                 'ticket_hash' => $ticket_row['hash'] ?? null,
                 'ticket_code' => function_exists('api_agent_ticket_code') ? api_agent_ticket_code($ticket_id) : ('TK-' . $ticket_id),
+                'ticket_url' => api_agent_ticket_url($ticket_row),
                 'comment_ids' => $comment_ids,
                 'time_entry_ids' => $entry_ids,
             ];
