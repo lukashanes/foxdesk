@@ -49,21 +49,40 @@ async function main() {
           await page.locator('.app-content').waitFor({ state: 'visible' });
           await page.waitForFunction(() => document.fonts.status === 'loaded', undefined, { timeout: 15000 });
           await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+          // Fast-forward finite UI transitions before measuring/capturing the settled state.
+          await page.evaluate(() => {
+            for (const animation of document.getAnimations()) {
+              if (Number.isFinite(animation.effect.getComputedTiming().endTime)) animation.finish();
+            }
+          });
           const metrics = await page.evaluate(() => {
             const rect = element => {
               if (!element) return null;
               const box = element.getBoundingClientRect();
               const style = getComputedStyle(element);
-              return { height: box.height, width: box.width, top: box.top, radius: style.borderRadius, shadow: style.boxShadow, fontSize: style.fontSize };
+              return { height: box.height, width: box.width, top: box.top, radius: style.borderRadius, shadow: style.boxShadow, fontSize: style.fontSize, fontWeight: style.fontWeight, borderBottomWidth: style.borderBottomWidth, color: style.color, background: style.backgroundColor };
             };
             const visible = element => element.getBoundingClientRect().width > 0 && element.getBoundingClientRect().height > 0;
             const firstRow = [...document.querySelectorAll('.ticket-row, .ticket-list-item')].find(visible);
             const controls = [...document.querySelectorAll('.btn, .form-input, .form-select, .fd-button')].filter(visible);
+            const luminance = color => color.match(/[\d.]+/g).slice(0, 3).map(Number)
+              .map(value => value / 255).map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4)
+              .reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
+            const contrast = element => {
+              const style = getComputedStyle(element);
+              const a = luminance(style.color), b = luminance(style.backgroundColor);
+              return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+            };
             return {
               overflow: document.documentElement.scrollWidth - innerWidth,
               page: document.body.dataset.appPage,
               textLength: document.querySelector('.app-content').innerText.trim().length,
               tab: rect(document.querySelector('.ticket-view-tab')),
+              activeTab: rect(document.querySelector('.ticket-view-tab.is-active')),
+              clientTab: rect(document.querySelector('.client-tab.is-active')),
+              reportPreset: rect(document.querySelector('.range-preset-btn.is-active')),
+              primaryControls: [...document.querySelectorAll('.btn-primary, .fd-button--primary, .ticket-primary-action--primary')]
+                .filter(visible).map(element => ({ label: element.innerText.trim(), contrast: contrast(element) })),
               card: rect(document.querySelector('.ticket-registry-toolbar, .fd-card, .card')),
               firstRow: rect(firstRow),
               control: rect(controls[0]),
@@ -72,7 +91,7 @@ async function main() {
               controlCount: controls.length,
               mobileTitle: rect(document.querySelector('.ticket-mobile-title')),
               mobileHeading: rect(document.querySelector('.ticket-mobile-heading')),
-              touchTargets: [...document.querySelectorAll('.btn, .ticket-primary-action, .ticket-view-tab, .workspace-queue-link, .nav-item, .td-tool-btn, .fd-segmented__item')]
+              touchTargets: [...document.querySelectorAll('.btn, .ticket-primary-action, .ticket-view-tab, .client-tab, .range-preset-btn, .workspace-queue-link, .nav-item, .td-tool-btn, .fd-segmented__item, .ticket-segmented-item, .foxdesk-update-bar-btn, .foxdesk-update-bar-dismiss')]
                 .filter(visible).map(element => ({ label: element.innerText.trim().slice(0, 40), ...rect(element) })),
             };
           });
@@ -83,6 +102,18 @@ async function main() {
           assert(metrics.page !== 'login', `${key}: unexpected login wall`);
           if (enforce) {
             assert(metrics.overflow <= 1, `${key}: document overflow ${metrics.overflow}px`);
+            for (const control of metrics.primaryControls) {
+              assert(control.contrast >= 4.5, `${key}: unreadable primary action ${control.label} (contrast ${control.contrast}:1)`);
+            }
+            if (name === 'client') {
+              assert.equal(metrics.clientTab.radius, '0px', `${key}: rounded client navigation`);
+              assert.equal(metrics.clientTab.background, 'rgba(0, 0, 0, 0)', `${key}: colored client navigation`);
+              assert.equal(metrics.clientTab.fontWeight, '700', `${key}: unclear active client navigation`);
+            }
+            if (metrics.reportPreset) {
+              assert.equal(metrics.reportPreset.background, 'rgba(0, 0, 0, 0)', `${key}: colored report period navigation`);
+              assert.equal(metrics.reportPreset.fontWeight, '700', `${key}: unclear selected report period`);
+            }
             if (viewport === 'mobile') {
               for (const target of metrics.touchTargets) {
                 assert(target.height >= 39 && target.width >= 39, `${key}: small touch target ${target.label} (${target.width}×${target.height})`);
@@ -90,6 +121,10 @@ async function main() {
             }
             if (name === 'tickets') {
               assert(metrics.tab.height <= (viewport === 'desktop' ? 34 : 44), `${key}: oversized ticket tabs`);
+              assert.equal(metrics.activeTab.radius, '0px', `${key}: rounded active navigation`);
+              assert.equal(metrics.activeTab.borderBottomWidth, '0px', `${key}: rejected active underline`);
+              assert.equal(metrics.activeTab.shadow, 'none', `${key}: active navigation shadow`);
+              assert.equal(metrics.activeTab.fontWeight, '700', `${key}: active navigation must use text weight`);
               assert(metrics.card.shadow === 'none', `${key}: decorative toolbar shadow`);
               assert(metrics.counts.length >= 5, `${key}: ticket counts missing`);
               assert(metrics.counts.every(value => /^\d+$/.test(value.trim())), `${key}: ticket counts must be numeric and visible`);
@@ -106,6 +141,14 @@ async function main() {
     if (enforce) {
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto('/index.php?page=tickets&view=list');
+      const selectedView = page.locator('.ticket-segmented-control--icon .ticket-segmented-item.is-active');
+      await selectedView.focus();
+      const viewFocus = await selectedView.evaluate(element => {
+        const style = getComputedStyle(element);
+        return { focused: element.matches(':focus-visible'), width: style.outlineWidth, offset: style.outlineOffset };
+      });
+      assert(viewFocus.focused && viewFocus.width === '2px' && viewFocus.offset === '2px', 'Selected view icon must have a distinct external keyboard focus outline.');
+      summary.interactions.push('selected view icon keyboard focus');
       const waiting = page.locator('[data-ticket-view-key="waiting"]');
       await page.keyboard.press('Tab');
       await waiting.focus();

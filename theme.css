@@ -3760,7 +3760,7 @@ color: #e2e8f0 !important;
 [data-theme="dark"] .ticket-subject-link:hover {
 color: #93c5fd !important;
 }
-[data-theme="dark"] a:not(.btn):not(.nav-item):not(.ticket-code):not(.ticket-subject-link):not(.ticket-tag-pill) {
+[data-theme="dark"] a:not(.btn):not(.nav-item):not(.ticket-code):not(.ticket-subject-link):not(.ticket-tag-pill):not(:where(.ticket-primary-action, .fd-button, .ticket-view-tab, .client-tab, .fd-segmented__item, .ticket-segmented-item, .work-period-link, .settings-section-card, .client-management-nav__item)) {
 color: inherit;
 }
 [data-theme="dark"] a:not(.btn):not(.nav-item):hover {
@@ -5743,8 +5743,7 @@ gap: 0.375rem;
 min-height: var(--fd-control-height);
 padding: 0 0.625rem;
 border: 0;
-border-bottom: 2px solid transparent;
-border-radius: var(--fd-radius-control);
+    border-radius: var(--fd-radius-control);
 color: var(--text-secondary);
 background: transparent;
 text-decoration: none;
@@ -5758,9 +5757,9 @@ color: var(--text-primary);
 background: var(--surface-secondary);
 }
 .ticket-view-tab.is-active {
-color: var(--primary);
-border-bottom-color: var(--primary);
-background: transparent;
+    color: var(--text-primary);
+    font-weight: 700;
+    background: transparent;
 }
 .ticket-view-tab__count {
 min-width: 0;
@@ -5773,7 +5772,7 @@ font-weight: 500;
 font-variant-numeric: tabular-nums;
 }
 .ticket-view-tab.is-active .ticket-view-tab__count {
-color: var(--primary);
+    color: var(--text-primary);
 }
 .ticket-filter-summary {
 display: flex;
@@ -9046,10 +9045,11 @@ html[dir="rtl"] .popover-panel {
    Public pages and native clients keep their own visual systems.
    ========================================================================== */
 .app-shell-page {
-  --fd-radius-card: 6px;
-  --fd-radius-control: 4px;
-  --fd-radius-pill: 4px;
-  --fd-radius-icon: 4px;
+  --fd-radius-card: 0px;
+  --fd-radius-control: 2px;
+  --fd-radius-pill: 0px;
+  --fd-radius-icon: 0px;
+  --bg-primary: var(--surface-primary);
   --fd-control-height: 2rem;
   --fd-control-height-sm: 1.75rem;
   --fd-control-height-xs: 1.75rem;
@@ -9091,6 +9091,125 @@ html[dir="rtl"] .popover-panel {
 
 .app-shell-page .nav-item::before {
   display: none;
+}
+
+.app-shell-page .sidebar :is(.nav-item, .nav-item.nav-item--cta) {
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+
+.app-shell-page .sidebar :is(.nav-item:hover, .nav-item.nav-item--cta:hover) {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.app-shell-page .sidebar :is(.nav-item.active, .nav-item.nav-item--cta.active) {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.app-shell-page :is(.btn-primary, .fd-button--primary, .ticket-primary-action--primary) {
+  border-color: var(--text-primary);
+  background: var(--text-primary);
+  color: var(--surface-primary);
+}
+
+.app-shell-page :is(.btn-primary, .fd-button--primary, .ticket-primary-action--primary):hover {
+  border-color: var(--text-secondary);
+  background: var(--text-secondary);
+  color: var(--surface-primary);
+  transform: none;
+  box-shadow: none;
+}
+
+.app-shell-page .ticket-view-tab {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Navigation is text, not a row of colored controls. */
+.app-shell-page :is(.fd-segmented, .ticket-segmented-control, .client-management-nav, .client-tabs, .report-mode-switch) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell-page :is(.fd-segmented__item, .ticket-segmented-item, .client-management-nav__item, .client-tab, .range-preset-btn, .work-period-link) {
+  border: 0;
+  border-radius: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  box-shadow: none;
+  font-weight: 500;
+}
+
+.app-shell-page :is(.fd-segmented__item.is-active, .ticket-segmented-item.is-active, .client-management-nav__item.is-active, .client-tab.is-active, .range-preset-btn.is-active, .work-period-link.is-active) {
+  color: var(--text-primary);
+  background: transparent;
+  font-weight: 700;
+}
+
+.app-shell-page :is(.fd-segmented__item, .ticket-segmented-item, .client-management-nav__item, .client-tab, .range-preset-btn, .work-period-link):hover {
+  color: var(--text-primary);
+  background: var(--surface-secondary);
+}
+
+/* Icon-only view switches need a neutral selected surface as well as color. */
+.app-shell-page .ticket-segmented-control--icon .ticket-segmented-item.is-active {
+  background: var(--surface-secondary);
+  outline: 1px solid var(--border-medium);
+  outline-offset: -1px;
+}
+
+.app-shell-page .ticket-segmented-control--icon .ticket-segmented-item:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.app-shell-page .foxdesk-update-bar {
+  border-block-end: 1px solid var(--border-light);
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+}
+
+.app-shell-page .foxdesk-update-bar-inner {
+  gap: .5rem;
+  padding-block: .25rem;
+  padding-inline: .875rem;
+}
+
+.app-shell-page .foxdesk-update-bar-icon {
+  display: none;
+}
+
+.app-shell-page .foxdesk-update-bar-btn {
+  border: 1px solid var(--border-medium);
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.app-shell-page .foxdesk-update-bar-btn:hover {
+  background: var(--surface-primary);
+  color: var(--text-primary);
+}
+
+.app-shell-page .foxdesk-update-bar-dismiss {
+  color: var(--text-secondary);
+}
+
+.app-shell-page .foxdesk-update-bar-dismiss:hover {
+  color: var(--text-primary);
+}
+
+.app-shell-page :is(.user-avatar, .db-avatar:not(img), .dbnotif-avatar-fallback, .notif-avatar-fallback) {
+  background: var(--surface-tertiary);
+  color: var(--text-secondary);
+  box-shadow: none;
 }
 
 .app-shell-page :is(.fd-card, .fd-page-section, .work-overview-card, .work-team-card, .work-focus-card, .work-current-card, .work-activity-card) {
@@ -9240,6 +9359,14 @@ html[dir="rtl"] .popover-panel {
   box-shadow: none;
 }
 
+.app-shell-page .work-time-metric--selected {
+  border-color: var(--border-medium);
+}
+
+.app-shell-page :is(.ticket-comment, .comment-item):hover {
+  background: var(--surface-secondary);
+}
+
 .app-shell-page .work-time-metric span {
   font-size: .6875rem;
   font-weight: 650;
@@ -9296,6 +9423,11 @@ html[dir="rtl"] .popover-panel {
   padding-inline: .625rem;
 }
 
+.app-shell-page .range-preset-btn {
+  min-height: var(--fd-control-height);
+  font-size: .75rem;
+}
+
 .app-shell-page .settings-section-card {
   padding: .625rem;
   gap: .5rem;
@@ -9312,8 +9444,19 @@ html[dir="rtl"] .popover-panel {
 }
 
 .app-shell-page .settings-section-card.is-active {
-  border-color: var(--border-light);
-  background: var(--surface-primary);
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.app-shell-page .settings-section-card__body strong {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.app-shell-page .settings-section-card.is-active .settings-section-card__body strong {
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
 .app-shell-page .settings-section-card__body span {
@@ -9372,12 +9515,16 @@ html[dir="rtl"] .popover-panel {
   animation: none;
 }
 
-[data-theme="dark"] .app-shell-page :is(.ticket-view-tab.is-active, .ticket-view-tab.is-active .ticket-view-tab__count) {
-  color: var(--text-primary);
-}
-
 [data-theme="dark"] .app-shell-page .ticket-status-inline:not(.ticket-status-inline--archived) {
   color: color-mix(in srgb, var(--ticket-status-color, var(--primary)) 45%, white);
+}
+
+[data-theme="dark"] .app-shell-page .ticket-primary-action--success {
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .app-shell-page .ticket-primary-action--warning {
+  color: #fcd34d;
 }
 
 [data-theme="dark"] .app-shell-page .ticket-priority-inline--low { color: #6ee7b7; }
@@ -9418,12 +9565,22 @@ html[dir="rtl"] .popover-panel {
     gap: .5rem;
   }
 
-  .app-shell-page :is(.ticket-view-tab, .fd-segmented__item, .td-tool-btn, .work-period-link, .workspace-queue-link, .nav-item) {
+  .app-shell-page :is(.ticket-view-tab, .client-tab, .range-preset-btn, .fd-segmented__item, .td-tool-btn, .work-period-link, .workspace-queue-link, .nav-item) {
     min-height: 2.5rem;
   }
 
   .app-shell-page .td-tool-btn {
     min-width: 2.5rem;
+  }
+
+  .app-shell-page .ticket-segmented-control--icon .ticket-segmented-item,
+  .app-shell-page .foxdesk-update-bar-dismiss {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
+
+  .app-shell-page .foxdesk-update-bar-btn {
+    min-height: 2.5rem;
   }
 
   .app-shell-page .work-time-grid {
