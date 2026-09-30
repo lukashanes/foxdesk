@@ -5558,7 +5558,7 @@ color: #e2e8f0 !important;
 [data-theme="dark"] .ticket-subject-link:hover {
 color: #93c5fd !important;
 }
-[data-theme="dark"] a:not(.btn):not(.nav-item):not(.ticket-code):not(.ticket-subject-link):not(.ticket-tag-pill) {
+[data-theme="dark"] a:not(.btn):not(.nav-item):not(.ticket-code):not(.ticket-subject-link):not(.ticket-tag-pill):not(:where(.ticket-primary-action, .fd-button, .ticket-view-tab, .client-tab, .fd-segmented__item, .ticket-segmented-item, .work-period-link, .settings-section-card, .client-management-nav__item)) {
 color: inherit;
 }
 [data-theme="dark"] a:not(.btn):not(.nav-item):hover {
@@ -16451,3 +16451,696 @@ display: none;
 .workflow-handoff::backdrop {background:rgb(11 22 51 / .4);}
 .workflow-handoff label {display:block; margin-block:1rem .5rem;}
 .workflow-handoff .workflow-assignment-views {margin-block:1rem 0; justify-content:flex-end;}
+/* ==========================================================================
+   Compact operational UI
+   Shared density and flat surfaces for the authenticated application only.
+   Public pages and native clients keep their own visual systems.
+   ========================================================================== */
+.app-shell-page {
+  --fd-radius-card: 0px;
+  --fd-radius-control: 2px;
+  --fd-radius-pill: 0px;
+  --fd-radius-icon: 0px;
+  --bg-primary: var(--surface-primary);
+  --fd-control-height: 2rem;
+  --fd-control-height-sm: 1.75rem;
+  --fd-control-height-xs: 1.75rem;
+  --fd-control-padding-x: .625rem;
+  --fd-control-padding-x-sm: .5rem;
+  --fd-card-padding: .75rem;
+  --fd-card-padding-compact: .625rem;
+  --fd-table-row-height: 2.5rem;
+  --app-sidebar-width: 240px;
+  --worklog-card-radius: var(--fd-radius-card);
+  --control-padding-x: var(--fd-control-padding-x);
+  --control-height: var(--fd-control-height);
+  --control-height-sm: var(--fd-control-height-sm);
+  --control-height-xs: var(--fd-control-height-xs);
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --worklog-card-shadow: none;
+  --shadow-popover: 0 6px 20px rgba(15, 23, 42, .12);
+  --shadow-modal: 0 12px 40px rgba(15, 23, 42, .18);
+}
+
+.app-shell-page .app-content {
+  --app-shell-gutter: .875rem;
+}
+
+.app-shell-page .app-topbar {
+  min-height: 3rem;
+  padding-block: .5rem;
+  padding-inline: .875rem;
+}
+
+.app-shell-page .nav-item {
+  min-height: 2.125rem;
+  padding-block: .375rem;
+  padding-inline: .625rem;
+}
+
+.app-shell-page .nav-item::before {
+  display: none;
+}
+
+.app-shell-page .sidebar :is(.nav-item, .nav-item.nav-item--cta) {
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+
+.app-shell-page .sidebar :is(.nav-item:hover, .nav-item.nav-item--cta:hover) {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.app-shell-page .sidebar :is(.nav-item.active, .nav-item.nav-item--cta.active) {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.app-shell-page :is(.btn-primary, .fd-button--primary, .ticket-primary-action--primary) {
+  border-color: var(--text-primary);
+  background: var(--text-primary);
+  color: var(--surface-primary);
+}
+
+.app-shell-page :is(.btn-primary, .fd-button--primary, .ticket-primary-action--primary):hover {
+  border-color: var(--text-secondary);
+  background: var(--text-secondary);
+  color: var(--surface-primary);
+  transform: none;
+  box-shadow: none;
+}
+
+.app-shell-page .ticket-view-tab {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Navigation is text, not a row of colored controls. */
+.app-shell-page :is(.fd-segmented, .ticket-segmented-control, .client-management-nav, .client-tabs, .report-mode-switch) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell-page :is(.fd-segmented__item, .ticket-segmented-item, .client-management-nav__item, .client-tab, .range-preset-btn, .work-period-link) {
+  border: 0;
+  border-radius: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  box-shadow: none;
+  font-weight: 500;
+}
+
+.app-shell-page :is(.fd-segmented__item.is-active, .ticket-segmented-item.is-active, .client-management-nav__item.is-active, .client-tab.is-active, .range-preset-btn.is-active, .work-period-link.is-active) {
+  color: var(--text-primary);
+  background: transparent;
+  font-weight: 700;
+}
+
+.app-shell-page :is(.fd-segmented__item, .ticket-segmented-item, .client-management-nav__item, .client-tab, .range-preset-btn, .work-period-link):hover {
+  color: var(--text-primary);
+  background: var(--surface-secondary);
+}
+
+/* Icon-only view switches need a neutral selected surface as well as color. */
+.app-shell-page .ticket-segmented-control--icon .ticket-segmented-item.is-active {
+  background: var(--surface-secondary);
+  outline: 1px solid var(--border-medium);
+  outline-offset: -1px;
+}
+
+.app-shell-page .ticket-segmented-control--icon .ticket-segmented-item:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.app-shell-page .foxdesk-update-bar {
+  border-block-end: 1px solid var(--border-light);
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+}
+
+.app-shell-page .foxdesk-update-bar-inner {
+  gap: .5rem;
+  padding-block: .25rem;
+  padding-inline: .875rem;
+}
+
+.app-shell-page .foxdesk-update-bar-icon {
+  display: none;
+}
+
+.app-shell-page .foxdesk-update-bar-btn {
+  border: 1px solid var(--border-medium);
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.app-shell-page .foxdesk-update-bar-btn:hover {
+  background: var(--surface-primary);
+  color: var(--text-primary);
+}
+
+.app-shell-page .foxdesk-update-bar-dismiss {
+  color: var(--text-secondary);
+}
+
+.app-shell-page .foxdesk-update-bar-dismiss:hover {
+  color: var(--text-primary);
+}
+
+.app-shell-page :is(.user-avatar, .db-avatar:not(img), .dbnotif-avatar-fallback, .notif-avatar-fallback) {
+  background: var(--surface-tertiary);
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+
+.app-shell-page :is(.fd-card, .fd-page-section, .work-overview-card, .work-team-card, .work-focus-card, .work-current-card, .work-activity-card) {
+  gap: .625rem;
+}
+
+.app-shell-page :is(.card, .fd-card, .admin-hero, .reporting-flow-card, .settings-section-card, .kanban-card, .worklog-card) {
+  box-shadow: none;
+}
+
+.app-shell-page :is(.glass, .glass-form, .glass-modal-content) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.app-shell-page .app-content :is(.p-6, .p-8) {
+  padding: .75rem !important;
+}
+
+.app-shell-page .app-content :is(.px-6, .px-8) {
+  padding-inline: .75rem !important;
+}
+
+.app-shell-page .app-content :is(.py-6, .py-8) {
+  padding-block: .75rem !important;
+}
+
+.app-shell-page .app-content :is(.gap-6, .gap-8) {
+  gap: .75rem;
+}
+
+.app-shell-page .app-content :is(.mb-6, .mb-8) {
+  margin-block-end: .75rem !important;
+}
+
+.app-shell-page .app-content :is(.space-y-6, .space-y-8) > :not([hidden]) ~ :not([hidden]) {
+  margin-block-start: .75rem;
+}
+
+.app-shell-page .app-content :is(.rounded-lg, .rounded-xl, .rounded-2xl) {
+  border-radius: var(--fd-radius-card);
+}
+
+.app-shell-page :is(.card-body, .card-header, .admin-hero, .reporting-flow-card) {
+  padding: .75rem;
+}
+
+.app-shell-page :is(.fd-section-title, .work-overview-title, .work-team-title, .work-focus-title, .work-current-title, .work-activity-title) {
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.app-shell-page :is(.form-input, .form-select) {
+  min-height: var(--fd-control-height);
+  padding-block: .3125rem;
+  padding-inline: .5rem;
+  line-height: 1.4;
+}
+
+.app-shell-page .ticket-registry-toolbar {
+  padding: 0;
+  gap: .375rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell-page :is(.ticket-view-tab, .settings-section-card, .work-period-link, .workspace-queue-link):focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.app-shell-page .ticket-status-accent {
+  border-inline-start-width: 0;
+}
+
+.app-shell-page .tickets-table :is(th, td),
+.app-shell-page .data-table :is(th, td) {
+  padding-block: .5rem;
+  padding-inline: .625rem;
+}
+
+.app-shell-page .ticket-list-item {
+  padding-block: .625rem;
+  padding-inline: .75rem;
+}
+
+.app-shell-page .ticket-mobile-content {
+  display: grid;
+  gap: .375rem;
+  min-width: 0;
+}
+
+.app-shell-page .ticket-mobile-primary {
+  display: grid;
+  gap: .25rem;
+  min-width: 0;
+  min-height: 2.5rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-shell-page .ticket-mobile-title {
+  font-size: .875rem;
+  font-weight: 650;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.app-shell-page .ticket-mobile-meta {
+  gap: .375rem .5rem;
+  font-size: .75rem;
+  line-height: 1.35;
+}
+
+.app-shell-page .ticket-work-panel {
+  padding: .75rem;
+  gap: .625rem;
+}
+
+.app-shell-page .ticket-work-panel__title {
+  font-size: 1.125rem;
+  line-height: 1.35;
+}
+
+.app-shell-page .ticket-primary-action {
+  min-height: var(--fd-control-height);
+  padding-block: .3125rem;
+  padding-inline: .625rem;
+}
+
+.app-shell-page .ticket-sidebar {
+  gap: .625rem;
+}
+
+.app-shell-page .work-time-grid,
+.app-shell-page .work-overview-grid {
+  gap: .5rem;
+}
+
+.app-shell-page .work-time-metric {
+  padding-block: .5rem;
+  padding-inline: .625rem;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell-page .work-time-metric--selected {
+  border-color: var(--border-medium);
+}
+
+.app-shell-page :is(.ticket-comment, .comment-item):hover {
+  background: var(--surface-secondary);
+}
+
+.app-shell-page .work-time-metric span {
+  font-size: .6875rem;
+  font-weight: 650;
+}
+
+.app-shell-page .work-week-chart__day > span {
+  font-size: .6875rem;
+  font-weight: 500;
+}
+
+.app-shell-page .work-week-chart {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.app-shell-page .work-week-chart__bar {
+  background: var(--primary);
+  box-shadow: none;
+}
+
+.app-shell-page .work-hours-chart__canvas-wrap {
+  height: clamp(180px, 22vh, 220px);
+  min-height: 180px;
+}
+
+.app-shell-page .work-hours-chart__fallback-wrap,
+.app-shell-page .work-hours-chart__fallback-svg {
+  min-height: 180px;
+  height: 180px;
+}
+
+.app-shell-page :is(.work-activity-item, .work-current-item) {
+  padding-block: .5rem;
+  padding-inline: .625rem;
+  gap: .5rem;
+}
+
+.app-shell-page .workspace-queue-link {
+  min-height: 2.125rem;
+  padding-block: .375rem;
+  padding-inline: .5rem;
+}
+
+.app-shell-page .workspace-ticket-row {
+  min-height: 3rem;
+  padding-block: .5rem;
+  padding-inline: .625rem;
+}
+
+.app-shell-page .client-management-nav__item {
+  min-height: var(--fd-control-height);
+  padding-block: .3125rem;
+  padding-inline: .625rem;
+}
+
+.app-shell-page .range-preset-btn {
+  min-height: var(--fd-control-height);
+  font-size: .75rem;
+}
+
+.app-shell-page .settings-section-card {
+  padding: .625rem;
+  gap: .5rem;
+  min-height: var(--fd-control-height);
+  border-color: transparent;
+  background: transparent;
+}
+
+.app-shell-page .settings-section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem;
+  margin-block-end: .75rem;
+}
+
+.app-shell-page .settings-section-card.is-active {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.app-shell-page .settings-section-card__body strong {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.app-shell-page .settings-section-card.is-active .settings-section-card__body strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.app-shell-page .settings-section-card__body span {
+  display: none;
+}
+
+.app-shell-page .settings-section-card__icon {
+  display: none;
+}
+
+.app-shell-page .reporting-flow-card {
+  gap: .625rem;
+}
+
+.app-shell-page .reporting-flow-step span {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.app-shell-page .db-grid {
+  gap: .75rem;
+}
+
+.app-shell-page .db-kpi {
+  min-height: 3.5rem;
+  padding-block: .5rem;
+  padding-inline: .75rem;
+}
+
+.app-shell-page .empty-state {
+  padding-block: 1.25rem;
+  padding-inline: .75rem;
+}
+
+.app-shell-page .empty-state__icon {
+  display: none;
+}
+
+.app-shell-page .empty-state__title {
+  font-size: .875rem;
+}
+
+.app-shell-page .empty-state__message {
+  font-size: .8125rem;
+}
+
+.app-shell-page :is(.kpi-card, .work-time-metric, .ticket-primary-action, .btn-secondary, .btn-ghost, .kanban-card, .settings-section-card):hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.app-shell-page :is(.notif-badge.pulse, .pulse-dot) {
+  animation: none;
+}
+
+[data-theme="dark"] .app-shell-page .ticket-status-inline:not(.ticket-status-inline--archived) {
+  color: color-mix(in srgb, var(--ticket-status-color, var(--primary)) 45%, white);
+}
+
+[data-theme="dark"] .app-shell-page .ticket-primary-action--success {
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .app-shell-page .ticket-primary-action--warning {
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .app-shell-page .ticket-priority-inline--low { color: #6ee7b7; }
+[data-theme="dark"] .app-shell-page .ticket-priority-inline--medium { color: #93c5fd; }
+[data-theme="dark"] .app-shell-page .ticket-priority-inline--high { color: #fcd34d; }
+[data-theme="dark"] .app-shell-page .ticket-priority-inline--urgent { color: #fca5a5; }
+
+@media (max-width: 720px) {
+  .app-shell-page {
+    --fd-control-height: 2.5rem;
+    --fd-control-height-sm: 2.5rem;
+    --fd-control-height-xs: 2.5rem;
+  }
+
+  .app-shell-page .app-content {
+    --app-shell-gutter: .625rem;
+  }
+
+  .app-shell-page .app-topbar {
+    min-height: 3.25rem;
+    padding-inline: .625rem;
+  }
+
+  .app-shell-page .mobile-header {
+    min-height: 3.25rem;
+    padding-block: .375rem;
+    padding-inline: .625rem;
+  }
+
+  .app-shell-page .new-ticket-actions,
+  .app-shell-page .new-ticket-actions > div {
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+
+  .app-shell-page :is(.ticket-view-tab, .client-tab, .range-preset-btn, .fd-segmented__item, .td-tool-btn, .work-period-link, .workspace-queue-link, .nav-item) {
+    min-height: 2.5rem;
+  }
+
+  .app-shell-page .td-tool-btn {
+    min-width: 2.5rem;
+  }
+
+  .app-shell-page .ticket-segmented-control--icon .ticket-segmented-item,
+  .app-shell-page .foxdesk-update-bar-dismiss {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
+
+  .app-shell-page .foxdesk-update-bar-btn {
+    min-height: 2.5rem;
+  }
+
+  .app-shell-page .work-time-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-shell-page :is(.work-period-switch, .work-activity-switch) {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .app-shell-page :is(.work-period-switch, .work-activity-switch) .work-period-link {
+    flex: 0 0 auto;
+    width: auto;
+  }
+
+  .app-shell-page .work-custom-period {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    gap: .375rem;
+  }
+
+  .app-shell-page .work-custom-period .btn {
+    grid-column: auto;
+    align-self: end;
+  }
+
+  .app-shell-page :is(.work-range-controls, .work-log-controls) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .app-shell-page .work-activity-switch {
+    min-width: 0;
+  }
+
+  .app-shell-page .workspace-queue-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-shell-page :is(.form-input, .form-select) {
+    font-size: 1rem;
+  }
+
+  .app-shell-page :is(.btn, .fd-button) {
+    min-height: 2.5rem !important;
+    min-width: 2.5rem;
+  }
+
+  .app-shell-page .ticket-mobile-filters {
+    padding: .625rem;
+  }
+
+  .app-shell-page .ticket-mobile-filters form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .375rem;
+  }
+
+  .app-shell-page .ticket-mobile-filters :is(input:not([type="hidden"]), select) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .app-shell-page .ticket-mobile-filters .btn {
+    justify-self: start;
+    min-width: 2.5rem;
+  }
+
+  .app-shell-page .work-hours-chart__canvas-wrap,
+  .app-shell-page .work-hours-chart__fallback-wrap,
+  .app-shell-page .work-hours-chart__fallback-svg {
+    min-height: 160px;
+    height: 160px;
+  }
+}
+/* Current workspace components share the approved neutral geometry. */
+:root .app-shell-page {
+  --fd-radius-group: 0px;
+  --fd-radius-inset: 2px;
+  --fd-shadow-control: none;
+  --fd-canvas: var(--surface-primary);
+  --fd-canvas-blue: var(--surface-primary);
+  --bg-secondary: var(--surface-primary);
+}
+:root .app-shell-page #sidebar :is(.nav-item, .nav-item.nav-item--cta) {
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+:root .app-shell-page #sidebar :is(.nav-item:hover, .nav-item.active, .nav-item.nav-item--cta:hover) {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+:root .app-shell-page #sidebar .nav-item.nav-item--cta .nav-item__icon { color: inherit; }
+:root .app-shell-page :is(.btn-primary, .fd-button--primary, .ticket-primary-action--primary) {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--surface-primary);
+}
+:root .app-shell-page .ticket-view-tabs {
+  gap: 2px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border-light);
+  background: transparent;
+}
+:root .app-shell-page .ticket-view-tab {
+  gap: 6px;
+  min-height: var(--fd-control-height);
+  padding: 0 10px;
+  border: 0;
+  border-radius: 0;
+  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+:root .app-shell-page .ticket-view-tab.is-active { font-weight: 700; color: var(--text-primary); }
+:root .app-shell-page .ticket-view-tab__count {
+  min-width: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+:root .app-shell-page .ticket-mobile-title { order: 0; }
+:root .app-shell-page .fd-segmented__item.is-active { color: var(--text-primary); background: transparent; box-shadow: none; }
+:root .app-shell-page .settings-workspace .settings-section-card.is-active { background: transparent; color: var(--text-primary); }
+.app-shell-page :is(.profile-section-nav, .settings-workspace .workflow-card, .work-agent-draft, .work-agent-proposal, .work-agent-message__bubble) { border-radius: 0; box-shadow: none; }
+.app-shell-page .profile-section-link { min-height: var(--fd-control-height); padding: 6px 10px; border-radius: 0; }
+.app-shell-page .profile-section-link[aria-current="page"] { color: var(--text-primary); background: transparent; font-weight: 700; }
+.app-shell-page :is(.work-agent-launcher__main, .work-agent-launcher__voice, .work-agent-suggestions button, .work-agent-client-chip, .work-agent-composer textarea) { border-radius: 2px; box-shadow: none; background: var(--surface-secondary); }
+.app-shell-page .work-agent-launcher__main:hover { box-shadow: none; }
+.app-shell-page .work-agent-send { border-radius: 2px; background: var(--text-primary); color: var(--surface-primary); }
+.app-shell-page .work-agent-dialog::backdrop { backdrop-filter: none; }
+.app-shell-page :is(.soft-select__trigger, .soft-select__search, .soft-select__option) { border-radius: 2px; box-shadow: none; }
+.app-shell-page .soft-select__popup { border-radius: 2px; border: 1px solid var(--border-medium); box-shadow: var(--shadow-popover); }
+.app-shell-page .settings-workspace .settings-section-nav { border-radius: 0; box-shadow: none; }
+.app-shell-page .settings-workspace .settings-section-card { border-radius: 0; }
+.app-shell-page .settings-workspace .settings-section-card:hover { color: var(--text-primary); background: var(--surface-secondary); }
+.app-shell-page .settings-navigation__search .form-input { padding-inline-start: 36px; }
+@media (max-width: 720px) {
+  :root .app-shell-page #sidebar :is(.nav-item, .nav-item.nav-item--cta) { min-height: 40px; }
+  :root .app-shell-page :is(.workspace-queue-link, .work-period-link, .client-tab, .range-preset-btn, .fd-segmented__item, .ticket-segmented-item) { min-height: 40px; }
+  .app-shell-page .settings-workspace .settings-section-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

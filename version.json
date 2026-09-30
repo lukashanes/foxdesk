@@ -1,11 +1,11 @@
 {
-    "version": "0.3.148",
-    "date": "2026-09-07",
+    "version": "0.3.149",
+    "date": "2026-09-30",
     "min_php": "8.1",
     "changelog": [
-        "Default the Work dashboard to the current calendar month",
-        "Keep every selected period and custom date range across reloads and navigation",
-        "Retain personal/team time scope; separate read-only data requests from saved dashboard preferences"
+        "Compact flat authenticated UI across tickets, time, reports, clients and settings",
+        "Neutral active navigation without colored pills, curved underlines or ornamental shadows",
+        "Retain clear keyboard focus, readable dark actions, RTL and mobile touch targets"
     ],
     "delete_files": []
 }

@@ -106,14 +106,15 @@
                 $priority_color = $ticket['priority_color'] ?? get_priority_color($ticket['priority_id'] ?? $ticket['priority'] ?? 'medium');
                 $is_overdue_mobile = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed']));
                 ?>
-                <div class="p-4 ticket-list-item<?php echo $is_overdue_mobile ? ' ticket-overdue' : ''; ?>" style="border-inline-start: 5px solid <?php echo e($ticket['status_color']); ?>;">
+                <div class="p-4 ticket-list-item<?php echo $is_overdue_mobile ? ' ticket-overdue' : ''; ?>">
                     <div class="flex items-start gap-3">
                         <?php if ($bulk_actions_enabled): ?>
                             <input type="checkbox" name="ticket_ids[]" value="<?php echo (int) $ticket['id']; ?>"
                                 class="bulk-checkbox hidden mt-1 rounded" form="bulk-actions-form" onclick="event.stopPropagation()">
                         <?php endif; ?>
-                            <a href="<?php echo ticket_url($ticket); ?>" class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 text-xs mb-1 text-theme-muted">
+                            <div class="ticket-mobile-content flex-1 min-w-0">
+                            <a href="<?php echo ticket_url($ticket); ?>" class="ticket-mobile-primary">
+                                <div class="ticket-mobile-heading flex items-center gap-2 text-xs text-theme-muted">
                                     <span class="w-2 h-2 rounded-full"
                                         style="background-color: <?php echo e($ticket['status_color']); ?>"></span>
                                     <span><?php echo e($ticket['status_name']); ?></span>
@@ -121,8 +122,9 @@
                                         <?php echo e(get_ticket_code($ticket['id'])); ?>
                                     </span>
                                 </div>
-                                <div class="font-medium truncate text-theme-primary" dir="auto"><?php echo e($ticket['title']); ?></div>
-                                <div class="text-sm mt-1 flex flex-wrap items-center gap-2 text-theme-muted">
+                                <div class="ticket-mobile-title font-medium truncate text-theme-primary" dir="auto"><?php echo e($ticket['title']); ?></div>
+                            </a>
+                                <div class="ticket-mobile-meta text-sm mt-1 flex flex-wrap items-center gap-2 text-theme-muted">
                                     <span><?php echo format_date($ticket['created_at'], 'd.m.Y'); ?></span>
                                     <?php if (!empty($ticket['due_date'])): ?>
                                         <?php
@@ -137,7 +139,7 @@
                                             <?php echo date('d.m.', $due_ts); ?>
                                         </span>
                                     <?php endif; ?>
-                                    <span class="badge"
+                                    <span class="badge ticket-registry-priority-label"
                                         style="background-color: <?php echo e($priority_color); ?>20; color: <?php echo e($priority_color); ?>">
                                         <?php echo e($priority_name); ?>
                                     </span>
@@ -179,7 +181,7 @@
                                         <?php endif; ?>
                                     <?php endif; ?>
                                 </div>
-                            </a>
+                            </div>
                         </div>
                     </div>
             <?php endforeach; ?>
@@ -290,7 +292,7 @@
                 </thead>
                 <tbody>
                 <?php if ((is_agent() || is_admin()) && !$is_archive): ?>
-                    <tr id="new-ticket-row" class="new-ticket-row" style="border-inline-start: 5px solid var(--border-light); background: var(--surface-secondary); display: none;">
+                    <tr id="new-ticket-row" class="new-ticket-row" style="background: var(--surface-secondary); display: none;">
                         <td class="px-3 py-1.5 whitespace-nowrap align-middle text-center">
                             <button type="button" id="new-ticket-submit-btn"
                                     class="nt-plus-btn"
@@ -379,7 +381,7 @@
                         $priority_color = $ticket['priority_color'] ?? get_priority_color($ticket['priority_id'] ?? $ticket['priority'] ?? 'medium');
                         $is_overdue = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed']));
                         ?>
-                        <tr class="ticket-row<?php echo $is_overdue ? ' ticket-overdue' : ''; ?>" style="border-inline-start: 5px solid <?php echo e($ticket['status_color']); ?>;" data-href="<?php echo e(ticket_url($ticket)); ?>">
+                        <tr class="ticket-row<?php echo $is_overdue ? ' ticket-overdue' : ''; ?>" data-href="<?php echo e(ticket_url($ticket)); ?>">
                             <td class="px-3 py-2.5 whitespace-nowrap align-top">
                                 <div class="flex items-center gap-1.5">
                                     <?php if ($bulk_actions_enabled): ?>
@@ -453,7 +455,7 @@
                             <td class="px-2 py-2.5 whitespace-nowrap align-top">
                                 <?php if (is_agent() || is_admin()): ?>
                                 <div class="tl-inline-edit" style="position:relative;">
-                                    <span class="badge-inline tl-edit-trigger" data-ticket="<?php echo (int)$ticket['id']; ?>" data-field="status"
+                                    <span class="badge-inline ticket-registry-status-label tl-edit-trigger" data-ticket="<?php echo (int)$ticket['id']; ?>" data-field="status"
                                         style="background-color: <?php echo e($ticket['status_color']); ?>20; color: <?php echo e($ticket['status_color']); ?>; cursor:pointer;"
                                         title="<?php echo e(t('Click to change')); ?>">
                                         <?php echo e($ticket['status_name']); ?>
@@ -469,7 +471,7 @@
                                     </div>
                                 </div>
                                 <?php else: ?>
-                                <span class="badge-inline"
+                                <span class="badge-inline ticket-registry-status-label"
                                     style="background-color: <?php echo e($ticket['status_color']); ?>20; color: <?php echo e($ticket['status_color']); ?>">
                                     <?php echo e($ticket['status_name']); ?>
                                 </span>
@@ -478,7 +480,7 @@
                             <td class="px-2 py-2.5 whitespace-nowrap align-top">
                                 <?php if (is_agent() || is_admin()): ?>
                                 <div class="tl-inline-edit" style="position:relative;">
-                                    <span class="badge-inline tl-edit-trigger" data-ticket="<?php echo (int)$ticket['id']; ?>" data-field="priority"
+                                    <span class="badge-inline ticket-registry-priority-label tl-edit-trigger" data-ticket="<?php echo (int)$ticket['id']; ?>" data-field="priority"
                                         style="background-color: <?php echo e($priority_color); ?>20; color: <?php echo e($priority_color); ?>; cursor:pointer;"
                                         title="<?php echo e(t('Click to change')); ?>">
                                         <?php echo e($priority_name); ?>
@@ -494,7 +496,7 @@
                                     </div>
                                 </div>
                                 <?php else: ?>
-                                <span class="badge-inline"
+                                <span class="badge-inline ticket-registry-priority-label"
                                     style="background-color: <?php echo e($priority_color); ?>20; color: <?php echo e($priority_color); ?>">
                                     <?php echo e($priority_name); ?>
                                 </span>
