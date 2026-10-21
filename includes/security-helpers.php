@@ -96,6 +96,31 @@ function csrf_is_valid($token = null)
     return hash_equals($session_token, $token);
 }
 
+/**
+ * Compare a parsed Referer URL with the request host, including the port.
+ * The Host header carries any non-default port (for example 127.0.0.1:8080),
+ * so the Referer port must be compared too; default ports are ignored.
+ */
+function foxdesk_referer_host_matches(array $parts, string $expected_host): bool
+{
+    $scheme = strtolower((string) ($parts['scheme'] ?? 'http'));
+    $default_port = $scheme === 'https' ? ':443' : ':80';
+    $normalize = static function (string $host) use ($default_port): string {
+        $host = strtolower(trim($host));
+        return str_ends_with($host, $default_port) ? substr($host, 0, -strlen($default_port)) : $host;
+    };
+
+    $referer_host = (string) ($parts['host'] ?? '');
+    if ($referer_host === '') {
+        return false;
+    }
+    if (isset($parts['port'])) {
+        $referer_host .= ':' . (int) $parts['port'];
+    }
+
+    return $normalize($referer_host) === $normalize($expected_host);
+}
+
 function require_csrf_token($json = false)
 {
     // API token auth doesn't need CSRF — the token itself is the proof
@@ -122,7 +147,7 @@ function require_csrf_token($json = false)
                 if (
                     !$parts
                     || empty($parts['host'])
-                    || strcasecmp((string) $parts['host'], (string) $expected_host) !== 0
+                    || !foxdesk_referer_host_matches($parts, (string) $expected_host)
                 ) {
                     $redirect = $fallback;
                 }
@@ -162,7 +187,7 @@ function require_csrf_token($json = false)
             if (
                 !$parts
                 || empty($parts['host'])
-                || strcasecmp((string) $parts['host'], (string) $expected_host) !== 0
+                || !foxdesk_referer_host_matches($parts, (string) $expected_host)
             ) {
                 $redirect = $fallback;
             }
