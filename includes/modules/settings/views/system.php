@@ -100,11 +100,22 @@
                     </div>
 
                     <?php if ($remote_update): ?>
-                        <div class="admin-callout">
-                            <strong>FoxDesk <?php echo e($remote_update['version']); ?></strong>
-                            <?php if (!empty($remote_update['released_at'])): ?>
-                                <span><?php echo e(t('Released')); ?>: <?php echo e($remote_update['released_at']); ?></span>
-                            <?php endif; ?>
+                        <?php $remote_changelog = settings_update_changelog_entries($remote_update['changelog'] ?? []); ?>
+                        <div class="admin-callout<?php echo $remote_changelog ? ' has-changelog' : ''; ?>">
+                            <div class="admin-update-summary">
+                                <strong>FoxDesk <?php echo e($remote_update['version']); ?></strong>
+                                <?php if (!empty($remote_update['released_at'])): ?>
+                                    <span><?php echo e(t('Released')); ?>: <?php echo e($remote_update['released_at']); ?></span>
+                                <?php endif; ?>
+                                <?php if ($remote_changelog): ?>
+                                    <p class="admin-update-changelog-title"><?php echo e(t('Changes:')); ?></p>
+                                    <ul class="admin-update-changelog">
+                                        <?php foreach ($remote_changelog as $change): ?>
+                                            <li dir="auto"><?php echo e($change); ?></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php endif; ?>
+                            </div>
                             <form method="post">
                                 <?php echo csrf_field(); ?>
                                 <input type="hidden" name="install_remote_update" value="1">
@@ -129,8 +140,19 @@
                     <details class="admin-disclosure">
                         <summary><?php echo e(t('Upload update package')); ?></summary>
                         <?php if ($pending_update): ?>
-                            <div class="admin-callout">
-                                <strong><?php echo e(t('Update ready to install')); ?> v<?php echo e($pending_update['version']); ?></strong>
+                            <?php $pending_changelog = settings_update_changelog_entries($pending_update['changelog'] ?? []); ?>
+                            <div class="admin-callout<?php echo $pending_changelog ? ' has-changelog' : ''; ?>">
+                                <div class="admin-update-summary">
+                                    <strong><?php echo e(t('Update ready to install')); ?> v<?php echo e($pending_update['version']); ?></strong>
+                                    <?php if ($pending_changelog): ?>
+                                        <p class="admin-update-changelog-title"><?php echo e(t('Changes:')); ?></p>
+                                        <ul class="admin-update-changelog">
+                                            <?php foreach ($pending_changelog as $change): ?>
+                                                <li dir="auto"><?php echo e($change); ?></li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    <?php endif; ?>
+                                </div>
                                 <div class="admin-inline-actions">
                                     <form method="post">
                                         <?php echo csrf_field(); ?>
