@@ -682,6 +682,31 @@ function render_child_card(array $notif): void
         });
     };
 
+    // ── Mark an action-required notification as reviewed ───────────────
+    // Reading a notification never completes the requested action; review does.
+    window.markNotifReviewed = function(id, button) {
+        if (button) button.disabled = true;
+        fetch('index.php?page=api&action=app-notification-review', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': window.csrfToken},
+            body: JSON.stringify({notification_id: Number(id), is_resolved: true})
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res && res.success !== false) {
+                var el = document.getElementById('notif-item-' + id);
+                if (el) {
+                    el.classList.add('is-reviewed');
+                    el.querySelectorAll('.notif-action-badge, [data-notif-review]').forEach(function(node) { node.remove(); });
+                }
+            } else if (button) {
+                button.disabled = false;
+            }
+        })
+        .catch(function() { if (button) button.disabled = false; });
+    };
+
     // ── Mark all for a ticket as read (group dismiss) ──────────────────
     window.markTicketNotifsRead = function(ticketId) {
         fetch('index.php?page=api&action=mark-ticket-notifications-read', {
@@ -826,8 +851,9 @@ function render_child_card(array $notif): void
     // ── Helper: check if action required ─────────────────────────────────
     function isActionRequired(n) {
         var data = n.data || {};
+        if (typeof n.is_action === 'boolean') return n.is_action;
         return n.type === 'assigned_to_you' || n.type === 'due_date_reminder' ||
-               (n.type === 'new_comment' && data.action_required);
+               (['new_comment', 'status_changed', 'ticket_updated'].indexOf(n.type) !== -1 && !!data.action_required);
     }
 
     // ── Helper: escape HTML ──────────────────────────────────────────────
@@ -1001,6 +1027,11 @@ function render_child_card(array $notif): void
         html += '<div class="notif-card-actions">';
         if (groupCount > 1) {
             html += '<button type="button" class="notif-group-toggle"><span class="notif-group-count">+' + (groupCount - 1) + '</span></button>';
+        }
+        if (isAction && !n.is_resolved) {
+            html += '<button type="button" class="notif-mark-read-btn" data-notif-review onclick="event.stopPropagation();markNotifReviewed(' + n.id + ', this)" title="' + esc(<?php echo json_encode(t('Mark as reviewed')); ?>) + '" aria-label="' + esc(<?php echo json_encode(t('Mark as reviewed')); ?>) + '">';
+            html += <?php echo json_encode(get_icon('check-square', 'w-4 h-4')); ?>;
+            html += '</button>';
         }
         if (!isRead) {
             html += '<button type="button" class="notif-mark-read-btn" onclick="event.stopPropagation();markNotifRead(' + n.id + ')" title="' + esc(<?php echo json_encode(t('Mark as read')); ?>) + '">';

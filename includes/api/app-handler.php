@@ -852,6 +852,7 @@ function api_app_ticket_timer_action()
             'paused_at' => null,
         ], 'id = ?', [(int) $active['id']]);
         log_activity($ticket_id, (int) $user['id'], 'time_stopped', "Timer stopped ({$duration} min)");
+        notify_saved_time_entry((int) $active['id'], (int) $user['id']);
         $result = [
             'success' => true,
             'entry_id' => (int) $active['id'],
@@ -992,6 +993,39 @@ function api_app_notifications()
             'has_more' => count($items) === $limit,
         ],
     ], ['resource' => 'notifications']);
+}
+
+/**
+ * Mark one action-required notification as reviewed (or reopen it).
+ *
+ * Review is a browser-only interaction: it requires the session CSRF token
+ * and never extends API token permissions. It changes only this recipient's
+ * resolution flag, not the read state and not the ticket.
+ */
+function api_app_notification_review()
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        api_error('Method not allowed', 405);
+    }
+    require_csrf_token(true);
+    $user = current_user();
+    if (!$user) {
+        api_error('Unauthorized', 401);
+    }
+    $input = get_json_input();
+    $id = (int) ($input['notification_id'] ?? 0);
+    if ($id <= 0 || !isset($input['is_resolved']) || !is_bool($input['is_resolved'])) {
+        api_error('Invalid notification review.', 422);
+    }
+    if (!notifications_table_exists() || !column_exists('notifications', 'is_resolved')) {
+        api_error('Notification review is not available.', 409);
+    }
+    $notification = db_fetch_one('SELECT * FROM notifications WHERE id = ? AND user_id = ?', [$id, (int) $user['id']]);
+    if (!$notification || !notification_is_visible_to_user($notification, $user)) {
+        api_error('Not found', 404);
+    }
+    db_update('notifications', ['is_resolved' => (int) $input['is_resolved']], 'id = ? AND user_id = ?', [$id, (int) $user['id']]);
+    api_app_contract_success(['notification_id' => $id, 'is_resolved' => $input['is_resolved']], ['resource' => 'notification_review']);
 }
 
 function api_app_notification_read_state()

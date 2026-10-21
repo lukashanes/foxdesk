@@ -37,6 +37,27 @@ function ensure_notifications_table(): void
     ]);
 }
 
+/** Icon and accent colour per notification type, shared by every notification surface. */
+function notification_type_meta_map(): array
+{
+    return [
+        'new_ticket' => ['icon' => 'plus', 'color' => '#10b981'],
+        'new_comment' => ['icon' => 'comment', 'color' => '#3b82f6'],
+        'status_changed' => ['icon' => 'refresh-cw', 'color' => '#8b5cf6'],
+        'assigned_to_you' => ['icon' => 'user-plus', 'color' => '#f59e0b'],
+        'priority_changed' => ['icon' => 'exclamation-triangle', 'color' => '#ef4444'],
+        'ticket_updated' => ['icon' => 'edit', 'color' => '#6366f1'],
+        'due_date_reminder' => ['icon' => 'clock', 'color' => '#ef4444'],
+    ];
+}
+
+function notification_type_meta(string $type): array
+{
+    $map = notification_type_meta_map();
+
+    return $map[$type] ?? ['icon' => 'bell', 'color' => '#6b7280'];
+}
+
 // ── Create ───────────────────────────────────────────────────────────────────
 
 /**
@@ -59,7 +80,7 @@ function ensure_notifications_table(): void
  * @param int|null $actor_id
  * @param array    $data
  */
-function create_notifications_for_users(array $user_ids, string $type, ?int $ticket_id, ?int $actor_id, array $data = []): void
+function create_notifications_for_users(array $user_ids, string $type, ?int $ticket_id, ?int $actor_id, array $data = [], bool $push = true): void
 {
     if (!notifications_table_exists()) return;
 
@@ -113,8 +134,9 @@ function create_notifications_for_users(array $user_ids, string $type, ?int $tic
         }
     }
 
-    // Dispatch browser push notifications (N9)
-    if (!empty($notified_user_ids)) {
+    // Dispatch browser push notifications (N9). Callers inside an open database
+    // transaction pass $push = false so nothing leaves the server before commit.
+    if ($push && !empty($notified_user_ids)) {
         try {
             if (file_exists(BASE_PATH . '/includes/web-push.php')) {
                 require_once BASE_PATH . '/includes/web-push.php';
@@ -370,6 +392,17 @@ function notification_is_visible_to_user(array $notification, array $user): bool
         return false;
     }
 
+    // Unassigned tickets that arrived by email stay visible to agents as triage
+    // notifications, even when their listing scope is limited to assigned work.
+    $data = get_notification_data_payload($notification);
+    if (($user['role'] ?? '') === 'agent'
+        && ($notification['type'] ?? '') === 'new_ticket'
+        && ($data['source'] ?? '') === 'email'
+        && empty($ticket['assignee_id'])
+        && function_exists('can_see_ticket') && can_see_ticket($ticket, $user)) {
+        return true;
+    }
+
     if (function_exists('can_user_access_ticket_in_listing_scope')) {
         if (!can_user_access_ticket_in_listing_scope($ticket_id, $user)) {
             return false;
@@ -442,9 +475,11 @@ function get_user_notifications(int $user_id, int $limit = 50, int $offset = 0, 
 
     while (count($visible_rows) < $target_count && $scan_batches < 10) {
         $rows = db_fetch_all(
-            "SELECT n.*, u.first_name AS actor_first_name, u.last_name AS actor_last_name,
+            "SELECT n.*, t.hash AS ticket_hash,
+                    u.first_name AS actor_first_name, u.last_name AS actor_last_name,
                     u.avatar AS actor_avatar, u.email AS actor_email
              FROM notifications n
+             LEFT JOIN tickets t ON t.id = n.ticket_id
              LEFT JOIN users u ON u.id = n.actor_id
              WHERE n.user_id = ? $resolved_filter
              ORDER BY n.created_at DESC
@@ -517,6 +552,31 @@ function mark_notification_read(int $notification_id, int $user_id): bool
 }
 
 /**
+ * Mark a single notification as unread.
+ */
+function mark_notification_unread(int $notification_id, int $user_id): bool
+{
+    if (!notifications_table_exists()) return false;
+
+    db_update('notifications', ['is_read' => 0], 'id = ? AND user_id = ?', [$notification_id, $user_id]);
+    return true;
+}
+
+/**
+ * Explicitly mark one action-required notification as reviewed (or reopen it).
+ * Review is independent of read state and never changes the ticket.
+ */
+function set_notification_review_state(int $notification_id, int $user_id, bool $is_resolved): bool
+{
+    if (!notifications_table_exists() || !column_exists('notifications', 'is_resolved')) {
+        return false;
+    }
+
+    db_update('notifications', ['is_resolved' => $is_resolved ? 1 : 0], 'id = ? AND user_id = ?', [$notification_id, $user_id]);
+    return true;
+}
+
+/**
  * Mark all notifications for a specific ticket as read.
  */
 function mark_ticket_notifications_read(int $ticket_id, int $user_id): bool
@@ -528,20 +588,8 @@ function mark_ticket_notifications_read(int $ticket_id, int $user_id): bool
         [$ticket_id, $user_id]
     );
 
-    if (column_exists('notifications', 'is_resolved')) {
-        try {
-            db_execute(
-                "UPDATE notifications SET is_resolved = 1
-                 WHERE ticket_id = ? AND user_id = ? AND is_resolved = 0
-                 AND (type IN ('assigned_to_you', 'due_date_reminder')
-                      OR (type = 'new_comment' AND JSON_EXTRACT(data, '$.action_required') = true))",
-                [$ticket_id, $user_id]
-            );
-        } catch (Throwable $e) {
-            // Silent — don't break read-state updates
-        }
-    }
-
+    // Opening a ticket acknowledges reading, not completion of the requested action.
+    // Explicit review and actual workflow transitions resolve action notifications separately.
     return true;
 }
 
@@ -723,6 +771,8 @@ function is_action_required_notification(string $type, array $data = []): bool
         case 'due_date_reminder':
             return true;
         case 'new_comment':
+        case 'status_changed':
+        case 'ticket_updated':
             return !empty($data['action_required']);
         default:
             return false;
@@ -797,6 +847,9 @@ function dispatch_ticket_notifications(string $event_type, int $ticket_id, int $
         case 'status_changed':
             // Notify all ticket participants (creator, assignee, commenters)
             $recipients = get_ticket_participants($ticket_id, $actor_id);
+            // Completed work asks participants to review the result.
+            $data['action_required'] = function_exists('ticket_status_group_for_status_id')
+                && ticket_status_group_for_status_id((int) $ticket['status_id']) === 'done';
             break;
 
         case 'assigned_to_you':
@@ -880,6 +933,7 @@ function format_notification_text(array $notification): string
                 'due_date' => t('due date'),
                 'type'     => t('type'),
                 'company'  => t('company'),
+                'time_entry' => t('Work log'),
             ];
             $field_label = $field_labels[$field] ?? $field;
             if ($detail) {
@@ -939,6 +993,7 @@ function format_notification_action(array $notification): string
                 'due_date' => t('due date'),
                 'type'     => t('type'),
                 'company'  => t('company'),
+                'time_entry' => t('Work log'),
             ];
             $fl = $field_labels[$field] ?? $field;
             if ($detail) {

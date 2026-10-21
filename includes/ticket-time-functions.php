@@ -425,6 +425,7 @@ function stop_active_ticket_timer($ticket_id, $user_id, ?int $comment_id = null)
 
     db_update('ticket_time_entries', $update, 'id = ?', [(int) $active['id']]);
     log_activity($ticket_id, $user_id, 'time_stopped', "Timer stopped ({$duration} min)");
+    notify_saved_time_entry((int) $active['id'], (int) $user_id);
 
     if (function_exists('log_ticket_history')) {
         log_ticket_history($ticket_id, $user_id, 'timer_stopped', null, date('Y-m-d H:i:s'));
@@ -504,9 +505,54 @@ function add_manual_time_entry($ticket_id, $user_id, $data) {
             }
         }
 
-        return db_insert('ticket_time_entries', $insert);
+        $entry_id = db_insert('ticket_time_entries', $insert);
+        notify_saved_time_entry((int) $entry_id, (int) $user_id);
+        return $entry_id;
     } catch (Exception $e) {
         return false;
+    }
+}
+
+/**
+ * Ask the other participating staff to review saved work on a ticket.
+ *
+ * Stores an in-app review item only. No email or push is sent here because a
+ * surrounding transaction (for example an Idempotency-Key API write) may not
+ * have committed yet. Visibility and notification preferences still apply.
+ */
+function notify_saved_time_entry(int $entry_id, int $actor_id): void
+{
+    if ($entry_id <= 0 || !function_exists('create_notifications_for_users')) {
+        return;
+    }
+    try {
+        $entry = db_fetch_one('SELECT id, ticket_id, duration_minutes, ended_at FROM ticket_time_entries WHERE id = ?', [$entry_id]);
+        if (!$entry || empty($entry['ended_at']) || (int) $entry['duration_minutes'] <= 0) {
+            return;
+        }
+        $ticket = get_ticket((int) $entry['ticket_id']);
+        if (!$ticket) {
+            return;
+        }
+        $recipients = array_values(array_intersect(
+            get_ticket_participants((int) $ticket['id'], $actor_id),
+            get_staff_user_ids($actor_id)
+        ));
+        if (!$recipients) {
+            return;
+        }
+        $actor = get_user($actor_id);
+        create_notifications_for_users($recipients, 'ticket_updated', (int) $ticket['id'], $actor_id, [
+            'ticket_id' => (int) $ticket['id'],
+            'ticket_subject' => $ticket['title'],
+            'actor_name' => trim(($actor['first_name'] ?? '') . ' ' . ($actor['last_name'] ?? '')),
+            'field' => 'time_entry',
+            'time_entry_id' => $entry_id,
+            'detail' => format_duration_minutes((int) $entry['duration_minutes']),
+            'action_required' => true,
+        ], false);
+    } catch (Throwable $error) {
+        error_log('Work-log review notification could not be stored.');
     }
 }
 

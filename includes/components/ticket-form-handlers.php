@@ -620,6 +620,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'comment_id' => $comment_id
                 ], 'id = ?', [$active_timer['id']]);
                 log_activity($ticket_id, $user['id'], 'time_stopped', "Timer stopped ({$timer_duration} min)");
+                notify_saved_time_entry((int) $active_timer['id'], (int) $user['id']);
             }
 
             if ($manual_requested && !($stop_timer && $active_timer) && $manual_start_dt && $manual_end_dt) {
@@ -639,7 +640,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (function_exists('time_entry_source_column_exists') && time_entry_source_column_exists()) {
                     $manual_insert['source'] = 'manual';
                 }
-                db_insert('ticket_time_entries', $manual_insert);
+                $manual_entry_id = db_insert('ticket_time_entries', $manual_insert);
+                notify_saved_time_entry((int) $manual_entry_id, (int) $user['id']);
                 log_activity($ticket_id, $user['id'], 'time_manual', "Manual time added ({$manual_duration} min)");
             }
         }

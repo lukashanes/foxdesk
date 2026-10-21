@@ -149,6 +149,7 @@ function route_api_request($action) {
         'app-notifications' => 'api_app_notifications',
         'app-notifications-summary' => 'api_app_notifications_summary',
         'app-notification-read-state' => 'api_app_notification_read_state',
+        'app-notification-review' => 'api_app_notification_review',
 
         // Dashboard layout
         'save-dashboard-layout' => 'api_save_dashboard_layout',
