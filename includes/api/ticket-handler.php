@@ -1496,6 +1496,15 @@ function api_restore_attachment(): void
 }
 
 /**
+ * Current CSRF token for the signed-in session. Lets long-lived tabs recover
+ * after the session token rotated (re-login, update) instead of failing with
+ * "Invalid CSRF token" on their next action.
+ */
+function api_csrf_token() {
+    api_success(['token' => csrf_token()]);
+}
+
+/**
  * Search tickets for command palette / quick search
  * Returns top 8 matching tickets (title + ticket_code)
  */

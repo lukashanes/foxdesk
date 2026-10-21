@@ -127,6 +127,7 @@ function route_api_request($action) {
 
         // Search (command palette)
         'search-tickets' => 'api_search_tickets',
+        'csrf-token' => 'api_csrf_token',
         'global-search' => 'api_global_search',
 
         // App shell contract for web/native clients

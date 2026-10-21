@@ -30,7 +30,20 @@
         toast(message || label('error', 'Error'), 'error');
     }
 
-    function apiCall(action, ticketId, payload) {
+    function refreshCsrfToken() {
+        return fetch(apiUrl('csrf-token'), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+            .then(function(response) { return response.json(); })
+            .then(function(payload) {
+                var token = payload && payload.data && payload.data.token ? payload.data.token : (payload && payload.token ? payload.token : '');
+                if (token) {
+                    window.csrfToken = token;
+                    if (window.appConfig) window.appConfig.csrfToken = token;
+                }
+                return token;
+            });
+    }
+
+    function apiCall(action, ticketId, payload, retried) {
         var body = new FormData();
         if (ticketId) {
             body.append('ticket_id', ticketId);
@@ -40,10 +53,19 @@
         });
         return fetch(apiUrl(action), {
             method: 'POST',
+            credentials: 'same-origin',
             headers: { 'X-CSRF-TOKEN': csrfToken() },
             body: body
         }).then(function(response) {
-            return response.json();
+            return response.json().then(function(data) {
+                // A stale tab (token rotated by re-login or an update) refreshes its token once and retries.
+                if (!retried && response.status === 403 && /csrf/i.test(String((data && data.error) || ''))) {
+                    return refreshCsrfToken().then(function(token) {
+                        return token ? apiCall(action, ticketId, payload, true) : data;
+                    });
+                }
+                return data;
+            });
         });
     }
 
