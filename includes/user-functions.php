@@ -11,18 +11,17 @@
  */
 function get_user_permissions($user_id = null)
 {
-    if ($user_id === null) {
-        $user = current_user();
-        if (!$user)
-            return null;
-        $user_id = $user['id'];
-    } else {
-        $user = get_user($user_id);
-    }
+    $user = $user_id === null ? current_user() : get_user($user_id);
 
     if (!$user)
         return null;
 
+    return user_permissions_from_user($user);
+}
+
+/** Resolve permissions from an already loaded user without another database lookup. */
+function user_permissions_from_user(array $user): array
+{
     // Default permissions
     $default_scope = 'own';
     if ($user['role'] === 'agent') {
@@ -697,15 +696,18 @@ function render_user_avatar(array $user, string $size = 'md', string $class = ''
  */
 function get_user_organization_ids($user_id)
 {
-    if (!function_exists('get_user_permissions')) {
-        return [];
-    }
-    $permissions = get_user_permissions($user_id);
+    $user = get_user($user_id);
+    return $user ? user_organization_ids_from_user($user) : [];
+}
+
+/** Include permission-based memberships and the primary organization. */
+function user_organization_ids_from_user(array $user): array
+{
+    $permissions = user_permissions_from_user($user);
     $org_ids = get_permissions_organization_ids($permissions);
 
     // Always include primary organization_id as fallback/source of truth.
-    $user = get_user($user_id);
-    if ($user && !empty($user['organization_id'])) {
+    if (!empty($user['organization_id'])) {
         $org_ids[] = (int) $user['organization_id'];
     }
 

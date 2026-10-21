@@ -11,8 +11,8 @@ function time_activity_period_options(): array
     return [
         'today' => t('Today'),
         'this_week' => t('This week'),
-        'last_30_days' => t('Last 30 days'),
         'this_month' => t('This month'),
+        'last_30_days' => t('Last 30 days'),
         'last_month' => t('Last month'),
         'custom' => t('Custom month'),
     ];
@@ -24,7 +24,8 @@ function time_activity_period_from_request(array $request, bool $remember = true
     $stored_period = session_status() === PHP_SESSION_ACTIVE
         ? (string) ($_SESSION[$session_key] ?? '')
         : '';
-    $period = (string) ($request['period'] ?? ($stored_period !== '' ? $stored_period : 'this_month'));
+    $period = $request['period'] ?? ($stored_period !== '' ? $stored_period : 'this_month');
+    $period = is_string($period) ? $period : 'this_month';
     if (!array_key_exists($period, time_activity_period_options())) {
         $period = 'this_month';
     }
@@ -35,8 +36,23 @@ function time_activity_period_from_request(array $request, bool $remember = true
     $stored_to = session_status() === PHP_SESSION_ACTIVE
         ? (string) ($_SESSION['foxdesk_work_time_to_date'] ?? '')
         : '';
-    $from_date = trim((string) ($request['from_date'] ?? ($period === 'custom' ? $stored_from : '')));
-    $to_date = trim((string) ($request['to_date'] ?? ($period === 'custom' ? $stored_to : '')));
+    $from_date = $request['from_date'] ?? ($period === 'custom' ? $stored_from : '');
+    $to_date = $request['to_date'] ?? ($period === 'custom' ? $stored_to : '');
+    $from_date = is_string($from_date) ? trim($from_date) : '';
+    $to_date = is_string($to_date) ? trim($to_date) : '';
+
+    $bounds = function_exists('get_time_range_bounds')
+        ? get_time_range_bounds($period, $from_date, $to_date)
+        : ['range' => $period, 'start' => date('Y-m-01 00:00:00'), 'end' => date('Y-m-d 23:59:59')];
+    // An invalid custom range falls back to the current month instead of "all time".
+    if ($period === 'custom' && (empty($bounds['start']) || empty($bounds['end']))) {
+        $period = 'this_month';
+        $from_date = $to_date = '';
+        $bounds = function_exists('get_time_range_bounds')
+            ? get_time_range_bounds($period)
+            : ['range' => $period, 'start' => date('Y-m-01 00:00:00'), 'end' => date('Y-m-d 23:59:59')];
+    }
+
     if ($remember && session_status() === PHP_SESSION_ACTIVE && array_key_exists('period', $request)) {
         $_SESSION[$session_key] = $period;
         if ($period === 'custom') {
@@ -44,9 +60,6 @@ function time_activity_period_from_request(array $request, bool $remember = true
             $_SESSION['foxdesk_work_time_to_date'] = $to_date;
         }
     }
-    $bounds = function_exists('get_time_range_bounds')
-        ? get_time_range_bounds($period, $from_date, $to_date)
-        : ['range' => $period, 'start' => date('Y-m-01 00:00:00'), 'end' => date('Y-m-d 23:59:59')];
 
     return [
         'period' => (string) ($bounds['range'] ?? $period),
@@ -64,7 +77,8 @@ function time_activity_view_scope_from_request(array $request, bool $can_view_te
     $stored_scope = session_status() === PHP_SESSION_ACTIVE
         ? (string) ($_SESSION[$session_key] ?? '')
         : '';
-    $scope = (string) ($request['time_scope'] ?? ($stored_scope !== '' ? $stored_scope : 'mine'));
+    $scope = $request['time_scope'] ?? ($stored_scope !== '' ? $stored_scope : 'mine');
+    $scope = is_string($scope) ? $scope : 'mine';
     if (!in_array($scope, ['mine', 'team'], true) || (!$can_view_team && $scope === 'team')) {
         $scope = 'mine';
     }

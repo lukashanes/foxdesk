@@ -66,27 +66,6 @@ function api_agent_reference_row_by_name(string $table, string $name): ?array
     return $row ?: null;
 }
 
-function api_agent_status_by_id(int $status_id): ?array
-{
-    if ($status_id <= 0) {
-        return null;
-    }
-
-    if (function_exists('get_status')) {
-        $status = get_status($status_id);
-        if ($status) {
-            return $status;
-        }
-    }
-
-    $params = [$status_id];
-    $sql = "SELECT * FROM statuses WHERE id = ?";
-    if (function_exists('workflow_reference_sql_filter')) {
-        $sql .= workflow_reference_sql_filter('statuses', $params);
-    }
-    return db_fetch_one($sql, $params) ?: null;
-}
-
 /**
  * Resolve a ticket from request input and enforce access for the current agent.
  */

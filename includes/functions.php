@@ -884,6 +884,75 @@ function format_date($date, $format = 'd.m.Y H:i')
 }
 
 /**
+ * Extra SQL predicate for shared workflow reference tables (statuses,
+ * priorities, ticket types). The hosted edition scopes these rows per
+ * workspace; a self-hosted installation is a single workspace, so every row
+ * is visible and no predicate or parameter is added.
+ */
+function workflow_reference_sql_filter(string $table, array &$params, string $alias = ''): string
+{
+    return '';
+}
+
+/**
+ * Admins and agents can enter historical ticket, comment and work-log
+ * timestamps for cleanup and backfill work. Regular clients cannot.
+ */
+function foxdesk_can_backdate_records($user = null): bool
+{
+    if ($user === null && function_exists('current_user')) {
+        $user = current_user();
+    }
+
+    $role = is_array($user) ? (string) ($user['role'] ?? '') : '';
+    return in_array($role, ['admin', 'agent'], true);
+}
+
+/**
+ * Normalize a datetime-local value for backdated records.
+ *
+ * Returns a MySQL DATETIME string, null for an empty value, or false for an
+ * invalid or future value.
+ */
+function foxdesk_normalize_backdated_datetime_input($value)
+{
+    if (!is_scalar($value)) {
+        return false;
+    }
+    $raw = trim((string) $value);
+    if ($raw === '') {
+        return null;
+    }
+
+    $formats = [
+        'Y-m-d\TH:i:s',
+        'Y-m-d\TH:i',
+        'Y-m-d H:i:s',
+        'Y-m-d H:i',
+    ];
+
+    foreach ($formats as $format) {
+        $dt = DateTime::createFromFormat('!' . $format, $raw);
+        if (!$dt) {
+            continue;
+        }
+
+        $errors = DateTime::getLastErrors();
+        if (is_array($errors) && (($errors['warning_count'] ?? 0) > 0 || ($errors['error_count'] ?? 0) > 0)) {
+            continue;
+        }
+
+        if ($dt->getTimestamp() > time() + 60) {
+            return false;
+        }
+
+        return $dt->format('Y-m-d H:i:s');
+    }
+
+    return false;
+}
+
+/**
  * Get localized month names (short and full) for the current language.
  */
 function get_localized_months()
@@ -1071,22 +1140,23 @@ function get_time_range_bounds($range, $from_date = '', $to_date = '')
         $end = new DateTime('last day of December last year');
         $end->setTime(23, 59, 59);
     } elseif ($range === 'custom') {
-        $from_date = trim((string) $from_date);
-        $to_date = trim((string) $to_date);
-        $start = DateTime::createFromFormat('Y-m-d', $from_date);
-        $end = DateTime::createFromFormat('Y-m-d', $to_date);
-        if (!$start || !$end) {
+        // Accept only real calendar dates; 2026-02-31 must not roll over into March.
+        $from_date = is_string($from_date) && !str_contains($from_date, "\0") ? trim($from_date) : '';
+        $to_date = is_string($to_date) && !str_contains($to_date, "\0") ? trim($to_date) : '';
+        $start = preg_match('/^\d{4}-\d{2}-\d{2}$/D', $from_date) ? DateTime::createFromFormat('!Y-m-d', $from_date) : false;
+        $end = preg_match('/^\d{4}-\d{2}-\d{2}$/D', $to_date) ? DateTime::createFromFormat('!Y-m-d', $to_date) : false;
+        if (!$start || !$end || $start->format('Y-m-d') !== $from_date || $end->format('Y-m-d') !== $to_date) {
             $range = 'all';
             $start = null;
             $end = null;
         } else {
-            $start->setTime(0, 0, 0);
-            $end->setTime(23, 59, 59);
             if ($start > $end) {
                 $tmp = $start;
                 $start = $end;
                 $end = $tmp;
             }
+            $start->setTime(0, 0, 0);
+            $end->setTime(23, 59, 59);
         }
     }
 

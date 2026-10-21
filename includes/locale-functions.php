@@ -584,7 +584,7 @@ function foxdesk_format_datetime($date, bool $withTime = true, ?string $locale =
         return '';
     }
     $timestamp = is_numeric($date) ? (int) $date : strtotime((string) $date);
-    if (!$timestamp) {
+    if ($timestamp === false) {
         return '';
     }
 
@@ -599,24 +599,38 @@ function foxdesk_format_datetime($date, bool $withTime = true, ?string $locale =
         }
     }
     if (class_exists('IntlDateFormatter')) {
-        $dateFormatter = new IntlDateFormatter(
-            $formatLocale,
-            IntlDateFormatter::SHORT,
-            IntlDateFormatter::NONE,
-            date_default_timezone_get()
-        );
+        // Reuse ICU formatters within this request; the key includes mutable runtime settings.
+        static $formatters = [];
+        $timezone = date_default_timezone_get();
+        $key = $formatLocale . '|' . $timezone . '|' . $timeFormat;
+        if (!isset($formatters[$key])) {
+            if (count($formatters) >= 64) {
+                $formatters = [];
+            }
+            $formatters[$key] = [new IntlDateFormatter(
+                $formatLocale,
+                IntlDateFormatter::SHORT,
+                IntlDateFormatter::NONE,
+                $timezone
+            ), null];
+        }
+        $dateFormatter = $formatters[$key][0];
         $formattedDate = $dateFormatter->format($timestamp);
         if (is_string($formattedDate)) {
             if (!$withTime) {
                 return $formattedDate;
             }
-            $timeFormatter = new IntlDateFormatter(
-                $formatLocale,
-                IntlDateFormatter::NONE,
-                IntlDateFormatter::SHORT,
-                date_default_timezone_get()
-            );
-            $timeFormatter->setPattern($timeFormat === '12' ? 'h:mm a' : 'HH:mm');
+            if ($formatters[$key][1] === null) {
+                $timeFormatter = new IntlDateFormatter(
+                    $formatLocale,
+                    IntlDateFormatter::NONE,
+                    IntlDateFormatter::SHORT,
+                    $timezone
+                );
+                $timeFormatter->setPattern($timeFormat === '12' ? 'h:mm a' : 'HH:mm');
+                $formatters[$key][1] = $timeFormatter;
+            }
+            $timeFormatter = $formatters[$key][1];
             $formattedTime = $timeFormatter->format($timestamp);
             if (is_string($formattedTime)) {
                 return $formattedDate . ' ' . $formattedTime;
