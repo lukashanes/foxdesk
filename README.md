@@ -139,9 +139,9 @@ Tokens inherit the creating user's permissions and can be limited by capability.
 
 ## Current release
 
-The latest packaged version is [FoxDesk 0.3.143](https://github.com/lukashanes/foxdesk/releases/tag/v0.3.143), published on September 1, 2026.
+The latest packaged version is [FoxDesk 0.3.150](https://github.com/lukashanes/foxdesk/releases/tag/v0.3.150), published on October 21, 2026.
 
-It restores editing of sent comments for their authenticated authors while keeping creator-or-admin ownership enforcement consistent between the UI and backend.
+It requires the full `SECRET_KEY` for the rescue, upgrade and forced reinstall tools, fixes permanent ticket deletion and Agent API documentation access, makes Idempotency-Key retries safe for every API write, and keeps formatting and sender trust consistent for incoming email.
 
 Use the in-app updater or download the release assets from [GitHub Releases](https://github.com/lukashanes/foxdesk/releases). Every release includes upgrade notes, rollback guidance, a manifest, and SHA-256 evidence.
 

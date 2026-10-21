@@ -1,11 +1,17 @@
 {
-    "version": "0.3.149",
-    "date": "2026-09-30",
+    "version": "0.3.150",
+    "date": "2026-10-21",
     "min_php": "8.1",
     "changelog": [
-        "Compact flat authenticated UI across tickets, time, reports, clients and settings",
-        "Neutral active navigation without colored pills, curved underlines or ornamental shadows",
-        "Retain clear keyboard focus, readable dark actions, RTL and mobile touch targets"
+        "Security: rescue.php, upgrade.php and the forced reinstall link now require the full SECRET_KEY; the first 16 characters are no longer accepted",
+        "Fixed permanent ticket deletion, which failed with \"Ticket could not be deleted safely\" on self-hosted installations",
+        "Agent API: agent-docs works with every API token again and lists only the scopes a token is actually missing",
+        "Agent API: new agent-delete-comment action deletes a comment the token owner may manage",
+        "Agent API: writes sent with an Idempotency-Key share one database transaction, so retries replay the stored result without duplicate records",
+        "Agent API: applied work logs return a direct ticket link, and older ticket links with hash= open correctly, including completed tickets",
+        "Ticket list actions recover automatically when the page's security token has expired, for example after signing in again in another tab",
+        "Incoming email: messages from active users are accepted without adding their address to Allowed Senders",
+        "Incoming email: formatted messages keep images, lists, tables and emphasis in tickets and comments; tables and remote images now display correctly"
     ],
     "delete_files": []
 }
