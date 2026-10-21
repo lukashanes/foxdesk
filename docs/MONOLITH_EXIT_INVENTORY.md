@@ -26,7 +26,7 @@ platform, billing, tenant, R2, or Cloudflare managed-service controls.
 
 | Page | Lines | Status | Owner Track | Next Step |
 | --- | ---: | --- | --- | --- |
-| `pages/tickets.php` | 2319 | needs module extraction | shared customer workflow | Filters, bulk actions, row view model, and ticket-list JS are extracted; continue with search result mapping only if API payload grows. |
+| `pages/tickets.php` | 10 | already modular | shared customer workflow | Thin route; request logic lives in `includes/modules/tickets/ticket-list-page-controller.php` with filters, views, bulk actions and the row view model in their own modules. |
 | `pages/ticket-detail.php` | 290 | already modular | shared customer workflow | Thin route keeps access/context/configuration; rendering, scoped CSS, and browser behavior are delegated to focused components and modules. |
 | `pages/admin/reports.php` | 15 | already modular | shared customer workflow | Thin route delegates request orchestration, presentation models, partial rendering, print CSS, and browser behavior to focused report modules. |
 | `pages/admin/settings.php` | 162 | already modular | self-hosted maintenance plus shared settings | Controller delegates actions and renders allowlisted tab partials; SMTP, IMAP, update, backup, logs, workflow, and security views remain isolated by tab. |
@@ -59,6 +59,7 @@ platform, billing, tenant, R2, or Cloudflare managed-service controls.
 | `pages/cron.php` | 177 | self-hosted migration/update page | self-hosted maintenance | Keep scheduler entrypoint thin; reuse CLI helpers. |
 | `pages/forgot-password.php` | 168 | already modular | shared customer workflow | Keep rate-limit guard isolated. |
 | `pages/work.php` | 64 | already modular | shared customer workflow | Work queues live in `includes/modules/work/work-queues.php`. |
+| `pages/time.php` | 76 | already modular | shared customer workflow | Saved work ledger; aggregates, rows and CSV export share `includes/modules/work/time-ledger.php`. |
 | `pages/inbox.php` | 62 | already modular | shared customer workflow | Inbox behavior lives in `includes/modules/inbox/inbox-service.php`. |
 
 ## Existing Module Map
