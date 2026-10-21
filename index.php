@@ -119,7 +119,7 @@ if (defined('DB_HOST')) {
             echo '<h1>Database configuration required</h1>';
             echo '<p>The configured database host is <code>db</code>, but that host is not resolvable on this server.</p>';
             echo '<p>Edit <code>config.php</code> and set <code>DB_HOST</code> to your real database host, usually <code>localhost</code> on shared hosting.</p>';
-            echo '<p>If you intentionally need to rerun the installer, open <code>install.php?force=1&amp;token=FIRST_16_CHARS_OF_SECRET_KEY</code>.</p>';
+            echo '<p>If you intentionally need to rerun the installer, open <code>install.php?force=1&amp;token=FULL_SECRET_KEY</code>.</p>';
             echo '</body></html>';
             exit;
         }
