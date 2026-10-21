@@ -17,6 +17,7 @@ $range_start = $range_data['start'];
 $range_end = $range_data['end'];
 $time_tracking_available = ticket_time_table_exists();
 $org_time_totals = [];
+$org_entry_counts = [];
 $org_user_counts = [];
 
 // Handle form submissions
@@ -281,7 +282,7 @@ foreach ($organizations as $org) {
 // Organization time totals
 if ($time_tracking_available) {
     $dur = sql_timer_duration_minutes('tte.');
-    $sql = "SELECT t.organization_id, SUM({$dur}) as total_minutes
+    $sql = "SELECT t.organization_id, SUM({$dur}) as total_minutes, COUNT(*) as entry_count
             FROM ticket_time_entries tte
             JOIN tickets t ON tte.ticket_id = t.id
             WHERE t.organization_id IS NOT NULL";
@@ -295,8 +296,20 @@ if ($time_tracking_available) {
     $rows = db_fetch_all($sql, $params);
     foreach ($rows as $row) {
         $org_time_totals[(int) $row['organization_id']] = (int) $row['total_minutes'];
+        $org_entry_counts[(int) $row['organization_id']] = (int) $row['entry_count'];
     }
 }
+
+// Client directory: search, state, sort and paging over the full client list.
+require_once BASE_PATH . '/includes/modules/clients/client-directory.php';
+$directory = client_directory_page($organizations, $_GET, $org_entry_counts, $org_time_totals);
+$organizations = $directory['rows'];
+$directory_link = static function (array $changes): string {
+    $params = $_GET;
+    unset($params['page']);
+    $params['section'] = 'organizations';
+    return url('admin', array_merge($params, $changes));
+};
 
 require_once BASE_PATH . '/includes/header.php';
 ?>
@@ -317,13 +330,29 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
     <div class="admin-list-card">
         <div class="px-6 py-3 border-b flex items-center justify-between">
             <h3 class="font-semibold text-theme-primary"><?php echo e(t('Companies')); ?></h3>
-            <span class="text-sm text-theme-muted"><?php echo e(t('Click row to expand members')); ?></span>
+            <span class="text-sm text-theme-muted"><?php echo (int) $directory['count']; ?> <?php echo e(t('Clients')); ?> · <?php echo e(t('Click row to expand members')); ?></span>
         </div>
 
         <div class="admin-filter-bar">
             <form method="get" class="flex flex-wrap items-end gap-3">
                 <input type="hidden" name="page" value="admin">
                 <input type="hidden" name="section" value="organizations">
+                <div>
+                    <label class="block text-xs mb-1 text-theme-muted" for="client-directory-search"><?php echo e(t('Search')); ?></label>
+                    <input type="search" class="form-input" id="client-directory-search" name="search" value="<?php echo e($directory['search']); ?>">
+                </div>
+                <div>
+                    <label class="block text-xs mb-1 text-theme-muted" for="client-directory-state"><?php echo e(t('Status')); ?></label>
+                    <select name="state" id="client-directory-state" class="form-select"><?php foreach (['' => t('All'), 'active' => t('Active'), 'inactive' => t('Inactive')] as $key => $label): ?><option value="<?php echo e($key); ?>" <?php echo $directory['state'] === $key ? 'selected' : ''; ?>><?php echo e($label); ?></option><?php endforeach; ?></select>
+                </div>
+                <div>
+                    <label class="block text-xs mb-1 text-theme-muted" for="client-directory-sort"><?php echo e(t('Sort')); ?></label>
+                    <select name="sort" id="client-directory-sort" class="form-select"><?php foreach (['records' => t('Entries'), 'time' => t('Time'), 'name' => t('Name')] as $key => $label): ?><option value="<?php echo e($key); ?>" <?php echo $directory['sort'] === $key ? 'selected' : ''; ?>><?php echo e($label); ?></option><?php endforeach; ?></select>
+                </div>
+                <div>
+                    <label class="block text-xs mb-1 text-theme-muted" for="client-directory-size"><?php echo e(t('Show')); ?></label>
+                    <select name="page_size" id="client-directory-size" class="form-select"><?php foreach (['10', '20', '50', 'all'] as $size): ?><option value="<?php echo e($size); ?>" <?php echo $directory['size'] === $size ? 'selected' : ''; ?>><?php echo e($size === 'all' ? t('All') : $size); ?></option><?php endforeach; ?></select>
+                </div>
                 <div>
                     <label class="block text-xs mb-1 text-theme-muted"><?php echo e(t('Time range')); ?></label>
                     <select name="time_range" id="orgs-time-range" class="form-select">
@@ -518,6 +547,14 @@ include BASE_PATH . '/includes/components/client-management-nav.php';
                     </div>
                 <?php endforeach; ?>
             </div>
+        <?php endif; ?>
+        <?php if ((int) $directory['pages'] > 1): ?>
+        <nav class="registry-pagination" aria-label="<?php echo e(t('Clients')); ?>">
+            <span><?php echo (int) $directory['page']; ?> / <?php echo (int) $directory['pages']; ?> · <?php echo (int) $directory['count']; ?></span>
+            <?php foreach ([-1 => t('Previous'), 1 => t('Next')] as $step => $label): $target = (int) $directory['page'] + $step; ?>
+                <?php if ($target >= 1 && $target <= (int) $directory['pages']): ?><a class="btn btn-secondary btn-sm" href="<?php echo e($directory_link(['p' => $target])); ?>"><?php echo e($label); ?></a><?php else: ?><button type="button" class="btn btn-secondary btn-sm" disabled><?php echo e($label); ?></button><?php endif; ?>
+            <?php endforeach; ?>
+        </nav>
         <?php endif; ?>
     </div>
     </div>

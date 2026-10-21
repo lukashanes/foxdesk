@@ -23,6 +23,48 @@ $tickets = $overview['tickets'];
 $contacts = $overview['contacts'];
 $time = $overview['time'];
 
+// Client tabs: tickets, the client's work log (same read model as the Time page) and report history.
+require_once BASE_PATH . '/includes/modules/work/time-ledger.php';
+$client_tab_keys = is_admin() ? ['tickets', 'time', 'reports'] : ['tickets', 'time'];
+$client_tab = in_array($_GET['tab'] ?? '', $client_tab_keys, true) ? (string) $_GET['tab'] : 'tickets';
+$client_params = $_GET;
+$client_link = static function (array $changes) use ($client_params, $organization_id): string {
+    unset($client_params['page']);
+    return url('client', array_merge($client_params, ['id' => $organization_id], $changes));
+};
+$ticket_paging = time_ledger_page($_GET, (int) ($counts[$ticket_view] ?? 0));
+if ($client_tab === 'tickets') {
+    $tickets = client_overview_recent_tickets(
+        $organization_id,
+        $ticket_view,
+        $ticket_paging['size'] === 'all' ? 0 : (int) $ticket_paging['size'],
+        $ticket_paging['offset']
+    );
+}
+$client_ledger = null;
+$ledger_request = [];
+if ($client_tab === 'time') {
+    $period = time_activity_period_from_request($_GET, false);
+    $ledger_request = array_merge($_GET, ['client' => (string) $organization_id, 'time_scope' => is_admin() ? 'team' : 'mine']);
+    unset($ledger_request['page'], $ledger_request['id'], $ledger_request['tab'], $ledger_request['work_view']);
+    $client_ledger = time_ledger_model($user, $period, $ledger_request);
+}
+$client_reports = null;
+if ($client_tab === 'reports') {
+    require_once BASE_PATH . '/includes/modules/reports/report-history.php';
+    $client_reports = report_history_model(array_merge($_GET, ['client' => $organization_id]));
+}
+$render_client_pager = static function (array $paging) use ($client_link): void {
+    if ((int) $paging['count'] <= 10) {
+        return;
+    }
+    ?><nav class="registry-pagination" aria-label="<?php echo e(t('Entries')); ?>"><span><?php echo (int) $paging['count']; ?> · <?php echo (int) $paging['page']; ?> / <?php echo (int) $paging['pages']; ?></span>
+    <?php foreach (['10', '20', '50', 'all'] as $size): ?><a class="btn btn-secondary btn-sm" <?php echo $size === $paging['size'] ? 'aria-current="page"' : ''; ?> href="<?php echo e($client_link(['page_size' => $size, 'p' => 1])); ?>"><?php echo e($size === 'all' ? t('All') : $size); ?></a><?php endforeach; ?>
+    <?php foreach ([-1 => t('Previous'), 1 => t('Next')] as $step => $label): $next = (int) $paging['page'] + $step; ?>
+        <?php if ($next >= 1 && $next <= (int) $paging['pages']): ?><a class="btn btn-secondary btn-sm" href="<?php echo e($client_link(['p' => $next])); ?>"><?php echo e($label); ?></a><?php else: ?><button type="button" class="btn btn-secondary btn-sm" disabled><?php echo e($label); ?></button><?php endif; ?>
+    <?php endforeach; ?></nav><?php
+};
+
 $page_title = $org['name'];
 $page = 'client';
 
@@ -86,6 +128,12 @@ require_once BASE_PATH . '/includes/header.php';
 
     <div class="client-grid">
         <div class="card">
+            <nav class="agenda-toolbar client-center-tabs" aria-label="<?php echo e(t('Client')); ?>">
+            <?php foreach (['tickets' => t('Tickets'), 'time' => t('Work log'), 'reports' => t('Report history')] as $key => $label): if (!in_array($key, $client_tab_keys, true)) continue; ?>
+                <a class="client-tab <?php echo $client_tab === $key ? 'is-active' : ''; ?>" href="<?php echo e($client_link(['tab' => $key, 'p' => 1])); ?>" <?php echo $client_tab === $key ? 'aria-current="page"' : ''; ?>><?php echo e($label); ?></a>
+            <?php endforeach; ?>
+            </nav>
+            <?php if ($client_tab === 'tickets'): ?>
             <div class="card-header">
                 <div>
                     <h2 class="client-section-title"><?php echo e(t('Client tickets')); ?></h2>
@@ -94,7 +142,7 @@ require_once BASE_PATH . '/includes/header.php';
                     <?php foreach (['open', 'waiting', 'done', 'all'] as $view_key): ?>
                         <a class="client-tab <?php echo $ticket_view === $view_key ? 'is-active' : ''; ?>"
                            data-client-view-key="<?php echo e($view_key); ?>"
-                           href="<?php echo url('client', ['id' => (int) $org['id'], 'work_view' => $view_key]); ?>">
+                           href="<?php echo e($client_link(['work_view' => $view_key, 'p' => 1])); ?>">
                             <?php echo e(t(ticket_list_view_definitions(false)[$view_key]['label'] ?? ucfirst($view_key))); ?>
                             <span data-client-view-count><?php echo (int) ($counts[$view_key] ?? 0); ?></span>
                         </a>
@@ -134,6 +182,17 @@ require_once BASE_PATH . '/includes/header.php';
                     <?php endforeach; ?>
                 <?php endif; ?>
             </div>
+            <?php $render_client_pager($ticket_paging); ?>
+            <?php elseif ($client_tab === 'time'): ?>
+                <?php include BASE_PATH . '/includes/components/client-time-ledger.php'; ?>
+                <?php $render_client_pager($client_ledger['paging']); ?>
+            <?php else: ?>
+                <div class="ledger-scroll"><table class="ledger-table" data-client-report-history><thead><tr><th><?php echo e(t('Report')); ?></th><th><?php echo e(t('Period')); ?></th><th><?php echo e(t('Status')); ?></th></tr></thead><tbody>
+                <?php foreach ($client_reports['rows'] as $report): ?><tr><td><a href="<?php echo e(url('admin', ['section' => 'report-builder', 'edit' => (int) $report['id']])); ?>"><bdi dir="auto"><?php echo e($report['title']); ?></bdi></a></td><td><?php echo e(format_date($report['date_from'], 'd.m.Y') . ' – ' . format_date($report['date_to'], 'd.m.Y')); ?></td><td><?php echo e($report['is_draft'] ? t('Draft') : t('Published')); ?></td></tr><?php endforeach; ?>
+                <?php if (!$client_reports['rows']): ?><tr><td colspan="3"><?php echo e(t('No entries')); ?></td></tr><?php endif; ?>
+                </tbody></table></div>
+                <?php $render_client_pager($client_reports['paging']); ?>
+            <?php endif; ?>
         </div>
 
         <aside class="space-y-3">
