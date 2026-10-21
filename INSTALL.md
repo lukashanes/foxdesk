@@ -1,7 +1,7 @@
 # FoxDesk — Installation Guide
 
-> Fresh installation instructions for shared hosting (FTP), VPS, or dedicated servers.
-> Version: **0.3.114** | Requires: PHP 8.1+ | MySQL 5.7+ / MariaDB 10.2+
+> Fresh installation instructions for shared hosting (FTP), VPS, dedicated servers, or Docker.
+> Requires: PHP 8.1+ | MySQL 5.7+ / MariaDB 10.2+ (the Docker setup includes both)
 
 ---
 
@@ -14,10 +14,11 @@
 5. [Post-Installation Setup](#post-installation-setup)
 6. [Shared Hosting (cPanel) Guide](#shared-hosting-cpanel-guide)
 7. [VPS / Dedicated Server Guide](#vps--dedicated-server-guide)
-8. [Cron Jobs Setup](#cron-jobs-setup)
-9. [Email Configuration](#email-configuration)
-10. [Security Hardening](#security-hardening)
-11. [Troubleshooting](#troubleshooting)
+8. [Docker](#docker)
+9. [Cron Jobs Setup](#cron-jobs-setup)
+10. [Email Configuration](#email-configuration)
+11. [Security Hardening](#security-hardening)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -399,6 +400,35 @@ server {
     </Directory>
 </VirtualHost>
 ```
+
+---
+
+## Docker
+
+The repository includes a `Dockerfile` and `docker-compose.yml` that run
+FoxDesk with PHP 8.2, Apache, MariaDB 11, and a scheduler container for
+background tasks. The complete guide is [docs/DOCKER.md](docs/DOCKER.md).
+
+```bash
+git clone https://github.com/lukashanes/foxdesk.git
+cd foxdesk
+cp .env.example .env          # set DB_PASSWORD and DB_ROOT_PASSWORD
+docker compose up -d --build
+```
+
+1. Open `http://localhost:8080/install.php`.
+2. In the database step use host `db`, port `3306`, and the database name,
+   user, and password from `.env`.
+3. Create the admin account. `config.php` is written to a persistent volume.
+4. Apply the bundled database migrations once:
+   `docker compose exec -u www-data app php upgrade.php`
+
+The `cron` container runs FoxDesk background tasks every minute, so no host
+cron jobs are needed. Install FoxDesk updates with the in-app updater as
+usual; application files live in a volume, so updates survive container
+rebuilds. Rebuild the image periodically for PHP and operating system fixes.
+Backups, HTTPS reverse proxy examples (Caddy, Traefik), and upgrade details
+are in [docs/DOCKER.md](docs/DOCKER.md).
 
 ---
 
