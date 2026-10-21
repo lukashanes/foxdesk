@@ -332,6 +332,17 @@ function settings_handle_post_request(callable $settings_audit): void
                 ], 'warning');
                 flash(t('Invalid update package: {error}', ['error' => $validation_error]), 'error');
             }
+        } elseif (isset($_FILES['update_package']['error']) && (int) $_FILES['update_package']['error'] !== UPLOAD_ERR_NO_FILE) {
+            // The browser sent a file but PHP rejected it (for example above upload_max_filesize).
+            // Requests above post_max_size never get here: require_csrf_token() reports them with the server limit.
+            $upload_error_code = (int) $_FILES['update_package']['error'];
+            $php_upload_limit = get_php_upload_max_size();
+            $upload_error = get_upload_error_message($upload_error_code, $php_upload_limit > 0 ? $php_upload_limit : null);
+            $settings_audit('update_package_upload_failed', [
+                'filename' => $_FILES['update_package']['name'] ?? '',
+                'upload_error' => $upload_error_code,
+            ], 'warning');
+            flash($upload_error, 'error');
         } else {
             flash(t('Please select an update package file.'), 'error');
         }
