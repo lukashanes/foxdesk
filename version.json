@@ -17,7 +17,10 @@
         "New installations are fully set up by the web installer: database migrations, email templates and default settings no longer need a separate upgrade.php run",
         "The installer uses the server time zone (TZ or date.timezone) instead of always Europe/Prague",
         "New Docker Compose setup (app, MariaDB and a cron worker) with persistent data, automatic backups before image upgrades and support for the in-app updater; see docs/DOCKER.md",
-        "Installation guide corrected: run the web installer before editing config.php"
+        "Installation guide corrected: run the web installer before editing config.php",
+        "Settings → System lists the full changelog of an available or uploaded update before you install it",
+        "Uploading an update package larger than the server's PHP upload limit now reports that limit instead of asking you to select a file",
+        "Adding time to a ticket reply no longer causes a browser script error"
     ],
     "delete_files": []
 }
