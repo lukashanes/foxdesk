@@ -200,16 +200,16 @@ function send_security_headers()
     header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
 
     // Content Security Policy - Only enable in production
-    // For development on localhost, CSP can interfere with Tailwind CDN
+    // Runtime libraries are self-hosted in assets/vendor; no CDN host is allowed.
     $is_localhost = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', 'localhost:8081', '127.0.0.1', '127.0.0.1:8081']);
 
     if (!$is_localhost) {
         header("Content-Security-Policy: default-src 'self'; " .
             "base-uri 'self'; object-src 'none'; form-action 'self'; " .
-            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.quilljs.com https://cdn.jsdelivr.net; " .
-            "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.quilljs.com https://cdn.jsdelivr.net; " .
-            "font-src 'self' https://cdnjs.cloudflare.com data:; " .
-            "img-src 'self' data: https:; " .
+            "script-src 'self' 'unsafe-inline'; " .
+            "style-src 'self' 'unsafe-inline'; " .
+            "font-src 'self' data:; " .
+            "img-src 'self' data: blob: https:; " .
             "connect-src 'self'; " .
             "frame-ancestors 'self'");
         header("Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'");

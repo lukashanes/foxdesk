@@ -354,7 +354,7 @@ date_default_timezone_set('Europe/Prague');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Installation - FoxDesk</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="tailwind.min.css" rel="stylesheet">
     <link href="theme.css" rel="stylesheet">
 </head>
 <body class="flex items-center justify-center p-4">

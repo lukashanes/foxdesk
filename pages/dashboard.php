@@ -2041,7 +2041,7 @@ require_once BASE_PATH . '/includes/header.php';
         function loadChartJs(cb) {
             if (chartJsLoaded) { cb(); return; }
             var s = document.createElement('script');
-            s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+            s.src = 'assets/vendor/chartjs/4.4.0/chart.umd.js?v=<?php echo APP_VERSION; ?>';
             s.onload = function () { chartJsLoaded = true; cb(); };
             document.head.appendChild(s);
         }

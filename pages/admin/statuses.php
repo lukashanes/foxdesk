@@ -261,7 +261,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 </div>
 
 <!-- SortableJS for drag & drop -->
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="assets/vendor/sortablejs/1.15.0/Sortable.min.js?v=<?php echo APP_VERSION; ?>"></script>
 <script>
     // Edit Status Modal Functions
     function openEditStatusModal(status) {

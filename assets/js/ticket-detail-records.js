@@ -18,6 +18,13 @@
     var formatDateTimeLocal = runtime.formatDateTimeLocal;
     var editCommentEditor = null;
 
+    // Quill 2 keeps list markup in data attributes; submit its semantic HTML.
+    function richValue(editor) {
+        if (window.FoxDeskRichText) return window.FoxDeskRichText.fieldValue(editor);
+        var html = editor.root.innerHTML;
+        return (html === '<p><br></p>' || html === '<p></p>') ? '' : html;
+    }
+
     window.openEditCommentModal = function (commentId, content) {
         var modal = document.getElementById('edit-comment-modal');
         var input = document.getElementById('edit-comment-id');
@@ -31,8 +38,11 @@
                 modules: { toolbar: [[{ header: [1, 2, 3, false] }], ['bold', 'italic', 'underline', 'strike'], [{ list: 'ordered' }, { list: 'bullet' }], ['link'], ['clean']] }
             });
         }
-        if (String(content || '').indexOf('<') !== -1 && String(content || '').indexOf('>') !== -1) {
-            editCommentEditor.root.innerHTML = content;
+        editCommentEditor.setText('');
+        if (window.FoxDeskRichText) {
+            window.FoxDeskRichText.loadHtml(editCommentEditor, content);
+        } else if (String(content || '').indexOf('<') !== -1 && String(content || '').indexOf('>') !== -1) {
+            editCommentEditor.clipboard.dangerouslyPasteHTML(content);
         } else {
             editCommentEditor.setText(content || '');
         }
@@ -51,8 +61,7 @@
         var commentId = form.querySelector('#edit-comment-id').value;
         var content = '';
         if (editCommentEditor) {
-            var html = editCommentEditor.root.innerHTML;
-            content = (html === '<p><br></p>' || html === '<p></p>') ? '' : html;
+            content = richValue(editCommentEditor);
         }
         if (!content) {
             window.alert(t('commentEmpty', 'Comment cannot be empty.'));
@@ -387,12 +396,10 @@
                 var commentText = document.getElementById('comment-text');
                 var internalText = document.getElementById('internal-text');
                 if (isInternal && window.internalEditor) {
-                    var internalHtml = window.internalEditor.root.innerHTML;
-                    if (internalText) internalText.value = (internalHtml === '<p><br></p>' || internalHtml === '<p></p>') ? '' : internalHtml;
+                    if (internalText) internalText.value = richValue(window.internalEditor);
                     if (commentText) commentText.value = '';
                 } else if (window.commentEditor) {
-                    var publicHtml = window.commentEditor.root.innerHTML;
-                    if (commentText) commentText.value = (publicHtml === '<p><br></p>' || publicHtml === '<p></p>') ? '' : publicHtml;
+                    if (commentText) commentText.value = richValue(window.commentEditor);
                     if (internalText) internalText.value = '';
                 }
                 var stop = document.getElementById('stop-timer-toggle');
@@ -409,8 +416,7 @@
         if (editForm) {
             editForm.addEventListener('submit', function () {
                 if (!editDescriptionEditor) return;
-                var html = editDescriptionEditor.root.innerHTML;
-                document.getElementById('edit-description-input').value = (html === '<p><br></p>' || html === '<p></p>') ? '' : html;
+                document.getElementById('edit-description-input').value = richValue(editDescriptionEditor);
             });
         }
     }

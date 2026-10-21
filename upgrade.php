@@ -1343,7 +1343,7 @@ if (empty($messages)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upgrade - FoxDesk</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="tailwind.min.css" rel="stylesheet">
     <link href="assets/css/theme.min.css" rel="stylesheet">
 </head>
 

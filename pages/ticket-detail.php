@@ -143,8 +143,8 @@ foreach (['reopen', 'claim', 'send', 'send_done', 'send_waiting', 'save_note', '
 require_once BASE_PATH . '/includes/header.php';
 ?>
 
-<!-- Quill Editor CSS (1.3.7 stable) -->
-<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<!-- Quill Editor CSS (self-hosted) -->
+<link href="assets/vendor/quill/2.0.2/quill.snow.css?v=<?php echo APP_VERSION; ?>" rel="stylesheet">
 <link href="assets/css/ticket-detail.css?v=<?php echo APP_VERSION; ?>" rel="stylesheet">
 
 <?php include BASE_PATH . '/includes/components/ticket-detail-content.php'; ?>
@@ -255,9 +255,10 @@ window.FoxDeskTicketDetailConfig = <?php echo json_encode($ticket_detail_js_conf
 <script src="assets/js/chip-select.js?v=<?php echo APP_VERSION; ?>"></script>
 <?php endif; ?>
 
-<!-- Quill Editor JS (1.3.7 stable) -->
-<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<!-- Quill Editor JS (self-hosted) -->
+<script src="assets/vendor/quill/2.0.2/quill.js?v=<?php echo APP_VERSION; ?>"></script>
 <script src="assets/js/quill-image-upload.js?v=<?php echo APP_VERSION; ?>"></script>
+<script src="assets/js/rich-text-editor.js?v=<?php echo APP_VERSION; ?>"></script>
 <script src="assets/js/attachment-paste-drop.js?v=<?php echo APP_VERSION; ?>"></script>
 
 <!-- Autosave for comment editor -->

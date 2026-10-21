@@ -826,7 +826,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                     </form>
                 </div>
 
-                <script src="https://cdn.jsdelivr.net/npm/qrcode@1/build/qrcode.min.js"></script>
+                <script src="assets/vendor/qrcode/1.5.3/qrcode.min.js?v=<?php echo APP_VERSION; ?>"></script>
                 <script>
                 document.addEventListener('DOMContentLoaded', function() {
                     var canvas = document.getElementById('totp-qr-code');
