@@ -11,7 +11,9 @@
         "Agent API: applied work logs return a direct ticket link, and older ticket links with hash= open correctly, including completed tickets",
         "Ticket list actions recover automatically when the page's security token has expired, for example after signing in again in another tab",
         "Incoming email: messages from active users are accepted without adding their address to Allowed Senders",
-        "Incoming email: formatted messages keep images, lists, tables and emphasis in tickets and comments; tables and remote images now display correctly"
+        "Incoming email: formatted messages keep images, lists, tables and emphasis in tickets and comments; tables and remote images now display correctly",
+        "Security: all frontend libraries (Alpine, Chart.js, flatpickr, Quill, SortableJS, QR code) are now bundled with FoxDesk instead of loaded from CDNs, and the Content Security Policy no longer allows any CDN host",
+        "The rich-text editor is upgraded to Quill 2; lists, formatting and inline images are saved as clean HTML"
     ],
     "delete_files": []
 }
