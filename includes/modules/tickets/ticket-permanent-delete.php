@@ -189,9 +189,16 @@ function ticket_permanent_delete_remove_idempotency_references(int $ticket_id, i
     if (!table_exists('api_idempotency_keys')) {
         return;
     }
+    // Self-hosted api_idempotency_keys has no tenant_id column; scope only when it exists.
+    $params = [];
+    $scope_sql = '';
+    if (column_exists('api_idempotency_keys', 'tenant_id')) {
+        $scope_sql = ' AND tenant_id = ?';
+        $params[] = $tenant_id;
+    }
     $rows = db_fetch_all(
-        "SELECT id, response_json FROM api_idempotency_keys WHERE tenant_id = ? AND response_json IS NOT NULL AND action <> 'agent-delete-ticket-permanently'",
-        [$tenant_id]
+        "SELECT id, response_json FROM api_idempotency_keys WHERE response_json IS NOT NULL AND action <> 'agent-delete-ticket-permanently'{$scope_sql}",
+        $params
     );
     foreach ($rows as $row) {
         $response = json_decode((string) ($row['response_json'] ?? ''), true);
@@ -259,15 +266,12 @@ function ticket_permanent_delete(int $ticket_id, string $confirmation, array $ac
 
     $attachments = db_fetch_all('SELECT * FROM attachments WHERE ticket_id = ? ORDER BY id', [$ticket_id]);
     $db = get_db();
-    $started_transaction = false;
+    $owns_transaction = false;
     $outbox_ids = [];
     $request_id = $request_id ?: bin2hex(random_bytes(16));
 
     try {
-        if (!$db->inTransaction()) {
-            $db->beginTransaction();
-            $started_transaction = true;
-        }
+        $owns_transaction = db_begin_owned($db);
 
         foreach ($attachments as $attachment) {
             $outbox_ids[] = (int) db_insert('ticket_storage_deletion_outbox', [
@@ -297,8 +301,11 @@ function ticket_permanent_delete(int $ticket_id, string $confirmation, array $ac
         if (table_exists('report_snapshots')) {
             if (column_exists('report_snapshots', 'tenant_id')) {
                 db_delete('report_snapshots', 'tenant_id = ?', [$tenant_id]);
-            } elseif (table_exists('report_templates')) {
+            } elseif (table_exists('report_templates') && column_exists('report_templates', 'tenant_id')) {
                 db_query('DELETE rs FROM report_snapshots rs INNER JOIN report_templates rt ON rt.id = rs.report_template_id WHERE rt.tenant_id = ?', [$tenant_id]);
+            } else {
+                // Single-instance schema: every cached snapshot may include the deleted ticket.
+                db_delete('report_snapshots', '1 = 1');
             }
         }
 
@@ -309,16 +316,14 @@ function ticket_permanent_delete(int $ticket_id, string $confirmation, array $ac
         $cleanup = static function () use ($outbox_ids): void {
             ticket_permanent_delete_process_storage($outbox_ids);
         };
-        if ($started_transaction) {
-            $db->commit();
+        if ($owns_transaction) {
+            db_commit_owned($owns_transaction, $db);
             $cleanup();
         } else {
             ticket_permanent_delete_register_after_commit($cleanup);
         }
     } catch (Throwable $e) {
-        if ($started_transaction && $db->inTransaction()) {
-            $db->rollBack();
-        }
+        db_rollback_owned($owns_transaction, $db);
         throw $e;
     }
 
