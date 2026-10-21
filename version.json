@@ -20,7 +20,8 @@
         "Installation guide corrected: run the web installer before editing config.php",
         "Settings → System lists the full changelog of an available or uploaded update before you install it",
         "Uploading an update package larger than the server's PHP upload limit now reports that limit instead of asking you to select a file",
-        "Adding time to a ticket reply no longer causes a browser script error"
+        "Adding time to a ticket reply no longer causes a browser script error",
+        "After an oversized upload or an expired form, FoxDesk returns you to the page you were on also when it runs on a non-standard port, such as Docker on port 8080"
     ],
     "delete_files": []
 }
