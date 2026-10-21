@@ -144,6 +144,8 @@
         outcome.addEventListener('change', submitLabel);
         modeButtons.forEach(function (b) { b.addEventListener('click', function () { queueMicrotask(submitLabel); schedule(); }); });
         form.addEventListener('change', submitLabel);
+        // The workflow composer owns the submit label; the shared manual-time and timer controls refresh it through this hook.
+        window.updateSubmitLabel = submitLabel;
         submitLabel();
         if (meta.status_group === 'done') {
             var timerButton = document.getElementById('btn-timer-action');

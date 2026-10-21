@@ -210,6 +210,7 @@
     }
 
     function initSubmitLabel() {
+        // On the workflow composer, assets/js/ticket-workflow.js owns the label and registers window.updateSubmitLabel.
         if (document.querySelector('[data-workflow]')) return;
         var submit = document.getElementById('comment-submit-btn');
         window.updateSubmitLabel = function () {
