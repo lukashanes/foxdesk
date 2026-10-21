@@ -1,0 +1,33 @@
+# The image ships the same application payload as a release package.
+# Everything is excluded first, then the release files are allowed back in.
+**
+
+!.htaccess
+!attachment.php
+!config.example.php
+!image.php
+!index.php
+!install.php
+!LICENSE.md
+!manifest.php
+!pwa-icon.php
+!rescue.php
+!sw.js
+!tailwind.min.css
+!theme.css
+!upgrade.php
+!version.json
+
+!assets/
+!bin/
+!includes/
+!locales/
+!migrations/
+!pages/
+
+!docker/
+
+# Never bake local state or secrets into the image.
+**/.DS_Store
+**/*.map
+locales/.translation-cache/
