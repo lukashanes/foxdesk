@@ -4,6 +4,8 @@ $roots = [$root . '/includes', $root . '/pages'];
 $allow = [
     realpath($root . '/includes/update-functions.php'),
     realpath($root . '/includes/schema-migration-runner.php'),
+    // Upgrade steps shared by install.php and upgrade.php; never loaded per request.
+    realpath($root . '/includes/upgrade-functions.php'),
 ];
 $pattern = '/\b(?:CREATE\s+TABLE|ALTER\s+TABLE|CREATE\s+(?:UNIQUE\s+)?INDEX|DROP\s+(?:TABLE|INDEX))\b/i';
 $violations = [];

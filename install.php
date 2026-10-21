@@ -59,6 +59,23 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
+/**
+ * Time zone written to config.php: the TZ environment variable or PHP's
+ * date.timezone when either names a valid zone, otherwise Europe/Prague.
+ */
+function foxdesk_install_default_timezone(): string
+{
+    $valid = timezone_identifiers_list(DateTimeZone::ALL_WITH_BC);
+    foreach ([getenv('TZ'), ini_get('date.timezone')] as $candidate) {
+        $candidate = trim((string) $candidate);
+        if ($candidate !== '' && in_array($candidate, $valid, true)) {
+            return $candidate;
+        }
+    }
+
+    return 'Europe/Prague';
+}
+
 function csrf_field_install() {
     return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') . '">';
 }
@@ -179,13 +196,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         } else {
             try {
-                $db = $_SESSION['install'];
-                if (!preg_match('/^[0-9]{1,5}$/', (string) $db['db_port'])) {
+                $install_db = $_SESSION['install'];
+                if (!preg_match('/^[0-9]{1,5}$/', (string) $install_db['db_port'])) {
                     throw new InvalidArgumentException('Database port must be numeric.');
                 }
 
-                $dsn = "mysql:host={$db['db_host']};port={$db['db_port']};dbname={$db['db_name']};charset=utf8mb4";
-                $pdo = new PDO($dsn, $db['db_user'], $db['db_pass'], [
+                $dsn = "mysql:host={$install_db['db_host']};port={$install_db['db_port']};dbname={$install_db['db_name']};charset=utf8mb4";
+                $pdo = new PDO($dsn, $install_db['db_user'], $install_db['db_pass'], [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
                 ]);
                 
@@ -306,11 +323,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
  */
 
 // Database Configuration
-define('DB_HOST', " . var_export((string) $db['db_host'], true) . ");
-define('DB_PORT', " . var_export((string) $db['db_port'], true) . ");
-define('DB_NAME', " . var_export((string) $db['db_name'], true) . ");
-define('DB_USER', " . var_export((string) $db['db_user'], true) . ");
-define('DB_PASS', " . var_export((string) $db['db_pass'], true) . ");
+define('DB_HOST', " . var_export((string) $install_db['db_host'], true) . ");
+define('DB_PORT', " . var_export((string) $install_db['db_port'], true) . ");
+define('DB_NAME', " . var_export((string) $install_db['db_name'], true) . ");
+define('DB_USER', " . var_export((string) $install_db['db_user'], true) . ");
+define('DB_PASS', " . var_export((string) $install_db['db_pass'], true) . ");
 
 // Security
 define('SECRET_KEY', " . var_export($secret, true) . ");
@@ -324,7 +341,7 @@ define('UPLOAD_DIR', 'uploads/');
 define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024); // 10MB
 
 // Timezone
-date_default_timezone_set('Europe/Prague');
+date_default_timezone_set(" . var_export(foxdesk_install_default_timezone(), true) . ");
 ";
                 
                 file_put_contents('config.php', $config);
@@ -332,6 +349,24 @@ date_default_timezone_set('Europe/Prague');
                 // Create uploads directory
                 if (!is_dir('uploads')) {
                     mkdir('uploads', 0755, true);
+                }
+
+                // Bring the new database to the current schema with the same
+                // steps and versioned migrations that upgrade.php applies, so a
+                // fresh install does not need a separate upgrade run.
+                if (is_file(BASE_PATH . '/config.php')) {
+                    try {
+                        require_once BASE_PATH . '/config.php';
+                        require_once BASE_PATH . '/includes/database.php';
+                        require_once BASE_PATH . '/includes/upgrade-functions.php';
+                        foreach (foxdesk_run_database_upgrade() as $upgrade_message) {
+                            if (preg_match('/^ERROR:|failed|changed after it was applied/i', (string) $upgrade_message)) {
+                                error_log('FoxDesk installer database upgrade: ' . $upgrade_message);
+                            }
+                        }
+                    } catch (Throwable $upgrade_error) {
+                        error_log('FoxDesk installer database upgrade failed: ' . $upgrade_error->getMessage());
+                    }
                 }
                 
                 // Clear session

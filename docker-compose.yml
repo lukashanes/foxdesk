@@ -1,0 +1,85 @@
+# FoxDesk self-hosted with Docker Compose.
+#
+#   cp .env.example .env      # then set DB_PASSWORD and DB_ROOT_PASSWORD
+#   docker compose up -d --build
+#
+# Open http://localhost:8080/install.php and use database host "db".
+# Full guide: docs/DOCKER.md
+
+x-foxdesk-app: &foxdesk-app
+  build:
+    context: .
+  image: ${FOXDESK_IMAGE:-foxdesk-selfhosted:local}
+  restart: unless-stopped
+  environment:
+    TZ: ${TZ:-UTC}
+    PHP_UPLOAD_MAX_FILESIZE: ${PHP_UPLOAD_MAX_FILESIZE:-32M}
+    PHP_POST_MAX_SIZE: ${PHP_POST_MAX_SIZE:-40M}
+    PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT:-256M}
+    FOXDESK_UPGRADE_BACKUP: ${FOXDESK_UPGRADE_BACKUP:-1}
+    FOXDESK_CRON_INTERVAL: ${FOXDESK_CRON_INTERVAL:-60}
+  volumes:
+    - app:/var/www/html
+    - config:/var/lib/foxdesk/config
+    - uploads:/var/www/html/uploads
+    - storage:/var/www/html/storage
+    - backups:/var/www/html/backups
+
+services:
+  app:
+    <<: *foxdesk-app
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${FOXDESK_HTTP_BIND:-127.0.0.1}:${FOXDESK_HTTP_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "foxdesk-healthcheck"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+
+  # Runs FoxDesk background tasks (email ingest, recurring tickets,
+  # reminders, scheduled reports, cleanup) once a minute.
+  cron:
+    <<: *foxdesk-app
+    command: ["foxdesk-cron"]
+    user: www-data
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      TZ: ${TZ:-UTC}
+      MARIADB_DATABASE: ${DB_NAME:-foxdesk}
+      MARIADB_USER: ${DB_USER:-foxdesk}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
+      MARIADB_AUTO_UPGRADE: "1"
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+
+volumes:
+  app:
+  config:
+  uploads:
+  storage:
+  backups:
+  db:
