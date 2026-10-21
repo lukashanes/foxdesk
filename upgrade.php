@@ -7,7 +7,7 @@
  * Access control:
  *   - Logged-in admin: runs automatically
  *   - CLI: runs automatically (php upgrade.php)
- *   - Anonymous web: requires ?token=FIRST_16_CHARS_OF_SECRET_KEY
+ *   - Anonymous web: requires ?token=FULL_SECRET_KEY
  *
  * Delete this file after use on shared hosting.
  */
@@ -49,12 +49,12 @@ if (!$is_cli && session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['use
 if (!$is_cli && !$is_admin_session) {
     $token = trim($_GET['token'] ?? '');
     $secret = defined('SECRET_KEY') ? SECRET_KEY : '';
-    if ($secret === '' || $token === '' || ($token !== substr($secret, 0, 16) && $token !== $secret)) {
+    if ($secret === '' || $token === '' || !hash_equals((string) $secret, $token)) {
         http_response_code(403);
         echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Upgrade</title></head><body>';
         echo '<h2>Access Denied</h2>';
         echo '<p>Database upgrade requires authentication.</p>';
-        echo '<p>Either log in as admin first, or use: <code>upgrade.php?token=FIRST_16_CHARS_OF_SECRET_KEY</code></p>';
+        echo '<p>Either log in as admin first, or use: <code>upgrade.php?token=FULL_SECRET_KEY</code></p>';
         echo '</body></html>';
         exit;
     }
@@ -1343,7 +1343,7 @@ if (empty($messages)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upgrade - FoxDesk</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="tailwind.min.css" rel="stylesheet">
     <link href="assets/css/theme.min.css" rel="stylesheet">
 </head>
 

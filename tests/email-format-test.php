@@ -33,6 +33,42 @@ $selected = email_ingest_select_display_body('Hello Lukas, we need these items: 
 assert_email_format_contains($selected, "Hello Lukas,\n\nwe need these items:");
 assert_email_format_contains($selected, "- first task");
 
+$newsletter = '
+    <html><body>
+        <p style="text-align:right"><a href="https://example.com/view">View in browser</a></p>
+        <img src="https://example.com/newsletter/hero.jpg" alt="Podcast guests" onerror="alert(1)">
+        <p>Good morning, Lukas,</p>
+        <p><strong><em>we have been quiet for a while because we were busy.</em></strong></p>
+        <p>A listening tip: <a href="https://example.com/podcast">Marketing in context</a>.</p>
+        <script>alert(1)</script>
+    </body></html>
+';
+$prepared = email_ingest_prepare_body_content(
+    'Begin forwarded message: From: Eva Subject: Why we are renaming View in browser Marketing in context (https://example.com/podcast)',
+    $newsletter
+);
+assert_email_format_contains($prepared['display'], '<img');
+assert_email_format_contains($prepared['display'], '<strong><em>we have been quiet for a while');
+assert_email_format_contains($prepared['display'], '<a href="https://example.com/podcast">Marketing in context</a>');
+if (strpos($prepared['display'], 'Marketing in context (https://example.com/podcast)') !== false) {
+    fwrite(STDERR, "Newsletter display body must keep HTML links instead of expanded plain text:\n{$prepared['display']}\n");
+    exit(1);
+}
+if (stripos($prepared['display'], '<script') !== false || stripos($prepared['display'], 'onerror') !== false) {
+    fwrite(STDERR, "Newsletter display body must not keep scripts or event handlers:\n{$prepared['display']}\n");
+    exit(1);
+}
+assert_email_format_contains($prepared['text'], 'Good morning, Lukas,');
+
+$plain_only = email_ingest_prepare_body_content("Hi team,\n\nthe printer is offline again.\n\nThanks", '<p>Hi team,</p><p>the printer is offline again.</p><p>Thanks</p>');
+if (strpos($plain_only['display'], '<p>') !== false) {
+    fwrite(STDERR, "Simple paragraph-only mail should stay plain text:\n{$plain_only['display']}\n");
+    exit(1);
+}
+assert_email_format_contains($plain_only['display'], "the printer is offline again.");
+$empty = email_ingest_prepare_body_content('', '');
+assert_email_format_contains($empty['display'], '(No content)');
+
 $reply = "Thanks, this works now.\n\nOn Mon, Jun 1, 2026 at 10:00 AM Support wrote:\n> Old message\n> Old footer";
 $clean_reply = email_ingest_cleanup_display_body($reply);
 assert_email_format_contains($clean_reply, 'Thanks, this works now.');

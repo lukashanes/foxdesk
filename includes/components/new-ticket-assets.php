@@ -536,11 +536,11 @@
 </script>
 <?php endif; ?>
 
-<!-- Quill Editor -->
-<!-- Quill 1.3.7 (stable version) -->
-<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<!-- Quill Editor (self-hosted) -->
+<link href="assets/vendor/quill/2.0.2/quill.snow.css?v=<?php echo APP_VERSION; ?>" rel="stylesheet">
+<script src="assets/vendor/quill/2.0.2/quill.js?v=<?php echo APP_VERSION; ?>"></script>
 <script src="assets/js/quill-image-upload.js?v=<?php echo APP_VERSION; ?>"></script>
+<script src="assets/js/rich-text-editor.js?v=<?php echo APP_VERSION; ?>"></script>
 <script>
     // Initialize Quill Editor
     (function() {
@@ -552,7 +552,7 @@
             }
 
             if (typeof Quill === 'undefined') {
-                console.error('Quill: library not loaded - check if CDN is accessible');
+                console.error('Quill: library not loaded - check that assets/vendor/quill is deployed');
                 return;
             }
 
@@ -591,12 +591,12 @@
                 return;
             }
             const syncDescriptionInput = function() {
-                const html = window.descriptionEditor.root.innerHTML;
-                if (html === '<p><br></p>' || html === '<p></p>') {
-                    descriptionInput.value = '';
-                } else {
-                    descriptionInput.value = html;
+                if (window.FoxDeskRichText) {
+                    descriptionInput.value = window.FoxDeskRichText.fieldValue(window.descriptionEditor);
+                    return;
                 }
+                const html = window.descriptionEditor.root.innerHTML;
+                descriptionInput.value = (html === '<p><br></p>' || html === '<p></p>') ? '' : html;
             };
 
             // Keep hidden input in sync continuously and also right before submit.

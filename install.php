@@ -48,7 +48,7 @@ function foxdesk_install_force_token_is_valid(string $token): bool
         return false;
     }
 
-    return hash_equals($secret, $token) || hash_equals(substr($secret, 0, 16), $token);
+    return hash_equals($secret, $token);
 }
 
 $force_install = $force_install_requested && $config_exists && foxdesk_install_force_token_is_valid($force_token);
@@ -81,7 +81,7 @@ if ($force_install_requested && !$force_install && $config_exists) {
     echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>FoxDesk Installer</title></head><body style="font-family:system-ui,sans-serif;max-width:680px;margin:48px auto;padding:0 20px">';
     echo '<h1>Installer locked</h1>';
     echo '<p>FoxDesk is already installed. Forced reinstall requires a valid recovery token.</p>';
-    echo '<p>Use <code>install.php?force=1&amp;token=FIRST_16_CHARS_OF_SECRET_KEY</code> or set <code>FOXDESK_INSTALL_TOKEN</code> on the server.</p>';
+    echo '<p>Use <code>install.php?force=1&amp;token=FULL_SECRET_KEY</code> or set <code>FOXDESK_INSTALL_TOKEN</code> on the server.</p>';
     echo '</body></html>';
     exit;
 }
@@ -354,7 +354,7 @@ date_default_timezone_set('Europe/Prague');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Installation - FoxDesk</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="tailwind.min.css" rel="stylesheet">
     <link href="theme.css" rel="stylesheet">
 </head>
 <body class="flex items-center justify-center p-4">

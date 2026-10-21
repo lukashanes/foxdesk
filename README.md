@@ -139,9 +139,9 @@ Tokens inherit the creating user's permissions and can be limited by capability.
 
 ## Current release
 
-The latest packaged version is [FoxDesk 0.3.143](https://github.com/lukashanes/foxdesk/releases/tag/v0.3.143), published on September 1, 2026.
+The latest packaged version is [FoxDesk 0.3.150](https://github.com/lukashanes/foxdesk/releases/tag/v0.3.150), published on October 21, 2026.
 
-It restores editing of sent comments for their authenticated authors while keeping creator-or-admin ownership enforcement consistent between the UI and backend.
+It requires the full `SECRET_KEY` for the rescue, upgrade and forced reinstall tools, fixes permanent ticket deletion and Agent API documentation access, makes Idempotency-Key retries safe for every API write, and keeps formatting and sender trust consistent for incoming email.
 
 Use the in-app updater or download the release assets from [GitHub Releases](https://github.com/lukashanes/foxdesk/releases). Every release includes upgrade notes, rollback guidance, a manifest, and SHA-256 evidence.
 
@@ -173,9 +173,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Questions 
 
 ## Repository scope
 
-This repository is the public release channel for the self-hosted edition. Contributions should improve self-hosted installation, security, local email, ticket and reporting workflows, API integrations, translations, updates, or recovery.
+This repository is the public self-hosted PHP FoxDesk release channel. Contributions should improve self-hosted installation, security, local email, ticket and reporting workflows, API integrations, translations, updates, or recovery.
 
-FoxDesk Cloud billing, subscription trials, tenant lifecycle, managed storage, operator administration, and platform deployment are commercial service modules. They are intentionally not published here. The self-hosted reporting rates in this repository are client-work features, not FoxDesk subscription billing.
+FoxDesk Cloud billing, subscription trials, tenant lifecycle, managed storage, operator administration, and platform deployment are commercial service modules maintained in the private FoxDesk SaaS repository. They are intentionally not published here; the self-hosted side keeps only the one-way self-hosted to SaaS migration bridge. The self-hosted reporting rates in this repository are client-work features, not FoxDesk subscription billing.
 
 ## Security
 

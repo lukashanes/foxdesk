@@ -3,8 +3,11 @@
  * Ticket Detail Page
  */
 
-// Support both hash-based URLs (t=hash) and legacy ID-based URLs (id=123)
-$ticket_hash = isset($_GET['t']) ? trim($_GET['t']) : null;
+// Support hash-based URLs (t=hash), previously issued agent links (hash=) and
+// legacy ID-based URLs (id=123); canonical t= takes precedence.
+$ticket_hash_input = $_GET['t'] ?? $_GET['hash'] ?? null;
+$ticket_hash = is_string($ticket_hash_input) ? trim($ticket_hash_input) : null;
+$ticket_hash_requested = array_key_exists('t', $_GET) || array_key_exists('hash', $_GET);
 $ticket_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 // Migrate ticket hashes on first access (one-time operation)
@@ -13,8 +16,8 @@ if (function_exists('migrate_ticket_hashes')) {
 }
 
 // Get ticket by hash or ID
-if (!empty($ticket_hash)) {
-    $ticket = get_ticket_by_hash($ticket_hash);
+if ($ticket_hash_requested) {
+    $ticket = !empty($ticket_hash) ? get_ticket_by_hash($ticket_hash) : null;
     if ($ticket) {
         $ticket_id = (int) $ticket['id'];
     }
@@ -140,8 +143,8 @@ foreach (['reopen', 'claim', 'send', 'send_done', 'send_waiting', 'save_note', '
 require_once BASE_PATH . '/includes/header.php';
 ?>
 
-<!-- Quill Editor CSS (1.3.7 stable) -->
-<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<!-- Quill Editor CSS (self-hosted) -->
+<link href="assets/vendor/quill/2.0.2/quill.snow.css?v=<?php echo APP_VERSION; ?>" rel="stylesheet">
 <link href="assets/css/ticket-detail.css?v=<?php echo APP_VERSION; ?>" rel="stylesheet">
 
 <?php include BASE_PATH . '/includes/components/ticket-detail-content.php'; ?>
@@ -252,9 +255,10 @@ window.FoxDeskTicketDetailConfig = <?php echo json_encode($ticket_detail_js_conf
 <script src="assets/js/chip-select.js?v=<?php echo APP_VERSION; ?>"></script>
 <?php endif; ?>
 
-<!-- Quill Editor JS (1.3.7 stable) -->
-<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<!-- Quill Editor JS (self-hosted) -->
+<script src="assets/vendor/quill/2.0.2/quill.js?v=<?php echo APP_VERSION; ?>"></script>
 <script src="assets/js/quill-image-upload.js?v=<?php echo APP_VERSION; ?>"></script>
+<script src="assets/js/rich-text-editor.js?v=<?php echo APP_VERSION; ?>"></script>
 <script src="assets/js/attachment-paste-drop.js?v=<?php echo APP_VERSION; ?>"></script>
 
 <!-- Autosave for comment editor -->

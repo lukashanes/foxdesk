@@ -145,8 +145,7 @@ function ticket_workflow_apply(array $ticket, array $user, array $input): array
         if (function_exists('can_user_assign_to_staff') && !can_user_assign_to_staff($assignee, $user)) throw new DomainException('Forbidden', 403);
     }
     $db = get_db();
-    $owns_transaction = !$db->inTransaction();
-    if ($owns_transaction) $db->beginTransaction();
+    $owns_transaction = db_begin_owned($db);
     try {
         $before = ticket_workflow_lock($ticket, $user, $expected);
         if (!can_edit_ticket($before, $user) || !empty($before['is_archived'])) throw new DomainException('Forbidden', 403);
@@ -166,9 +165,9 @@ function ticket_workflow_apply(array $ticket, array $user, array $input): array
         }
         $after = get_ticket((int) $ticket['id']);
         $result = ['handoff_comment_id' => $handoff_comment_id, 'workflow' => ticket_workflow_metadata($after, $user), 'timer_stopped' => !empty($transition['timer_stopped']), 'previous_status_id' => (int) $before['status_id']];
-        if ($owns_transaction) $db->commit();
+        db_commit_owned($owns_transaction, $db);
     } catch (Throwable $error) {
-        if ($owns_transaction && $db->inTransaction()) $db->rollBack();
+        db_rollback_owned($owns_transaction, $db);
         throw $error;
     }
     $result['notifications'] = ticket_workflow_notify($before, $after, $user, empty($input['skip_notification']));

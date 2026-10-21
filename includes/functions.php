@@ -52,6 +52,7 @@ function safe_html_dom(string $html): string
         'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'strike',
         'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li',
         'a', 'img', 'blockquote', 'pre', 'code', 'span', 'div',
+        'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'hr',
     ];
 
     $previous = libxml_use_internal_errors(true);
@@ -141,7 +142,7 @@ function safe_html_url_allowed(string $url, string $context): bool
 function safe_html_regex_fallback(string $html): string
 {
     // Allow only safe HTML tags (img allowed for uploaded images)
-    $allowed_tags = '<p><br><strong><b><em><i><u><s><strike><h1><h2><h3><h4><h5><h6><ul><ol><li><a><img><blockquote><pre><code><span><div>';
+    $allowed_tags = '<p><br><strong><b><em><i><u><s><strike><h1><h2><h3><h4><h5><h6><ul><ol><li><a><img><blockquote><pre><code><span><div><table><thead><tbody><tfoot><tr><td><th><hr>';
     $clean = strip_tags($html, $allowed_tags);
 
     // Sanitize <img> tags — only allow src with safe URLs (no base64 data URIs)
@@ -178,7 +179,7 @@ function safe_html_regex_fallback(string $html): string
     }, $clean);
 
     // Remove all other attributes except class on certain elements
-    $clean = preg_replace('/<(p|div|span|ul|ol|li|h[1-6]|blockquote|pre|code)\s+[^>]*>/i', '<$1>', $clean);
+    $clean = preg_replace('/<(p|div|span|ul|ol|li|h[1-6]|blockquote|pre|code|table|thead|tbody|tfoot|tr|td|th)\s+[^>]*>/i', '<$1>', $clean);
 
     // Remove any script/style/event handler content that might have slipped through
     $clean = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', '', $clean);
@@ -198,9 +199,10 @@ function linkify_urls(string $html): string
 {
     if ($html === '') return '';
 
-    // Split HTML into segments: inside <a>...</a> vs. everything else
-    // Odd-indexed parts are captured <a>...</a> blocks — pass through unchanged
-    $parts = preg_split('/(<a\s[^>]*>.*?<\/a>)/is', $html, -1, PREG_SPLIT_DELIM_CAPTURE);
+    // Split HTML into segments: <a>...</a> blocks and other tags vs. text.
+    // Odd-indexed parts are captured anchors or tag markup (for example an
+    // <img src="https://..."> attribute) — pass through unchanged.
+    $parts = preg_split('/(<a\s[^>]*>.*?<\/a>|<[^>]+>)/is', $html, -1, PREG_SPLIT_DELIM_CAPTURE);
 
     $result = '';
     foreach ($parts as $i => $part) {

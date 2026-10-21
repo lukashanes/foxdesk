@@ -1,5 +1,5 @@
         <!-- Workflow Tab - Statuses, Priorities, Ticket Types -->
-        <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+        <script src="assets/vendor/sortablejs/1.15.0/Sortable.min.js?v=<?php echo APP_VERSION; ?>"></script>
 
         <div class="workflow-grid">
             <?php foreach (admin_workflow_cards() as $workflow_card): ?>

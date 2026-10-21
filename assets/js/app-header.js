@@ -241,9 +241,10 @@ function toggleTheme() {
     
     var fpThemeLink = document.getElementById('flatpickr-theme-css');
     if (fpThemeLink) {
-        fpThemeLink.href = next === 'dark' 
-            ? 'https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css' 
-            : 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css';
+        var versionSuffix = window.appVersion ? '?v=' + encodeURIComponent(window.appVersion) : '';
+        fpThemeLink.href = next === 'dark'
+            ? 'assets/vendor/flatpickr/4.6.13/themes/dark.css' + versionSuffix
+            : 'assets/vendor/flatpickr/4.6.13/flatpickr.min.css' + versionSuffix;
     }
 }
 

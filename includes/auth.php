@@ -578,6 +578,7 @@ function api_token_required_scope_for_action(string $action): ?string
         'agent-add-comment' => 'comments:write',
         'agent-add-update' => 'comments:write',
         'agent-add-work-entry' => 'comments:write',
+        'agent-delete-comment' => 'comments:write',
         'agent-plan-work-log' => 'tickets:read',
         'agent-apply-work-log-plan' => 'tickets:write',
         'agent-update-status' => 'tickets:write',
@@ -608,6 +609,11 @@ function api_token_required_scope_for_action(string $action): ?string
 function api_token_enforce_action_scope(string $action): void
 {
     if (empty($GLOBALS['is_api_token_auth'])) {
+        return;
+    }
+    // A valid token must always be able to introspect its own documentation,
+    // allowed actions, and safety rules, even when it has only one narrow scope.
+    if ($action === 'agent-docs') {
         return;
     }
     $required = api_token_required_scope_for_action($action);

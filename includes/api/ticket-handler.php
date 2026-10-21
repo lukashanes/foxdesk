@@ -859,13 +859,13 @@ function api_delete_time_entry() {
 
     require_once BASE_PATH . '/includes/ticket-time-functions.php';
     $db = get_db();
-    $db->beginTransaction();
+    $owns_transaction = db_begin_owned($db);
     try {
         $undo_token = api_ticket_store_undo_action('time_entry', ['entry' => $entry], (int) $entry['ticket_id']);
         if (!delete_time_entry($entry_id)) {
             throw new RuntimeException('Time entry could not be deleted.');
         }
-        $db->commit();
+        db_commit_owned($owns_transaction, $db);
         log_activity($entry['ticket_id'], $user['id'], 'time_deleted', "Deleted time entry (" . format_duration_minutes($entry['duration_minutes'] ?? 0) . ")");
         api_success([
             'message' => t('Time entry deleted.'),
@@ -875,9 +875,7 @@ function api_delete_time_entry() {
             'undo_seconds' => FOXDESK_TICKET_UNDO_SECONDS,
         ]);
     } catch (Throwable $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
+        db_rollback_owned($owns_transaction, $db);
         api_error(t('Failed to delete time entry.'), 500);
     }
 }
@@ -1309,6 +1307,7 @@ function api_delete_comment() {
         : $comment['content'];
 
     // Delete the comment
+    $owns_transaction = false;
     try {
         if (function_exists('log_ticket_history')) {
             log_ticket_history($comment['ticket_id'], $user['id'], 'comment_deleted', $comment['content'], null);
@@ -1321,14 +1320,14 @@ function api_delete_comment() {
         }
 
         $db = get_db();
-        $db->beginTransaction();
+        $owns_transaction = db_begin_owned($db);
         $undo_token = api_ticket_store_undo_action('comment', [
             'comment' => $comment,
             'attachment_ids' => array_values(array_map(static fn($row) => (int) $row['id'], $linked_attachments)),
             'time_entry_ids' => array_values(array_map(static fn($row) => (int) $row['id'], $linked_time_entries)),
         ], (int) $comment['ticket_id']);
         db_delete('comments', 'id = ?', [$comment_id]);
-        $db->commit();
+        db_commit_owned($owns_transaction, $db);
 
         // Log the activity
         log_activity(
@@ -1346,8 +1345,8 @@ function api_delete_comment() {
             'undo_seconds' => FOXDESK_TICKET_UNDO_SECONDS,
         ]);
     } catch (Throwable $e) {
-        if (isset($db) && $db->inTransaction()) {
-            $db->rollBack();
+        if (isset($db)) {
+            db_rollback_owned($owns_transaction, $db);
         }
         api_error(t('Failed to delete comment.'), 500);
     }
@@ -1379,8 +1378,9 @@ function api_restore_comment() {
     }
 
     $db = get_db();
+    $owns_transaction = false;
     try {
-        $db->beginTransaction();
+        $owns_transaction = db_begin_owned($db);
         db_insert('comments', $comment);
         foreach (($action['payload']['attachment_ids'] ?? []) as $attachment_id) {
             db_update('attachments', ['comment_id' => (int) $comment['id']], 'id = ?', [(int) $attachment_id]);
@@ -1389,13 +1389,11 @@ function api_restore_comment() {
             db_update('ticket_time_entries', ['comment_id' => (int) $comment['id']], 'id = ?', [(int) $entry_id]);
         }
         ticket_undo_forget((int) ($action['id'] ?? 0));
-        $db->commit();
+        db_commit_owned($owns_transaction, $db);
         log_activity((int) $comment['ticket_id'], (int) $user['id'], 'comment_restored', 'Comment restored');
         api_success(['message' => t('Comment restored.'), 'ticket_id' => (int) $comment['ticket_id']]);
     } catch (Throwable $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
+        db_rollback_owned($owns_transaction, $db);
         api_error(t('Failed to restore comment.'), 500);
     }
 }
@@ -1424,8 +1422,9 @@ function api_delete_attachment() {
         : [];
     $ticket_id = (int) ($attachment['ticket_id'] ?? 0);
     $db = get_db();
+    $owns_transaction = false;
     try {
-        $db->beginTransaction();
+        $owns_transaction = db_begin_owned($db);
         $undo_token = api_ticket_store_undo_action('attachment', [
             'attachment' => $attachment,
             'message_links' => $message_links,
@@ -1434,7 +1433,7 @@ function api_delete_attachment() {
             db_delete('ticket_message_attachments', 'attachment_id = ?', [$attachment_id]);
         }
         db_delete('attachments', 'id = ?', [$attachment_id]);
-        $db->commit();
+        db_commit_owned($owns_transaction, $db);
         log_activity($ticket_id, (int) $user['id'], 'attachment_deleted', t('Attachment deleted'));
         api_success([
             'message' => t('Attachment deleted.'),
@@ -1445,9 +1444,7 @@ function api_delete_attachment() {
             'undo_seconds' => FOXDESK_TICKET_UNDO_SECONDS,
         ]);
     } catch (Throwable $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
+        db_rollback_owned($owns_transaction, $db);
         api_error(t('Failed to delete attachment.'), 500);
     }
 }
@@ -1479,8 +1476,9 @@ function api_restore_attachment(): void
     }
 
     $db = get_db();
+    $owns_transaction = false;
     try {
-        $db->beginTransaction();
+        $owns_transaction = db_begin_owned($db);
         db_insert('attachments', $attachment);
         foreach (($action['payload']['message_links'] ?? []) as $link) {
             if (is_array($link)) {
@@ -1488,15 +1486,22 @@ function api_restore_attachment(): void
             }
         }
         ticket_undo_forget((int) ($action['id'] ?? 0));
-        $db->commit();
+        db_commit_owned($owns_transaction, $db);
         log_activity((int) $attachment['ticket_id'], (int) $user['id'], 'attachment_restored', 'Attachment restored');
         api_success(['message' => t('Attachment restored.'), 'ticket_id' => (int) $attachment['ticket_id']]);
     } catch (Throwable $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
+        db_rollback_owned($owns_transaction, $db);
         api_error(t('Failed to restore attachment.'), 500);
     }
+}
+
+/**
+ * Current CSRF token for the signed-in session. Lets long-lived tabs recover
+ * after the session token rotated (re-login, update) instead of failing with
+ * "Invalid CSRF token" on their next action.
+ */
+function api_csrf_token() {
+    api_success(['token' => csrf_token()]);
 }
 
 /**

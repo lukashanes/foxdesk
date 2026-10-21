@@ -111,16 +111,15 @@ $extract_report_tags = static function ($value) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo e($template['title']); ?> - <?php echo e($template['organization_name']); ?></title>
 
-    <!-- Tailwind CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Tailwind CSS (self-hosted build) -->
+    <link href="tailwind.min.css?v=<?php echo e((string) APP_VERSION); ?>" rel="stylesheet">
 
-    <!-- Font Awesome (Removed) -->
-    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> -->
+    <!-- Icons are inline SVG from get_icon(); no icon font is loaded. -->
 
     <!-- Inter font is loaded via assets/css/theme.min.css @font-face -->
 
     <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="assets/vendor/chartjs/4.4.0/chart.umd.js?v=<?php echo e((string) APP_VERSION); ?>"></script>
 
     <style>
         * {

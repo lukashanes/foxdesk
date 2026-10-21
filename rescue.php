@@ -17,8 +17,8 @@ error_reporting(E_ALL);
 
 // ── Authentication ──────────────────────────────────────────────────────────
 // The rescue script requires a token to prevent unauthorized access.
-// The token is the first 16 characters of your SECRET_KEY.
-// Example: rescue.php?token=abcdef1234567890
+// The token is the full SECRET_KEY.
+// Example: rescue.php?token=YOUR_FULL_SECRET_KEY
 //
 // If config.php is broken, you can find SECRET_KEY in your backup's files.zip
 // or in your hosting panel's environment variables.
@@ -31,7 +31,7 @@ if ($token === '' || strlen($token) < 12) {
     echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>FoxDesk Rescue</title></head><body>';
     echo '<h2>FoxDesk Rescue Script</h2>';
     echo '<p>This script requires a security token to proceed.</p>';
-    echo '<p>Usage: <code>rescue.php?token=FIRST_16_CHARS_OF_SECRET_KEY</code></p>';
+    echo '<p>Usage: <code>rescue.php?token=FULL_SECRET_KEY</code></p>';
     echo '<p style="color:gray;font-size:12px">You can find your SECRET_KEY in your backup config.php or hosting panel.</p>';
     echo '</body></html>';
     exit;
@@ -44,7 +44,7 @@ if (file_exists($config_path)) {
     $config_content_raw = @file_get_contents($config_path);
     if ($config_content_raw !== false && preg_match("/define\('SECRET_KEY',\s*'([^']+)'\)/", $config_content_raw, $sk)) {
         $secret = $sk[1];
-        if ($token === substr($secret, 0, 16) || $token === $secret) {
+        if (hash_equals($secret, $token)) {
             $authenticated = true;
         }
     }
@@ -76,7 +76,7 @@ if (!$authenticated) {
                     if (basename($name) === 'config.php' && strpos($name, 'config.example') === false) {
                         $cfg = $zip->getFromIndex($i);
                         if ($cfg !== false && preg_match("/define\('SECRET_KEY',\s*'([^']+)'\)/", $cfg, $bk)) {
-                            if ($token === substr($bk[1], 0, 16) || $token === $bk[1]) {
+                            if (hash_equals($bk[1], $token)) {
                                 $authenticated = true;
                                 break 2;
                             }
@@ -93,7 +93,7 @@ if (!$authenticated) {
     http_response_code(403);
     echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>FoxDesk Rescue</title></head><body>';
     echo '<h2>Access Denied</h2>';
-    echo '<p style="color:red">Invalid security token. Please use the first 16 characters of your SECRET_KEY.</p>';
+    echo '<p style="color:red">Invalid security token. Please use the full SECRET_KEY.</p>';
     echo '</body></html>';
     exit;
 }
@@ -167,7 +167,7 @@ echo "<pre>" . htmlspecialchars($display) . "</pre>\n";
 // Handle restore
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_restore'])) {
     // Simple CSRF: verify the token is still in the POST
-    if (($_POST['rescue_token'] ?? '') !== $token) {
+    if (!hash_equals($token, (string) ($_POST['rescue_token'] ?? ''))) {
         echo "<p style='color:red'>ERROR: Token mismatch. Please reload and try again.</p></body></html>";
         exit;
     }

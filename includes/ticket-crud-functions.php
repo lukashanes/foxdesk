@@ -43,7 +43,7 @@ function get_ticket_by_hash($hash) {
     }
 
     return db_fetch_one("SELECT t.*,
-                                s.name as status_name, s.color as status_color,
+                                s.name as status_name, s.color as status_color, s.is_closed,
                                 u.first_name, u.last_name, u.email, u.avatar,
                                 o.name as organization_name,
                                 p.name as priority_name, p.color as priority_color,

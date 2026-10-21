@@ -229,6 +229,9 @@ window.FoxDeskAutosave = (function() {
 
     AutosaveInstance.prototype._getFieldValue = function(field) {
         if (field.type === 'quill' && field.editorKey && this.quillEditors[field.editorKey]) {
+            if (window.FoxDeskRichText && typeof window.FoxDeskRichText.fieldValue === 'function') {
+                return window.FoxDeskRichText.fieldValue(this.quillEditors[field.editorKey]);
+            }
             return this.quillEditors[field.editorKey].root.innerHTML;
         }
         var el = document.querySelector(field.selector);
@@ -239,7 +242,11 @@ window.FoxDeskAutosave = (function() {
         if (field.type === 'quill' && field.editorKey && this.quillEditors[field.editorKey]) {
             var editor = this.quillEditors[field.editorKey];
             if (value && value !== '<p><br></p>' && value !== '<p></p>') {
-                editor.clipboard.dangerouslyPasteHTML(value);
+                if (window.FoxDeskRichText && typeof window.FoxDeskRichText.loadHtml === 'function') {
+                    window.FoxDeskRichText.loadHtml(editor, value);
+                } else {
+                    editor.clipboard.dangerouslyPasteHTML(value);
+                }
             }
             // Also sync to hidden input if selector provided
             if (field.selector) {

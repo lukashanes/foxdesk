@@ -402,16 +402,13 @@ function api_agent_apply_work_log_plan(): void
     }
 
     $db = get_db();
-    $started_transaction = false;
+    $owns_transaction = false;
     $created = [];
     try {
         foreach ($plan['tickets'] as $ticket) {
             foxdesk_agent_validate_work_log_ticket_references($ticket, $user);
         }
-        if (!$db->inTransaction()) {
-            $db->beginTransaction();
-            $started_transaction = true;
-        }
+        $owns_transaction = db_begin_owned($db);
         $applied_total = 0;
         foreach ($plan['tickets'] as $ticket) {
             $ticket_data = [
@@ -476,6 +473,7 @@ function api_agent_apply_work_log_plan(): void
                 'ticket_id' => $ticket_id,
                 'ticket_hash' => $ticket_row['hash'] ?? null,
                 'ticket_code' => function_exists('api_agent_ticket_code') ? api_agent_ticket_code($ticket_id) : ('TK-' . $ticket_id),
+                'ticket_url' => $ticket_row && function_exists('api_agent_ticket_url') ? api_agent_ticket_url($ticket_row) : null,
                 'comment_ids' => $comment_ids,
                 'time_entry_ids' => $entry_ids,
             ];
@@ -483,9 +481,7 @@ function api_agent_apply_work_log_plan(): void
         if ($applied_total !== (int) $plan['total_minutes']) {
             throw new RuntimeException('Applied time does not match the approved plan total.');
         }
-        if ($started_transaction) {
-            $db->commit();
-        }
+        db_commit_owned($owns_transaction, $db);
         api_success([
             'applied' => true,
             'tickets' => $created,
@@ -498,14 +494,10 @@ function api_agent_apply_work_log_plan(): void
             ],
         ]);
     } catch (InvalidArgumentException $e) {
-        if ($started_transaction && $db->inTransaction()) {
-            $db->rollBack();
-        }
+        db_rollback_owned($owns_transaction, $db);
         api_error($e->getMessage(), 422);
     } catch (Throwable $e) {
-        if ($started_transaction && $db->inTransaction()) {
-            $db->rollBack();
-        }
+        db_rollback_owned($owns_transaction, $db);
         api_error('Failed to apply the approved work-log plan.', 500);
     }
 }

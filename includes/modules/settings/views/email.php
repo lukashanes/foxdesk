@@ -224,9 +224,6 @@
                     <h3 class="font-semibold mb-2 text-theme-primary">
                         <?php echo e(t('Allowed Senders')); ?>
                     </h3>
-                    <p class="text-xs mb-4 text-theme-muted">
-                        <?php echo e(t('When "Allow unknown senders" is disabled, only emails from addresses or domains in this list will be accepted.')); ?>
-                    </p>
 
                     <!-- Add sender form -->
                     <div class="flex flex-wrap gap-2 mb-4 items-end">

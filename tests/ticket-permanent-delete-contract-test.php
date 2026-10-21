@@ -31,12 +31,15 @@ $assert(str_contains($module, 'function ticket_permanent_delete_preflight'), 'De
 $assert(!preg_match('/CREATE\s+TABLE|ALTER\s+TABLE/i', $module), 'Permanent deletion must not mutate the schema during a request.');
 $assert(str_contains($module, 'Database upgrade required before permanent ticket deletion.'), 'Missing-schema failure is not actionable.');
 $assert(str_contains($module, 'hash_equals($preflight[\'ticket_code\']'), 'Exact ticket-code confirmation is not timing-safe.');
-$assert(str_contains($module, 'beginTransaction()'), 'Database deletion is not transactional.');
+$assert(str_contains($module, 'db_begin_owned(') && str_contains($module, 'db_rollback_owned('), 'Database deletion is not transactional.');
+$assert(!str_contains($module, 'beginTransaction()'), 'Deletion must join an outer (Idempotency-Key) transaction instead of opening a nested one.');
 $assert(str_contains($module, 'ticket_storage_deletion_outbox'), 'Attachment cleanup outbox is missing.');
 $assert(str_contains($module, 'ticket_permanent_delete_related_records'), 'Related records are not explicitly removed.');
 $assert(str_contains($module, "'ticket_history'"), 'Ticket field history is not removed.');
 $assert(str_contains($module, "'recurring_task_runs'"), 'Recurring-task ticket references are not removed.');
 $assert(str_contains($module, 'ticket_permanent_delete_remove_idempotency_references'), 'Stale API replays are not invalidated.');
+$assert(str_contains($module, "column_exists('report_templates', 'tenant_id')") && str_contains($module, "db_delete('report_snapshots', '1 = 1')"), 'Self-hosted report snapshot invalidation must not require a tenant_id column.');
+$assert(str_contains($module, "column_exists('api_idempotency_keys', 'tenant_id')"), 'Self-hosted api_idempotency_keys has no tenant_id column; stale replay cleanup must not require it.');
 $assert(str_contains($module, 'ticket_permanent_delete_retry_pending_storage'), 'Failed storage cleanup has no retry worker.');
 $assert(str_contains($module, "'attachment_payload' => '{}'"), 'Successful storage cleanup retains attachment metadata.');
 $assert(str_contains($cron, 'ticket_permanent_delete_retry_pending_storage(25)'), 'Pseudo-cron does not retry pending storage deletion.');
