@@ -57,12 +57,13 @@
 
 1. **Upload** all files to your web root via FTP
 2. **Create** a MySQL database and user
-3. **Copy** `config.example.php` to `config.php`
-4. **Edit** `config.php` with your database credentials and APP_URL
-5. **Open** `https://your-domain.tld/install.php` in your browser
-6. **Follow** the two-step installer (database setup + admin account)
-7. **Delete** `install.php` from the server (security)
-8. **Log in** at `https://your-domain.tld/`
+3. **Open** `https://your-domain.tld/install.php` in your browser
+4. **Follow** the two-step installer (database setup + admin account). It creates the tables and writes `config.php` for you.
+5. **Delete** `install.php` from the server (security)
+6. **Log in** at `https://your-domain.tld/`
+
+Do not create `config.php` before running the installer: once `config.php`
+exists, `install.php` redirects to the application instead of installing.
 
 ---
 
@@ -103,45 +104,16 @@ GRANT ALL PRIVILEGES ON helpdesk_db.* TO 'helpdesk_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
-### Step 3: Create Configuration
+### Step 3: Check Write Permissions
 
-Copy `config.example.php` to `config.php`:
-
-```bash
-cp config.example.php config.php
-```
-
-Edit `config.php` with your settings:
-
-```php
-<?php
-// Database
-define('DB_HOST', 'localhost');
-define('DB_PORT', '3306');
-define('DB_NAME', 'helpdesk_db');
-define('DB_USER', 'helpdesk_user');
-define('DB_PASS', 'strong_password_here');
-
-// Security - generate a random 64-char hex string
-// Use: php -r "echo bin2hex(random_bytes(32));"
-define('SECRET_KEY', 'your_64_char_hex_string_here');
-
-// Application
-define('APP_NAME', 'My Helpdesk');
-define('APP_URL', 'https://helpdesk.example.com');
-
-// ... keep IMAP and upload settings from example
-```
-
-### Step 4: Set Directory Permissions
+The installer writes `config.php` into the web root, so the web server user
+must be able to create files there. `uploads/`, `storage/`, and `backups/` are
+created automatically on first use and must stay writable.
 
 ```bash
 # Writable directories (created automatically on first use)
 chmod 755 uploads/
 chmod 755 backups/
-
-# Config file (read-only after setup)
-chmod 644 config.php
 
 # Protect sensitive files
 chmod 644 .htaccess
@@ -149,12 +121,16 @@ chmod 644 .htaccess
 
 On shared hosting, directories usually default to 755 which is correct.
 
-### Step 5: Run Web Installer
+Do not copy `config.example.php` to `config.php` yourself. If `config.php`
+exists, `install.php` treats FoxDesk as installed and redirects to the
+application.
+
+### Step 4: Run Web Installer
 
 Open `https://your-domain.tld/install.php` in your browser.
 
 **Step 1 of 2: Database Setup**
-- Enter your database credentials (should match config.php)
+- Enter the database credentials from Step 2
 - The installer tests the connection
 - Creates all database tables from `includes/schema.sql`
 
@@ -162,6 +138,22 @@ Open `https://your-domain.tld/install.php` in your browser.
 - Enter your app name
 - Create the admin account (email, name, password)
 - Sets up default statuses, priorities, and ticket types
+- Applies the bundled database migrations (the same steps as `upgrade.php`)
+- Writes `config.php` with the database credentials, a generated
+  `SECRET_KEY`, and `APP_URL` taken from the address you opened the
+  installer with
+
+### Step 5: Review config.php
+
+The generated `config.php` contains only the required settings. Edit it to
+adjust the time zone or `APP_URL`, or to add optional settings from
+`config.example.php` such as IMAP, `TRUST_PROXY`, or Microsoft 365. See the
+[Configuration Reference](#configuration-reference) below. Afterwards make sure
+only the owner can write to it:
+
+```bash
+chmod 644 config.php
+```
 
 ### Step 6: Post-Install Security
 
@@ -420,8 +412,6 @@ docker compose up -d --build
 2. In the database step use host `db`, port `3306`, and the database name,
    user, and password from `.env`.
 3. Create the admin account. `config.php` is written to a persistent volume.
-4. Apply the bundled database migrations once:
-   `docker compose exec -u www-data app php upgrade.php`
 
 The `cron` container runs FoxDesk background tasks every minute, so no host
 cron jobs are needed. Install FoxDesk updates with the in-app updater as
