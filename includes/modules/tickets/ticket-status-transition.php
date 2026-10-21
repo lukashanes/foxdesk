@@ -26,14 +26,12 @@ function ticket_transition_status(
         : $is_done;
     $comment = trim((string) ($options['comment'] ?? ''));
     $db = get_db();
-    $owns_transaction = !$db->inTransaction();
+    $owns_transaction = false;
     $stopped_timer = null;
     $comment_id = null;
 
     try {
-        if ($owns_transaction) {
-            $db->beginTransaction();
-        }
+        $owns_transaction = db_begin_owned($db);
 
         if ($status_changed) {
             db_update('tickets', [
@@ -63,13 +61,9 @@ function ticket_transition_status(
             db_update('tickets', ['updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$ticket_id]);
         }
 
-        if ($owns_transaction) {
-            $db->commit();
-        }
+        db_commit_owned($owns_transaction, $db);
     } catch (Throwable $error) {
-        if ($owns_transaction && $db->inTransaction()) {
-            $db->rollBack();
-        }
+        db_rollback_owned($owns_transaction, $db);
         throw $error;
     }
 

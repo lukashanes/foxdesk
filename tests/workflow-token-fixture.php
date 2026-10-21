@@ -21,4 +21,5 @@ $until = date('Y-m-d H:i:s', time() + 3600);
 $full = generate_api_token((int) $admin['id'], 'Local workflow integration', $until, ['tickets:read','tickets:write','comments:write','time:read','time:write']);
 $read = generate_api_token((int) $admin['id'], 'Local workflow read-only test', $until, ['tickets:read']);
 $write_only = generate_api_token((int) $admin['id'], 'Local workflow assignment-only test', $until, ['tickets:read','tickets:write']);
-echo json_encode(['full' => $full, 'read' => $read, 'write_only' => $write_only]);
+$delete = generate_api_token((int) $admin['id'], 'Local idempotent delete test', $until, ['tickets:read','tickets:write','comments:write','time:read','time:write','delete:write']);
+echo json_encode(['full' => $full, 'read' => $read, 'write_only' => $write_only, 'delete' => $delete]);

@@ -64,6 +64,54 @@ function get_db()
 }
 
 /**
+ * Owned-transaction helpers.
+ *
+ * Some callers already run inside a transaction opened by an outer layer: API
+ * requests that carry an Idempotency-Key are wrapped in one transaction by
+ * api_idempotency_replay_if_available(), which api_idempotency_store_success()
+ * commits and api_idempotency_release_pending() rolls back. A nested
+ * PDO::beginTransaction() would throw "There is already an active transaction",
+ * so handlers must join the outer transaction instead of opening their own.
+ *
+ * db_begin_owned() starts a transaction only when none is active and returns
+ * whether this caller now owns it. db_commit_owned() and db_rollback_owned()
+ * act only for the owner; for a joined transaction they are no-ops so the outer
+ * owner decides the final outcome. Callers that do not own the transaction must
+ * still surface failures (rethrow or api_error()) so the owner rolls back.
+ */
+function db_begin_owned(?PDO $db = null): bool
+{
+    $db = $db ?? get_db();
+    if ($db->inTransaction()) {
+        return false;
+    }
+    $db->beginTransaction();
+    return true;
+}
+
+function db_commit_owned(bool $owns_transaction, ?PDO $db = null): void
+{
+    if (!$owns_transaction) {
+        return;
+    }
+    $db = $db ?? get_db();
+    if ($db->inTransaction()) {
+        $db->commit();
+    }
+}
+
+function db_rollback_owned(bool $owns_transaction, ?PDO $db = null): void
+{
+    if (!$owns_transaction) {
+        return;
+    }
+    $db = $db ?? get_db();
+    if ($db->inTransaction()) {
+        $db->rollBack();
+    }
+}
+
+/**
  * Execute a query and return results
  */
 function db_query($sql, $params = [])

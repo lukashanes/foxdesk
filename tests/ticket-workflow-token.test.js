@@ -41,5 +41,5 @@ async function api(action, payload, options={}) {
     assert.deepEqual(race.sort(),[200,409],'Only one concurrent edit may succeed');
     console.log(JSON.stringify({base,ticket_id:id,checks:['token auth without session','atomic idempotency transaction','exact replay','read-only scope denied','handoff requires comments:write','read-only actions hidden','stale revision denied','guarded work entry with status','work entry replay','concurrent edits: one success, one conflict'],passed:true}));
 })().catch(error=>{console.error(error.message);process.exitCode=1;}).finally(()=>{
-    execFileSync('docker',['exec','-e','FOXDESK_LOCAL_TESTS=1',container,'php','tests/workflow-token-fixture.php','revoke',String(fixture.full.id),String(fixture.read.id),String(fixture.write_only.id)],{stdio:'pipe'});
+    execFileSync('docker',['exec','-e','FOXDESK_LOCAL_TESTS=1',container,'php','tests/workflow-token-fixture.php','revoke',String(fixture.full.id),String(fixture.read.id),String(fixture.write_only.id),...(fixture.delete?.id?[String(fixture.delete.id)]:[])],{stdio:'pipe'});
 });

@@ -784,12 +784,9 @@ function api_agent_add_comment()
     $comment_id = null;
     $time_entry_id = null;
     $db = get_db();
-    $started_transaction = false;
+    $owns_transaction = false;
     try {
-        if (!$db->inTransaction()) {
-            $db->beginTransaction();
-            $started_transaction = true;
-        }
+        $owns_transaction = db_begin_owned($db);
         $ticket = ticket_workflow_lock($ticket, $user, (string) ($input['expected_revision'] ?? ''));
         if ($workflow_status && ticket_status_group_from_status($workflow_status) === 'done' && get_active_ticket_timer($ticket_id, (int) $user['id'])) {
             if ($duration > 0) throw new DomainException('Stop or discard the active timer before completing with a manual work entry.', 422);
@@ -846,18 +843,12 @@ function api_agent_add_comment()
             }
             db_update('comments', ['time_spent' => $duration], 'id = ?', [(int) $comment_id]);
         }
-        if ($started_transaction) {
-            $db->commit();
-        }
+        db_commit_owned($owns_transaction, $db);
     } catch (InvalidArgumentException $e) {
-        if ($started_transaction && $db->inTransaction()) {
-            $db->rollBack();
-        }
+        db_rollback_owned($owns_transaction, $db);
         api_error($e->getMessage(), 422);
     } catch (Throwable $e) {
-        if ($started_transaction && $db->inTransaction()) {
-            $db->rollBack();
-        }
+        db_rollback_owned($owns_transaction, $db);
         if ($e instanceof DomainException) ticket_workflow_api_error($ticket, $user, $e);
         api_error($duration > 0 ? 'Failed to add comment with time' : 'Failed to add comment', 500);
     }

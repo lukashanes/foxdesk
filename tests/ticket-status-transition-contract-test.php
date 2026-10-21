@@ -20,7 +20,8 @@ $assert = static function (bool $condition, string $message): void {
 };
 
 $assert(str_contains($bootstrap, '/tickets/ticket-status-transition.php'), 'Module bootstrap must load the ticket status transition helper.');
-$assert(str_contains($helper, 'beginTransaction()') && str_contains($helper, 'commit()') && str_contains($helper, 'rollBack()'), 'Status and timer changes must share a database transaction.');
+$assert(str_contains($helper, 'db_begin_owned(') && str_contains($helper, 'db_commit_owned(') && str_contains($helper, 'db_rollback_owned('), 'Status and timer changes must share a database transaction.');
+$assert(!str_contains($helper, 'beginTransaction()'), 'The helper must join an outer (Idempotency-Key) transaction instead of opening a nested one.');
 $assert(str_contains($helper, "ticket_status_group_from_status(\$new_status) === 'done'"), 'Canonical Done must trigger completion side effects.');
 $assert(str_contains($helper, 'stop_active_ticket_timer($ticket_id, $actor_id)'), 'Completing a ticket must stop the active timer in the shared helper.');
 $assert(substr_count($web, 'ticket_transition_status(') >= 2, 'Both web status-change paths must use the shared helper.');
