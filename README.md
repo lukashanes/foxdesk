@@ -151,7 +151,7 @@ Tokens inherit the creating user's permissions and can be limited by capability.
 
 ## Releases and updates
 
-FoxDesk 0.3.150 (October 21, 2026) requires the full `SECRET_KEY` for the rescue, upgrade and forced reinstall tools, bundles all frontend libraries locally, fixes permanent ticket deletion and Agent API documentation access, makes Idempotency-Key retries safe for every API write, and adds a Docker Compose setup.
+FoxDesk 0.3.151 (October 22, 2026) adds the Time work ledger, Open / Done / Archive ticket views with paging, a searchable client directory and report history, explicit review of action-required notifications, read-only audience preview, built-in PDF and document preview, the dashboard read API, and prebuilt Docker images on GitHub Container Registry.
 
 The [latest release page](https://github.com/lukashanes/foxdesk/releases/latest) always shows the current version, its changelog, and its download assets. Earlier versions are listed under [GitHub Releases](https://github.com/lukashanes/foxdesk/releases).
 
