@@ -1,0 +1,119 @@
+name: Docker image
+
+# Builds the repository Dockerfile and publishes the self-hosted image to
+# GitHub Container Registry:
+#   ghcr.io/<owner>/foxdesk:<version>   (for example 0.3.151)
+#   ghcr.io/<owner>/foxdesk:latest
+# for linux/amd64 and linux/arm64. Runs for release tags (v*) and manually
+# for an existing tag.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to build, for example v0.3.151'
+        required: true
+        type: string
+      latest:
+        description: 'Also move the latest tag to this build'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-publish-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve release tag
+        id: release
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_LATEST: ${{ github.event.inputs.latest }}
+          EVENT_NAME: ${{ github.event_name }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          tag="${INPUT_TAG:-$REF_NAME}"
+          case "$tag" in
+            v[0-9]*) ;;
+            *) echo "Release tags look like v0.3.151, got: $tag" >&2; exit 1 ;;
+          esac
+          version="${tag#v}"
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Not a release version: $version" >&2
+            exit 1
+          fi
+          latest=true
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$INPUT_LATEST" != "true" ]; then
+            latest=false
+          fi
+          image="ghcr.io/$(printf '%s' "$OWNER" | tr '[:upper:]' '[:lower:]')/foxdesk"
+          tags="$image:$version"
+          if [ "$latest" = "true" ]; then
+            tags="$tags,$image:latest"
+          fi
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "image=$image"
+            echo "tags=$tags"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check out the release tag
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ steps.release.outputs.tag }}
+
+      - name: Verify APP_VERSION matches the tag
+        id: source
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          app_version="$(sed -n "s/^define('APP_VERSION', '\([^']*\)');/\1/p" index.php | head -n 1)"
+          if [ "$app_version" != "$VERSION" ]; then
+            echo "index.php APP_VERSION is '$app_version' but the tag is v$VERSION" >&2
+            exit 1
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.release.outputs.tags }}
+          labels: |
+            org.opencontainers.image.title=FoxDesk
+            org.opencontainers.image.description=FoxDesk self-hosted helpdesk (PHP, Apache)
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.source.outputs.revision }}
+            org.opencontainers.image.licenses=AGPL-3.0-only
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

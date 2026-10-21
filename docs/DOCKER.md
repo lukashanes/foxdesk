@@ -87,6 +87,31 @@ To try FoxDesk on another machine in your network without a proxy, set
 to HTTPS for every host name except `localhost` and `127.0.0.1`, so a real
 deployment needs HTTPS in front (see below).
 
+### Prebuilt image instead of building locally
+
+Every release is also published as a multi-architecture image (amd64 and
+arm64) on GitHub Container Registry, built from the same `Dockerfile`:
+
+```
+ghcr.io/lukashanes/foxdesk:<version>   # for example ghcr.io/lukashanes/foxdesk:0.3.151
+ghcr.io/lukashanes/foxdesk:latest
+```
+
+To use it, pin the release version in `.env` and start the stack without a
+local build:
+
+```bash
+echo "FOXDESK_IMAGE=ghcr.io/lukashanes/foxdesk:0.3.151" >> .env
+docker compose pull app cron
+docker compose up -d --no-build
+```
+
+Pin a version rather than `latest`, so a restart never changes the release
+unexpectedly. To move to a newer release, either use the in-app updater as
+described below, or change the version in `FOXDESK_IMAGE` and run the same
+`pull` and `up -d --no-build` commands; the container backs up and upgrades
+the persistent application files exactly as with a locally built image.
+
 ## Background tasks (cron)
 
 The `cron` service runs `/usr/local/lib/foxdesk/cron.php` every
@@ -269,7 +294,7 @@ Variables read from `.env`:
 | `PHP_MEMORY_LIMIT` | `256M` | PHP memory limit. |
 | `FOXDESK_CRON_INTERVAL` | `60` | Seconds between background task runs (minimum 30). |
 | `FOXDESK_UPGRADE_BACKUP` | `1` | Back up before the container upgrades application files from a newer image. |
-| `FOXDESK_IMAGE` | `foxdesk-selfhosted:local` | Tag of the locally built image. |
+| `FOXDESK_IMAGE` | `foxdesk-selfhosted:local` | Tag of the locally built image, or a pinned prebuilt image such as `ghcr.io/lukashanes/foxdesk:0.3.151`. |
 
 `DB_NAME`, `DB_USER`, and the passwords only take effect when the `db` volume
 is created. Changing them later does not change the existing database.
