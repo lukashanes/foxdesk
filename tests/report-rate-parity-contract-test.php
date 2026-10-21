@@ -135,7 +135,7 @@ assert_report_rates(str_contains($ticket_crud, 'function normalize_ticket_tags($
 assert_report_rates(str_contains($ticket_crud, 'return $as_array ? [] :'), 'Empty tag normalization must preserve return type.');
 
 $schema = read_report_rate_file($root, 'includes/schema.sql');
-$upgrade = read_report_rate_file($root, 'upgrade.php');
+$upgrade = read_report_rate_file($root, 'includes/upgrade-functions.php');
 assert_report_rates(str_contains($schema, 'billable_rate DECIMAL(10,2) DEFAULT 0'), 'Install schema must include user default billable rate.');
 assert_report_rates(str_contains($upgrade, "['users', 'billable_rate'"), 'Upgrade path must add user default billable rate.');
 
