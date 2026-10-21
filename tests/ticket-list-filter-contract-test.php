@@ -1,6 +1,7 @@
 <?php
 
 $root = dirname(__DIR__);
+require_once __DIR__ . '/support/ticket-list-source.php';
 require_once $root . '/includes/modules/tickets/ticket-list-filters.php';
 
 $assert = static function (bool $condition, string $message): void {
@@ -59,7 +60,7 @@ $assert($fallback['filters']['due_date_from'] === '2026-06-20', 'Specific due da
 $assert($fallback['filters']['due_date_to'] === '2026-06-21', 'Specific due date must set exclusive next-day filter.');
 $assert($fallback['filters']['is_archived'] === 1, 'Archive list must set archive filter to one when supported.');
 
-$page = file_get_contents($root . '/pages/tickets.php');
+$page = ticket_list_route_and_controller_source($root);
 $bootstrap = file_get_contents($root . '/includes/modules/bootstrap.php');
 $assert($page !== false && $bootstrap !== false, 'Ticket filter files must be readable.');
 $assert(str_contains($bootstrap, '/tickets/ticket-list-filters.php'), 'Module bootstrap must load ticket list filters.');

@@ -175,3 +175,24 @@ function ticket_list_filter_state_from_request(array $request, array $cookies = 
         'ticket_view_should_persist' => $view_state['persist'],
     ];
 }
+
+/** Number of active list filters, shown on the filter button. Sorting is not a filter. */
+function ticket_list_active_filter_count(array $state): int
+{
+    $count = 0;
+    foreach (['status_id', 'priority_id', 'organization_id', 'due_date_filter', 'user_search', 'search_query', 'created_date_value', 'assigned_to'] as $key) {
+        if (!empty($state[$key])) {
+            $count++;
+        }
+    }
+    if (!empty($state['unassigned'])) {
+        $count++;
+    }
+    if (!empty($state['staff_scope'])) {
+        $count++;
+    }
+    if (!empty($state['tags_supported']) && !empty($state['tag_filters'])) {
+        $count++;
+    }
+    return $count;
+}

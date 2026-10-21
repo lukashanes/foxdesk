@@ -21,6 +21,8 @@ $assert = static function (bool $condition, string $message): void {
 $theme = $read('theme.css');
 $workspace = $read('includes/components/workspace-surface.php');
 $tickets = $read('pages/tickets.php')
+    . "
+" . $read('includes/modules/tickets/ticket-list-page-controller.php')
     . "\n" . $read('includes/components/ticket-list-page.php')
     . "\n" . $read('includes/components/ticket-list-board.php')
     . "\n" . $read('includes/components/ticket-list-table.php');

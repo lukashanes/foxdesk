@@ -57,7 +57,9 @@ function work_status_ids_for_group(string $group): array
 
 function work_queue_filters(string $queue_key, array $user, int $limit = 8): array
 {
-    $queue_key = array_key_exists($queue_key, work_queue_definitions()) ? $queue_key : 'mine';
+    // 'all' is an internal read-model queue (every visible open or done ticket);
+    // it is not listed as a Work queue tab.
+    $queue_key = $queue_key === 'all' || array_key_exists($queue_key, work_queue_definitions()) ? $queue_key : 'mine';
     $filters = [
         'is_archived' => 0,
         'sort' => 'due_date',
@@ -104,12 +106,17 @@ function work_queue_filters(string $queue_key, array $user, int $limit = 8): arr
     return $filters;
 }
 
-function work_queue_items(string $queue_key, array $user, int $limit = 8): array
+function work_queue_items(string $queue_key, array $user, int $limit = 8, int $offset = 0, ?string $sort = null): array
 {
     if (!function_exists('get_tickets')) {
         return [];
     }
-    $items = get_tickets(work_queue_filters($queue_key, $user, $limit));
+    $filters = work_queue_filters($queue_key, $user, $limit);
+    $filters['offset'] = max(0, $offset);
+    if ($sort === 'last_updated') {
+        $filters['sort'] = $sort;
+    }
+    $items = get_tickets($filters);
     if (($user['role'] ?? '') === 'user') {
         return $items;
     }

@@ -214,7 +214,7 @@ function get_tickets($filters = []) {
                 $order_by = "CASE WHEN t.due_date IS NULL THEN 1 ELSE 0 END, t.due_date ASC, t.created_at DESC";
                 break;
             case 'last_updated':
-                $order_by = "t.updated_at DESC";
+                $order_by = "t.updated_at DESC, t.id DESC";
                 break;
             case 'ticket_number':
                 $order_by = "t.id DESC";

@@ -298,6 +298,20 @@ function build_ticket_where_clause($filters, &$params)
         $sql .= " AND t.assignee_id IS NULL";
     }
 
+    // New = unassigned and received inside the triage window; Open = everything else.
+    $triage_state = strtolower(trim((string) ($filters['triage_state'] ?? '')));
+    if (in_array($triage_state, ['new', 'open'], true)) {
+        $new_window_hours = function_exists('ticket_list_new_window_hours')
+            ? max(1, ticket_list_new_window_hours())
+            : 48;
+
+        if ($triage_state === 'new') {
+            $sql .= " AND t.assignee_id IS NULL AND t.created_at > DATE_SUB(NOW(), INTERVAL {$new_window_hours} HOUR)";
+        } else {
+            $sql .= " AND (t.assignee_id IS NOT NULL OR t.created_at <= DATE_SUB(NOW(), INTERVAL {$new_window_hours} HOUR))";
+        }
+    }
+
     if (!empty($filters['last_public_comment_role'])) {
         $role = (string) $filters['last_public_comment_role'];
         $sql .= " AND EXISTS (

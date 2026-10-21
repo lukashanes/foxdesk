@@ -1,6 +1,7 @@
 <?php
 
 $root = dirname(__DIR__);
+require_once __DIR__ . '/support/ticket-list-source.php';
 $functions = file_get_contents($root . '/includes/functions.php');
 $helper = file_get_contents($root . '/includes/components/ticket-detail-surface.php');
 $sidebar = file_get_contents($root . '/includes/components/ticket-detail-sidebar.php');
@@ -37,7 +38,7 @@ foreach ($ticketDetailJsPaths as $ticketDetailJsPath) {
 }
 $bootstrap = file_get_contents($root . '/includes/modules/bootstrap.php');
 $ticketPage = file_get_contents($root . '/pages/ticket-detail.php');
-$ticketListPage = file_get_contents($root . '/pages/tickets.php');
+$ticketListPage = ticket_list_route_and_controller_source($root);
 $newTicketPage = file_get_contents($root . '/pages/new-ticket.php');
 $newTicketForm = file_get_contents($root . '/includes/components/new-ticket-form.php');
 $newTicketAssets = file_get_contents($root . '/includes/components/new-ticket-assets.php');

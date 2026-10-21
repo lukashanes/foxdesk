@@ -77,6 +77,7 @@ $kanban_archived_closed_statuses = $ticket_kanban_model['archived_closed_statuse
     <?php endif; ?>
 
 </div>
+<?php if ($ticket_view === 'list') { ticket_registry_render_pagination($ticket_paging, $_GET, t('Tickets')); } ?>
 </div>
 
 <?php require BASE_PATH . '/includes/components/ticket-list-assets.php'; ?>

@@ -83,7 +83,7 @@ foreach ([
     'function ticket_list_view_shows_closed_inline',
     "\$search_scope === 'all'",
     "['done', 'all', 'archived']",
-    "unset(\$filters['status_group'], \$filters['status_group_not'])",
+    "unset(\$filters['status_group'], \$filters['status_group_not'], \$filters['triage_state'])",
 ] as $needle) {
     assert_core_ux_flow(str_contains($ticket_views, $needle), 'Ticket registry must preserve done/all/search behavior: ' . $needle);
 }
@@ -120,7 +120,8 @@ $pages = [
 foreach ($pages as $path => $needles) {
     $contents = read_core_ux_flow_file($root, $path);
     if ($path === 'pages/tickets.php') {
-        $contents .= "\n" . read_core_ux_flow_file($root, 'includes/components/ticket-list-page.php')
+        $contents .= "\n" . read_core_ux_flow_file($root, 'includes/modules/tickets/ticket-list-page-controller.php')
+            . "\n" . read_core_ux_flow_file($root, 'includes/components/ticket-list-page.php')
             . "\n" . read_core_ux_flow_file($root, 'includes/components/ticket-list-board.php')
             . "\n" . read_core_ux_flow_file($root, 'includes/components/ticket-list-table.php');
     }

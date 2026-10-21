@@ -20,6 +20,8 @@ function read_admin_ui_file(string $root, string $path): string
 $header = read_admin_ui_file($root, 'includes/header.php');
 $theme = read_admin_ui_file($root, 'theme.css');
 $tickets = read_admin_ui_file($root, 'pages/tickets.php')
+    . "
+" . read_admin_ui_file($root, 'includes/modules/tickets/ticket-list-page-controller.php')
     . "\n" . read_admin_ui_file($root, 'includes/components/ticket-list-page.php')
     . "\n" . read_admin_ui_file($root, 'includes/components/ticket-list-board.php')
     . "\n" . read_admin_ui_file($root, 'includes/components/ticket-list-table.php');

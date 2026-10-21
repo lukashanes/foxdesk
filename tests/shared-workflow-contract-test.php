@@ -96,7 +96,8 @@ $pages = [
 foreach ($pages as $path => $needles) {
     $contents = read_shared_workflow_file($root, $path);
     if ($path === 'pages/tickets.php') {
-        $contents .= "\n" . read_shared_workflow_file($root, 'includes/components/ticket-list-page.php')
+        $contents .= "\n" . read_shared_workflow_file($root, 'includes/modules/tickets/ticket-list-page-controller.php')
+            . "\n" . read_shared_workflow_file($root, 'includes/components/ticket-list-page.php')
             . "\n" . read_shared_workflow_file($root, 'includes/components/ticket-list-board.php')
             . "\n" . read_shared_workflow_file($root, 'includes/components/ticket-list-table.php');
     }

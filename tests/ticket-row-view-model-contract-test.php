@@ -1,6 +1,7 @@
 <?php
 
 $root = dirname(__DIR__);
+require_once __DIR__ . '/support/ticket-list-source.php';
 require_once $root . '/includes/modules/tickets/ticket-status-groups.php';
 require_once $root . '/includes/modules/tickets/ticket-list-views.php';
 require_once $root . '/includes/modules/tickets/ticket-row-view-model.php';
@@ -50,7 +51,7 @@ $assert(str_contains(ticket_registry_status_accent_class($tickets[1], $statuses)
 $assert(ticket_registry_status_dot_class('waiting', 'kanban-dot') === 'kanban-dot kanban-dot--waiting', 'Status dot helper must compose base and group.');
 $assert(ticket_registry_priority_badge_class('Urgent') === 'badge-inline ticket-priority-inline ticket-priority-inline--medium', 'Priority helper must compose fallback priority badge class.');
 
-$route = file_get_contents($root . '/pages/tickets.php');
+$route = ticket_list_route_and_controller_source($root);
 $surface = file_get_contents($root . '/includes/components/ticket-list-page.php');
 $boardSurface = file_get_contents($root . '/includes/components/ticket-list-board.php');
 $tableSurface = file_get_contents($root . '/includes/components/ticket-list-table.php');

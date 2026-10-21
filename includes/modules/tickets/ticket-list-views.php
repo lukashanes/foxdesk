@@ -8,7 +8,7 @@
 
 function ticket_list_view_keys(bool $include_archive = true): array
 {
-    $keys = ['open', 'waiting', 'done', 'all'];
+    $keys = ['new', 'open', 'waiting', 'done', 'all'];
     if ($include_archive) {
         $keys[] = 'archived';
     }
@@ -47,7 +47,11 @@ function ticket_list_view_shows_closed_inline(string $view, bool $is_closed_filt
 
 function ticket_list_view_default_sort(string $view): string
 {
-    return ticket_list_view_normalize($view, true) === 'done' ? 'completed' : 'newest';
+    return match (ticket_list_view_normalize($view, true)) {
+        'done' => 'completed',
+        'new' => 'newest',
+        default => 'last_updated',
+    };
 }
 
 function ticket_list_view_effective_sort(string $view, string $sort, bool $sort_is_explicit = false): string
@@ -61,6 +65,34 @@ function ticket_list_view_effective_sort(string $view, string $sort, bool $sort_
     return $default_sort !== 'newest' ? $default_sort : $sort;
 }
 
+/**
+ * Keep newly received, unassigned tickets in triage for two days.
+ *
+ * Once a ticket is assigned it becomes active work immediately. Unassigned
+ * tickets also leave triage after this window so the New queue cannot become
+ * a permanent second copy of Open.
+ */
+function ticket_list_new_window_hours(): int
+{
+    return 48;
+}
+
+/**
+ * Tabs shown in the ticket list: keep it simple (Open · Done · Archive).
+ * Deep links to the other views still work; such a view is appended while active.
+ */
+function ticket_list_view_tab_keys(string $active_view, bool $include_archive = true): array
+{
+    $keys = ['open', 'done'];
+    if ($include_archive) {
+        $keys[] = 'archived';
+    }
+    if ($active_view !== '' && !in_array($active_view, $keys, true)) {
+        $keys[] = $active_view;
+    }
+    return $keys;
+}
+
 function ticket_list_view_definitions(bool $include_archive = true): array
 {
     $views = [
@@ -68,7 +100,18 @@ function ticket_list_view_definitions(bool $include_archive = true): array
             'key' => 'open',
             'label' => 'Open',
             'description' => 'New and active tickets',
-            'filters' => ['status_group_not' => ['done']],
+            'filters' => [
+                'status_group_not' => ['done', 'archived'],
+            ],
+        ],
+        'new' => [
+            'key' => 'new',
+            'label' => 'workflow.triage',
+            'description' => 'Tickets that still need triage',
+            'filters' => [
+                'status_group_not' => ['waiting', 'done', 'archived'],
+                'triage_state' => 'new',
+            ],
         ],
         'waiting' => [
             'key' => 'waiting',
@@ -108,7 +151,7 @@ function ticket_list_view_apply_filters(array $filters, string $view): array
     $view = ticket_list_view_normalize($view, true);
     $view_filters = $definitions[$view]['filters'] ?? [];
 
-    unset($filters['status_group'], $filters['status_group_not']);
+    unset($filters['status_group'], $filters['status_group_not'], $filters['triage_state']);
 
     if ($view === 'archived') {
         $filters['is_archived'] = 1;
@@ -118,7 +161,7 @@ function ticket_list_view_apply_filters(array $filters, string $view): array
 
     $has_explicit_status_filter = !empty($filters['status_id']);
     foreach ($view_filters as $key => $value) {
-        if ($has_explicit_status_filter && in_array($key, ['status_group', 'status_group_not'], true)) {
+        if ($has_explicit_status_filter && in_array($key, ['status_group', 'status_group_not', 'triage_state'], true)) {
             continue;
         }
         $filters[$key] = $value;
@@ -138,7 +181,7 @@ function ticket_list_view_url(string $view, array $request, bool $include_archiv
 {
     $view = ticket_list_view_normalize($view, $include_archive);
     $params = $request;
-    unset($params['page'], $params['p'], $params['search_scope'], $params['status_group'], $params['status_group_not']);
+    unset($params['page'], $params['p'], $params['search_scope'], $params['status_group'], $params['status_group_not'], $params['triage_state']);
 
     if ($view === 'archived') {
         $params['archived'] = '1';
@@ -167,4 +210,28 @@ function ticket_list_view_counts(array $base_filters, bool $include_archive = tr
     }
 
     return $counts;
+}
+
+/**
+ * Server-owned list paging: 10, 20, 50 or all rows per page. The requested
+ * page is clamped to the last page, so a stale link never shows an empty list.
+ */
+function ticket_list_page_model(array $request, int $count): array
+{
+    $size = is_scalar($request['page_size'] ?? null) ? (string) $request['page_size'] : '20';
+    if (!in_array($size, ['10', '20', '50', 'all'], true)) {
+        $size = '20';
+    }
+    $count = max(0, $count);
+    $pages = $size === 'all' ? 1 : max(1, (int) ceil($count / (int) $size));
+    $page = is_scalar($request['p'] ?? null) ? (int) $request['p'] : 1;
+    $page = max(1, min($pages, $page));
+
+    return [
+        'size' => $size,
+        'page' => $page,
+        'pages' => $pages,
+        'count' => $count,
+        'offset' => $size === 'all' ? 0 : ($page - 1) * (int) $size,
+    ];
 }
