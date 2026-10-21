@@ -324,6 +324,26 @@ if (is_agent()) {
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
+                    <?php
+                    // Read-only audience preview: what the requester or a shared user sees on this ticket.
+                    $ticket_preview_people = [];
+                    if (!empty($ticket['user_id'])) {
+                        $ticket_preview_people[(int) $ticket['user_id']] = trim(($ticket['first_name'] ?? '') . ' ' . ($ticket['last_name'] ?? ''));
+                    }
+                    foreach ($shared_users as $shared_user) {
+                        $ticket_preview_people[(int) $shared_user['id']] = trim($shared_user['first_name'] . ' ' . $shared_user['last_name']);
+                    }
+                    unset($ticket_preview_people[(int) ($user['id'] ?? 0)]);
+                    ?>
+                    <?php if ($ticket_preview_people): ?>
+                        <div class="ticket-side-chip-list" data-ticket-audience-preview-links>
+                            <?php foreach ($ticket_preview_people as $preview_person_id => $preview_person_name): ?>
+                                <a class="ticket-side-user-chip" href="<?php echo e(ticket_url($ticket, ['preview_user' => (int) $preview_person_id])); ?>" aria-label="<?php echo e(t('media.preview') . ': ' . $preview_person_name); ?>" title="<?php echo e(t('media.preview')); ?>">
+                                    <?php echo get_icon('eye', 'w-3 h-3'); ?> <bdi dir="auto"><?php echo e($preview_person_name !== '' ? $preview_person_name : t('User')); ?></bdi>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                     <form method="post" class="ticket-side-inline-form">
                         <?php echo csrf_field(); ?>
                         <select name="shared_user_id" class="ticket-side-control ticket-side-select">

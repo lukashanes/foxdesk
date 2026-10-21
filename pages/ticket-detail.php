@@ -40,6 +40,13 @@ if (!can_see_ticket($ticket, $user)) {
     redirect('tickets');
 }
 
+// Audience preview exits before notification writes, form handlers and timer migrations.
+if (isset($_GET['preview_user'])) {
+    require_once BASE_PATH . '/includes/modules/tickets/ticket-audience-preview.php';
+    require BASE_PATH . '/includes/components/ticket-audience-preview-page.php';
+    return;
+}
+
 // Auto mark ALL notifications for this ticket as read when viewing it
 if (function_exists('mark_ticket_notifications_read')) {
     mark_ticket_notifications_read($ticket_id, (int) $user['id']);
@@ -301,6 +308,7 @@ window.FoxDeskTicketDetailConfig = <?php echo json_encode($ticket_detail_js_conf
 
 <?php endif; ?>
 
+<script src="assets/js/upload-preview.js?v=<?php echo APP_VERSION; ?>"></script>
 <script src="assets/js/ticket-detail-core.js?v=<?php echo APP_VERSION; ?>"></script>
 <script src="assets/js/ticket-detail-workflow.js?v=<?php echo APP_VERSION; ?>"></script>
 <script src="assets/js/ticket-detail-records.js?v=<?php echo APP_VERSION; ?>"></script>

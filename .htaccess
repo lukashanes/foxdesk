@@ -4,6 +4,11 @@
 # ── Disable directory listing ────────────────────────────────────────────────
 Options -Indexes
 
+# ── JavaScript modules (bundled PDF.js document preview) ─────────────────────
+<IfModule mod_mime.c>
+  AddType text/javascript .mjs
+</IfModule>
+
 # ── Force HTTPS ──────────────────────────────────────────────────────────────
 # Redirects HTTP → HTTPS. Works with both direct SSL and reverse proxies
 # (load balancers, Cloudflare, etc.) that set X-Forwarded-Proto.
