@@ -29,7 +29,7 @@
 
 FoxDesk keeps the request, its owner, the work performed, and the client report in one record. A client can write by email or through the portal. Your team assigns the ticket, records time beside the work, and shares a report without rebuilding the month from inboxes and spreadsheets.
 
-It runs on ordinary PHP hosting or a VPS. There is no per-agent fee, no hosted dependency, and no requirement to send client data to FoxDesk Cloud.
+It runs on ordinary PHP hosting, a VPS, or Docker. There is no per-agent fee, no hosted dependency, and no requirement to send client data to FoxDesk Cloud.
 
 ## The workflow
 
@@ -42,16 +42,28 @@ It runs on ordinary PHP hosting or a VPS. There is no per-agent fee, no hosted d
 | Self-hosted | FoxDesk Cloud |
 | --- | --- |
 | The edition in this repository. Install it on your infrastructure and keep operational control. | The managed service for teams that do not want to install, update, back up, or operate FoxDesk. |
-| AGPL-3.0, PHP 8.1+, MySQL or MariaDB. | Hosted separately at [foxdesk.net](https://foxdesk.net/comparison/?utm_source=github.com&utm_medium=referral&utm_campaign=foxdesk_open_source). |
+| AGPL-3.0. PHP 8.1+ with MySQL or MariaDB, or the included Docker Compose setup. | Hosted separately at [foxdesk.net](https://foxdesk.net/comparison/?utm_source=github.com&utm_medium=referral&utm_campaign=foxdesk_open_source). |
 | Includes tickets, clients, time tracking, reports, email integration, API access, updates, and all 24 locale catalogs. | Adds managed hosting, tenant lifecycle, subscriptions, backups, and Cloud operations. Those modules are not part of this repository. |
 
 ## Install in a few minutes
 
+### With Docker Compose
+
+```bash
+git clone https://github.com/lukashanes/foxdesk.git
+cd foxdesk
+cp .env.example .env          # set DB_PASSWORD and DB_ROOT_PASSWORD
+docker compose up -d --build
+```
+
+Open `http://localhost:8080/install.php`, use `db` as the database host and the credentials from `.env`, then run `docker compose exec -u www-data app php upgrade.php` once. The stack includes PHP 8.2 with Apache, MariaDB 11, a scheduler container for background tasks, and persistent volumes for configuration, uploads, and backups. Backups, upgrades, and HTTPS proxy examples are in the [Docker guide](docs/DOCKER.md).
+
+### On PHP hosting or a VPS
+
 1. [Download the latest release](https://github.com/lukashanes/foxdesk/releases/latest) and extract it on the server.
 2. Create an empty MySQL or MariaDB database.
-3. Copy `config.example.php` to `config.php` and enter the database credentials.
-4. Open `https://your-domain.example/install.php` and complete the installer.
-5. Delete `install.php`, sign in, and create the first client organization.
+3. Open `https://your-domain.example/install.php`, enter the database credentials, and complete the installer. It creates the tables and writes `config.php`.
+4. Delete `install.php`, sign in, and create the first client organization.
 
 | Requirement | Minimum |
 | --- | --- |
@@ -60,7 +72,7 @@ It runs on ordinary PHP hosting or a VPS. There is no per-agent fee, no hosted d
 | PHP extensions | `pdo_mysql`, `mbstring`, `json`, `openssl`, `zip` |
 | Initial disk space | 50 MB plus uploaded files and backups |
 
-The detailed guide covers [shared hosting, VPS, Nginx, scheduled tasks, email, upgrades, and recovery](INSTALL.md).
+The detailed guide covers [shared hosting, VPS, Nginx, Docker, scheduled tasks, email, upgrades, and recovery](INSTALL.md).
 
 ## See the product
 
@@ -137,13 +149,11 @@ The repository includes:
 
 Tokens inherit the creating user's permissions and can be limited by capability. Do not paste production tokens into prompts, issues, or logs.
 
-## Current release
+## Releases and updates
 
-The latest packaged version is [FoxDesk 0.3.143](https://github.com/lukashanes/foxdesk/releases/tag/v0.3.143), published on September 1, 2026.
+The [latest release page](https://github.com/lukashanes/foxdesk/releases/latest) always shows the current version, its changelog, and its download assets. Earlier versions are listed under [GitHub Releases](https://github.com/lukashanes/foxdesk/releases).
 
-It restores editing of sent comments for their authenticated authors while keeping creator-or-admin ownership enforcement consistent between the UI and backend.
-
-Use the in-app updater or download the release assets from [GitHub Releases](https://github.com/lukashanes/foxdesk/releases). Every release includes upgrade notes, rollback guidance, a manifest, and SHA-256 evidence.
+Use the in-app updater or download the release assets. Every release includes upgrade notes, rollback guidance, a manifest, and SHA-256 evidence. Docker installations use the same in-app updater; see [Updating FoxDesk](docs/DOCKER.md#updating-foxdesk) in the Docker guide.
 
 ## Development
 
