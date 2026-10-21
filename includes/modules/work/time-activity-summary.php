@@ -533,6 +533,36 @@ function time_activity_team_totals(array $team): array
     return $totals;
 }
 
+/** The latest report templates for the Work overview (admins only; drafts included). */
+function time_activity_recent_reports(int $limit = 3): array
+{
+    if (!function_exists('table_exists') || !table_exists('report_templates')) {
+        return [];
+    }
+
+    $limit = max(1, min(5, $limit));
+    $archived_filter = function_exists('column_exists') && column_exists('report_templates', 'is_archived')
+        ? ' AND rt.is_archived = 0'
+        : '';
+
+    return (array) db_fetch_all("
+        SELECT
+            rt.id,
+            rt.title,
+            rt.date_from,
+            rt.date_to,
+            rt.is_draft,
+            rt.created_at,
+            o.name AS organization_name
+        FROM report_templates rt
+        LEFT JOIN organizations o ON o.id = rt.organization_id
+        WHERE 1 = 1
+          {$archived_filter}
+        ORDER BY rt.created_at DESC, rt.id DESC
+        LIMIT {$limit}
+    ");
+}
+
 function time_activity_work_model(array $user, array $request, bool $remember = true): array
 {
     $period = time_activity_period_from_request($request, $remember);
@@ -565,6 +595,7 @@ function time_activity_work_model(array $user, array $request, bool $remember = 
         'display_totals' => $view_scope['key'] === 'team' ? $team_totals : $my_totals,
         'my_entries' => time_activity_user_entries($user_id, $my_activity_period, $my_activity_filter['limit']),
         'team' => $team,
+        'recent_reports' => $is_admin_user ? time_activity_recent_reports(3) : [],
         'period_chart' => time_activity_period_chart($user_id, $view_scope['key'] === 'team', $period),
         'week_chart' => time_activity_weekly_chart($user_id, $view_scope['key'] === 'team'),
     ];

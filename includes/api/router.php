@@ -21,6 +21,7 @@ require_once __DIR__ . '/notification-handler.php';
 require_once __DIR__ . '/allowed-senders-handler.php';
 require_once __DIR__ . '/push-handler.php';
 require_once __DIR__ . '/app-handler.php';
+require_once __DIR__ . '/work-handler.php';
 
 /**
  * Route API requests to appropriate handlers
@@ -150,6 +151,7 @@ function route_api_request($action) {
 
         // Dashboard layout
         'save-dashboard-layout' => 'api_save_dashboard_layout',
+        'work-time-dashboard' => 'api_work_time_dashboard',
 
         // SMTP handler
         'test-smtp' => 'api_test_smtp',
