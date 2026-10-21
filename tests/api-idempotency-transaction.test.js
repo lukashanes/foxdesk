@@ -66,6 +66,10 @@ async function ticketState(ticketId) {
 }
 
 (async () => {
+    const docs = (await call('agent-docs')).data.documentation;
+    assert(Array.isArray(docs?.actions) && docs.actions.some(a => a.action === 'agent-delete-comment' && a.available), 'Every valid token must read agent-docs with live availability');
+    checks.push('agent-docs');
+
     const created = await idempotent('create-ticket', 'agent-create-ticket', {
         title: 'Idempotent transaction QA ' + nonce,
         description: 'Local synthetic verification of handlers inside the Idempotency-Key transaction.',
@@ -114,6 +118,16 @@ async function ticketState(ticketId) {
     assert.equal(now.comments.length, baseline.comments.length + 2, 'Failed keyed write must not leave a comment behind');
     checks.push('failed keyed write releases reservation');
 
+    // Comment deletion joins the outer transaction instead of opening a nested one.
+    const plainCommentId = Number(plain.comment_id || plain.comment?.id);
+    const deleted = await idempotent('agent-delete-comment', 'agent-delete-comment', {comment_id: plainCommentId});
+    assert.equal(deleted.deleted, true, JSON.stringify(deleted));
+    assert(deleted.undo_token, 'Delete must stage an undo token');
+    now = await ticketState(ticketId);
+    assert(!now.comments.some(c => Number(c.id) === plainCommentId), 'Deleted comment must be gone after commit');
+    const again = await call('agent-delete-comment', {comment_id: plainCommentId}, {key: 'agent-delete-again-' + nonce});
+    assert.equal(again.data.already_deleted, true, JSON.stringify(again.data));
+
     // Workflow and status transition helpers join the outer transaction.
     const revision = (now.ticket.workflow || {}).revision;
     assert(revision, 'agent-get-ticket must expose ticket.workflow.revision');
@@ -144,6 +158,8 @@ async function ticketState(ticketId) {
     assert(plan.plan && plan.plan_hash, JSON.stringify(plan).slice(0, 300));
     const applied = await idempotent('agent-apply-work-log-plan', 'agent-apply-work-log-plan', {plan: plan.plan, plan_hash: plan.plan_hash, confirm: true});
     assert.equal(applied.applied, true, JSON.stringify(applied).slice(0, 300));
+    const ticketUrl = applied.tickets[0].ticket_url;
+    assert(ticketUrl && new URL(ticketUrl).searchParams.get('t') === applied.tickets[0].ticket_hash, 'Applied work log must return the canonical t= ticket link');
 
     // Permanent deletion joins the outer transaction and runs storage cleanup after commit.
     for (const id of [ticketId, applied.tickets[0].ticket_id]) {

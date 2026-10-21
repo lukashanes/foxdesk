@@ -165,6 +165,7 @@ function route_api_request($action) {
         'agent-add-comment' => 'api_agent_add_comment',
         'agent-add-update' => 'api_agent_add_comment',
         'agent-add-work-entry' => 'api_agent_add_comment',
+        'agent-delete-comment' => 'api_agent_delete_comment',
         'agent-plan-work-log' => 'api_agent_plan_work_log',
         'agent-apply-work-log-plan' => 'api_agent_apply_work_log_plan',
         'agent-update-status' => 'api_agent_update_status',

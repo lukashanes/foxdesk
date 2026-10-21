@@ -135,6 +135,15 @@ function api_agent_base_url(): string
     return rtrim($configured, '/');
 }
 
+/** Return the canonical browser link, including for installs below a URL subpath. */
+function api_agent_ticket_url(array $ticket): string
+{
+    $target = ticket_url($ticket);
+    return preg_match('#^https?://#i', $target)
+        ? $target
+        : api_agent_base_url() . '/' . ltrim($target, '/');
+}
+
 function api_agent_endpoint_url(string $action): string
 {
     return api_agent_base_url() . '/index.php?page=api&action=' . rawurlencode($action);
@@ -164,7 +173,7 @@ function api_agent_enforce_structured_temporal_text(array $input, array $fields)
 function api_agent_docs_tools(): array
 {
     return [
-        ['action' => 'agent-ticket-workflow', 'method' => 'POST', 'scope' => 'tickets:write',
+        ['action' => 'agent-ticket-workflow', 'method' => 'POST', 'scopes' => ['tickets:read', 'tickets:write'],
          'writes' => true, 'query' => [],
          'body' => ['ticket_id' => 'integer, or ticket_hash', 'operation' => 'status|complete|reopen|claim|assign', 'expected_revision' => 'required string from ticket.workflow.revision', 'status_id' => 'integer for status', 'assignee_id' => 'integer for assign', 'handoff_note' => 'optional internal note saved with assignment', 'skip_notification' => 'optional boolean'],
          'description' => 'Apply status, complete, reopen, claim or assign using expected_revision from agent-get-ticket ticket.workflow. Requires tickets:read and tickets:write; stopping a timer also requires time:write. Returns refreshed actions, revision, timer and notification outcomes.'],
@@ -179,6 +188,7 @@ function api_agent_docs_tools(): array
         ['action' => 'agent-create-ticket', 'method' => 'POST', 'scopes' => ['tickets:write'], 'description' => 'Create a ticket without a time entry.'],
         ['action' => 'agent-add-update', 'method' => 'POST', 'scopes' => ['tickets:read', 'comments:write'], 'description' => 'Add a public or internal comment without tracked time.'],
         ['action' => 'agent-add-work-entry', 'method' => 'POST', 'scopes' => ['tickets:read', 'comments:write', 'time:write'], 'description' => 'Atomically add a work-only comment and its linked structured work date/duration entry.'],
+        ['action' => 'agent-delete-comment', 'method' => 'POST', 'scopes' => ['tickets:read', 'comments:write'], 'body' => ['comment_id' => 'required integer'], 'description' => 'Delete a comment the token owner can manage. Own comments can be deleted with comments:write; delete:write is required for broader administrative deletes.'],
         ['action' => 'agent-plan-work-log', 'method' => 'POST', 'scopes' => ['tickets:read', 'tickets:write', 'comments:write', 'time:write'], 'description' => 'Validate and preview a complete one-ticket or multi-ticket work-log plan without writing business records.'],
         ['action' => 'agent-apply-work-log-plan', 'method' => 'POST', 'scopes' => ['tickets:read', 'tickets:write', 'comments:write', 'time:write'], 'description' => 'Atomically apply an unchanged signed work-log preview after explicit user confirmation.'],
         ['action' => 'agent-update-status', 'method' => 'POST', 'scopes' => ['tickets:write'], 'description' => 'Change a ticket status.'],
@@ -186,6 +196,19 @@ function api_agent_docs_tools(): array
         ['action' => 'agent-delete-ticket-preflight', 'method' => 'GET', 'scopes' => ['tickets:read'], 'description' => 'Preview the complete impact of a permanent ticket deletion.', 'requires_permanent_delete_permission' => true],
         ['action' => 'agent-delete-ticket-permanently', 'method' => 'POST', 'scopes' => ['tickets:read', 'delete:write'], 'description' => 'Permanently delete one complete ticket after exact code confirmation.', 'requires_permanent_delete_permission' => true],
     ];
+}
+
+/**
+ * Normalize the scopes a documented tool requires. Tools may declare a list in
+ * "scopes" or a single "scope"; a missing declaration means no scope is needed.
+ */
+function api_agent_docs_tool_scopes(array $tool): array
+{
+    if (isset($tool['scopes']) && is_array($tool['scopes'])) {
+        return array_values(array_filter(array_map('strval', $tool['scopes']), static fn(string $scope): bool => $scope !== ''));
+    }
+    $scope = trim((string) ($tool['scope'] ?? ''));
+    return $scope !== '' ? [$scope] : [];
 }
 
 function api_agent_docs_scope_allowed(array $scopes, ?array $token_row, array $user): bool
@@ -230,14 +253,21 @@ function api_agent_docs()
     $operating_instructions = foxdesk_agent_operating_instructions($instruction_language, $user);
     $actions = [];
     foreach (api_agent_docs_tools() as $tool) {
-        $available = api_agent_docs_scope_allowed($tool['scopes'], $token_row, $user);
+        $required_scopes = api_agent_docs_tool_scopes($tool);
+        // Report only the scopes this token actually lacks.
+        $missing_scopes = array_values(array_filter(
+            $required_scopes,
+            static fn(string $scope): bool => !api_agent_docs_scope_allowed([$scope], $token_row, $user)
+        ));
+        $available = $missing_scopes === [];
         if (!empty($tool['requires_permanent_delete_permission'])) {
             $available = $available && can_permanently_delete_tickets($user);
         }
         $actions[] = array_merge($tool, [
+            'scopes' => $required_scopes,
             'url' => api_agent_endpoint_url($tool['action']),
             'available' => $available,
-            'missing_scopes' => $available ? [] : $tool['scopes'],
+            'missing_scopes' => $missing_scopes,
             'requires_unique_idempotency_key' => $tool['method'] === 'POST',
         ]);
     }
@@ -869,6 +899,86 @@ function api_agent_add_comment()
     $response['notifications'] = ticket_workflow_notify($workflow_before, $fresh, $user, !empty($is_internal) && empty($input['skip_notification']));
     if (!$is_internal) $response['notifications']['comment'] = ticket_workflow_comment_notify($fresh, ['content' => $input['content'], 'time_spent' => (int) $duration], $user, (int) $comment_id, [], [], empty($input['skip_notification']));
     api_success($response);
+}
+
+// =============================================================================
+// DELETE COMMENT
+// =============================================================================
+
+function api_agent_delete_comment(): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        api_error('Method not allowed', 405);
+    }
+    if (!is_agent()) {
+        api_error('Forbidden — agent or admin role required', 403);
+    }
+    if (!empty($GLOBALS['is_api_token_auth']) && !api_token_has_scope('tickets:read')) {
+        api_error('Missing required scope: tickets:read', 403);
+    }
+
+    $user = current_user();
+    if (!$user) {
+        api_error('Unauthorized', 401);
+    }
+
+    $input = get_json_input();
+    $comment_id = (int) ($input['comment_id'] ?? $input['id'] ?? 0);
+    if ($comment_id <= 0) {
+        api_error('comment_id is required.', 422);
+    }
+
+    $comment = db_fetch_one("SELECT * FROM comments WHERE id = ? LIMIT 1", [$comment_id]);
+    if (!$comment) {
+        api_success([
+            'comment_id' => $comment_id,
+            'deleted' => true,
+            'already_deleted' => true,
+        ]);
+    }
+
+    $ticket = get_ticket((int) $comment['ticket_id']);
+    if (!$ticket || !can_see_ticket($ticket, $user)) {
+        api_error('Forbidden', 403);
+    }
+
+    $is_admin_delete = !empty($GLOBALS['is_api_token_auth']) && api_token_has_scope('delete:write');
+    if (!can_manage_comment($comment, $user) && !$is_admin_delete) {
+        api_error('Forbidden', 403);
+    }
+
+    $linked_attachments = db_fetch_all(
+        "SELECT id FROM attachments WHERE comment_id = ?",
+        [$comment_id]
+    );
+    $linked_time_entries = db_fetch_all(
+        "SELECT id FROM ticket_time_entries WHERE comment_id = ?",
+        [$comment_id]
+    );
+
+    $db = get_db();
+    $owns_transaction = db_begin_owned($db);
+    try {
+        $undo_token = ticket_undo_stage('comment', $comment_id, (int) $comment['ticket_id'], (int) $user['id'], [
+            'comment' => $comment,
+            'attachment_ids' => array_values(array_map(static fn(array $row): int => (int) $row['id'], $linked_attachments)),
+            'time_entry_ids' => array_values(array_map(static fn(array $row): int => (int) $row['id'], $linked_time_entries)),
+        ]);
+        db_delete('comments', 'id = ?', [$comment_id]);
+        db_commit_owned($owns_transaction, $db);
+        log_activity((int) $comment['ticket_id'], (int) $user['id'], 'comment_deleted', 'Comment deleted through Agent API');
+    } catch (Throwable $e) {
+        db_rollback_owned($owns_transaction, $db);
+        api_error('Failed to delete comment.', 500);
+    }
+
+    api_success([
+        'ticket_id' => (int) $comment['ticket_id'],
+        'comment_id' => $comment_id,
+        'deleted' => true,
+        'undo_token' => $undo_token,
+        'undo_seconds' => FOXDESK_TICKET_UNDO_SECONDS,
+    ]);
 }
 
 // =============================================================================
