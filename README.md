@@ -173,9 +173,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Questions 
 
 ## Repository scope
 
-This repository is the public release channel for the self-hosted edition. Contributions should improve self-hosted installation, security, local email, ticket and reporting workflows, API integrations, translations, updates, or recovery.
+This repository is the public self-hosted PHP FoxDesk release channel. Contributions should improve self-hosted installation, security, local email, ticket and reporting workflows, API integrations, translations, updates, or recovery.
 
-FoxDesk Cloud billing, subscription trials, tenant lifecycle, managed storage, operator administration, and platform deployment are commercial service modules. They are intentionally not published here. The self-hosted reporting rates in this repository are client-work features, not FoxDesk subscription billing.
+FoxDesk Cloud billing, subscription trials, tenant lifecycle, managed storage, operator administration, and platform deployment are commercial service modules maintained in the private FoxDesk SaaS repository. They are intentionally not published here; the self-hosted side keeps only the one-way self-hosted to SaaS migration bridge. The self-hosted reporting rates in this repository are client-work features, not FoxDesk subscription billing.
 
 ## Security
 
