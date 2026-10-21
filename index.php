@@ -349,6 +349,10 @@ switch ($page) {
         require_once BASE_PATH . '/pages/client.php';
         break;
 
+    case 'time':
+        require_once BASE_PATH . '/pages/time.php';
+        break;
+
     case 'ticket':
         require_once BASE_PATH . '/pages/ticket-detail.php';
         break;

@@ -287,7 +287,10 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
 
 
                 <?php if (is_admin() || is_agent()): ?>
-                    <a href="<?php echo url('work'); ?>#time-overview" class="nav-item" title="<?php echo e(t('Time')); ?>">
+                    <a href="<?php echo e(url('time')); ?>"
+                        class="nav-item <?php echo ($page ?? '') === 'time' ? 'active' : ''; ?>"
+                        <?php echo ($page ?? '') === 'time' ? 'aria-current="page"' : ''; ?>
+                        title="<?php echo e(t('Time')); ?>">
                         <?php echo get_icon('clock', 'nav-item__icon'); ?>
                         <span><?php echo e(t('Time')); ?></span>
                     </a>

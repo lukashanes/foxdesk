@@ -597,6 +597,7 @@ function api_token_required_scope_for_action(string $action): ?string
         'app-ticket-timer' => 'time:read',
         'app-ticket-timer-action' => 'time:write',
         'app-log-time' => 'time:write',
+        'app-update-time-entry' => 'time:write',
         'app-client-overview' => 'clients:read',
         'app-reporting-review' => 'reports:read',
         'app-notifications' => 'notifications:read',

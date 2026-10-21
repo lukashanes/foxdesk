@@ -567,6 +567,7 @@ function api_app_log_time()
     }
 
     $input = get_json_input();
+    api_app_require_backdate_permission($input, $user);
     $time_input = api_app_resolve_log_time_input($input);
     $duration = (int) $time_input['duration_minutes'];
 
@@ -601,6 +602,155 @@ function api_app_log_time()
     ];
 
     api_app_contract_success($response, ['resource' => 'log_time'], $response);
+}
+
+/**
+ * Explicit historical start/end timestamps are a staff-only capability.
+ */
+function api_app_require_backdate_permission(array $input, array $user): void
+{
+    $has_explicit_time = trim((string) ($input['started_at'] ?? '')) !== ''
+        || trim((string) ($input['ended_at'] ?? '')) !== '';
+    if ($has_explicit_time && !foxdesk_can_backdate_records($user)) {
+        api_error('Only admins and agents can set historical dates.', 403);
+    }
+}
+
+function api_app_bool(array $input, string $key, bool $default = false): bool
+{
+    if (!array_key_exists($key, $input)) {
+        return $default;
+    }
+
+    $value = $input[$key];
+    if (is_bool($value)) {
+        return $value;
+    }
+    if (is_numeric($value)) {
+        return (int) $value === 1;
+    }
+
+    return in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true);
+}
+
+function api_app_require_api_token_scope(string $scope): void
+{
+    if (empty($GLOBALS['is_api_token_auth'])) {
+        return;
+    }
+
+    if (function_exists('api_token_has_scope') && api_token_has_scope($scope)) {
+        return;
+    }
+
+    api_error('API token scope is not allowed for this action.', 403);
+}
+
+/** A work log may only be linked to a comment on the same ticket. */
+function api_app_time_comment_id(array $input, int $ticket_id): ?int
+{
+    $comment_id = (int) ($input['comment_id'] ?? 0);
+    if ($comment_id <= 0) {
+        return null;
+    }
+    $comment = db_fetch_one('SELECT id FROM comments WHERE id = ? AND ticket_id = ? LIMIT 1', [$comment_id, $ticket_id]);
+    if (!$comment) {
+        api_error('Comment does not belong to this ticket.', 422);
+    }
+    return $comment_id;
+}
+
+/**
+ * Edit one saved work-log entry: date, optional start time, duration, summary
+ * and billable flag. The entry's precision is kept unless the caller changes it.
+ */
+function api_app_update_time_entry()
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        api_error('Method not allowed', 405);
+    }
+
+    api_app_require_write_auth();
+    api_app_require_api_token_scope('tickets:read');
+    api_app_require_api_token_scope('time:write');
+
+    $user = current_user();
+    if (!$user || (!is_agent() && !is_admin())) {
+        api_error('Forbidden', 403);
+    }
+    if (!function_exists('ticket_time_table_exists') || !ticket_time_table_exists()) {
+        api_error('Time tracking is not available.', 400);
+    }
+
+    $input = get_json_input();
+    $entry_id = (int) ($input['time_entry_id'] ?? $input['entry_id'] ?? $input['id'] ?? 0);
+    if ($entry_id <= 0) {
+        api_error('time_entry_id is required.', 422);
+    }
+    $entry = db_fetch_one('SELECT * FROM ticket_time_entries WHERE id = ? LIMIT 1', [$entry_id]);
+    if (!$entry) {
+        api_error('Time entry not found.', 404);
+    }
+    if (empty($entry['ended_at'])) {
+        api_error('A running timer cannot be edited here.', 409);
+    }
+    $ticket = get_ticket((int) $entry['ticket_id']);
+    if (!$ticket || !can_see_ticket($ticket, $user) || !can_manage_time_entry($entry, $user)) {
+        api_error('Forbidden', 403);
+    }
+    api_app_require_backdate_permission($input, $user);
+
+    $duration = array_key_exists('duration_minutes', $input)
+        ? (int) $input['duration_minutes']
+        : (int) ($entry['duration_minutes'] ?? 0);
+    $has_started_at = array_key_exists('started_at', $input);
+    $has_ended_at = array_key_exists('ended_at', $input);
+    $started_at_input = $has_started_at ? $input['started_at'] : ($entry['started_at'] ?? null);
+    $ended_at_input = $has_ended_at
+        ? $input['ended_at']
+        : ($has_started_at ? null : (array_key_exists('duration_minutes', $input) ? null : ($entry['ended_at'] ?? null)));
+    $time_input = api_app_resolve_log_time_input([
+        'duration_minutes' => $duration,
+        'started_at' => $started_at_input,
+        'ended_at' => $ended_at_input,
+        'worked_on' => $input['worked_on'] ?? ($entry['worked_on'] ?? ''),
+        'time_precision' => $input['time_precision'] ?? ticket_time_entry_precision($entry),
+    ]);
+    $updates = $time_input;
+    if (array_key_exists('comment_id', $input)) {
+        $updates['comment_id'] = api_app_time_comment_id($input, (int) $entry['ticket_id']);
+    }
+    if (array_key_exists('summary', $input)) {
+        $updates['summary'] = trim((string) $input['summary']);
+    }
+    if (array_key_exists('is_billable', $input)) {
+        $updates['is_billable'] = api_app_bool($input, 'is_billable', false) ? 1 : 0;
+    }
+
+    require_once BASE_PATH . '/includes/ticket-time-functions.php';
+    $stored_updates = $updates;
+    if (function_exists('ticket_time_work_metadata_columns_exist') && !ticket_time_work_metadata_columns_exist()) {
+        unset($stored_updates['worked_on'], $stored_updates['time_precision']);
+    }
+    if (!update_time_entry($entry_id, $stored_updates)) {
+        api_error('Failed to update time entry.', 500);
+    }
+    db_update('tickets', ['updated_at' => date('Y-m-d H:i:s')], 'id = ?', [(int) $entry['ticket_id']]);
+    log_activity((int) $entry['ticket_id'], (int) $user['id'], 'time_updated', 'Time entry updated through API');
+
+    api_app_contract_success([
+        'ticket_id' => (int) $entry['ticket_id'],
+        'time_entry_id' => $entry_id,
+        'worked_on' => $updates['worked_on'],
+        'time_precision' => $updates['time_precision'],
+        'started_at' => $updates['started_at'],
+        'ended_at' => $updates['ended_at'],
+        'duration_minutes' => (int) $updates['duration_minutes'],
+        'summary' => $updates['summary'] ?? ($entry['summary'] ?? null),
+        'is_billable' => array_key_exists('is_billable', $updates)
+            ? (bool) $updates['is_billable']
+            : !empty($entry['is_billable']),
+    ], ['resource' => 'update_time_entry']);
 }
 
 function api_app_ticket_timer()

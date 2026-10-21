@@ -143,6 +143,7 @@ function route_api_request($action) {
         'app-ticket-timer' => 'api_app_ticket_timer',
         'app-ticket-timer-action' => 'api_app_ticket_timer_action',
         'app-log-time' => 'api_app_log_time',
+        'app-update-time-entry' => 'api_app_update_time_entry',
         'app-client-overview' => 'api_app_client_overview',
         'app-reporting-review' => 'api_app_reporting_review',
         'app-notifications' => 'api_app_notifications',
