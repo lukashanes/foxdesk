@@ -74,7 +74,7 @@
     "release:manifest:verify": "node bin/release-manifest.js --verify=build/release-manifest.json",
     "test:release-manifest": "node tests/release-manifest-contract.test.js",
     "test:microsoft-mail": "sh ./bin/run-php.sh tests/microsoft-mail-contract-test.php",
-    "test:email-policy": "sh -c 'sh ./bin/run-php.sh tests/notification-policy-test.php && sh ./bin/run-php.sh tests/email-notification-contract-test.php && sh ./bin/run-php.sh tests/email-format-test.php && sh ./bin/run-php.sh tests/email-arabic-contract-test.php && sh ./bin/run-php.sh tests/pseudo-cron-email-test.php && sh ./bin/run-php.sh tests/microsoft-mail-contract-test.php'"
+    "test:email-policy": "sh -c 'sh ./bin/run-php.sh tests/notification-policy-test.php && sh ./bin/run-php.sh tests/email-notification-contract-test.php && sh ./bin/run-php.sh tests/email-format-test.php && sh ./bin/run-php.sh tests/email-ingest-sender-authorization-test.php && sh ./bin/run-php.sh tests/rich-content-render-test.php && sh ./bin/run-php.sh tests/email-arabic-contract-test.php && sh ./bin/run-php.sh tests/pseudo-cron-email-test.php && sh ./bin/run-php.sh tests/microsoft-mail-contract-test.php'"
   },
   "devDependencies": {
     "@fontsource/inter": "^5.3.0",
