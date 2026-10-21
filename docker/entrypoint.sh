@@ -168,7 +168,7 @@ run_database_upgrade() {
     printf '%s\n' "$output" | sed -n 's/.*<span>\(.*\)<\/span>.*/\1/p' | while IFS= read -r line; do
         log "  $line"
     done
-    if printf '%s\n' "$output" | grep -q 'ERROR:'; then
+    if printf '%s\n' "$output" | grep -qiE 'ERROR:|failed|changed after it was applied'; then
         log "WARNING: the database upgrade reported errors; see the lines above."
     fi
 }

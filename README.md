@@ -56,7 +56,7 @@ cp .env.example .env          # set DB_PASSWORD and DB_ROOT_PASSWORD
 docker compose up -d --build
 ```
 
-Open `http://localhost:8080/install.php`, use `db` as the database host and the credentials from `.env`, then run `docker compose exec -u www-data app php upgrade.php` once. The stack includes PHP 8.2 with Apache, MariaDB 11, a scheduler container for background tasks, and persistent volumes for configuration, uploads, and backups. Backups, upgrades, and HTTPS proxy examples are in the [Docker guide](docs/DOCKER.md).
+Open `http://localhost:8080/install.php` and use `db` as the database host with the credentials from `.env`. The stack includes PHP 8.2 with Apache, MariaDB 11, a scheduler container for background tasks, and persistent volumes for configuration, uploads, and backups. Backups, upgrades, and HTTPS proxy examples are in the [Docker guide](docs/DOCKER.md).
 
 ### On PHP hosting or a VPS
 

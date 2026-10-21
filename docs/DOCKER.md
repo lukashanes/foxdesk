@@ -71,19 +71,11 @@ In the database step enter:
 | Database user | `DB_USER` from `.env` (default `foxdesk`) |
 | Password | `DB_PASSWORD` from `.env` |
 
-The installer writes `config.php` into the `config` volume, so it survives
-container rebuilds and in-app updates. Once `config.php` exists, `install.php`
+The installer creates the database schema, applies the bundled migrations,
+and writes `config.php` into the `config` volume, so it survives container
+rebuilds and in-app updates. Once `config.php` exists, `install.php`
 redirects to the application and cannot be run again without the recovery
 token, so you do not need to delete it inside the container.
-
-After the installer finishes, apply the bundled database migrations once:
-
-```bash
-docker compose exec -u www-data app php upgrade.php
-```
-
-The script is idempotent; running it again reports that everything is already
-applied.
 
 > The installer stores the URL you used as `APP_URL` in `config.php`. If
 > FoxDesk will be reached through a reverse proxy, run the installer through
@@ -254,9 +246,10 @@ docker compose restart app cron
 rm ./config.php
 ```
 
-The installer sets `date_default_timezone_set('Europe/Prague')`. Change it to
-your time zone and set the same zone as `TZ` in `.env`, so PHP and MariaDB
-agree on the current time.
+The installer writes the `TZ` value from `.env` (UTC by default) into
+`config.php` with `date_default_timezone_set()`. Set `TZ` before running the
+installer, or change both later so that PHP and MariaDB agree on the current
+time.
 
 ## Configuration reference
 
@@ -270,7 +263,7 @@ Variables read from `.env`:
 | `DB_USER` | `foxdesk` | Database user created on first start. |
 | `DB_PASSWORD` | required | Password for `DB_USER`. |
 | `DB_ROOT_PASSWORD` | required | MariaDB root password. |
-| `TZ` | `UTC` | Time zone of the containers. |
+| `TZ` | `UTC` | Time zone of the containers and the default written to `config.php` by the installer. |
 | `PHP_UPLOAD_MAX_FILESIZE` | `32M` | PHP upload limit. FoxDesk's own limit is `MAX_UPLOAD_SIZE` in `config.php` (10 MB by default). |
 | `PHP_POST_MAX_SIZE` | `40M` | PHP request body limit. |
 | `PHP_MEMORY_LIMIT` | `256M` | PHP memory limit. |
