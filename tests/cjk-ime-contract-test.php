@@ -7,7 +7,7 @@ require_once BASE_PATH . '/includes/ticket-query-functions.php';
 function assert_cjk_contract($condition, string $message): void
 {
     if (!$condition) {
-        fwrite(STDERR, $message . "\n");
+        fwrite(STDERR, $message . PHP_EOL);
         exit(1);
     }
 }
@@ -40,7 +40,7 @@ assert_cjk_contract(end($numeric['params']) === 123, 'Numeric ticket ID must be 
 $imeFiles = [
     'assets/js/shortcuts.js',
     'assets/js/ticket-list.js',
-    'assets/js/ticket-detail-workflow.js',
+    'assets/js/ticket-detail.js',
     'assets/js/autosave.js',
     'assets/js/chip-select.js',
 ];
@@ -66,4 +66,4 @@ foreach ($bidiSurfaces as $file) {
     assert_cjk_contract(strpos($source, 'dir="auto"') !== false, "{$file} lacks automatic direction for user content.");
 }
 
-echo "CJK search and IME contract tests passed\n";
+echo "CJK search, IME and bidi surface tests passed\n";

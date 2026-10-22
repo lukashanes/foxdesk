@@ -1,9 +1,11 @@
 (function (window, document) {
     'use strict';
 
-    var runtime = window.FoxDeskTicketDetailRuntime;
-    if (!runtime) throw new Error('FoxDesk ticket detail core was not loaded.');
+    var features = window.FoxDeskTicketDetailFeatures = window.FoxDeskTicketDetailFeatures || {};
+    features.admin = function (runtime) {
     var config = runtime.config;
+    var labels = runtime.labels;
+    var icons = runtime.icons;
     var ticketId = runtime.ticketId;
     var csrfToken = runtime.csrfToken;
     var t = runtime.t;
@@ -12,10 +14,12 @@
     var showUndoToast = runtime.showUndoToast;
     var fadeRemove = runtime.fadeRemove;
     var fillTemplate = runtime.fillTemplate;
-    var pad2 = runtime.pad2;
+    var quillFieldValue = runtime.quillFieldValue;
+    var loadQuillContent = runtime.loadQuillContent;
     var formatDateInput = runtime.formatDateInput;
     var formatTimeInput = runtime.formatTimeInput;
     var formatDateTimeLocal = runtime.formatDateTimeLocal;
+    var pad2 = runtime.pad2;
 
     function initPermanentDelete() {
         var modal = document.getElementById('ticket-permanent-delete-modal');
@@ -141,8 +145,8 @@
                 var html = '';
                 data.events.forEach(function (event) {
                     html += '<div class="tl-event">';
-                    html += '<div class="tl-dot" style="border-color:' + escapeHtml(event.color) + ';"></div>';
-                    html += '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">';
+                    html += '<div class="tl-dot" style="--tl-color:' + escapeHtml(event.color) + ';"></div>';
+                    html += '<div class="tl-event-row">';
                     html += '<div><span class="tl-user">' + escapeHtml(event.user_name) + '</span> <span class="tl-label">' + escapeHtml(event.label) + '</span></div>';
                     html += '<span class="tl-time">' + formatTimelineDate(event.timestamp) + '</span></div>';
                     if (event.type === 'change' && (event.old_value || event.new_value)) {
@@ -182,5 +186,6 @@
         return pad2(date.getDate()) + '.' + pad2(date.getMonth() + 1) + '. ' + time;
     }
 
-    runtime.initPermanentDelete = initPermanentDelete;
+        return { initPermanentDelete: initPermanentDelete };
+    };
 })(window, document);

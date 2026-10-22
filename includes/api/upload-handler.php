@@ -60,6 +60,28 @@ function api_upload() {
     try {
         $visibility = $ticket_id > 0 ? 'private' : 'public';
         $result = upload_file($_FILES['file'], $allowed_types, null, $visibility);
+        $result['url'] = 'image.php?f=' . rawurlencode((string) $result['filename']);
+
+        // Inline images on a ticket are stored as ticket attachments, so the
+        // protected image proxy can authorize them like any other attachment.
+        if ($ticket_id > 0) {
+            $attachment_row = [
+                'ticket_id' => $ticket_id,
+                'filename' => $result['filename'],
+                'original_name' => $result['original_name'],
+                'mime_type' => $result['mime_type'],
+                'file_size' => $result['file_size'],
+                'uploaded_by' => $user['id'],
+                'created_at' => date('Y-m-d H:i:s'),
+            ];
+            $attachment_id = db_insert('attachments', $attachment_row);
+            $result['attachment_id'] = (int) $attachment_id;
+            $attachment_row['id'] = (int) $attachment_id;
+            if (function_exists('attachment_download_url')) {
+                $result['url'] = attachment_download_url($attachment_row);
+            }
+        }
+
         api_success(['file' => $result]);
     } catch (Exception $e) {
         api_error($e->getMessage());

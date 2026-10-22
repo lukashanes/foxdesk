@@ -47,7 +47,7 @@ assert_quick_start(!str_contains($header, "['auto_timer' => '1']"), 'Staff navig
 assert_quick_start(str_contains($footer_js, "action=quick-start"), 'Global app JS must call the quick-start endpoint.');
 assert_quick_start(str_contains($footer_js, 'window.location.assign(result.url)'), 'Quick start must open the created draft.');
 assert_quick_start(str_contains($detail_page, "'quickStart' => isset(\$_GET['quick_start'])"), 'Ticket detail must expose quick-start state.');
-assert_quick_start(str_contains($detail_js, 'if (config.quickStart)'), 'Ticket detail must open the completion flow for quick drafts.');
+assert_quick_start(str_contains($detail_js, 'if (config.quickStart'), 'Ticket detail must open the completion flow for quick drafts.');
 assert_quick_start(str_contains($detail_js, "#edit-ticket-modal input[name=\"edit_title\"]"), 'Quick draft completion must focus the actual edit title field.');
 assert_quick_start(str_contains($detail_js, "classList.add('is-quick-start')"), 'Quick draft completion must use the focused quick-start modal state.');
 $modals = quick_start_file($root, 'includes/components/ticket-detail-modals.php');

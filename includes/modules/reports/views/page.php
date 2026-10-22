@@ -162,4 +162,3 @@ $report_page_asset_version = static function (string $path): string {
 <script src="assets/js/report-page.js?v=<?php echo e($report_page_asset_version('assets/js/report-page.js')); ?>"></script>
 <script src="assets/js/report-billing-review.js?v=<?php echo e($report_page_asset_version('assets/js/report-billing-review.js')); ?>"></script>
 <script src="assets/js/report-time-delete.js?v=<?php echo e($report_page_asset_version('assets/js/report-time-delete.js')); ?>"></script>
-<link rel="stylesheet" href="assets/css/report-page.css?v=<?php echo e($report_page_asset_version('assets/css/report-page.css')); ?>">

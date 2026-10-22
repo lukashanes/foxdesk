@@ -26,7 +26,9 @@ $tickets = $read('pages/tickets.php')
     . "\n" . $read('includes/components/ticket-list-page.php')
     . "\n" . $read('includes/components/ticket-list-board.php')
     . "\n" . $read('includes/components/ticket-list-table.php');
-$ticketDetail = $read('pages/ticket-detail.php')
+$ticketDetail = $read('pages/ticket-detail.php') . "
+" . $read('includes/components/ticket-workspace-actions.php') . "
+" . $read('includes/components/ticket-workspace-timer.php')
     . "\n" . $read('includes/components/ticket-detail-content.php');
 $ticketSidebar = $read('includes/components/ticket-detail-sidebar.php');
 $client = $read('pages/client.php');

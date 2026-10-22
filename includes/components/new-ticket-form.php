@@ -39,7 +39,7 @@ include BASE_PATH . '/includes/components/page-header.php';
             <!-- File Upload + Company row -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Attachments')); ?></label>
+                    <label for="file-input" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Attachments')); ?></label>
                     <div id="upload-zone" class="fd-rounded-card p-2 flex items-center gap-2 cursor-pointer border-2 border-dashed hover:border-blue-300 transition-colors border-theme-light">
                         <input type="file" name="attachments[]" id="file-input" multiple class="hidden"
                             accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar">
@@ -67,8 +67,8 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                 <?php if (!empty($organizations)): ?>
                 <div>
-                    <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Company')); ?></label>
-                    <select name="organization_id" class="form-select" autocomplete="off" data-reset-on-fresh-ticket="1">
+                    <label for="new-ticket-organization" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Company')); ?></label>
+                    <select name="organization_id" id="new-ticket-organization" class="form-select" autocomplete="off" data-reset-on-fresh-ticket="1">
                         <option value=""><?php echo e(t('-- No organization --')); ?></option>
                         <?php foreach ($organizations as $org): ?>
                             <option value="<?php echo (int) $org['id']; ?>" <?php echo $default_organization_id === (int) $org['id'] ? 'selected' : ''; ?>>
@@ -83,13 +83,14 @@ include BASE_PATH . '/includes/components/page-header.php';
             <!-- Status (admin/agent only) — visible immediately -->
             <?php if (is_admin() || is_agent()): ?>
             <div>
-                <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Status')); ?></label>
+                <span id="new-ticket-status-label" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Status')); ?></span>
                 <input type="hidden" name="status_id" id="status_id" value="<?php echo (int) ($statuses[0]['id'] ?? 0); ?>">
-                <div class="flex flex-wrap gap-1.5 items-center" id="status-selector">
+                <div class="flex flex-wrap gap-1.5 items-center" id="status-selector" role="group" aria-labelledby="new-ticket-status-label">
                     <?php foreach ($statuses as $i => $status): ?>
                         <button type="button" class="option-pill <?php echo $i === 0 ? 'selected' : ''; ?>"
                             data-value="<?php echo (int) $status['id']; ?>" data-group="status"
                             data-input-id="status_id"
+                            aria-pressed="<?php echo $i === 0 ? 'true' : 'false'; ?>"
                             data-pill-color="<?php echo e($status['color'] ?? '#6b7280'); ?>">
                             <span><?php echo e($status['name']); ?></span>
                         </button>
@@ -98,27 +99,25 @@ include BASE_PATH . '/includes/components/page-header.php';
             </div>
             <?php endif; ?>
 
-            <!-- Advanced Settings (collapsible) -->
-            <details class="group">
-                <summary class="flex items-center gap-2 cursor-pointer py-2 text-sm font-medium text-theme-secondary">
-                    <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                    <?php echo e(t('Advanced')); ?>
-                </summary>
+            <!-- Core ticket properties are visible without expanding advanced options. -->
+            <section class="new-ticket-properties" aria-labelledby="new-ticket-properties-title">
+                <h2 id="new-ticket-properties-title" class="text-sm font-semibold text-theme-primary"><?php echo e(t('Ticket properties')); ?></h2>
                 <div class="pt-2 space-y-4">
                     <!-- Priority, Ticket Type, Due Date, Assign To, On Behalf Of -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         <!-- Priority -->
                         <div>
-                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Priority')); ?></label>
+                            <span id="new-ticket-priority-label" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Priority')); ?></span>
                             <input type="hidden" name="priority_id" id="priority_id"
                                 value="<?php echo $default_priority_id; ?>">
-                            <div class="flex flex-wrap gap-1.5 items-center" id="priority-selector">
+                            <div class="flex flex-wrap gap-1.5 items-center" id="priority-selector" role="group" aria-labelledby="new-ticket-priority-label">
                                 <?php foreach ($priorities as $priority):
                                     $is_selected = ($default_priority_id == $priority['id']);
                                     ?>
                                     <button type="button" class="option-pill <?php echo $is_selected ? 'selected' : ''; ?>"
                                         data-value="<?php echo $priority['id']; ?>" data-group="priority"
                                         data-input-id="priority_id"
+                                        aria-pressed="<?php echo $is_selected ? 'true' : 'false'; ?>"
                                         data-pill-color="<?php echo e($priority['color']); ?>">
                                         <span class="pill-icon"><?php echo get_icon($priority['icon'] ?? 'flag', 'w-3.5 h-3.5'); ?></span>
                                         <span><?php echo e($priority['name']); ?></span>
@@ -129,15 +128,16 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <!-- Ticket Type -->
                         <div>
-                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Ticket type')); ?></label>
+                            <span id="new-ticket-type-label" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Ticket type')); ?></span>
                             <input type="hidden" name="type" id="type" value="<?php echo e($default_type_slug); ?>">
-                            <div class="flex flex-wrap gap-1.5 items-center" id="type-selector">
+                            <div class="flex flex-wrap gap-1.5 items-center" id="type-selector" role="group" aria-labelledby="new-ticket-type-label">
                                 <?php foreach ($ticket_types as $tt):
                                     $is_selected = ($default_type_slug === $tt['slug']);
                                     ?>
                                     <button type="button" class="option-pill <?php echo $is_selected ? 'selected' : ''; ?>"
                                         data-value="<?php echo e($tt['slug']); ?>" data-group="type"
                                         data-input-id="type"
+                                        aria-pressed="<?php echo $is_selected ? 'true' : 'false'; ?>"
                                         data-pill-color="<?php echo e($tt['color']); ?>">
                                         <span class="pill-icon"><?php echo get_icon($tt['icon'], 'w-3.5 h-3.5'); ?></span>
                                         <span><?php echo e($tt['name']); ?></span>
@@ -148,16 +148,29 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <!-- Due Date -->
                         <div>
-                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Due date')); ?></label>
-                            <input type="datetime-local" name="due_date" value="<?php echo e($_POST['due_date'] ?? ''); ?>"
+                            <label for="new-ticket-due-date" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Due date')); ?></label>
+                            <input type="datetime-local" name="due_date" id="new-ticket-due-date" value="<?php echo e($_POST['due_date'] ?? ''); ?>"
                                 class="form-input">
                         </div>
+
+                        <?php if (is_admin() || is_agent()): ?>
+                        <div>
+                            <label for="new-ticket-created-at" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Created at')); ?></label>
+                            <input type="datetime-local"
+                                name="created_at"
+                                id="new-ticket-created-at"
+                                value="<?php echo e($_POST['created_at'] ?? ''); ?>"
+                                max="<?php echo e(date('Y-m-d\TH:i')); ?>"
+                                class="form-input">
+                            <p class="mt-1 text-xs text-theme-muted"><?php echo e(t('Leave empty to use now.')); ?></p>
+                        </div>
+                        <?php endif; ?>
 
                         <!-- Assign To (admin/agent only) -->
                         <?php if (is_admin() || is_agent()): ?>
                         <div>
-                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Assign to')); ?></label>
-                            <select name="assignee_id" class="form-select" autocomplete="off" data-reset-on-fresh-ticket="1">
+                            <label for="new-ticket-assignee" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Assign to')); ?></label>
+                            <select name="assignee_id" id="new-ticket-assignee" class="form-select" autocomplete="off" data-reset-on-fresh-ticket="1">
                                 <option value=""><?php echo e(t('-- Unassigned --')); ?></option>
                                 <?php foreach ($staff_users as $su): ?>
                                     <option value="<?php echo (int) $su['id']; ?>" <?php echo ($default_assignee_id !== null && (int) ($su['id'] ?? 0) === $default_assignee_id) ? 'selected' : ''; ?>>
@@ -170,8 +183,8 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                         <!-- On Behalf Of (admin/agent only) -->
                         <div>
-                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('On behalf of')); ?></label>
-                            <select name="on_behalf_of" class="form-select">
+                            <label for="new-ticket-on-behalf" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('On behalf of')); ?></label>
+                            <select name="on_behalf_of" id="new-ticket-on-behalf" class="form-select">
                                 <option value=""><?php echo e(t('-- Myself --')); ?></option>
                                 <?php foreach ($all_users_list as $au): ?>
                                     <?php if ((int) $au['id'] === $user['id']) continue; ?>
@@ -187,7 +200,7 @@ include BASE_PATH . '/includes/components/page-header.php';
                         <!-- Tags (next to On Behalf Of) -->
                         <?php if ($tags_supported): ?>
                         <div>
-                            <label class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Tags')); ?></label>
+                            <label for="cs-tags-input" class="block text-sm font-medium mb-1 text-theme-secondary"><?php echo e(t('Tags')); ?></label>
                             <input type="hidden" name="tags" id="nt-tags-value" value="<?php echo e($_POST['tags'] ?? ''); ?>">
                             <div class="chip-select" id="cs-tags">
                                 <div class="chip-select__wrap" id="cs-tags-wrap">
@@ -203,7 +216,7 @@ include BASE_PATH . '/includes/components/page-header.php';
 
                     </div>
                 </div>
-            </details>
+            </section>
         </div>
 
         <?php if (is_agent() && function_exists('ticket_time_table_exists') && ticket_time_table_exists()): ?>
@@ -211,7 +224,7 @@ include BASE_PATH . '/includes/components/page-header.php';
         <div id="nt-manual-entry-row" class="hidden mt-3 pt-3 border-t border-theme-light">
             <div class="space-y-3">
                 <div>
-                    <label class="form-label-sm mb-1"><?php echo e(t('Time (min)')); ?></label>
+                    <label for="nt-manual-duration-minutes" class="form-label-sm mb-1"><?php echo e(t('Time (min)')); ?></label>
                     <input
                         type="number"
                         name="manual_duration_minutes"
@@ -235,16 +248,16 @@ include BASE_PATH . '/includes/components/page-header.php';
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
                     <div>
-                        <label class="form-label-sm mb-1"><?php echo e(t('Date')); ?></label>
-                        <input type="date" name="manual_date" value="<?php echo e($_POST['manual_date'] ?? date('Y-m-d')); ?>" class="form-input text-sm h-9">
+                        <label for="nt-manual-date" class="form-label-sm mb-1"><?php echo e(t('Date')); ?></label>
+                        <input type="date" name="manual_date" id="nt-manual-date" value="<?php echo e($_POST['manual_date'] ?? date('Y-m-d')); ?>" class="form-input text-sm h-9">
                     </div>
                     <div>
-                        <label class="form-label-sm mb-1"><?php echo e(t('Start')); ?></label>
-                        <input type="time" name="manual_start_time" value="<?php echo e($_POST['manual_start_time'] ?? ''); ?>" class="form-input text-sm h-9">
+                        <label for="nt-manual-start" class="form-label-sm mb-1"><?php echo e(t('Start')); ?></label>
+                        <input type="time" name="manual_start_time" id="nt-manual-start" value="<?php echo e($_POST['manual_start_time'] ?? ''); ?>" class="form-input text-sm h-9">
                     </div>
                     <div>
-                        <label class="form-label-sm mb-1"><?php echo e(t('End')); ?></label>
-                        <input type="time" name="manual_end_time" value="<?php echo e($_POST['manual_end_time'] ?? ''); ?>" class="form-input text-sm h-9">
+                        <label for="nt-manual-end" class="form-label-sm mb-1"><?php echo e(t('End')); ?></label>
+                        <input type="time" name="manual_end_time" id="nt-manual-end" value="<?php echo e($_POST['manual_end_time'] ?? ''); ?>" class="form-input text-sm h-9">
                     </div>
                 </div>
             </div>
@@ -252,7 +265,7 @@ include BASE_PATH . '/includes/components/page-header.php';
         <?php endif; ?>
 
         <!-- Buttons - aligned right with consistent height -->
-        <div class="mt-4 pt-3 border-t flex items-center justify-between gap-3">
+        <div class="new-ticket-actions mt-4 pt-3 border-t flex items-center justify-between gap-3">
             <div class="flex items-center gap-3">
                 <?php if (is_agent() && function_exists('ticket_time_table_exists') && ticket_time_table_exists()): ?>
                     <?php $auto_timer = isset($_GET['auto_timer']) && $_GET['auto_timer'] === '1'; ?>
@@ -267,12 +280,15 @@ include BASE_PATH . '/includes/components/page-header.php';
                         </button>
                         <button type="button" id="nt-timer-discard"
                             class="hidden btn btn-ghost px-2 py-1.5 hover:text-red-500 transition-colors text-theme-muted"
+                            aria-label="<?php echo e(t('Discard timer')); ?>"
                             title="<?php echo e(t('Discard timer')); ?>">
                             <?php echo get_icon('trash', 'w-4 h-4'); ?>
                         </button>
                     </div>
                     <!-- Manual time entry toggle -->
-                    <button type="button" id="nt-manual-toggle" class="btn btn-ghost px-2 py-1.5 text-theme-muted" title="<?php echo e(t('Manual entry')); ?>">
+                    <button type="button" id="nt-manual-toggle" class="btn btn-ghost px-2 py-1.5 text-theme-muted"
+                        aria-label="<?php echo e(t('Manual entry')); ?>"
+                        title="<?php echo e(t('Manual entry')); ?>">
                         <?php echo get_icon('pen', 'w-4 h-4'); ?>
                     </button>
 
@@ -290,7 +306,3 @@ include BASE_PATH . '/includes/components/page-header.php';
     </form>
 
 </div>
-
-<link rel="stylesheet" href="assets/css/new-ticket.css?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>">
-
-<?php require BASE_PATH . '/includes/components/new-ticket-assets.php'; ?>

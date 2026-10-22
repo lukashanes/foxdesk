@@ -2,7 +2,7 @@
 
 $root = dirname(__DIR__);
 $page = file_get_contents($root . '/pages/ticket-detail.php');
-$content = file_get_contents($root . '/includes/components/ticket-detail-content.php');
+$content = file_get_contents($root . '/includes/components/ticket-detail-content.php') . "\n" . file_get_contents($root . '/includes/components/ticket-workspace-actions.php');
 $modals = file_get_contents($root . '/includes/components/ticket-detail-modals.php');
 $handlers = file_get_contents($root . '/includes/components/ticket-form-handlers.php');
 $ticketCrud = file_get_contents($root . '/includes/ticket-crud-functions.php');

@@ -33,6 +33,7 @@
         this.isComposing = false;
         this.allowCreate  = cfg.allowCreate || false;
         this.noMatchText  = cfg.noMatchText || 'No matches';
+        this.removeLabel  = cfg.removeLabel || 'Remove';
 
         this.wrap     = document.getElementById(cfg.wrapId);
         this.chips    = document.getElementById(cfg.chipsId);
@@ -40,7 +41,14 @@
         this.dropdown = document.getElementById(cfg.dropdownId);
         this.hidden   = document.getElementById(cfg.hiddenId);
 
-        if (!this.input) return;
+        if (!this.input || !this.wrap || !this.chips || !this.dropdown || !this.hidden) return;
+
+        this.dropdown.id = this.dropdown.id || (this.input.id + '-listbox');
+        this.input.setAttribute('role', 'combobox');
+        this.input.setAttribute('aria-autocomplete', 'list');
+        this.input.setAttribute('aria-expanded', 'false');
+        this.input.setAttribute('aria-controls', this.dropdown.id);
+        this.dropdown.setAttribute('role', 'listbox');
 
         // Pre-select items
         (cfg.selected || []).forEach(function (id) {
@@ -81,6 +89,8 @@
             if (e.key === 'Escape') {
                 self.dropdown.classList.add('hidden');
                 self.activeIdx = -1;
+                self.input.setAttribute('aria-expanded', 'false');
+                self.input.removeAttribute('aria-activedescendant');
                 return;
             }
 
@@ -112,6 +122,8 @@
             if (!self.wrap.contains(e.target) && !self.dropdown.contains(e.target)) {
                 self.dropdown.classList.add('hidden');
                 self.activeIdx = -1;
+                self.input.setAttribute('aria-expanded', 'false');
+                self.input.removeAttribute('aria-activedescendant');
             }
         });
     }
@@ -132,9 +144,12 @@
         if (visible.length === 0 && !(this.allowCreate && query)) {
             this.dropdown.innerHTML = '<div class="chip-select__empty">' + _escHtml(this.noMatchText) + '</div>';
         } else {
-            visible.forEach(function (it) {
+            visible.forEach(function (it, index) {
                 var div = document.createElement('div');
                 div.className = 'chip-select__option';
+                div.id = self.dropdown.id + '-option-' + index;
+                div.setAttribute('role', 'option');
+                div.setAttribute('aria-selected', 'false');
                 div.textContent = it.name;
                 div.addEventListener('click', function () {
                     self._addChip(it);
@@ -155,6 +170,9 @@
                 if (!exactMatch && !alreadySelected) {
                     var createDiv = document.createElement('div');
                     createDiv.className = 'chip-select__option chip-select__option--create';
+                    createDiv.id = self.dropdown.id + '-option-create';
+                    createDiv.setAttribute('role', 'option');
+                    createDiv.setAttribute('aria-selected', 'false');
                     createDiv.innerHTML = '+ ' + _escHtml(this.input.value.trim());
                     createDiv.addEventListener('click', function () {
                         self._createFromInput();
@@ -164,6 +182,7 @@
             }
         }
         this.dropdown.classList.remove('hidden');
+        this.input.setAttribute('aria-expanded', 'true');
     };
 
     /* ── Create a chip from the current input value ── */
@@ -199,8 +218,14 @@
         var idx = this.activeIdx;
         opts.forEach(function (o, i) {
             o.classList.toggle('chip-select__option--active', i === idx);
+            o.setAttribute('aria-selected', i === idx ? 'true' : 'false');
         });
-        if (opts[idx]) opts[idx].scrollIntoView({ block: 'nearest' });
+        if (opts[idx]) {
+            this.input.setAttribute('aria-activedescendant', opts[idx].id);
+            opts[idx].scrollIntoView({ block: 'nearest' });
+        } else {
+            this.input.removeAttribute('aria-activedescendant');
+        }
     };
 
     /* ── Add a chip ── */
@@ -212,11 +237,17 @@
         var chip = document.createElement('span');
         chip.className = 'chip-select__chip';
         chip.dataset.id = item.id;
-        chip.innerHTML = _escHtml(item.name) + ' <span class="chip-select__chip-x">&times;</span>';
-        chip.querySelector('.chip-select__chip-x').addEventListener('click', function (e) {
+        chip.appendChild(document.createTextNode(item.name));
+        var removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'chip-select__chip-x';
+        removeButton.setAttribute('aria-label', this.removeLabel + ': ' + item.name);
+        removeButton.textContent = '×';
+        removeButton.addEventListener('click', function (e) {
             e.stopPropagation();
             self._removeById(item.id);
         });
+        chip.appendChild(removeButton);
         this.chips.appendChild(chip);
 
         // Hidden input for form submission

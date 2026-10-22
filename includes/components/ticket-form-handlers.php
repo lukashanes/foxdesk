@@ -425,6 +425,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $is_internal = $pending_is_internal;
         $content = $pending_content;
+        $comment_created_at_input = trim((string) ($_POST['comment_created_at'] ?? ''));
+        $comment_created_at = date('Y-m-d H:i:s');
+        if ($comment_created_at_input !== '') {
+            if (!foxdesk_can_backdate_records($user)) {
+                flash(t('Only admins and agents can set historical dates.'), 'error');
+                redirect('ticket', ['id' => $ticket_id]);
+            }
+
+            $normalized_comment_created_at = foxdesk_normalize_backdated_datetime_input($comment_created_at_input);
+            if ($normalized_comment_created_at === false) {
+                flash(t('Invalid created date.'), 'error');
+                redirect('ticket', ['id' => $ticket_id]);
+            }
+            if ($normalized_comment_created_at !== null) {
+                $comment_created_at = $normalized_comment_created_at;
+            }
+        }
 
         $cc_users = isset($_POST['cc_users']) ? array_map('intval', $_POST['cc_users']) : [];
         $stop_timer = is_agent() && (isset($_POST['stop_timer']) || ($new_status && ticket_status_group_from_status($new_status) === 'done'));
@@ -453,6 +470,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $manual_range_requested = is_agent() && ($manual_start_input !== '' || $manual_end_input !== '' || $manual_start_time_input !== '' || $manual_end_time_input !== '');
         $manual_snapshot_requested = $manual_quick_requested && $manual_start_at_input !== '' && $manual_end_at_input !== '';
         $manual_requested = $manual_range_requested || $manual_quick_requested;
+        $reply_manual_requested = is_agent() && !empty($_POST['reply_manual_time']);
+        if ($reply_manual_requested && !$manual_requested) {
+            flash(t('Please fill in all required fields.'), 'error');
+            redirect('ticket', ['id' => $ticket_id]);
+        }
+        // The composer also accepts time-only work. Empty Quill markup is not a reply.
+        if ($reply_manual_requested && trim(str_replace("\xC2\xA0", ' ', $pending_public_comment_text)) === '' && !preg_match('/<img\\b/i', $content)) {
+            $content = '';
+        }
         $log_time_requested = $stop_timer || $manual_requested;
         $comment_time_spent = 0;
         $manual_start_dt = null;
@@ -467,6 +493,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($manual_requested) {
+            if ($reply_manual_requested) {
+                $work_date = DateTime::createFromFormat('!Y-m-d', $manual_date_input);
+                if (!$work_date || $work_date->format('Y-m-d') !== $manual_date_input || ($manual_quick_requested && !preg_match('/^[0-9]+$/', $manual_duration_input))) {
+                    flash(t('Invalid time range.'), 'error');
+                    redirect('ticket', ['id' => $ticket_id]);
+                }
+            }
             if ($manual_quick_requested && ($manual_duration_minutes < 1 || $manual_duration_minutes > 1440)) {
                 flash(t('Duration must be between 1 and 1440 minutes.'), 'error');
                 redirect('ticket', ['id' => $ticket_id]);
@@ -475,8 +508,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($manual_snapshot_requested) {
                 $manual_start_dt = DateTime::createFromFormat('Y-m-d\\TH:i', $manual_start_at_input);
                 $manual_end_dt = DateTime::createFromFormat('Y-m-d\\TH:i', $manual_end_at_input);
-            } elseif ($manual_quick_requested && !$manual_range_requested) {
+            } elseif ($reply_manual_requested && $manual_quick_requested && !$manual_range_requested) {
+                // Quick minutes end at the current clock time on the selected work date.
                 $manual_end_dt = new DateTime();
+                $manual_end_dt->setDate((int) $work_date->format('Y'), (int) $work_date->format('m'), (int) $work_date->format('d'));
+                $manual_start_dt = (clone $manual_end_dt)->modify('-' . $manual_duration_minutes . ' minutes');
+            } elseif ($manual_quick_requested && !$manual_range_requested) {
+                $manual_end_dt = new DateTime($comment_created_at);
                 $manual_start_dt = (clone $manual_end_dt)->modify('-' . $manual_duration_minutes . ' minutes');
             } else {
                 if ($manual_start_input === '' || $manual_end_input === '') {
@@ -540,11 +578,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'content' => $content,
                 'is_internal' => $is_internal,
                 'time_spent' => $comment_time_spent,
-                'created_at' => date('Y-m-d H:i:s')
+                'created_at' => $comment_created_at
             ]);
 
             // Touch ticket so "Last updated" sorting works
-            db_update('tickets', ['updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$ticket_id]);
+            db_update('tickets', ['updated_at' => $comment_created_at], 'id = ?', [$ticket_id]);
 
             log_activity($ticket_id, $user['id'], 'commented', 'Comment added');
         }
@@ -582,7 +620,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'mime_type' => $result['mime_type'],
                         'file_size' => $result['file_size'],
                         'uploaded_by' => $user['id'],
-                        'created_at' => date('Y-m-d H:i:s')
+                        'created_at' => $comment_created_at
                     ]);
 
                     $uploaded_attachments[] = $result;
@@ -640,12 +678,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (function_exists('time_entry_source_column_exists') && time_entry_source_column_exists()) {
                     $manual_insert['source'] = 'manual';
                 }
+                if ($reply_manual_requested && function_exists('ticket_time_work_metadata_columns_exist') && ticket_time_work_metadata_columns_exist()) {
+                    $manual_insert['worked_on'] = $manual_start_dt->format('Y-m-d');
+                    $manual_insert['time_precision'] = 'exact';
+                }
                 $manual_entry_id = db_insert('ticket_time_entries', $manual_insert);
                 notify_saved_time_entry((int) $manual_entry_id, (int) $user['id']);
                 log_activity($ticket_id, $user['id'], 'time_manual', "Manual time added ({$manual_duration} min)");
             }
         }
 
+            if ($reply_manual_requested && !$comment_id) {
+                db_update('tickets', ['updated_at' => $comment_created_at], 'id = ?', [$ticket_id]);
+            }
             $workflow_db->commit();
         } catch (Throwable $error) {
             if ($workflow_db->inTransaction()) $workflow_db->rollBack();
@@ -706,10 +751,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $new_status = get_status($new_status_id);
         $status_changed = $new_status_id !== (int) $ticket['status_id'];
 
-        $should_stop_timer_on_complete = (
-            function_exists('ticket_status_group_from_status')
-            && ticket_status_group_from_status($new_status) === 'done'
-        );
+        $should_stop_timer_on_complete = !empty($_POST['stop_timer_on_complete'])
+            || (
+                function_exists('ticket_status_group_from_status')
+                && ticket_status_group_from_status($new_status) === 'done'
+            );
         $transition = ticket_transition_status($ticket, $old_status, $new_status, (int) $user['id'], [
             'comment' => $status_comment,
             'stop_timer' => $should_stop_timer_on_complete,
@@ -749,6 +795,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['assign_agent']) && is_agent()) {
         $old_assignee_id = $ticket['assignee_id'] ?? null;
         $assignee_id = !empty($_POST['assignee_id']) ? (int) $_POST['assignee_id'] : null;
+        $assigned_user = $assignee_id ? get_user($assignee_id) : null;
+        if ($assignee_id && (!$assigned_user || !in_array((string) ($assigned_user['role'] ?? ''), ['agent', 'admin'], true))) {
+            flash(t('User not found.'), 'error');
+            redirect('ticket', ['id' => $ticket_id]);
+        }
 
         db_update('tickets', ['assignee_id' => $assignee_id], 'id = ?', [$ticket_id]);
         if (function_exists('log_ticket_history')) {
@@ -756,7 +807,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($assignee_id) {
-            $assigned_user = get_user($assignee_id);
             log_activity($ticket_id, $user['id'], 'assigned', "Ticket assigned to {$assigned_user['first_name']} {$assigned_user['last_name']}");
 
             // Send email notification to assigned agent
@@ -816,6 +866,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $org_input = trim((string) ($_POST['organization_id'] ?? ''));
         if ($org_input !== '') {
             $new_org_id = (int) $org_input;
+            if ($new_org_id <= 0 || !get_organization($new_org_id)) {
+                flash(t('Selected organization is not available.'), 'error');
+                redirect('ticket', ['id' => $ticket_id]);
+            }
         }
         $old_org_id = $ticket['organization_id'] ?? null;
         db_update('tickets', ['organization_id' => $new_org_id], 'id = ?', [$ticket_id]);
@@ -865,12 +919,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('ticket', ['id' => $ticket_id]);
     }
 
-    // Update time entry (admin can edit any, agent can edit own only)
-    if (isset($_POST['update_time_entry']) && (is_agent() || is_admin())) {
+    // Update time entry fallback for non-JS form submissions.
+    if (isset($_POST['update_time_entry'])) {
         $entry_id = (int) $_POST['entry_id'];
         $entry = db_fetch_one("SELECT * FROM ticket_time_entries WHERE id = ?", [$entry_id]);
 
-        if ($entry && ($entry['ticket_id'] == $ticket_id) && (is_admin() || (int) $entry['user_id'] === (int) $user['id'])) {
+        if ($entry && ($entry['ticket_id'] == $ticket_id) && can_manage_time_entry($entry, $user)) {
             require_once BASE_PATH . '/includes/ticket-time-functions.php';
 
             $started_at = $_POST['started_at'] ?? '';

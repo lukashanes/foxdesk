@@ -513,6 +513,23 @@ function add_manual_time_entry($ticket_id, $user_id, $data) {
     }
 }
 
+/** Display a saved interval without inventing times for duration-only records. */
+function ticket_time_entry_display_range(array $entry): string
+{
+    $date = (string) ($entry['worked_on'] ?? $entry['started_at'] ?? '');
+    if (ticket_time_entry_precision($entry) !== 'exact') {
+        return format_date($date, 'd.m.Y') . ' · ' . t('ticket.workspace.no_exact_time');
+    }
+    $start = (string) ($entry['started_at'] ?? '');
+    if ($start === '') {
+        return '—';
+    }
+    $end = (string) ($entry['ended_at'] ?? '');
+    $end_label = $end === '' ? t(empty($entry['paused_at']) ? 'Running' : 'Paused')
+        : format_date($end, substr($start, 0, 10) === substr($end, 0, 10) ? 'H:i' : 'd.m.Y H:i');
+    return format_date($start, 'd.m.Y') . ' · ' . format_date($start, 'H:i') . ' – ' . $end_label;
+}
+
 /**
  * Ask the other participating staff to review saved work on a ticket.
  *

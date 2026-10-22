@@ -160,7 +160,7 @@
             <div class="modal-panel max-w-lg">
                 <form id="edit-comment-form" onsubmit="submitEditComment(event)">
                     <div class="modal-panel-body">
-                        <h3 class="text-lg font-medium mb-4" id="modal-title" style="color: var(--text-primary);">
+                        <h3 class="text-lg font-medium mb-4 text-theme-primary" id="modal-title">
                             <?php echo e(t('Edit comment')); ?></h3>
                         <input type="hidden" name="comment_id" id="edit-comment-id">
                         <div class="editor-wrapper">
@@ -229,7 +229,7 @@
                             <div>
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="checkbox" name="is_billable" id="edit-time-billable" value="1"
-                                        class="rounded text-blue-600 focus:ring-blue-500">
+                                        class="fd-rounded-control text-blue-600 focus:ring-blue-500">
                                     <span class="text-sm text-theme-secondary"><?php echo e(t('Billable')); ?></span>
                                 </label>
                             </div>

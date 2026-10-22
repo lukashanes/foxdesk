@@ -148,6 +148,21 @@
         return targets;
     }
 
+    function shouldSkipEvent(event, config) {
+        var target = event && event.target;
+        if (!target || typeof target.closest !== 'function') return false;
+
+        var excluded = ['.ql-editor'];
+        if (config && config.excludeSelector) excluded.push(config.excludeSelector);
+        if (config && Array.isArray(config.excludeSelectors)) {
+            excluded = excluded.concat(config.excludeSelectors);
+        }
+
+        return excluded.some(function (selector) {
+            return selector && target.closest(selector);
+        });
+    }
+
     function bind(config) {
         config = config || {};
         var input = document.getElementById(config.inputId || '');
@@ -163,6 +178,7 @@
         }
 
         function handlePaste(event) {
+            if (shouldSkipEvent(event, config)) return;
             var files = clipboardFiles(event, config.namePrefix);
             if (files.length === 0) return;
             event.preventDefault();
@@ -172,16 +188,19 @@
         }
 
         function handleDragOver(event) {
+            if (shouldSkipEvent(event, config)) return;
             if (!event.dataTransfer || toArray(event.dataTransfer.types).indexOf('Files') === -1) return;
             event.preventDefault();
             event.currentTarget.classList.add('dragover');
         }
 
         function handleDragLeave(event) {
+            if (shouldSkipEvent(event, config)) return;
             event.currentTarget.classList.remove('dragover');
         }
 
         function handleDrop(event) {
+            if (shouldSkipEvent(event, config)) return;
             var files = event.dataTransfer && event.dataTransfer.files ? toArray(event.dataTransfer.files) : [];
             if (files.length === 0) return;
             event.preventDefault();
@@ -216,7 +235,8 @@
     window.FoxDeskAttachmentPasteDrop = {
         bind: bind,
         appendToInput: appendToInput,
-        clipboardFiles: clipboardFiles
+        clipboardFiles: clipboardFiles,
+        shouldSkipEvent: shouldSkipEvent
     };
 
     function autoBindKnownSurfaces() {

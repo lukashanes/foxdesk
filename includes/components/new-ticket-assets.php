@@ -1,4 +1,10 @@
-<script src="assets/js/attachment-paste-drop.js?v=<?php echo APP_VERSION; ?>"></script>
+<?php
+$new_ticket_asset_version = static function (string $path): string {
+    return (defined('APP_VERSION') ? (string) APP_VERSION : '1') . '-' . (string) (@filemtime(BASE_PATH . '/' . $path) ?: '0');
+};
+?>
+<script src="assets/js/attachment-paste-drop.js?v=<?php echo e($new_ticket_asset_version('assets/js/attachment-paste-drop.js')); ?>"></script>
+<script src="assets/js/upload-preview.js?v=<?php echo e($new_ticket_asset_version('assets/js/upload-preview.js')); ?>"></script>
 <script>
     const ICONS = {
         'times': '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
@@ -22,8 +28,10 @@
 
         document.querySelectorAll(`[data-group="${group}"]`).forEach(el => {
             el.classList.remove('selected');
+            el.setAttribute('aria-pressed', 'false');
         });
         element.classList.add('selected');
+        element.setAttribute('aria-pressed', 'true');
         document.getElementById(inputId).value = value;
     }
 
@@ -34,182 +42,36 @@
         });
     });
 
-    // File upload handling
+    let ticketUploadPreview = null;
     const fileInput = document.getElementById('file-input');
-    const filePreview = document.getElementById('file-preview');
     const fileUploadErrors = document.getElementById('file-upload-errors');
-    const removeFileLabel = '<?php echo e(t('Remove')); ?>';
-    const uploadLimitConfig = {
-        single: <?php echo json_encode((int) get_max_upload_size()); ?>,
-        total: <?php echo json_encode((int) get_request_upload_limit()); ?>,
-        singleTemplate: <?php echo json_encode(t('File "{name}" exceeds the maximum allowed size of {size}.')); ?>,
-        totalTemplate: <?php echo json_encode(t('Selected attachments exceed the server request limit of {size}.')); ?>
-    };
-
-    function showUploadLimitMessage(message) {
-        if (!message) return;
-        if (window.showAppToast) {
-            window.showAppToast(message, 'error');
-        } else {
-            alert(message);
-        }
-    }
-
-    function renderUploadErrors(messages) {
-        if (!fileUploadErrors) return;
-
-        const uniqueMessages = Array.from(new Set((messages || []).filter(Boolean)));
-        if (uniqueMessages.length === 0) {
-            fileUploadErrors.innerHTML = '';
-            fileUploadErrors.classList.add('hidden');
-            return;
-        }
-
-        fileUploadErrors.innerHTML = uniqueMessages.map(function (message) {
-            return '<div>' + message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
-        }).join('');
-        fileUploadErrors.classList.remove('hidden');
-    }
-
-    function fillUploadTemplate(template, replacements) {
-        let output = String(template || '');
-        Object.keys(replacements || {}).forEach(function (key) {
-            output = output.split('{' + key + '}').join(replacements[key]);
-        });
-        return output;
-    }
-
-    function enforceUploadLimits() {
-        if (!fileInput || typeof DataTransfer === 'undefined') return { changed: false, hadErrors: false };
-
-        const originalCount = fileInput.files.length;
-        const dt = new DataTransfer();
-        let totalSize = 0;
-        let hadErrors = false;
-        let totalErrorShown = false;
-        const messages = [];
-
-        for (let i = 0; i < fileInput.files.length; i++) {
-            const file = fileInput.files[i];
-
-            if (uploadLimitConfig.single > 0 && file.size > uploadLimitConfig.single) {
-                hadErrors = true;
-                const message = fillUploadTemplate(uploadLimitConfig.singleTemplate, {
-                    name: file.name,
-                    size: formatFileSize(uploadLimitConfig.single)
-                });
-                messages.push(message);
-                showUploadLimitMessage(message);
-                continue;
-            }
-
-            if (uploadLimitConfig.total > 0 && totalSize + file.size > uploadLimitConfig.total) {
-                hadErrors = true;
-                if (!totalErrorShown) {
-                    const message = fillUploadTemplate(uploadLimitConfig.totalTemplate, {
-                        size: formatFileSize(uploadLimitConfig.total)
-                    });
-                    messages.push(message);
-                    showUploadLimitMessage(message);
-                    totalErrorShown = true;
-                }
-                continue;
-            }
-
-            totalSize += file.size;
-            dt.items.add(file);
-        }
-
-        if (originalCount !== dt.files.length) {
-            fileInput.files = dt.files;
-            return { changed: true, hadErrors: hadErrors, messages: messages };
-        }
-
-        return { changed: false, hadErrors: hadErrors, messages: messages };
-    }
-
-    function updatePreview() {
-        const validation = enforceUploadLimits();
-        renderUploadErrors(validation.messages);
-        filePreview.innerHTML = '';
-        if (fileInput.files.length === 0) {
-            filePreview.classList.add('hidden');
-            return;
-        }
-        filePreview.classList.remove('hidden');
-        for (let i = 0; i < fileInput.files.length; i++) {
-            const file = fileInput.files[i];
-            const div = document.createElement('div');
-            div.className = 'flex items-center justify-between rounded px-2 py-1.5 text-xs';
-            div.style.background = 'var(--surface-secondary)';
-            var row = document.createElement('div');
-            row.className = 'flex items-center gap-2 min-w-0';
-            row.innerHTML = getIcon(getFileIcon(file.type), 'flex-shrink-0 w-3.5 h-3.5');
-            var nameSpan = document.createElement('span');
-            nameSpan.className = 'truncate';
-            nameSpan.style.color = 'var(--text-secondary)';
-            nameSpan.textContent = file.name;
-            row.appendChild(nameSpan);
-            var sizeSpan = document.createElement('span');
-            sizeSpan.className = 'flex-shrink-0';
-            sizeSpan.style.color = 'var(--text-muted)';
-            sizeSpan.textContent = formatFileSize(file.size);
-            row.appendChild(sizeSpan);
-            div.appendChild(row);
-            var removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'text-red-400 hover:text-red-500 ml-2';
-            removeBtn.title = removeFileLabel;
-            removeBtn.innerHTML = getIcon('times', 'w-3.5 h-3.5');
-            (function(idx) { removeBtn.onclick = function() { removeFile(idx); }; })(i);
-            div.appendChild(removeBtn);
-            filePreview.appendChild(div);
-        }
-    }
-
-    function removeFile(index) {
-        const dt = new DataTransfer();
-        for (let i = 0; i < fileInput.files.length; i++) {
-            if (i !== index) dt.items.add(fileInput.files[i]);
-        }
-        fileInput.files = dt.files;
-        updatePreview();
-    }
-
-    function formatFileSize(bytes) {
-        if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
-        if (bytes >= 1024) return (bytes / 1024).toFixed(0) + ' KB';
-        return bytes + ' B';
-    }
-
-    function getFileIcon(mimeType) {
-        if (mimeType.startsWith('image/')) return 'file-image';
-        if (mimeType === 'application/pdf') return 'file-pdf';
-        if (mimeType.includes('word')) return 'file-word';
-        if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'file-excel';
-        if (mimeType.includes('zip') || mimeType.includes('rar')) return 'file-archive';
-        return 'file';
-    }
-
     const initTicketUploadZones = function () {
-        if (window.initFileDropzone) {
-            window.initFileDropzone({
-                zoneId: 'upload-zone',
-                inputId: 'file-input',
-                onFilesChanged: updatePreview
-            });
-        } else if (fileInput) {
-            fileInput.addEventListener('change', updatePreview);
-        }
+        ticketUploadPreview = window.FoxDeskUploadPreview && window.FoxDeskUploadPreview.init({
+            zoneId: 'upload-zone',
+            inputId: 'file-input',
+            previewId: 'file-preview',
+            errorsId: 'file-upload-errors',
+            removeLabel: <?php echo json_encode(t('Remove')); ?>,
+            sizeDecimals: 1,
+            limit: {
+                single: <?php echo json_encode((int) get_max_upload_size()); ?>,
+                total: <?php echo json_encode((int) get_request_upload_limit()); ?>,
+                singleTemplate: <?php echo json_encode(t('File "{name}" exceeds the maximum allowed size of {size}.')); ?>,
+                totalTemplate: <?php echo json_encode(t('Selected attachments exceed the server request limit of {size}.')); ?>
+            }
+        });
         if (window.FoxDeskAttachmentPasteDrop) {
             window.FoxDeskAttachmentPasteDrop.bind({
                 inputId: 'file-input',
                 targetSelectors: ['#new-ticket-form', '#upload-zone'],
                 namePrefix: 'ticket-attachment',
-                onFilesChanged: updatePreview
+                onFilesChanged: function () {
+                    if (ticketUploadPreview && ticketUploadPreview.updatePreview) {
+                        ticketUploadPreview.updatePreview();
+                    }
+                }
             });
         }
-
     };
 
     if (document.readyState === 'loading') {
@@ -234,11 +96,10 @@
 
         newTicketForm.addEventListener('submit', function(event) {
             const hadRenderedUploadErrors = fileUploadErrors && !fileUploadErrors.classList.contains('hidden');
-            const validation = enforceUploadLimits();
+            const validation = ticketUploadPreview
+                ? ticketUploadPreview.updatePreview()
+                : { hadErrors: false, messages: [] };
             const shouldKeepRenderedUploadErrors = hadRenderedUploadErrors && fileInput && fileInput.files.length === 0 && validation.messages.length === 0;
-            if (!shouldKeepRenderedUploadErrors) {
-                renderUploadErrors(validation.messages);
-            }
             const hasBlockingUploadError = hadRenderedUploadErrors || (fileUploadErrors && !fileUploadErrors.classList.contains('hidden'));
             if ((validation.hadErrors && fileInput && fileInput.files.length === 0) || (hasBlockingUploadError && fileInput && fileInput.files.length === 0)) {
                 const submitBtn = this.querySelector('[type=submit]');
@@ -521,7 +382,8 @@
             selected:   preSelected,
             name:       'tag_chips[]',
             allowCreate: true,
-            noMatchText: <?php echo json_encode(t('No matches')); ?>
+            noMatchText: <?php echo json_encode(t('No matches')); ?>,
+            removeLabel: <?php echo json_encode(t('Remove')); ?>
         });
 
         // Sync chip values to hidden input before form submit
@@ -536,11 +398,11 @@
 </script>
 <?php endif; ?>
 
-<!-- Quill Editor (self-hosted) -->
+<!-- Quill Editor -->
 <link href="assets/vendor/quill/2.0.2/quill.snow.css?v=<?php echo APP_VERSION; ?>" rel="stylesheet">
 <script src="assets/vendor/quill/2.0.2/quill.js?v=<?php echo APP_VERSION; ?>"></script>
-<script src="assets/js/quill-image-upload.js?v=<?php echo APP_VERSION; ?>"></script>
-<script src="assets/js/rich-text-editor.js?v=<?php echo APP_VERSION; ?>"></script>
+<script src="assets/js/rich-text-editor.js?v=<?php echo e($new_ticket_asset_version('assets/js/rich-text-editor.js')); ?>"></script>
+<script src="assets/js/quill-image-upload.js?v=<?php echo e($new_ticket_asset_version('assets/js/quill-image-upload.js')); ?>"></script>
 <script>
     // Initialize Quill Editor
     (function() {
@@ -552,7 +414,7 @@
             }
 
             if (typeof Quill === 'undefined') {
-                console.error('Quill: library not loaded - check that assets/vendor/quill is deployed');
+                console.error('Quill: library not loaded - check if CDN is accessible');
                 return;
             }
 
@@ -591,12 +453,9 @@
                 return;
             }
             const syncDescriptionInput = function() {
-                if (window.FoxDeskRichText) {
-                    descriptionInput.value = window.FoxDeskRichText.fieldValue(window.descriptionEditor);
-                    return;
-                }
-                const html = window.descriptionEditor.root.innerHTML;
-                descriptionInput.value = (html === '<p><br></p>' || html === '<p></p>') ? '' : html;
+                descriptionInput.value = window.FoxDeskRichText
+                    ? window.FoxDeskRichText.fieldValue(window.descriptionEditor)
+                    : window.descriptionEditor.root.innerHTML;
             };
 
             // Keep hidden input in sync continuously and also right before submit.
@@ -634,13 +493,21 @@
                 var group = 'priority';
                 document.querySelectorAll('[data-group="' + group + '"]').forEach(function(el) {
                     el.classList.remove('selected');
-                    if (el.dataset.value === value) el.classList.add('selected');
+                    el.setAttribute('aria-pressed', 'false');
+                    if (el.dataset.value === value) {
+                        el.classList.add('selected');
+                        el.setAttribute('aria-pressed', 'true');
+                    }
                 });
             } else if (fieldName === 'type') {
                 var group = 'type';
                 document.querySelectorAll('[data-group="' + group + '"]').forEach(function(el) {
                     el.classList.remove('selected');
-                    if (el.dataset.value === value) el.classList.add('selected');
+                    el.setAttribute('aria-pressed', 'false');
+                    if (el.dataset.value === value) {
+                        el.classList.add('selected');
+                        el.setAttribute('aria-pressed', 'true');
+                    }
                 });
             }
         },

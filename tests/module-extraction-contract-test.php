@@ -7,7 +7,7 @@ $helper = file_get_contents($root . '/includes/components/ticket-detail-surface.
 $sidebar = file_get_contents($root . '/includes/components/ticket-detail-sidebar.php');
 $composer = file_get_contents($root . '/includes/components/ticket-detail-composer.php');
 $modals = file_get_contents($root . '/includes/components/ticket-detail-modals.php');
-$ticketContent = file_get_contents($root . '/includes/components/ticket-detail-content.php');
+$ticketContent = file_get_contents($root . '/includes/components/ticket-detail-content.php') . file_get_contents($root . '/includes/components/ticket-workspace-actions.php');
 $detailContext = file_get_contents($root . '/includes/modules/tickets/ticket-detail-context.php');
 $readModel = file_get_contents($root . '/includes/modules/tickets/ticket-detail-read-model.php');
 $shareState = file_get_contents($root . '/includes/modules/tickets/ticket-share-state.php');
@@ -19,10 +19,10 @@ $ticketListBoard = file_get_contents($root . '/includes/components/ticket-list-b
 $ticketListTable = file_get_contents($root . '/includes/components/ticket-list-table.php');
 $ticketListAssets = file_get_contents($root . '/includes/components/ticket-list-assets.php');
 $ticketListJs = file_get_contents($root . '/assets/js/ticket-list.js');
-$ticketListActionsJs = file_get_contents($root . '/assets/js/ticket-list-actions.js');
+$ticketListActionsJs = file_get_contents($root . '/assets/js/ticket-list-time.js') . "\n" . file_get_contents($root . '/assets/js/ticket-list-due-date.js');
 $ticketDetailJsPaths = [
-    'assets/js/ticket-detail-core.js',
-    'assets/js/ticket-detail-workflow.js',
+    'assets/js/ticket-detail.js',
+    'assets/js/ticket-detail-timer.js',
     'assets/js/ticket-detail-records.js',
     'assets/js/ticket-detail-admin.js',
     'assets/js/ticket-detail.js',
@@ -164,9 +164,9 @@ $assert(str_contains($ticketListSurface, 'includes/components/ticket-list-board.
 $assert(str_contains($ticketListSurface, 'includes/components/ticket-list-table.php'), 'Ticket list surface must delegate the list and table view.');
 $assert(str_contains($ticketListBoard, 'data-kanban-scope="main"'), 'Ticket list board component must own kanban markup.');
 $assert(str_contains($ticketListTable, 'tickets-table'), 'Ticket list table component must own table markup.');
-$assert(str_contains($ticketListSurface, 'includes/components/ticket-list-assets.php'), 'Ticket list surface must delegate scripts and templates.');
+$assert(str_contains($ticketListPage, 'includes/components/ticket-list-assets.php'), 'Tickets route must delegate scripts and templates.');
 $assert(str_contains($ticketListAssets, 'assets/js/ticket-list.js'), 'Ticket list assets component must load extracted ticket list JS.');
-$assert(str_contains($ticketListAssets, 'assets/js/ticket-list-actions.js'), 'Ticket list assets component must load extracted action JS.');
+$assert(str_contains($ticketListAssets, 'assets/js/ticket-list-time.js') && str_contains($ticketListAssets, 'assets/js/ticket-list-due-date.js'), 'Ticket list assets component must load extracted action JS.');
 $assert(!str_contains($ticketListPage, '$collect_editable_tickets = function'), 'Tickets page must not own editable ticket collection.');
 $assert(!str_contains($ticketListPage, "isset(\$_POST['bulk_update'])"), 'Tickets page must not own bulk update handling.');
 $assert(!str_contains($ticketListPage, '$statuses_by_id = [];'), 'Tickets page must not rebuild status lookup inline.');
@@ -174,14 +174,14 @@ $assert(!str_contains($ticketListPage, '$normalize_tag_filters ='), 'Tickets pag
 $assert(!str_contains($ticketListPage, '$allowed_sorts ='), 'Tickets page must not own sort allow-list logic.');
 $assert(!str_contains($ticketListPage, 'function applyHeaderSort'), 'Tickets page must not own ticket list JS behavior.');
 $assert(str_contains($ticketListJs, 'window.applyHeaderSort'), 'Ticket list JS must own header sort behavior.');
-$assert(str_contains($ticketListActionsJs, 'function bindInlineLogTime'), 'Ticket list action JS must own inline time behavior.');
+$assert(str_contains($ticketListActionsJs, 'quick-log-time'), 'Ticket list time JS must own inline time behavior.');
 $assert(count(file($root . '/pages/tickets.php') ?: []) < 700, 'Tickets route must remain below 700 lines.');
 $assert(count(file($root . '/pages/new-ticket.php') ?: []) < 700, 'New ticket route must remain below 700 lines.');
 $assert(count(file($root . '/assets/js/ticket-list.js') ?: []) < 900, 'Ticket list core JS must remain below 900 lines.');
-$assert(count(file($root . '/assets/js/ticket-list-actions.js') ?: []) < 900, 'Ticket list action JS must remain below 900 lines.');
+$assert(count(file($root . '/assets/js/ticket-list-time.js') ?: []) < 900, 'Ticket list time JS must remain below 900 lines.');
 $assert(str_contains($newTicketPage, 'includes/components/new-ticket-form.php'), 'New ticket route must delegate rendering to the form component.');
-$assert(str_contains($newTicketForm, 'assets/css/new-ticket.css'), 'New ticket form must load its extracted stylesheet.');
-$assert(str_contains($newTicketForm, 'includes/components/new-ticket-assets.php'), 'New ticket form must delegate browser behavior to its asset component.');
+$assert(!str_contains($newTicketForm, 'assets/css/new-ticket.css'), 'New ticket styles live in theme.css.');
+$assert(str_contains($newTicketPage, 'includes/components/new-ticket-assets.php'), 'New ticket route must delegate browser behavior to its asset component.');
 $assert(str_contains($newTicketAssets, 'FoxDeskAttachmentPasteDrop.bind'), 'New ticket assets must preserve paste/drop behavior.');
 $assert(!str_contains($newTicketForm, '<style>'), 'New ticket form component must not own local CSS blocks.');
 
@@ -191,7 +191,6 @@ foreach ([
     'ticket_detail_visible_attachments($attachments, $visible_comment_ids, is_agent())',
     'window.FoxDeskTicketDetailConfig',
     "/includes/components/ticket-detail-content.php",
-    'assets/css/ticket-detail.css',
 ] as $needle) {
     $assert(str_contains($ticketPage, $needle), 'Ticket detail page must use extracted surface contract: ' . $needle);
 }

@@ -5,12 +5,12 @@ $root = dirname(__DIR__);
 $module = file_get_contents($root . '/includes/modules/tickets/ticket-detail-actions.php');
 $bootstrap = file_get_contents($root . '/includes/modules/bootstrap.php');
 $page = file_get_contents($root . '/pages/ticket-detail.php');
-$content = file_get_contents($root . '/includes/components/ticket-detail-content.php');
+$content = file_get_contents($root . '/includes/components/ticket-detail-content.php') . "\n" . file_get_contents($root . '/includes/components/ticket-workspace-actions.php');
 $sidebar = file_get_contents($root . '/includes/components/ticket-detail-sidebar.php');
 $handlers = file_get_contents($root . '/includes/components/ticket-form-handlers.php');
 $status_transition = file_get_contents($root . '/includes/modules/tickets/ticket-status-transition.php');
 $time_functions = file_get_contents($root . '/includes/ticket-time-functions.php');
-$detail_js = file_get_contents($root . '/assets/js/ticket-detail-workflow.js');
+$detail_js = file_get_contents($root . '/assets/js/ticket-detail-timer.js');
 
 if ($module === false || $bootstrap === false || $page === false || $content === false || $sidebar === false || $handlers === false || $status_transition === false || $time_functions === false || $detail_js === false) {
     fwrite(STDERR, "Unable to read ticket detail action files.\n");
@@ -32,7 +32,7 @@ $assert(str_contains($module, "'key' => 'assign'"), 'Assign must be a primary ac
 $assert(str_contains($module, "'key' => 'complete'"), 'Complete must be a primary action.');
 $assert(str_contains($page, 'ticket_detail_primary_actions('), 'Ticket detail page must consume the action model.');
 $assert(str_contains($page, '/includes/components/ticket-detail-content.php'), 'Ticket detail route must delegate its content surface.');
-$assert(str_contains($content, 'class="card ticket-work-panel"'), 'Ticket detail content must render the work panel.');
+$assert(str_contains($content, 'class="ticket-work-panel"'), 'Ticket detail content must render the work panel.');
 $assert(str_contains($module, "'id' => 'toolbar-timer-btn'"), 'Timer button id must stay stable in the action model.');
 $assert(str_contains($detail_js, "document.getElementById('toolbar-timer-btn')"), 'Existing timer JS must still target toolbar-timer-btn.');
 $assert(str_contains($content, "/includes/components/ticket-detail-sidebar.php"), 'Ticket detail content must include the side properties panel component.');

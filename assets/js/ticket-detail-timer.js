@@ -1,10 +1,11 @@
 (function (window, document) {
     'use strict';
 
-    var runtime = window.FoxDeskTicketDetailRuntime;
-    if (!runtime) throw new Error('FoxDesk ticket detail core was not loaded.');
+    var features = window.FoxDeskTicketDetailFeatures = window.FoxDeskTicketDetailFeatures || {};
+    features.timer = function (runtime) {
     var config = runtime.config;
-    var icons = config.icons || {};
+    var labels = runtime.labels;
+    var icons = runtime.icons;
     var ticketId = runtime.ticketId;
     var csrfToken = runtime.csrfToken;
     var t = runtime.t;
@@ -13,271 +14,12 @@
     var showUndoToast = runtime.showUndoToast;
     var fadeRemove = runtime.fadeRemove;
     var fillTemplate = runtime.fillTemplate;
-    var getIcon = runtime.getIcon;
-    var pad2 = runtime.pad2;
+    var quillFieldValue = runtime.quillFieldValue;
+    var loadQuillContent = runtime.loadQuillContent;
     var formatDateInput = runtime.formatDateInput;
     var formatTimeInput = runtime.formatTimeInput;
     var formatDateTimeLocal = runtime.formatDateTimeLocal;
-
-    function initManualTime() {
-        var toggle = document.getElementById('manual-toggle');
-        var row = document.getElementById('manual-entry-row');
-        var duration = document.getElementById('manual-duration-minutes');
-        var dateInput = document.querySelector('input[name="manual_date"]');
-        var startInput = document.querySelector('input[name="manual_start_time"]');
-        var endInput = document.querySelector('input[name="manual_end_time"]');
-        var startAt = document.getElementById('manual-start-at');
-        var endAt = document.getElementById('manual-end-at');
-        var buttons = document.querySelectorAll('.manual-duration-chip');
-        var applying = false;
-
-        function setVisible(show) {
-            if (!row || !toggle) return;
-            row.classList.toggle('hidden', !show);
-            toggle.setAttribute('aria-expanded', show ? 'true' : 'false');
-        }
-
-        function clearSnapshot(clearDurationValue, clearRangeValues) {
-            if (clearDurationValue && duration) duration.value = '';
-            if (startAt) startAt.value = '';
-            if (endAt) endAt.value = '';
-            if (clearRangeValues) {
-                if (startInput) startInput.value = '';
-                if (endInput) endInput.value = '';
-            }
-        }
-
-        function applyDuration(minutes) {
-            var parsed = parseInt(minutes, 10) || 0;
-            if (!parsed || !dateInput || !startInput || !endInput) {
-                clearSnapshot(false, true);
-                window.updateSubmitLabel();
-                return;
-            }
-
-            var end = new Date();
-            var start = new Date(end.getTime() - (parsed * 60 * 1000));
-            applying = true;
-            if (duration) duration.value = parsed;
-            dateInput.value = formatDateInput(start);
-            startInput.value = formatTimeInput(start);
-            endInput.value = formatTimeInput(end);
-            if (startAt) startAt.value = formatDateTimeLocal(start);
-            if (endAt) endAt.value = formatDateTimeLocal(end);
-            applying = false;
-            setVisible(true);
-            window.updateSubmitLabel();
-        }
-
-        function switchToRangeMode() {
-            if (applying) return;
-            clearSnapshot(true);
-            window.updateSubmitLabel();
-        }
-
-        if (toggle && row) {
-            toggle.addEventListener('click', function () {
-                setVisible(row.classList.contains('hidden'));
-            });
-        }
-        if ((duration && duration.value) || (startInput && startInput.value) || (endInput && endInput.value)) setVisible(true);
-        if (duration) {
-            duration.addEventListener('change', function () {
-                if (this.value) applyDuration(this.value);
-                else {
-                    clearSnapshot(false, true);
-                    window.updateSubmitLabel();
-                }
-            });
-            duration.addEventListener('keydown', function (event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    applyDuration(this.value);
-                }
-            });
-            duration.addEventListener('input', function () { window.updateSubmitLabel(); });
-        }
-        buttons.forEach(function (button) {
-            button.addEventListener('click', function () { applyDuration(this.dataset.minutes); });
-        });
-        [dateInput, startInput, endInput].forEach(function (input) {
-            if (!input) return;
-            input.addEventListener('input', switchToRangeMode);
-            input.addEventListener('input', function () { window.updateSubmitLabel(); });
-        });
-    }
-
-    function initCcSearch() {
-        var input = document.getElementById('cc-search-input');
-        var dropdown = document.getElementById('cc-dropdown');
-        var selected = document.getElementById('cc-selected');
-        var hidden = document.getElementById('cc-hidden-inputs');
-        var selectedUsers = [];
-        var timeout = null;
-        var isComposing = false;
-        if (!input || !dropdown || !selected || !hidden) return;
-
-        function removeUser(userId, event) {
-            selectedUsers = selectedUsers.filter(function (user) { return user.id !== userId; });
-            var chip = event && event.target ? event.target.closest('span') : null;
-            if (chip) chip.remove();
-            var userInput = document.getElementById('cc-user-' + userId);
-            if (userInput) userInput.remove();
-        }
-
-        function addUser(user) {
-            selectedUsers.push(user);
-            var chip = document.createElement('span');
-            chip.className = 'inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm';
-
-            var name = document.createElement('span');
-            name.textContent = user.name + ' ';
-            chip.appendChild(name);
-
-            var remove = document.createElement('button');
-            remove.type = 'button';
-            remove.className = 'ml-2 hover:text-blue-900';
-            remove.title = t('remove', 'Remove');
-            remove.setAttribute('aria-label', t('remove', 'Remove'));
-            remove.innerHTML = getIcon('times', 'w-3 h-3');
-            remove.addEventListener('click', removeUser.bind(null, user.id));
-            chip.appendChild(remove);
-            selected.appendChild(chip);
-
-            var userInput = document.createElement('input');
-            userInput.type = 'hidden';
-            userInput.name = 'cc_users[]';
-            userInput.value = user.id;
-            userInput.id = 'cc-user-' + user.id;
-            hidden.appendChild(userInput);
-            input.value = '';
-            dropdown.classList.add('hidden');
-        }
-
-        function searchUsers(query) {
-            fetch('index.php?page=api&action=search_users&q=' + encodeURIComponent(query))
-                .then(function (response) { return response.json(); })
-                .then(function (users) {
-                    dropdown.innerHTML = '';
-                    if (!users.length) {
-                        dropdown.innerHTML = '<div class="px-3 py-2 text-sm" style="color: var(--text-muted)">' + escapeHtml(t('noUsersFound', 'No users found.')) + '</div>';
-                        dropdown.classList.remove('hidden');
-                        return;
-                    }
-                    users.forEach(function (user) {
-                        if (selectedUsers.find(function (selectedUser) { return selectedUser.id === user.id; })) return;
-                        var item = document.createElement('div');
-                        item.className = 'px-3 py-2 cursor-pointer text-sm tr-hover';
-                        item.innerHTML = '<strong>' + escapeHtml(user.name) + '</strong><br><span class="text-xs" style="color: var(--text-muted)">' + escapeHtml(user.email) + '</span>';
-                        item.addEventListener('click', addUser.bind(null, user));
-                        dropdown.appendChild(item);
-                    });
-                    dropdown.classList.remove('hidden');
-                })
-                .catch(function (error) {
-                    console.error('Error searching users:', error);
-                });
-        }
-
-        function requestUsers() {
-            clearTimeout(timeout);
-            if (isComposing) return;
-            var query = input.value.trim();
-            if (query.length < 2) {
-                dropdown.classList.add('hidden');
-                return;
-            }
-            timeout = setTimeout(function () { searchUsers(query); }, 300);
-        }
-
-        input.addEventListener('compositionstart', function () {
-            isComposing = true;
-            clearTimeout(timeout);
-        });
-        input.addEventListener('compositionend', function () {
-            isComposing = false;
-            requestUsers();
-        });
-        input.addEventListener('input', function (event) {
-            if (event.isComposing) return;
-            requestUsers();
-        });
-        document.addEventListener('click', function (event) {
-            if (!input.contains(event.target) && !dropdown.contains(event.target)) {
-                dropdown.classList.add('hidden');
-            }
-        });
-    }
-
-    function initSubmitLabel() {
-        // On the workflow composer, assets/js/ticket-workflow.js owns the label and registers window.updateSubmitLabel.
-        if (document.querySelector('[data-workflow]')) return;
-        var submit = document.getElementById('comment-submit-btn');
-        window.updateSubmitLabel = function () {
-            if (!submit) return;
-            var stopToggle = document.getElementById('stop-timer-toggle');
-            var hasActiveTimer = submit.dataset.hasActiveTimer === '1';
-            var stopRequested = hasActiveTimer && stopToggle && stopToggle.checked;
-            var hasManualTime =
-                (document.getElementById('manual-duration-minutes') && document.getElementById('manual-duration-minutes').value) ||
-                (document.querySelector('input[name="manual_start_time"]') && document.querySelector('input[name="manual_start_time"]').value) ||
-                (document.querySelector('input[name="manual_end_time"]') && document.querySelector('input[name="manual_end_time"]').value);
-
-            var label = submit.dataset.defaultText;
-            if (stopRequested) label = submit.dataset.stopText;
-            else if (hasManualTime) label = submit.dataset.logTimeText;
-
-            var span = submit.querySelector('.btn-text');
-            if (span) span.textContent = label;
-        };
-
-        window.attachStopTimerToggleListener = function () {
-            var toggle = document.getElementById('stop-timer-toggle');
-            if (toggle) toggle.addEventListener('change', window.updateSubmitLabel);
-        };
-        window.attachStopTimerToggleListener();
-        window.updateSubmitLabel();
-    }
-
-    function initCommentMode() {
-        var buttons = document.querySelectorAll('.comment-mode-btn');
-        var internalToggle = document.getElementById('is_internal_toggle');
-        var internalSection = document.getElementById('internal-comment-section');
-        var publicSection = document.getElementById('public-comment-section');
-        var commentText = document.getElementById('comment-text');
-        var internalText = document.getElementById('internal-text');
-        var hint = document.getElementById('comment-mode-hint');
-
-        function setMode(mode) {
-            var isInternal = mode === 'internal';
-            if (internalToggle) internalToggle.checked = isInternal;
-            if (internalSection) internalSection.classList.toggle('hidden', !isInternal);
-            if (publicSection) publicSection.classList.toggle('hidden', isInternal);
-            if (commentText) {
-                if (isInternal) commentText.removeAttribute('required');
-                else if (commentText.hasAttribute('data-required')) commentText.setAttribute('required', 'required');
-            }
-            if (internalText) {
-                if (isInternal) internalText.setAttribute('required', 'required');
-                else internalText.removeAttribute('required');
-            }
-            if (hint) hint.textContent = isInternal ? t('visibleAgents', 'Visible to agents only') : t('visibleCustomer', 'Visible to customer');
-            buttons.forEach(function (button) {
-                var active = button.dataset.mode === mode;
-                button.classList.toggle('shadow', active);
-                button.classList.toggle('text-blue-600', active);
-                button.style.background = active ? 'var(--bg-primary)' : '';
-                button.style.color = active ? '' : 'var(--text-muted)';
-            });
-        }
-
-        buttons.forEach(function (button) {
-            button.addEventListener('click', function () {
-                setMode(button.dataset.mode);
-            });
-        });
-        if (buttons.length) setMode('public');
-    }
+    var pad2 = runtime.pad2;
 
     function initTimer() {
         var controls = document.getElementById('timer-controls');
@@ -324,42 +66,56 @@
         }
 
         function updateToolbarTimer(state, timeText) {
+            var stopControl = document.getElementById('workspace-stop-timer');
+            if (stopControl) stopControl.hidden = state === 'stopped';
             var toolbar = document.getElementById('toolbar-timer-btn');
             if (!toolbar) return;
             var toolbarElapsed = document.getElementById('toolbar-timer-elapsed');
 
             if (state === 'running' || state === 'paused') {
-                toolbar.className = state === 'running' ? 'td-tool-btn td-tool-btn--active-timer' : 'td-tool-btn';
+                toolbar.className = 'ticket-primary-action ticket-primary-action--timer';
                 toolbar.title = state === 'running' ? t('pauseTimerHelp', 'Pause this timer without logging time yet.') : t('resumeTimerHelp', 'Resume the paused timer.');
                 toolbar.setAttribute('aria-label', toolbar.title);
                 toolbar.textContent = '';
                 toolbar.insertAdjacentHTML('afterbegin', state === 'running' ? icons.pauseSm : icons.playSm);
-                if (!toolbarElapsed) {
-                    toolbarElapsed = document.createElement('span');
-                    toolbarElapsed.id = 'toolbar-timer-elapsed';
-                    toolbarElapsed.className = 'text-xs tabular-nums';
-                    toolbar.parentNode.insertBefore(toolbarElapsed, toolbar.nextSibling);
-                }
-                toolbarElapsed.style.color = state === 'running' ? 'var(--warning)' : 'var(--success)';
+                var label = document.createElement('span');
+                label.textContent = state === 'running' ? t('pauseTimer', 'Pause') : t('resumeTimer', 'Resume');
+                toolbar.append(label);
+                toolbarElapsed = document.createElement('span');
+                toolbarElapsed.id = 'toolbar-timer-elapsed';
+                toolbarElapsed.className = 'tabular-nums';
+                toolbar.append(toolbarElapsed);
                 toolbarElapsed.textContent = timeText || '';
             } else {
-                toolbar.className = 'td-tool-btn';
+                toolbar.className = 'ticket-primary-action ticket-primary-action--timer';
                 toolbar.title = t('startTimerHelp', 'Start a timer for this ticket.');
                 toolbar.setAttribute('aria-label', toolbar.title);
                 toolbar.textContent = '';
                 toolbar.insertAdjacentHTML('afterbegin', icons.playSm);
+                var startLabel = document.createElement('span');
+                startLabel.textContent = t('startTimer', 'Start timer');
+                toolbar.append(startLabel);
                 if (toolbarElapsed) toolbarElapsed.remove();
             }
         }
 
         function updateCompleteActionTitle(state) {
-            var completeButton = document.querySelector('button[name="change_status"]');
+            var completeButton = document.querySelector('[data-action-label="complete"]')?.closest('button');
             if (!completeButton) return;
+            var hasActiveTimer = state === 'running' || state === 'paused';
             var title = state === 'running' || state === 'paused'
                 ? t('completeTimerHelp', 'Mark this ticket as done and stop the active timer.')
                 : t('completeHelp', 'Mark this ticket as done.');
+            var label = hasActiveTimer
+                ? t('completeTimerLabel', 'Complete & stop timer')
+                : t('completeLabel', 'Complete');
+            var labelNode = completeButton.querySelector('[data-action-label="complete"]') || completeButton.querySelector('span');
+            var stopIntent = completeButton.form ? completeButton.form.querySelector('input[name="stop_timer_on_complete"]') : null;
+
             completeButton.title = title;
             completeButton.setAttribute('aria-label', title);
+            if (labelNode) labelNode.textContent = label;
+            if (stopIntent) stopIntent.value = hasActiveTimer ? '1' : '0';
         }
 
         function tick() {
@@ -385,7 +141,7 @@
             }
 
             if (state === 'running') {
-                button.className = 'btn btn-warning px-3 py-1.5 text-sm inline-flex items-center gap-1.5 transition-colors';
+                button.className = 'btn btn-warning ticket-composer-timer-button';
                 button.title = t('pauseTimerHelp', 'Pause this timer without logging time yet.');
                 button.dataset.state = 'running';
                 buttonIcon.innerHTML = icons.pause;
@@ -406,7 +162,7 @@
             } else if (state === 'paused') {
                 var elapsedSec = opts.elapsedSeconds || 0;
                 var elapsedMin = Math.floor(elapsedSec / 60);
-                button.className = 'btn btn-success px-3 py-1.5 text-sm inline-flex items-center gap-1.5 transition-colors';
+                button.className = 'btn btn-primary ticket-composer-timer-button';
                 button.title = t('resumeTimerHelp', 'Resume the paused timer.');
                 button.dataset.state = 'paused';
                 buttonIcon.innerHTML = icons.play;
@@ -422,7 +178,7 @@
                 updateToolbarTimer('paused', elapsedMin + ' min');
                 updateCompleteActionTitle('paused');
             } else {
-                button.className = 'btn btn-success px-3 py-1.5 text-sm inline-flex items-center gap-1.5 transition-colors';
+                button.className = 'btn btn-primary ticket-composer-timer-button';
                 button.title = t('startTimerHelp', 'Start a timer for this ticket.');
                 button.dataset.state = 'stopped';
                 buttonIcon.innerHTML = icons.play;
@@ -557,6 +313,18 @@
         if (discardButton) discardButton.addEventListener('click', onDiscardClick);
         var toolbarButton = document.getElementById('toolbar-timer-btn');
         if (toolbarButton) toolbarButton.addEventListener('click', onActionClick);
+        var stopButton = document.getElementById('workspace-stop-timer');
+        if (stopButton) stopButton.addEventListener('click', function () {
+            if (busy || currentState === 'stopped') return;
+            busy = true; stopButton.disabled = true;
+            timerAction('stop-timer').then(function (data) {
+                if (!data.success) throw new Error(data.error || t('genericError', 'An error occurred.'));
+                setTimerState('stopped'); dispatchTimerChanged();
+                if (data.entry_id) history.replaceState(null, '', '#time-entry-' + data.entry_id);
+                location.reload();
+            }).catch(function (error) { showToast(error.message, 'error'); })
+                .finally(function () { busy = false; stopButton.disabled = false; });
+        });
 
         document.addEventListener('timerStateChanged', function () {
             if (selfDispatch) return;
@@ -580,36 +348,9 @@
             timerInterval = setInterval(tick, 1000);
         }
         updateCompleteActionTitle(currentState);
+        updateToolbarTimer(currentState, elapsed ? elapsed.textContent : '');
     }
 
-    function initAgentCcDropdown() {
-        var toggle = document.getElementById('agent-cc-toggle');
-        var list = document.getElementById('agent-cc-list');
-        var display = document.getElementById('agent-cc-display');
-        var checkboxes = document.querySelectorAll('.agent-cc-checkbox');
-        if (!toggle || !list || !display) return;
-
-        var noneText = toggle.dataset.noneText || 'Select users...';
-        var selectedText = toggle.dataset.selectedText || 'Selected';
-        function update() {
-            var checked = document.querySelectorAll('.agent-cc-checkbox:checked');
-            display.textContent = checked.length === 0 ? noneText : selectedText + ': ' + checked.length;
-        }
-        toggle.addEventListener('click', function (event) {
-            event.preventDefault();
-            list.classList.toggle('hidden');
-        });
-        checkboxes.forEach(function (checkbox) { checkbox.addEventListener('change', update); });
-        document.addEventListener('click', function (event) {
-            if (!event.target.closest('#agent-cc-dropdown-container')) list.classList.add('hidden');
-        });
-        update();
-    }
-
-    runtime.initManualTime = initManualTime;
-    runtime.initCcSearch = initCcSearch;
-    runtime.initSubmitLabel = initSubmitLabel;
-    runtime.initCommentMode = initCommentMode;
-    runtime.initTimer = initTimer;
-    runtime.initAgentCcDropdown = initAgentCcDropdown;
+        return { initTimer: initTimer };
+    };
 })(window, document);

@@ -56,7 +56,13 @@ function ticket_detail_done_status_score(array $status): int
     $text = ticket_detail_status_search_text($status);
 
     if ($text !== '') {
-        if (preg_match('/\b(done|complete|completed|hotovo|dokonceno)\b/u', $text)) {
+        if ($text === 'done') {
+            return 120;
+        }
+        if (preg_match('/\bdone\b/u', $text)) {
+            return 110;
+        }
+        if (preg_match('/\b(complete|completed|hotovo|dokonceno)\b/u', $text)) {
             return 100;
         }
         if (preg_match('/\b(resolve|resolved|vyreseno)\b/u', $text)) {
@@ -168,13 +174,14 @@ function ticket_detail_primary_actions(array $ticket, array $user, array $status
             : 'Mark this ticket as done and stop the active timer.';
         $actions[] = [
             'key' => 'complete',
-            'label' => 'Complete',
+            'label' => $has_active_timer ? 'Complete & stop timer' : 'Complete',
             'icon' => 'check-circle',
             'style' => 'success',
             'type' => 'submit',
             'name' => 'change_status',
             'status_id' => $done_status_id,
             'title' => $complete_title,
+            'stops_timer' => $has_active_timer,
             'visible' => true,
         ];
     }
