@@ -126,6 +126,13 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
 
     <?php $theme_asset_version = (string) APP_VERSION . '-' . (string) (@filemtime(BASE_PATH . '/assets/css/theme.min.css') ?: '0'); ?>
     <link href="assets/css/theme.min.css?v=<?php echo e($theme_asset_version); ?>" rel="stylesheet">
+    <?php foreach ((array) ($page_extra_css ?? []) as $extra_css_path): ?>
+        <?php
+        $extra_css_path = ltrim((string) $extra_css_path, '/');
+        $extra_css_version = (string) APP_VERSION . '-' . (string) (@filemtime(BASE_PATH . '/' . $extra_css_path) ?: '0');
+        ?>
+        <link href="<?php echo e($extra_css_path); ?>?v=<?php echo e($extra_css_version); ?>" rel="stylesheet">
+    <?php endforeach; ?>
     <script defer src="assets/vendor/alpinejs/3.14.8/alpine.min.js?v=<?php echo APP_VERSION; ?>"></script>
     <script defer src="assets/js/app-header.js?v=<?php echo e((string) APP_VERSION . '-' . (string) (@filemtime(BASE_PATH . '/assets/js/app-header.js') ?: '0')); ?>"></script>
     <script defer src="assets/js/shortcuts.js?v=<?php echo APP_VERSION; ?>"></script>
@@ -545,6 +552,32 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 <span class="app-shell-context"><?php echo e($page_title ?? t('Work')); ?></span>
             </div>
             <div class="flex items-center gap-4">
+                <?php if ((is_admin() || is_agent()) && !empty($sidebar_timers)): ?>
+                    <?php
+                    // Flight deck UI: the running timer stays visible in the top bar.
+                    $topbar_timer = $sidebar_timers[0];
+                    $topbar_timer_paused = is_timer_paused($topbar_timer);
+                    $topbar_timer_minutes = max(0, (int) floor(calculate_timer_elapsed($topbar_timer) / 60));
+                    $topbar_timer_url = !empty($topbar_timer['ticket_hash'])
+                        ? url('ticket', ['t' => $topbar_timer['ticket_hash']])
+                        : url('ticket', ['id' => $topbar_timer['ticket_id']]);
+                    ?>
+                    <a href="<?php echo $topbar_timer_url; ?>" class="app-timer-pill" id="app-timer-pill" title="<?php echo e($topbar_timer['ticket_title']); ?>">
+                        <span class="app-timer-pill__dot <?php echo $topbar_timer_paused ? 'is-paused' : ''; ?>" aria-hidden="true"></span>
+                        <span class="app-timer-pill__title"><bdi dir="auto"><?php echo e($topbar_timer['ticket_title']); ?></bdi></span>
+                        <span class="app-timer-pill__time <?php echo $topbar_timer_paused ? '' : 'timer-display'; ?>"
+                              <?php if (!$topbar_timer_paused): ?>
+                              data-started="<?php echo strtotime($topbar_timer['started_at']); ?>"
+                              data-paused-seconds="<?php echo (int) ($topbar_timer['paused_seconds'] ?? 0); ?>"
+                              <?php endif; ?>><?php echo $topbar_timer_paused ? e(t('Paused')) : e(format_duration_minutes($topbar_timer_minutes)); ?></span>
+                        <button type="button" class="app-timer-pill__action"
+                                onclick="event.preventDefault(); event.stopPropagation(); sidebarToggleTimer(<?php echo (int) $topbar_timer['ticket_id']; ?>, <?php echo $topbar_timer_paused ? 'true' : 'false'; ?>)"
+                                title="<?php echo $topbar_timer_paused ? e(t('Resume')) : e(t('Pause')); ?>"
+                                aria-label="<?php echo $topbar_timer_paused ? e(t('Resume')) : e(t('Pause')); ?>">
+                            <?php echo $topbar_timer_paused ? get_icon('play', 'w-3 h-3') : get_icon('pause', 'w-3 h-3'); ?>
+                        </button>
+                    </a>
+                <?php endif; ?>
                 <form action="<?php echo url('tickets'); ?>" method="get" class="header-search-form relative"
                     onsubmit="var input=this.querySelector('input[name=search]'); if(input && (input.dataset.composing==='1')){event.preventDefault();}">
                     <input type="hidden" name="page" value="tickets">

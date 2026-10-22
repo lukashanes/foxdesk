@@ -198,10 +198,13 @@ function api_get_active_timers() {
             'ticket_id'      => (int)$timer['ticket_id'],
             'ticket_hash'    => $timer['ticket_hash'] ?? null,
             'ticket_title'   => $timer['ticket_title'],
+            'ticket_code'    => get_ticket_code((int)$timer['ticket_id']),
+            'ticket_url'     => url('ticket', ['id' => (int)$timer['ticket_id']]),
             'started_at'     => $started_ts,
             'paused_seconds' => $display_paused,
             'is_paused'      => $is_paused,
             'elapsed_minutes'=> $elapsed_minutes,
+            'elapsed_seconds'=> $elapsed_seconds,
             'elapsed_str'    => $elapsed_str,
         ];
     }

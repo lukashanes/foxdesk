@@ -8,6 +8,33 @@
 </footer>
 </main>
 
+<?php
+// Flight deck UI: bottom navigation on narrow screens (the rail is desktop-only).
+$mobile_nav_page = (string) ($page ?? '');
+$mobile_nav_section = (string) ($_GET['section'] ?? '');
+$mobile_nav_items = [
+    ['href' => url('work'), 'icon' => 'home', 'label' => t('Dashboard'), 'active' => $mobile_nav_page === 'work'],
+    ['href' => url('tickets'), 'icon' => 'ticket-alt', 'label' => t('Tickets'), 'active' => $mobile_nav_page === 'tickets' && ($_GET['archived'] ?? '') !== '1'],
+];
+if (is_admin() || is_agent()) {
+    $mobile_nav_items[] = ['href' => url('time'), 'icon' => 'clock', 'label' => t('Time'), 'active' => $mobile_nav_page === 'time'];
+    $mobile_nav_items[] = ['href' => url('admin', is_admin() ? ['section' => 'reports-list'] : ['section' => 'reports', 'tab' => 'time']), 'icon' => 'chart-bar', 'label' => t('Reports'), 'active' => $mobile_nav_page === 'admin' && in_array($mobile_nav_section, ['reports', 'reports-list', 'report-builder'], true)];
+    if (is_admin()) {
+        $mobile_nav_items[] = ['href' => url('admin', ['section' => 'organizations']), 'icon' => 'building', 'label' => t('Clients'), 'active' => $mobile_nav_page === 'admin' && in_array($mobile_nav_section, ['organizations', 'clients'], true)];
+    }
+} else {
+    $mobile_nav_items[] = ['href' => url('new-ticket'), 'icon' => 'plus', 'label' => t('New ticket'), 'active' => $mobile_nav_page === 'new-ticket'];
+}
+?>
+<nav class="app-mobile-nav" aria-label="<?php echo e(t('Main navigation')); ?>">
+    <?php foreach ($mobile_nav_items as $mobile_nav_item): ?>
+        <a href="<?php echo e($mobile_nav_item['href']); ?>" class="app-mobile-nav__item <?php echo $mobile_nav_item['active'] ? 'is-active' : ''; ?>" <?php echo $mobile_nav_item['active'] ? 'aria-current="page"' : ''; ?>>
+            <?php echo get_icon($mobile_nav_item['icon'], 'app-mobile-nav__icon'); ?>
+            <span><?php echo e($mobile_nav_item['label']); ?></span>
+        </a>
+    <?php endforeach; ?>
+</nav>
+
 <script>
     // App config for external JS (bridge PHP → JS)
     window.appConfig = {
@@ -203,6 +230,9 @@ if ('serviceWorker' in navigator) {
 <script defer src="assets/js/page-transitions.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
 <script defer src="assets/js/app-api-client.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
 <script defer src="assets/js/app-footer.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
+<span hidden data-soft-select-config data-search="<?php echo e(t('Search')); ?>" data-empty="<?php echo e(t('No entries')); ?>" data-scope="<?php echo (int) (current_user()['id'] ?? 0); ?>"></span>
+<script defer src="assets/js/soft-select.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
+<script defer src="assets/js/row-action-menu.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
 <?php if (in_array($page ?? '', ['ticket', 'tickets', 'work'], true)): ?>
 <script id="ticket-workflow-script" data-scope="<?php echo (int) (current_user()['tenant_id'] ?? 0) . '-' . (int) (current_user()['id'] ?? 0); ?>" src="assets/js/ticket-workflow.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/ticket-workflow.js'); ?>" defer></script>
 <?php endif; ?>

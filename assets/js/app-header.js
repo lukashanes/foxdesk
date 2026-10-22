@@ -118,7 +118,8 @@ function applySidebarCompactPreference() {
         return;
     }
     try {
-        setSidebarCompact(localStorage.getItem('sidebar_compact') === '1', false);
+        // Flight deck UI: the icon rail is the default until the user expands it.
+        setSidebarCompact(localStorage.getItem('sidebar_compact') !== '0', false);
     } catch (e) {
         setSidebarCompact(false, false);
     }

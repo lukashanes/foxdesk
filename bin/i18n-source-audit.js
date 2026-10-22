@@ -6,6 +6,7 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 const allowlistPath = path.join(root, 'config', 'i18n-physical-direction-allowlist.json');
 const allowlist = JSON.parse(fs.readFileSync(allowlistPath, 'utf8'));
+const legacyLocaleWidthFiles = new Set(allowlist.legacyLocaleWidthFiles || []);
 const failures = [];
 
 function fail(message) {
@@ -16,6 +17,7 @@ function walk(directory, files = []) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     if (['.git', 'node_modules', 'build', 'vendor', 'locales'].includes(entry.name)) continue;
     const absolute = path.join(directory, entry.name);
+    if (absolute === path.join(root, 'assets', 'vendor')) continue;
     if (entry.isDirectory()) {
       walk(absolute, files);
     } else {
@@ -32,7 +34,8 @@ for (const absolute of sourceFiles) {
     continue;
   }
   const source = fs.readFileSync(absolute, 'utf8');
-  if (/(language|report_language)[\s\S]{0,80}VARCHAR\s*\(\s*5\s*\)|VARCHAR\s*\(\s*5\s*\)[\s\S]{0,80}(language|report_language)/i.test(source)) {
+  if (!legacyLocaleWidthFiles.has(relative.split(path.sep).join('/'))
+      && /(language|report_language)[\s\S]{0,80}VARCHAR\s*\(\s*5\s*\)|VARCHAR\s*\(\s*5\s*\)[\s\S]{0,80}(language|report_language)/i.test(source)) {
     fail(`${relative}: locale database columns must allow full BCP-47 tags.`);
   }
   if (/\[\s*['"]en['"]\s*,\s*['"]cs['"]\s*,\s*['"]de['"]/i.test(source)) {
@@ -77,14 +80,22 @@ for (const absolute of sourceFiles) {
     fail(`${relative}: physical JavaScript positioning is not documented in the allowlist.`);
     continue;
   }
-  const allowedMatches = source.split(rule.pattern).length - 1;
+  const patterns = Array.isArray(rule.patterns) ? rule.patterns : [rule.pattern];
+  const allowedMatches = patterns.reduce(
+    (count, pattern) => count + source.split(pattern).length - 1,
+    0
+  );
   if (allowedMatches !== matches.length || matches.length > rule.maxMatches) {
     fail(`${relative}: physical JavaScript allowlist no longer matches source (${matches.length} occurrences).`);
   }
 }
 for (const rule of scriptRules.values()) {
   const source = fs.readFileSync(path.join(root, rule.file), 'utf8');
-  const count = source.split(rule.pattern).length - 1;
+  const patterns = Array.isArray(rule.patterns) ? rule.patterns : [rule.pattern];
+  const count = patterns.reduce(
+    (total, pattern) => total + source.split(pattern).length - 1,
+    0
+  );
   if (count === 0) {
     fail(`${rule.file}: remove stale physical-direction allowlist entry.`);
   }

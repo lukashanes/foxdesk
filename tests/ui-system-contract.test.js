@@ -13,17 +13,13 @@ function assert(condition, message) {
 
 const theme = read('theme.css');
 const work = read('pages/work.php');
-const tickets = [
-  'pages/tickets.php',
-  'includes/components/ticket-list-page.php',
-  'includes/components/ticket-list-board.php',
-  'includes/components/ticket-list-table.php',
-].map(read).join('\n');
+const tickets = read('pages/tickets.php');
+const organizations = read('pages/admin/organizations.php');
 const reports = [
-  'includes/modules/reports/views/page.php',
-  'includes/modules/reports/views/time.php',
-  'includes/modules/reports/views/billing.php',
-].map(read).join('\n');
+  read('pages/admin/reports.php'),
+  read('includes/modules/reports/views/time.php'),
+  read('includes/modules/reports/views/billing.php'),
+].join('\n');
 const workspaceSurface = read('includes/components/workspace-surface.php');
 
 for (const token of [
@@ -36,6 +32,16 @@ for (const token of [
 ]) {
   assert(theme.includes(token), `Missing UI system token: ${token}`);
 }
+
+assert(/:root\s*\{[\s\S]*?--primary:\s*#2456e8;/.test(theme), 'The app shell must use the FoxDesk cobalt primary token.');
+assert(/:root\s*\{[\s\S]*?--primary-hover:\s*#1743c2;/.test(theme), 'The app shell must use the shared cobalt hover token.');
+assert(/:root\s*\{[\s\S]*?--bg-primary:\s*#f0f4fa;/.test(theme), 'The app shell must use the shared cool canvas token.');
+assert(theme.includes('--app-content-max: 2560px;'), 'The redesigned app shell must use the 2560px wide-screen canvas token.');
+assert(theme.includes('--app-focus-max: 1600px;'), 'Focused app pages must expand to the shared 1600px wide-screen token.');
+assert(/\.app-content\.app-content--wide\s*\{[\s\S]*?max-width:\s*var\(--app-content-max\)/.test(theme), 'Wide app pages must share the global wide-screen canvas token.');
+assert(!organizations.includes("$app_content_class = 'app-content--wide';"), 'Organizations must inherit the same global app canvas width as Work and Tickets.');
+assert(/\.admin-legacy-page\.is-narrow\s*\{[\s\S]*?max-width:\s*var\(--app-focus-max\)/.test(theme), 'Focused admin pages must use the shared wide-screen focus token.');
+assert(/\.billing-page\s*\{[\s\S]*?max-width:\s*var\(--app-focus-max\)/.test(theme), 'Billing must use the shared wide-screen focus token.');
 
 for (const primitive of [
   '.fd-card',
@@ -56,6 +62,7 @@ for (const mapping of [
   '.form-input',
   '.form-select',
   '.form-textarea',
+  '.ticket-view-tab',
   '.settings-section-card',
   '.work-time-metric',
   '.workspace-queue-link',
@@ -74,6 +81,7 @@ assert(!tickets.includes('<style'), 'Ticket pages must not define page-local sty
 assert(theme.includes('.report-source-card'), 'Report source cards must live in theme.css.');
 assert(theme.includes('.report-detail-totals'), 'Report detail totals must live in theme.css.');
 assert(theme.includes('.report-mini-progress'), 'Report mini progress bars must live in theme.css.');
+assert(/@media\s*\(prefers-reduced-motion\s*:\s*reduce\)/.test(theme), 'Page transitions must respect reduced motion preferences.');
 assert(reports.includes('report-source-card report-source-card--human'), 'Reports must render source cards through shared classes.');
 assert(reports.includes('report-detail-totals'), 'Reports must render detail totals through shared classes.');
 assert(reports.includes('report-mini-progress__bar'), 'Reports must render progress bars through shared classes.');
@@ -82,7 +90,7 @@ assert(!theme.includes('border-radius: calc(var(--fd-radius-control)'), 'UI cont
 assert(work.includes('fd-card fd-page-section work-overview-card'), 'Work overview must use the shared card primitive.');
 assert(work.includes('fd-segmented work-period-switch'), 'Work period switch must use the segmented primitive.');
 assert(work.includes('fd-segmented__item work-period-link'), 'Work period links must use segmented items.');
-assert(work.includes('fd-table work-team-table'), 'Work team table must use the shared table primitive.');
+assert(/data-work-client-matrix[\s\S]*?<table class="fd-table">/.test(work), 'Work client/day matrix must use the shared table primitive.');
 assert(work.includes("'title' => 'Tickets'"), 'Work queue section should not duplicate the Dashboard page title.');
 assert(work.includes("'primary_action' => ''"), 'Work queue section must suppress duplicate New ticket CTA.');
 
