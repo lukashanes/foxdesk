@@ -221,7 +221,9 @@ function render_child_card(array $notif): void
     }
     .notif-filter-tabs {
         display: flex;
+        flex-wrap: wrap;
         gap: 4px;
+        max-width: 100%;
         padding: 3px;
         border-radius: var(--fd-radius-control);
         background: var(--surface-secondary, #f1f5f9);
