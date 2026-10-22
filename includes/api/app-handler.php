@@ -577,6 +577,7 @@ function api_app_log_time()
     }
 
     $entry_id = add_manual_time_entry((int) $ticket['id'], (int) $user['id'], [
+        'comment_id' => api_app_time_comment_id($input, (int) $ticket['id']),
         'worked_on' => $time_input['worked_on'],
         'time_precision' => $time_input['time_precision'],
         'started_at' => $time_input['started_at'],
