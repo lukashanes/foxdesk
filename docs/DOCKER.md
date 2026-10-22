@@ -93,7 +93,7 @@ Every release is also published as a multi-architecture image (amd64 and
 arm64) on GitHub Container Registry, built from the same `Dockerfile`:
 
 ```
-ghcr.io/lukashanes/foxdesk:<version>   # for example ghcr.io/lukashanes/foxdesk:0.3.151
+ghcr.io/lukashanes/foxdesk:<version>   # for example ghcr.io/lukashanes/foxdesk:0.3.152
 ghcr.io/lukashanes/foxdesk:latest
 ```
 
@@ -101,7 +101,7 @@ To use it, pin the release version in `.env` and start the stack without a
 local build:
 
 ```bash
-echo "FOXDESK_IMAGE=ghcr.io/lukashanes/foxdesk:0.3.151" >> .env
+echo "FOXDESK_IMAGE=ghcr.io/lukashanes/foxdesk:0.3.152" >> .env
 docker compose pull app cron
 docker compose up -d --no-build
 ```
@@ -294,7 +294,7 @@ Variables read from `.env`:
 | `PHP_MEMORY_LIMIT` | `256M` | PHP memory limit. |
 | `FOXDESK_CRON_INTERVAL` | `60` | Seconds between background task runs (minimum 30). |
 | `FOXDESK_UPGRADE_BACKUP` | `1` | Back up before the container upgrades application files from a newer image. |
-| `FOXDESK_IMAGE` | `foxdesk-selfhosted:local` | Tag of the locally built image, or a pinned prebuilt image such as `ghcr.io/lukashanes/foxdesk:0.3.151`. |
+| `FOXDESK_IMAGE` | `foxdesk-selfhosted:local` | Tag of the locally built image, or a pinned prebuilt image such as `ghcr.io/lukashanes/foxdesk:0.3.152`. |
 
 `DB_NAME`, `DB_USER`, and the passwords only take effect when the `db` volume
 is created. Changing them later does not change the existing database.

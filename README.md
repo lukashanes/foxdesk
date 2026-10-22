@@ -151,7 +151,7 @@ Tokens inherit the creating user's permissions and can be limited by capability.
 
 ## Releases and updates
 
-FoxDesk 0.3.151 (October 22, 2026) adds the Time work ledger, Open / Done / Archive ticket views with paging, a searchable client directory and report history, explicit review of action-required notifications, read-only audience preview, built-in PDF and document preview, the dashboard read API, and prebuilt Docker images on GitHub Container Registry.
+FoxDesk 0.3.152 (October 23, 2026) brings the flight deck interface: a new dashboard with billable amounts, people, clients and the activity feed, a redesigned ticket list with one filter popover and row actions, a consolidated ticket workspace with the status pipeline, an icon rail sidebar and a bottom navigation on phones. 0.3.151 added the Time work ledger, client directory, report history, notification review, document preview and prebuilt Docker images.
 
 The [latest release page](https://github.com/lukashanes/foxdesk/releases/latest) always shows the current version, its changelog, and its download assets. Earlier versions are listed under [GitHub Releases](https://github.com/lukashanes/foxdesk/releases).
 

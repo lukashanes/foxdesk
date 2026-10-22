@@ -1,20 +1,23 @@
 {
-    "version": "0.3.151",
-    "date": "2026-10-22",
+    "version": "0.3.152",
+    "date": "2026-10-23",
     "min_php": "8.1",
     "changelog": [
-        "New Time page (sidebar > Time): every saved work-log entry for a period with client, billable, agent and search filters, totals, paging and CSV export; entries can be logged and edited in place. Agents see their own work, admins can switch to the whole team",
-        "Tickets: the list tabs are now Open, Done and Archive; Open shows every unfinished ticket (including waiting ones) sorted by last update, the list is paged with 10, 20, 50 or all tickets per page, and the subtitle shows how many tickets are overdue",
-        "Clients: the client list can be searched, filtered by active or inactive, sorted by entries, time or name and paged; each client page has Tickets, Work log and Report history tabs",
-        "Reports: the report history can be searched and filtered by client and status, is paged and shows the saved report time. Opening the list no longer creates public share links automatically; use Create share link on a published report",
-        "Notifications: opening a ticket or marking a notification read no longer resolves action-required items; use Mark as reviewed on the Notifications page. Completed tickets and saved work logs ask the other participating staff to review them",
-        "Ticket detail: staff can preview a ticket as the requester or a shared user sees it (Ticket access > eye icon); the preview is read-only and hides internal comments and work logs from clients",
-        "PDF, text, CSV and JSON attachments open in a built-in preview with page navigation, using a bundled PDF.js; images open in the improved lightbox and comment uploads show image thumbnails",
-        "Dashboard data: new work-time-dashboard API action returns billable amounts, people, clients, worked days, attention counts, the activity feed and recently updated tickets for the selected period (the redesigned dashboard follows in the next release)",
-        "API: new app-update-time-entry action (time:write scope) edits a saved work-log entry; explicit historical start and end times are limited to admins and agents",
-        "Fixed: logging time through the app API with an explicit start or end time failed with \"Date normalization is not available\"",
-        "Client overview counts and time totals now respect each agent's ticket visibility and count saved work only; invalid custom date ranges (for example 31 February) fall back to the current month",
-        "Docker: release images are published to GitHub Container Registry as ghcr.io/lukashanes/foxdesk:<version> for amd64 and arm64; see docs/DOCKER.md"
+        "New look: the light flight deck design with FoxDesk blue, rounded pill controls and framed content; the sidebar is an icon rail by default (expand it from the menu), phones get a bottom navigation bar, and a running timer stays visible in the top bar",
+        "Dashboard rebuilt for staff: billable amount for the period with the change against the previous period, people and clients, worked hours per day, what needs your attention, the recent activity feed and recently updated tickets; switching period or Me/Team updates the page in place",
+        "Ticket list: one Filter button holds all filters and the full sort list, columns sort by clicking their headers, rows offer quick actions (take, start timer, reply), due dates and time can be edited inline, Done tickets are grouped by when they were completed, and the list loads more rows as you scroll",
+        "Ticket detail: the status pipeline sits in the header, actions moved into the properties card, the timer, work log and conversation are consolidated, assigning a ticket asks for an optional handoff note, and you can log time for a comment or as standalone work",
+        "Admins and agents can enter an earlier Created at date for new tickets and replies, for example when recording work done by phone",
+        "Images pasted into a ticket are stored as ticket attachments, so they stay visible to everyone who can see the ticket",
+        "New ticket form shows image thumbnails for selected attachments",
+        "Removed obsolete scripts and stylesheets replaced by the new interface (ticket-detail-core.js, ticket-detail-workflow.js, ticket-list-actions.js, new-ticket.css, report-page.css, ticket-detail.css); the updater deletes them"
     ],
-    "delete_files": []
+    "delete_files": [
+        "assets/css/new-ticket.css",
+        "assets/css/report-page.css",
+        "assets/css/ticket-detail.css",
+        "assets/js/ticket-detail-core.js",
+        "assets/js/ticket-detail-workflow.js",
+        "assets/js/ticket-list-actions.js"
+    ]
 }
