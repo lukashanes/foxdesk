@@ -1,0 +1,1015 @@
+/* Flight deck dashboard (pages/work.php, staff view).
+   Source of truth: audits/flight-deck-ui-2026-10/mockup.html (#scr-dash-d).
+   Loaded after theme.min.css via $page_extra_css; uses shell tokens with fallbacks. */
+
+.fdd {
+  --fdd-gutter: var(--app-shell-gutter, 1.25rem);
+  --fdd-line: var(--border-light, #e1e4ef);
+  --fdd-mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  --fdd-green: var(--fd-green, #15803d);
+  --fdd-green-soft: var(--fd-green-soft, #dcfce7);
+  --fdd-amber: var(--fd-amber, #b45309);
+  --fdd-amber-soft: var(--fd-amber-soft, #fdf1dc);
+  --fdd-red: var(--fd-red, #d4423c);
+  --fdd-red-soft: var(--fd-red-soft, #fdecea);
+  --fdd-violet: var(--fd-violet, #6d4fd6);
+  --fdd-blue-2: var(--fd-blue-2, #7b96ff);
+  --fdd-dot: var(--fd-dot-grid, #d6dae8);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+/* Sections run edge to edge inside the framed content; hairlines separate them. */
+.fdd > * {
+  margin-inline: calc(-1 * var(--fdd-gutter));
+  padding-inline: var(--fdd-gutter);
+}
+
+.fdd-section {
+  border-block-end: 1px solid var(--fdd-line);
+}
+
+/* ---- Header row ------------------------------------------------------- */
+
+.fdd .work-canvas-intro {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-block: 0;
+  padding-block: 0.25rem 0.875rem;
+}
+
+.fdd-head__title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  min-width: 0;
+}
+
+.fdd .work-canvas-intro h1 {
+  font-size: 1.25rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.fdd .work-canvas-intro time {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-sm);
+  white-space: normal;
+}
+
+.fdd .work-canvas-intro__controls {
+  gap: 0.5rem;
+}
+
+.fdd .work-range-controls {
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fdd .work-custom-range summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.fdd .work-custom-range summary::-webkit-details-marker {
+  display: none;
+}
+
+.fdd .work-custom-period {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block-start: 0.5rem;
+}
+
+.fdd .work-custom-period label {
+  display: grid;
+  gap: 0.2rem;
+  color: var(--text-muted);
+  font-size: var(--type-xs);
+}
+
+/* ---- Top row: money hero, people, clients ------------------------------ */
+
+.fdd-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.1fr;
+  padding-inline: 0;
+}
+
+.fdd-grid > * {
+  min-width: 0;
+  padding: 1.125rem var(--fdd-gutter);
+  border-inline-end: 1px solid var(--fdd-line);
+}
+
+.fdd-grid > :last-child {
+  border-inline-end: 0;
+}
+
+.fdd-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.fdd-hero__value {
+  margin: 0;
+  color: var(--primary);
+  font-size: clamp(2rem, 4.2vw, 3.5rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.fdd-hero__sub {
+  margin: 0.75rem 0 0;
+  color: var(--text-secondary);
+  font-size: var(--type-sm);
+  line-height: 1.5;
+}
+
+.fdd-hero__chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--fdd-green-soft);
+  color: var(--fdd-green);
+  font-weight: 500;
+}
+
+.fdd-hero__chip--down {
+  background: var(--fdd-amber-soft);
+  color: var(--fdd-amber);
+}
+
+.fdd-hero__line {
+  margin: 0.625rem 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-xs);
+}
+
+.fdd-hero__line em {
+  color: var(--fdd-green);
+  font-style: normal;
+  font-weight: 500;
+}
+
+.fdd-col__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-end: 0.625rem;
+}
+
+.fdd-col__head h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.fdd-col__more {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.fdd-col__more:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.fdd-col__more svg {
+  width: 13px;
+  height: 13px;
+}
+
+html[dir="rtl"] .fdd-icon--directional {
+  transform: scaleX(-1);
+}
+
+/* The people/client lists are real tables; restyle the shared primitive as quiet rows. */
+.fdd-rows .fd-table {
+  table-layout: fixed;
+}
+
+.fdd-rows .fd-table th,
+.fdd-rows .fd-table td,
+.app-shell-page .fdd-rows .fd-table tbody td {
+  height: 38px;
+  padding: 0;
+  padding-inline-start: 0.625rem;
+  border-block-start: 1px dashed var(--fdd-line);
+  border-block-end: 0;
+  color: var(--text-primary);
+  font-size: var(--type-sm);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.fdd-rows .fd-table td:first-child,
+.fdd-rows .fd-table th:first-child {
+  padding-inline-start: 0;
+}
+
+.fdd-rows .fd-table td:last-child,
+.fdd-rows .fd-table th:last-child {
+  padding-inline-end: 0;
+}
+
+.fdd-rows .fd-table tbody tr:first-child td {
+  border-block-start: 0;
+}
+
+.fdd-rows__cell--logo {
+  width: 22px;
+}
+
+.fdd-rows__cell--bar {
+  width: 56px;
+}
+
+.fdd-rows__cell--hours,
+.fdd-rows__cell--amount {
+  text-align: end;
+}
+
+.fdd-rows__cell--hours {
+  width: 64px;
+  color: var(--text-muted);
+  font-size: var(--type-xs);
+}
+
+.fdd-rows__cell--amount {
+  width: 84px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.fdd-rows__name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.fdd-rows__name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.fdd-rows__name a:hover {
+  color: var(--primary);
+}
+
+.fdd-rows__logo {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.fdd-rows .user-avatar--xs {
+  width: 22px;
+  height: 22px;
+  font-size: 10px;
+}
+
+.fdd-rows__bar {
+  display: block;
+  width: 56px;
+  height: 4px;
+}
+
+.fdd-rows__bar-track {
+  fill: var(--surface-secondary);
+}
+
+.fdd-rows__bar-fill {
+  fill: var(--fdd-blue-2);
+}
+
+.fdd-hint {
+  display: inline-block;
+  margin-block-start: 0.5rem;
+  color: var(--text-muted);
+  font-size: var(--type-xs);
+}
+
+.fdd-hint a {
+  color: var(--text-secondary);
+  text-decoration: underline;
+}
+
+.fdd-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-xs);
+}
+
+/* ---- Worked hours chart ------------------------------------------------ */
+
+.fdd .work-overview-card,
+.app-shell-page .fdd .work-overview-card {
+  display: block;
+  gap: 0;
+  margin: 0;
+  margin-inline: calc(-1 * var(--fdd-gutter));
+  padding: 0;
+  border: 0;
+  border-block-end: 1px solid var(--fdd-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.fdd-chart__head {
+  align-items: center;
+  padding: 0.75rem var(--fdd-gutter) 0;
+}
+
+.fdd-chart__head .fd-section-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fdd-chart__meta {
+  color: var(--text-muted);
+  font-size: var(--type-xs);
+}
+
+.fdd-chart__plot {
+  position: relative;
+  height: 250px;
+  background-image: radial-gradient(var(--fdd-dot) 1.2px, transparent 1.4px);
+  background-size: 16px 16px;
+  background-position: 8px 8px;
+  /* Chart geometry is intentionally physical; it never mirrors in RTL. */
+  direction: ltr;
+}
+
+.fdd-chart__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.fdd-chart__stop-a {
+  stop-color: var(--primary);
+  stop-opacity: 0.78;
+}
+
+.fdd-chart__stop-b {
+  stop-color: var(--fdd-blue-2);
+  stop-opacity: 0.38;
+}
+
+.fdd-chart__bar {
+  fill: url(#fdd-bar-gradient);
+}
+
+.fdd-chart__bar--off {
+  fill: var(--fdd-line);
+}
+
+.fdd-chart__bar--today {
+  fill: var(--primary-soft);
+  stroke: var(--fdd-blue-2);
+  stroke-width: 1.5;
+}
+
+.fdd-chart__base {
+  stroke: var(--fdd-line);
+  stroke-width: 1;
+}
+
+.fdd-chart__avg {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 6;
+  opacity: 0.6;
+}
+
+.fdd-chart__axis {
+  fill: var(--text-muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.fdd-chart__label {
+  fill: var(--fdd-green);
+  stroke: var(--fdd-green-soft);
+  stroke-width: 9px;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.fdd-chart__label--today {
+  fill: var(--primary);
+  stroke: var(--primary-soft);
+  font-family: var(--fdd-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.fdd-chart__avg-label {
+  fill: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ---- What's happening -------------------------------------------------- */
+
+.fdd-feed {
+  padding-block: 0.875rem 1.25rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.fdd-feed__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-end: 0.25rem;
+}
+
+.fdd-feed__head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fdd-feed__all {
+  color: var(--text-secondary);
+  font-size: var(--type-xs);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.fdd-feed__all:hover {
+  color: var(--primary);
+}
+
+.fdd-need {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-block: 2px 10px;
+}
+
+.fdd-need__label {
+  margin-inline-end: 4px;
+  color: var(--text-muted);
+  font-size: var(--type-xs);
+}
+
+.fdd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--fdd-line);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: var(--type-xs);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.fdd-chip b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.fdd-chip:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.fdd-chip--red {
+  border-color: transparent;
+  background: var(--fdd-red-soft);
+  color: var(--fdd-red);
+}
+
+.fdd-chip--blue b {
+  color: var(--primary);
+}
+
+.fdd-chip--amber b {
+  color: var(--fdd-amber);
+}
+
+.fdd-chip--green b,
+.fdd-chip--green em {
+  color: var(--fdd-green);
+  font-style: normal;
+}
+
+.fdd-chip--ok {
+  border-color: transparent;
+  background: var(--fdd-green-soft);
+  color: var(--fdd-green);
+}
+
+.fdd-chip--ok svg {
+  width: 12px;
+  height: 12px;
+}
+
+.fdd-feed__group {
+  padding: 6px 0 2px;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.fdd-feed__item {
+  display: grid;
+  grid-template-columns: 44px 8px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 5px 0;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.fdd-feed__item:hover .fdd-feed__text {
+  color: var(--text-primary);
+}
+
+.fdd-feed__time {
+  padding-block-start: 2px;
+  color: var(--text-muted);
+  font-family: var(--fdd-mono);
+  font-size: 11px;
+}
+
+.fdd-feed__dot {
+  width: 8px;
+  height: 8px;
+  margin-block-start: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.fdd-feed__dot--reply { background: var(--primary); }
+.fdd-feed__dot--new { background: var(--fdd-violet); }
+.fdd-feed__dot--time { background: var(--text-secondary); }
+.fdd-feed__dot--done { background: var(--fdd-green); }
+.fdd-feed__dot--bill { background: var(--fdd-green); }
+.fdd-feed__dot--wait { background: var(--fdd-amber); }
+
+.fdd-feed__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.fdd-feed__text b {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.fdd-feed__text code {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  font-family: var(--fdd-mono);
+  font-size: 11px;
+}
+
+.fdd-feed__empty {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-xs);
+}
+
+/* ---- Responsive -------------------------------------------------------- */
+
+@media (max-width: 1024px) {
+  .fdd {
+    --fdd-gutter: 1rem;
+    border: 1px solid var(--fdd-line);
+    border-radius: var(--fd-radius-card, 14px);
+    background: var(--surface-primary);
+    overflow: hidden;
+  }
+
+  .fdd > * {
+    margin-inline: 0;
+  }
+
+  .fdd .work-overview-card,
+  .app-shell-page .fdd .work-overview-card {
+    margin-inline: 0;
+  }
+
+  .fdd .work-canvas-intro {
+    padding-block: 0.875rem 0.75rem;
+    border-block-end: 1px solid var(--fdd-line);
+  }
+}
+
+@media (max-width: 760px) {
+  .fdd-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fdd-grid > * {
+    padding: 0.875rem var(--fdd-gutter);
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--fdd-line);
+  }
+
+  .fdd-grid > :last-child {
+    border-block-end: 0;
+  }
+
+  .fdd-hero__value {
+    font-size: 2.75rem;
+  }
+
+  .fdd-chart__plot {
+    height: 200px;
+  }
+
+  .fdd-chart__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .fdd-need {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: calc(-1 * var(--fdd-gutter));
+    padding-inline: var(--fdd-gutter);
+  }
+
+  .fdd-need::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fdd .work-canvas-intro__controls {
+    justify-content: flex-start;
+  }
+
+  .fdd-feed__item {
+    grid-template-columns: 40px 8px minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fdd-chip,
+  .fdd-col__more {
+    transition: background var(--transition-fast, 0.15s), color var(--transition-fast, 0.15s), border-color var(--transition-fast, 0.15s);
+  }
+}
+
+/* People / clients: the name takes the remaining width, numbers stay on one line. */
+.fdd-rows .fd-table { width: 100%; table-layout: fixed; }
+.fdd-rows .fd-table td { white-space: nowrap; vertical-align: middle; }
+.fdd-rows .fd-table td:nth-child(2) { max-width: 0; }
+.fdd-rows__cell--hours { width: 72px; }
+.fdd-rows__cell--amount { width: 96px; }
+@media (max-width: 760px) {
+  .fdd-rows__cell--bar { padding: 0; }
+  .fdd-rows__cell--bar .fdd-rows__bar { display: none; }
+}
+
+/* Column widths come from the colgroup so the fixed layout gives the name the rest.
+   They are in rem so they grow with the larger root font on wide monitors. */
+.fdd-col--logo { width: 1.875rem; }
+.fdd-col--bar { width: 4rem; }
+.fdd-col--hours { width: 5.5rem; }
+.fdd-col--amount { width: 7rem; }
+@media (max-width: 760px) {
+  .fdd-col--bar { width: 0; }
+  .fdd-col--hours { width: 5rem; }
+  .fdd-col--amount { width: 6.25rem; }
+}
+.fdd-need__label { white-space: nowrap; }
+
+/* Below the chart: what is happening on the left, recently touched tickets on the right. */
+.fdd-low { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: start; }
+.fdd-low > .fdd-feed { border-inline-end: 1px solid var(--border-light); }
+.fdd-recent { padding-block: 0.875rem 1.25rem; border-top: 1px solid var(--border-light); }
+.fdd-recent .fdd-feed__head { padding-inline: 1.25rem; }
+.fdd-recent__row { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: 0.625rem; align-items: center; padding: 0.4rem 1.25rem; color: inherit; text-decoration: none; border-radius: var(--fd-radius-control); }
+.fdd-recent__row:hover { background: var(--surface-secondary); }
+.fdd-recent__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-medium); }
+.fdd-recent__main { display: grid; gap: 0.1rem; min-width: 0; }
+.fdd-recent__title { font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fdd-recent__meta { font-size: var(--type-xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fdd-recent__meta code { font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size: 11px; color: var(--text-secondary); background: var(--surface-secondary); border-radius: 4px; padding: 0 4px; }
+.fdd-recent__time { font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.fdd-feed__count { display: inline-block; font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size: 10.5px; color: var(--primary); background: var(--primary-soft); border-radius: 4px; padding: 0 5px; margin-inline-start: 2px; }
+.fdd-feed__item { padding-block: 0.3rem; }
+/* Chart interaction: the hovered day lights up and a tooltip follows it. */
+.fdd-chart__plot { position: relative; }
+.fdd-chart__day { cursor: default; }
+.fdd-chart__day .fdd-chart__bar { transition: opacity .12s ease; }
+.fdd-chart__svg:hover .fdd-chart__day:not(.is-hover) .fdd-chart__bar { opacity: .55; }
+.fdd-chart__day.is-hover .fdd-chart__bar { opacity: 1; filter: saturate(1.15); }
+.fdd-chart__day.is-hover .fdd-chart__axis { fill: var(--text-primary); font-weight: 600; }
+.fdd-chart__tip { position: absolute; z-index: 5; transform: translate(-50%, calc(-100% - 10px)); pointer-events: none; display: grid; gap: 1px; padding: 6px 9px; border-radius: 8px; background: var(--text-primary); color: var(--surface-primary); font-size: var(--type-xs); line-height: 1.3; white-space: nowrap; box-shadow: var(--shadow-popover); }
+.fdd-chart__tip b { font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size: 13px; font-weight: 600; }
+.fdd-chart__tip span { opacity: .8; }
+@media (max-width: 1024px) {
+  .fdd-low { grid-template-columns: 1fr; }
+  .fdd-low > .fdd-feed { border-inline-end: 0; }
+}
+.fdd-recent__dot--new { background: var(--fd-violet); }
+.fdd-recent__dot--active { background: var(--primary); }
+.fdd-recent__dot--waiting { background: var(--fd-amber); }
+.fdd-recent__dot--done { background: var(--fd-green); }
+.fdd-recent__dot--archived { background: var(--border-medium); }
+/* Feed rows wrap on narrow screens instead of clipping. */
+.fdd-feed__item { align-items: start; }
+.fdd-feed__text { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .fdd-feed__item { grid-template-columns: 40px 8px minmax(0, 1fr); }
+  .fdd-recent__title, .fdd-recent__meta { white-space: normal; overflow-wrap: anywhere; }
+}
+/* Grid children must be allowed to shrink below their content (chip rows scroll instead of widening the page). */
+.fdd-low > .fdd-feed, .fdd-low > .fdd-recent { min-width: 0; }
+@media (max-width: 1024px) {
+  .fdd-low { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Playful accents (2026-10): hero gradient, ranked bars, ringed dots, tinted chips. */
+.app-shell-page .fdd-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--fd-pop-blue) 10%, var(--surface-primary)), var(--surface-primary) 62%);
+}
+.app-shell-page .fdd-hero::after {
+  content: "";
+  position: absolute;
+  right: -3rem;
+  bottom: -4rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--fd-pop-violet) 22%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.app-shell-page .fdd-hero__value {
+  background: linear-gradient(90deg, var(--text-primary), var(--fd-brand-blue));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.app-shell-page .fdd-rows tbody tr:nth-child(1) .fdd-rows__bar-fill { background: var(--fd-pop-blue); }
+.app-shell-page .fdd-rows tbody tr:nth-child(2) .fdd-rows__bar-fill { background: var(--fd-pop-violet); }
+.app-shell-page .fdd-rows tbody tr:nth-child(3) .fdd-rows__bar-fill { background: var(--fd-pop-teal); }
+.app-shell-page .fdd-rows tbody tr:nth-child(4) .fdd-rows__bar-fill { background: var(--fd-pop-amber); }
+.app-shell-page .fdd-rows tbody tr:nth-child(5) .fdd-rows__bar-fill { background: var(--fd-pop-pink); }
+.app-shell-page .fdd-rows tbody tr:nth-child(n+6) .fdd-rows__bar-fill { background: var(--fd-pop-slate); }
+.app-shell-page .fdd-rows__bar-track { background: var(--fd-pop-slate-soft); }
+
+.app-shell-page .fdd-feed__dot { --dot: var(--fd-pop-slate); width: .5rem; height: .5rem; background: var(--dot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot) 18%, transparent); }
+.app-shell-page .fdd-feed__dot--reply { --dot: var(--fd-pop-blue); }
+.app-shell-page .fdd-feed__dot--new { --dot: var(--fd-pop-violet); }
+.app-shell-page .fdd-feed__dot--time { --dot: var(--fd-pop-teal); }
+.app-shell-page .fdd-feed__dot--done, .app-shell-page .fdd-feed__dot--bill { --dot: var(--fd-pop-green); }
+.app-shell-page .fdd-feed__dot--wait { --dot: var(--fd-pop-amber); }
+.app-shell-page .fdd-feed__dot--status, .app-shell-page .fdd-feed__dot--assign { --dot: var(--fd-pop-pink); }
+.app-shell-page .fdd-feed__count { background: var(--fd-pop-blue-soft); color: var(--fd-pop-blue); border-radius: 999px; padding: 0 .375rem; font-weight: 600; }
+
+.app-shell-page .fdd-recent__dot { --dot: var(--fd-pop-slate); background: var(--dot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot) 18%, transparent); }
+.app-shell-page .fdd-recent__dot--new { --dot: var(--fd-pop-blue); }
+.app-shell-page .fdd-recent__dot--active { --dot: var(--fd-pop-violet); }
+.app-shell-page .fdd-recent__dot--waiting { --dot: var(--fd-pop-amber); }
+.app-shell-page .fdd-recent__dot--done { --dot: var(--fd-pop-green); }
+
+.app-shell-page .fdd-chip { border: 0; border-radius: 999px; font-weight: 600; background: var(--fd-pop-slate-soft); color: var(--fd-pop-slate); }
+.app-shell-page .fdd-chip b, .app-shell-page .fdd-chip em { color: inherit; }
+.app-shell-page .fdd-chip--red { background: var(--fd-pop-red-soft); color: var(--fd-pop-red); }
+.app-shell-page .fdd-chip--blue { background: var(--fd-pop-blue-soft); color: var(--fd-pop-blue); }
+.app-shell-page .fdd-chip--amber { background: var(--fd-pop-amber-soft); color: var(--fd-pop-amber); }
+.app-shell-page .fdd-chip--green, .app-shell-page .fdd-chip--ok { background: var(--fd-pop-green-soft); color: var(--fd-pop-green); }
+.app-shell-page .fdd-empty, .app-shell-page .fdd-feed__empty { border: 1px dashed var(--border-medium); border-radius: 12px; background: var(--fd-pop-slate-soft); }
+
+/* Clean layout (2026-10): cards with one gap and one padding, no edge-to-edge
+   sections, no dot grid, explicit section links. */
+.app-shell-page .fdd { gap: var(--fd-gap, 1rem); }
+.app-shell-page .fdd > * { margin-inline: 0; padding-inline: 0; }
+.app-shell-page .fdd-section { border-block-end: 0; }
+.app-shell-page .fdd .work-canvas-intro { padding-block: 0; }
+.app-shell-page :is(.fdd-grid > *, .fdd-chart, .fdd-feed, .fdd-recent) {
+  background: var(--surface-primary);
+  border: 1px solid var(--fd-card-line, var(--border-light));
+  border-radius: var(--fd-radius-card, 16px);
+  box-shadow: var(--fd-pop-shadow);
+}
+.app-shell-page .fdd-grid { gap: var(--fd-gap, 1rem); }
+.app-shell-page .fdd-grid > * { padding: var(--fd-card-pad, 1.25rem); border-inline-end: 1px solid var(--fd-card-line, var(--border-light)); }
+.app-shell-page .fdd-grid > :last-child { border-inline-end: 1px solid var(--fd-card-line, var(--border-light)); }
+.app-shell-page .fdd-hero::after { content: none; }
+.app-shell-page .fdd-chart { padding: 0; overflow: hidden; }
+.app-shell-page .fdd-chart__head { padding: var(--fd-card-pad, 1.25rem) var(--fd-card-pad, 1.25rem) 0; }
+.app-shell-page .fdd-chart__plot { background-image: none; margin-inline: var(--fd-card-pad, 1.25rem); }
+.app-shell-page .fdd-low { gap: var(--fd-gap, 1rem); align-items: stretch; }
+.app-shell-page :is(.fdd-feed, .fdd-recent) { padding: var(--fd-card-pad, 1.25rem); border-top: 1px solid var(--fd-card-line, var(--border-light)); }
+.app-shell-page .fdd-low > .fdd-feed { border-inline-end: 1px solid var(--fd-card-line, var(--border-light)); }
+.app-shell-page :is(.fdd-col__head, .fdd-feed__head) { display: flex; align-items: center; gap: .5rem; margin-block-end: .75rem; }
+.app-shell-page :is(.fdd-col__head h2, .fdd-feed__head h2, .fdd-chart__head .fd-section-title) { flex: 1; margin: 0; font-size: .875rem; font-weight: 600; }
+.app-shell-page .fdd-link {
+  flex: none;
+  color: var(--fd-pop-blue);
+  font-size: var(--type-xs, .75rem);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.app-shell-page .fdd-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.app-shell-page .fdd-need { margin-block-end: .75rem; }
+.app-shell-page .fdd-feed__item { padding-block: .375rem; }
+.app-shell-page .fdd-recent__title { font-size: .875rem; }
+.app-shell-page .fdd-recent__row { padding-block: .5rem; }
+@media (max-width: 1024px) {
+  .app-shell-page .fdd-grid { grid-template-columns: minmax(0, 1fr); }
+  .app-shell-page .fdd-low { grid-template-columns: minmax(0, 1fr); }
+}
+.app-shell-page .fdd .fdd-chart.work-overview-card {
+  margin-inline: 0;
+  border: 1px solid var(--fd-card-line, var(--border-light));
+  border-radius: var(--fd-radius-card, 16px);
+}
+.app-shell-page .fdd .fdd-low > :is(.fdd-feed, .fdd-recent) { padding: var(--fd-card-pad, 1.25rem); }
+.app-shell-page .fdd .fdd-grid > .fdd-hero {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--fd-pop-blue) 9%, var(--surface-primary)), var(--surface-primary) 65%);
+}
+.app-shell-page .fdd .fdd-recent :is(.fdd-feed__head, .fdd-feed__empty) { padding-inline: 0; margin-inline: 0; }
+.app-shell-page .fdd .fdd-recent .fdd-recent__row { padding-inline: .5rem; margin-inline: -.5rem; border-radius: 10px; }
+@media (max-width: 1024px) {
+  .app-shell-page .fdd { border: 0; border-radius: 0; background: transparent; overflow: visible; }
+}
+.app-shell-page .fdd-rows :is(table, thead, tbody, tr, td) { background: transparent; }
+@media (max-width: 1024px) {
+  .app-shell-page .fdd .work-canvas-intro { background: transparent; border: 0; box-shadow: none; padding: 0; }
+}
+/* The tooltip is display:grid; keep the hidden attribute authoritative. */
+.fdd-chart__tip[hidden] { display: none; }
+.app-shell-page .fdd-chart__plot { cursor: crosshair; }
+
+/* ==========================================================================
+   Readable deck (2026-10-15)
+   Nothing on the dashboard is smaller than .75rem and every size is in rem,
+   so the deck grows with the fluid root font on large monitors instead of
+   stretching a 1440px layout, with tiny pixel type, across the screen.
+   ========================================================================== */
+.app-shell-page .fdd { --fdd-row-h: 2.5rem; gap: 1.25rem; }
+@media (min-width: 1800px) {
+  .app-shell-page .fdd { --fd-card-pad: 1.5rem; gap: 1.5rem; }
+}
+
+/* Hero */
+.app-shell-page .fdd-hero__value { font-size: clamp(2.75rem, 1rem + 2.2vw, 4.25rem); letter-spacing: -.03em; }
+.app-shell-page .fdd-hero__sub { font-size: 1rem; }
+.app-shell-page .fdd-hero__line { font-size: .8125rem; }
+.app-shell-page .fdd-hero__chip { font-size: .8125rem; padding: .125rem .5rem; }
+
+/* Card headings and links */
+.app-shell-page :is(.fdd-col__head h2, .fdd-feed__head h2, .fdd-chart__head .fd-section-title) { font-size: 1rem; }
+.app-shell-page .fdd-link { font-size: .8125rem; }
+.app-shell-page .fdd-chart__meta { font-size: .8125rem; }
+
+/* People and clients */
+.app-shell-page .fdd-rows .fd-table th,
+.app-shell-page .fdd-rows .fd-table td,
+.app-shell-page .fdd-rows .fd-table tbody td { height: var(--fdd-row-h); font-size: .9375rem; }
+.app-shell-page .fdd-rows .fd-table tbody td.fdd-rows__cell--hours { font-size: .8125rem; }
+.app-shell-page .fdd-rows .fd-table tbody td.fdd-rows__cell--amount { font-size: .9375rem; }
+.app-shell-page .fdd-rows__logo,
+.app-shell-page .fdd-rows .user-avatar--xs { width: 1.625rem; height: 1.625rem; font-size: .6875rem; }
+.app-shell-page .fdd-rows__bar { height: .25rem; }
+
+/* Chart (the SVG has no viewBox, so rem type applies to its labels) */
+.app-shell-page .fdd-chart__plot { height: clamp(10rem, 16vh, 18rem); }
+.app-shell-page .fdd-chart__axis,
+.app-shell-page .fdd-chart__label,
+.app-shell-page .fdd-chart__avg-label { font-size: .75rem; }
+.app-shell-page .fdd-chart__label--today { font-size: .8125rem; }
+.app-shell-page .fdd-chart__tip { font-size: .8125rem; }
+.app-shell-page .fdd-chart__tip b { font-size: .9375rem; }
+
+/* What's happening */
+.app-shell-page .fdd-need__label { font-size: .8125rem; }
+.app-shell-page .fdd-chip { height: 1.75rem; padding: 0 .625rem; font-size: .8125rem; }
+.app-shell-page .fdd-feed__group { padding: .5rem 0 .25rem; font-size: .75rem; }
+.app-shell-page .fdd-feed__item { grid-template-columns: 3.25rem .5rem minmax(0, 1fr); gap: .75rem; padding-block: .4375rem; font-size: .9375rem; line-height: 1.45; }
+.app-shell-page .fdd-feed__time { padding-block-start: .1875rem; font-size: .75rem; }
+.app-shell-page .fdd-feed__dot { width: .5rem; height: .5rem; }
+.app-shell-page .fdd-feed__text code,
+.app-shell-page .fdd-feed__count,
+.app-shell-page .fdd-recent__meta code,
+.app-shell-page .fdd-recent__time { font-size: .75rem; }
+.app-shell-page .fdd-feed__empty { font-size: .875rem; }
+
+/* Recently updated */
+.app-shell-page .fdd-recent__row { grid-template-columns: .5rem minmax(0, 1fr) auto; padding-block: .5625rem; }
+.app-shell-page .fdd-recent__dot { width: .5rem; height: .5rem; }
+.app-shell-page .fdd-recent__title { font-size: .9375rem; }
+.app-shell-page .fdd-recent__meta { font-size: .8125rem; }
+
+/* Column widths for the larger row type: the name keeps the most room. */
+.app-shell-page .fdd-col--bar { width: 3rem; }
+.app-shell-page .fdd-col--hours { width: 4.75rem; }
+.app-shell-page .fdd-col--amount { width: 6.25rem; }
+.app-shell-page .fdd-rows .fd-table tbody td.fdd-rows__cell--hours { width: 4.75rem; }
+.app-shell-page .fdd-rows .fd-table tbody td.fdd-rows__cell--amount { width: 6.25rem; }
+/* Below 1800px the people/client cards are narrow: the hero takes a little
+   less and the thin bar column goes, so names keep their room. */
+@media (min-width: 1025px) and (max-width: 1799px) {
+  .app-shell-page .fdd-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1fr) minmax(0, 1.1fr); }
+  .app-shell-page .fdd-col--bar { width: 0; }
+  .app-shell-page .fdd-rows .fd-table tbody td.fdd-rows__cell--bar { padding: 0; }
+  .app-shell-page .fdd-rows__cell--bar .fdd-rows__bar { display: none; }
+}
+@media (max-width: 760px) {
+  .app-shell-page .fdd-rows .fd-table tbody td { font-size: .875rem; }
+  .app-shell-page .fdd-col--bar { width: 0; }
+  .app-shell-page .fdd-rows .fd-table tbody td.fdd-rows__cell--bar { padding: 0; }
+  .app-shell-page .fdd-col--hours,
+  .app-shell-page .fdd-rows .fd-table tbody td.fdd-rows__cell--hours { width: 4.5rem; }
+  .app-shell-page .fdd-col--amount,
+  .app-shell-page .fdd-rows .fd-table tbody td.fdd-rows__cell--amount { width: 5.75rem; }
+}
+
+/* ==========================================================================
+   Fit to screen (2026-10-16)
+   One quiet shadow on every deck card, so edges meet cleanly, and on desktop
+   displays the dashboard fills the viewport without a page scroll: the two
+   lower panels scroll inside themselves instead.
+   ========================================================================== */
+.app-shell-page :is(.fdd-grid > *, .fdd-chart, .fdd-low > *) { box-shadow: 0 1px 2px rgba(19, 23, 51, .05); }
+html[data-theme="dark"] .app-shell-page :is(.fdd-grid > *, .fdd-chart, .fdd-low > *) { box-shadow: 0 1px 2px rgba(0, 0, 0, .3); }
+
+@media (min-width: 1025px) and (min-height: 700px) {
+  /* The body's min-height plus the shell's collapsed 12px margin would add a 12px page scroll. */
+  body.app-shell-page:has(> .main-content > .app-content > .fdd) { min-height: 0; }
+  .app-shell-page .main-content:has(> .app-content > .fdd) { display: flex; flex-direction: column; height: calc(100dvh - 24px); min-height: 0; box-sizing: border-box; }
+  .app-shell-page .main-content:has(> .app-content > .fdd) > .app-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+  .app-shell-page .fdd { flex: 1 1 auto; min-height: 0; }
+  .app-shell-page .fdd > * { flex: 0 0 auto; }
+  .app-shell-page .fdd-low { flex: 1 1 auto; min-height: 14rem; grid-template-rows: minmax(0, 1fr); }
+  /* No scrollbars: the panels clip, and work-dashboard.js hides the rows that would not fit. */
+  .app-shell-page .fdd-low > * { min-height: 0; overflow: hidden; }
+  .app-shell-page .fdd-low [data-fdd-trimmed] { display: none !important; }
+}
+/* Laptop heights: tighter rhythm so the whole deck still fits. */
+@media (min-width: 1025px) and (min-height: 700px) and (max-height: 1000px) {
+  .app-shell-page .app-content:has(> .fdd) { padding-block: .5rem .75rem; }
+  .app-shell-page .fdd { --fdd-row-h: 2.125rem; --fd-card-pad: 1rem; gap: .75rem; }
+  .app-shell-page .fdd-low { min-height: 12rem; }
+  .app-shell-page .fdd .work-canvas-intro { margin-block-end: 0; }
+  .app-shell-page .fdd-hero { padding: 1rem; }
+  .app-shell-page .fdd-hero__value { font-size: clamp(2.25rem, 1rem + 1.6vw, 3.25rem); }
+  .app-shell-page .fdd-chart__plot { height: clamp(5.5rem, 12vh, 10rem); }
+  .app-shell-page .fdd-feed__item { padding-block: .3125rem; }
+  .app-shell-page .fdd-recent__row { padding-block: .4375rem; }
+}
+/* From 1800px the root font is larger: give hours a little more room so they never touch the bar. */
+@media (min-width: 1800px) {
+  .app-shell-page .fdd-col--hours,
+  .app-shell-page .fdd-rows .fd-table tbody td.fdd-rows__cell--hours { width: 5.5rem; }
+}
+/* The bar is sized in rem too, so it stays inside its 3rem column at every root font. */
+.app-shell-page .fdd-rows__bar { width: 2.25rem; }
