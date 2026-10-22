@@ -10,7 +10,8 @@
         "Admins and agents can enter an earlier Created at date for new tickets and replies, for example when recording work done by phone",
         "Images pasted into a ticket are stored as ticket attachments, so they stay visible to everyone who can see the ticket",
         "New ticket form shows image thumbnails for selected attachments",
-        "Removed obsolete scripts and stylesheets replaced by the new interface (ticket-detail-core.js, ticket-detail-workflow.js, ticket-list-actions.js, new-ticket.css, report-page.css, ticket-detail.css); the updater deletes them"
+        "Removed obsolete scripts and stylesheets replaced by the new interface (ticket-detail-core.js, ticket-detail-workflow.js, ticket-list-actions.js, new-ticket.css, report-page.css, ticket-detail.css); the updater deletes them",
+        "Updating from an older installation no longer reports \"Migration ... changed after it was applied\" when the only difference is line endings, for example after installing from a package built on Windows"
     ],
     "delete_files": [
         "assets/css/new-ticket.css",

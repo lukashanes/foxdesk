@@ -24,6 +24,19 @@ function foxdesk_migration_files(string $directory): array
     return $files;
 }
 
+/**
+ * Checksums of a migration file with LF and with CRLF line endings. Release
+ * packages built on different systems may differ only in line endings, which
+ * must not count as a changed migration.
+ */
+function foxdesk_migration_line_ending_checksums(string $file): array
+{
+    $content = (string) file_get_contents($file);
+    $lf = str_replace("\r\n", "\n", $content);
+    $crlf = str_replace("\n", "\r\n", $lf);
+    return array_values(array_unique([hash('sha256', $lf), hash('sha256', $crlf)]));
+}
+
 function foxdesk_run_versioned_migrations(string $directory): array
 {
     $result = ['success' => true, 'messages' => [], 'errors' => []];
@@ -41,11 +54,17 @@ function foxdesk_run_versioned_migrations(string $directory): array
             [$name]
         );
         if ($applied) {
-            if (!hash_equals((string) $applied['checksum'], (string) $checksum)) {
+            $recorded = (string) $applied['checksum'];
+            if (hash_equals($recorded, (string) $checksum)) {
+                $result['messages'][] = "Migration {$name} already applied.";
+            } elseif (in_array($recorded, foxdesk_migration_line_ending_checksums($file), true)) {
+                // Same migration with other line endings (for example a package built on
+                // Windows); record the checksum of the file that is installed now.
+                db_update('foxdesk_schema_migrations', ['checksum' => $checksum], 'migration = ?', [$name]);
+                $result['messages'][] = "Migration {$name} already applied.";
+            } else {
                 $result['success'] = false;
                 $result['errors'][] = "Migration {$name} changed after it was applied.";
-            } else {
-                $result['messages'][] = "Migration {$name} already applied.";
             }
             continue;
         }
