@@ -27,6 +27,68 @@ function ticket_registry_closed_label(): string
     return function_exists('t') ? t('Closed') : 'Closed';
 }
 
+function ticket_registry_ticket_completed_timestamp(array $ticket): int
+{
+    foreach (['completed_at', 'updated_at', 'created_at'] as $field) {
+        $value = trim((string) ($ticket[$field] ?? ''));
+        if ($value === '') {
+            continue;
+        }
+
+        $timestamp = strtotime($value);
+        if ($timestamp !== false) {
+            return $timestamp;
+        }
+    }
+
+    return 0;
+}
+
+function ticket_registry_done_ticket_groups(array $tickets, ?int $now = null): array
+{
+    $now = $now ?: time();
+    $today_start = strtotime(date('Y-m-d 00:00:00', $now));
+    $tomorrow_start = strtotime(date('Y-m-d 00:00:00', strtotime('+1 day', $today_start)));
+    $yesterday_start = strtotime(date('Y-m-d 00:00:00', strtotime('-1 day', $today_start)));
+    $week_start = strtotime(date('Y-m-d 00:00:00', strtotime('monday this week', $now)));
+
+    $buckets = [
+        'done_today' => ['name' => 'done_today', 'label' => function_exists('t') ? t('Done today') : 'Done today', 'tickets' => [], 'hidden' => false],
+        'done_yesterday' => ['name' => 'done_yesterday', 'label' => function_exists('t') ? t('Done yesterday') : 'Done yesterday', 'tickets' => [], 'hidden' => false],
+        'done_this_week' => ['name' => 'done_this_week', 'label' => function_exists('t') ? t('This week') : 'This week', 'tickets' => [], 'hidden' => false],
+        'done_rest' => ['name' => 'done_rest', 'label' => function_exists('t') ? t('Done') : 'Done', 'tickets' => [], 'hidden' => false],
+    ];
+    $seen = [];
+
+    foreach ($tickets as $ticket) {
+        $ticket_id = (int) ($ticket['id'] ?? 0);
+        if ($ticket_id > 0 && isset($seen[$ticket_id])) {
+            continue;
+        }
+        if ($ticket_id > 0) {
+            $seen[$ticket_id] = true;
+        }
+
+        $completed_at = ticket_registry_ticket_completed_timestamp($ticket);
+        if ($completed_at >= $today_start && $completed_at < $tomorrow_start) {
+            $buckets['done_today']['tickets'][] = $ticket;
+            continue;
+        }
+        if ($completed_at >= $yesterday_start && $completed_at < $today_start) {
+            $buckets['done_yesterday']['tickets'][] = $ticket;
+            continue;
+        }
+        if ($completed_at >= $week_start && $completed_at < $yesterday_start) {
+            $buckets['done_this_week']['tickets'][] = $ticket;
+            continue;
+        }
+
+        $buckets['done_rest']['tickets'][] = $ticket;
+    }
+
+    return array_values(array_filter($buckets, static fn (array $group): bool => !empty($group['tickets'])));
+}
+
 function ticket_registry_split_model(array $statuses, array $tickets, ?int $status_id, string $ticket_list_view, ?bool $show_closed_tickets_inline_override = null): array
 {
     $statuses_by_id = ticket_registry_statuses_by_id($statuses);
@@ -69,9 +131,16 @@ function ticket_registry_split_model(array $statuses, array $tickets, ?int $stat
     }
 
     $closed_label = ticket_registry_closed_label();
-    $ticket_groups = [
-        ['name' => 'active', 'label' => '', 'tickets' => $active_tickets, 'hidden' => false],
-    ];
+    if (function_exists('ticket_list_view_normalize') && ticket_list_view_normalize($ticket_list_view, true) === 'done') {
+        $ticket_groups = ticket_registry_done_ticket_groups($active_tickets);
+        if (empty($ticket_groups)) {
+            $ticket_groups = [['name' => 'done_rest', 'label' => '', 'tickets' => [], 'hidden' => false]];
+        }
+    } else {
+        $ticket_groups = [
+            ['name' => 'active', 'label' => '', 'tickets' => $active_tickets, 'hidden' => false],
+        ];
+    }
     if (!empty($closed_tickets)) {
         $ticket_groups[] = ['name' => 'closed', 'label' => $closed_label . ' (' . count($closed_tickets) . ')', 'tickets' => $closed_tickets, 'hidden' => true];
     }
@@ -180,6 +249,35 @@ function ticket_registry_status_group_from_status(array $status): string
         return ticket_status_group_normalize(ticket_status_group_from_status($status));
     }
     return !empty($status['is_closed']) ? 'done' : 'active';
+}
+
+function ticket_registry_status_from_ticket(array $ticket, array $statuses): array
+{
+    $statuses_by_id = ticket_registry_statuses_by_id($statuses);
+    $status = $statuses_by_id[(int) ($ticket['status_id'] ?? 0)] ?? [];
+    if (!empty($ticket['status_name'])) {
+        $status['name'] = (string) $ticket['status_name'];
+    }
+    if (!empty($ticket['status_color'])) {
+        $status['color'] = (string) $ticket['status_color'];
+    }
+    if (array_key_exists('is_closed', $ticket)) {
+        $status['is_closed'] = $ticket['is_closed'];
+    }
+
+    return $status;
+}
+
+function ticket_registry_status_label_from_ticket(array $ticket, array $statuses): string
+{
+    $status = ticket_registry_status_from_ticket($ticket, $statuses);
+
+    if (function_exists('ticket_status_group_display_name')) {
+        return ticket_status_group_display_name($status);
+    }
+
+    $name = trim((string) ($status['name'] ?? ''));
+    return $name !== '' ? $name : (function_exists('t') ? t('Status') : 'Status');
 }
 
 function ticket_registry_status_accent_class(array $ticket, array $statuses): string

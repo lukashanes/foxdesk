@@ -6,6 +6,9 @@ window.FoxDeskTicketListConfig = {
     currentView: <?php echo json_encode($ticket_view); ?>,
     ticketViewStorageKey: 'foxdesk_ticket_view',
     overdueIconHtml: <?php echo json_encode(get_icon('exclamation-circle', 'w-2.5 h-2.5 inline ml-0.5')); ?>,
+    runningIconHtml: <?php echo json_encode(get_icon('play', 'w-2.5 h-2.5 inline')); ?>,
+    currentUserId: <?php echo (int) ($user['id'] ?? 0); ?>,
+    currentUserLabel: <?php echo json_encode(trim((string) ($user['first_name'] ?? '')) . ' ' . substr((string) ($user['last_name'] ?? ''), 0, 1) . '.'); ?>,
     labels: {
         cancel: <?php echo json_encode(t('Cancel')); ?>,
         bulkSelect: <?php echo json_encode(t('Bulk select')); ?>,
@@ -16,12 +19,18 @@ window.FoxDeskTicketListConfig = {
         unassigned: <?php echo json_encode(t('Unassigned')); ?>,
         durationBounds: <?php echo json_encode(t('Duration must be between 1 and 1440 minutes.')); ?>,
         ticketCreated: <?php echo json_encode(t('Ticket created.')); ?>,
-        save: <?php echo json_encode(t('Save')); ?>
+        save: <?php echo json_encode(t('Save')); ?>,
+        assignedToYou: <?php echo json_encode(t('tickets.row.taken')); ?>,
+        timerStarted: <?php echo json_encode(t('tickets.row.timer_started')); ?>
     }
 };
 </script>
-<script src="assets/js/ticket-list.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>" defer></script>
-<script src="assets/js/ticket-list-actions.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>" defer></script>
+<script src="assets/js/ticket-list.js?v=<?php echo e($ticket_list_asset_version('assets/js/ticket-list.js')); ?>" defer></script>
+<script src="assets/js/ticket-list-due-date.js?v=<?php echo e($ticket_list_asset_version('assets/js/ticket-list-due-date.js')); ?>" defer></script>
+<script src="assets/js/ticket-list-time.js?v=<?php echo e($ticket_list_asset_version('assets/js/ticket-list-time.js')); ?>" defer></script>
+<?php if ($ticket_view === 'list'): ?>
+<script src="assets/js/ticket-infinite.js?v=<?php echo e($ticket_list_asset_version('assets/js/ticket-infinite.js')); ?>" defer></script>
+<?php endif; ?>
 <template id="tl-due-popover-tpl">
     <div class="tl-due-popover" role="dialog" aria-label="<?php echo e(t('Due date')); ?>">
         <input type="date" class="tl-due-popover__input">

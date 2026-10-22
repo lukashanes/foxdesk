@@ -1,0 +1,401 @@
+/* ==========================================================================
+   Flight deck UI (2026-10) — ticket list page layer.
+   Loaded only on the tickets route via $page_extra_css. Builds on the global
+   flight-deck tokens in theme.css; never redefines the shell.
+   Source of truth: audits/flight-deck-ui-2026-10/mockup.html (#scr-tickets).
+   ========================================================================== */
+
+/* Header: title, quiet subtitle, one row of actions. ---------------------- */
+.app-shell-page[data-app-page="tickets"] .page-header {
+  margin-block-end: .25rem;
+  padding-block-end: .25rem;
+}
+.app-shell-page[data-app-page="tickets"] .page-header-layout > div > p {
+  margin-block-start: .125rem;
+  color: var(--fd-red);
+  font-size: var(--type-xs);
+  font-weight: 500;
+}
+.app-shell-page[data-app-page="tickets"] .page-header-actions {
+  gap: .375rem;
+}
+.app-shell-page[data-app-page="tickets"] .page-header-actions .hdr-icon-btn {
+  border-color: transparent;
+  background: transparent;
+}
+.app-shell-page[data-app-page="tickets"] .page-header-actions .hdr-icon-btn:hover,
+.app-shell-page[data-app-page="tickets"] .page-header-actions .hdr-icon-btn[aria-pressed="true"],
+.app-shell-page[data-app-page="tickets"] .page-header-actions .hdr-icon-btn.is-active {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+/* Filter button + popover ----------------------------------------------- */
+.ticket-filter-menu {
+  position: relative;
+  display: none;
+}
+@media (min-width: 1024px) {
+  .ticket-filter-menu { display: block; }
+}
+.ticket-filter-menu__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  height: var(--fd-control-height-sm, 1.875rem);
+  padding-inline: .625rem;
+  border-radius: var(--fd-radius-control);
+  color: var(--text-secondary);
+  font-size: var(--type-sm);
+  font-weight: 500;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.ticket-filter-menu__toggle::-webkit-details-marker { display: none; }
+.ticket-filter-menu__toggle::marker { content: ""; }
+.ticket-filter-menu__toggle:hover,
+.ticket-filter-menu[open] > .ticket-filter-menu__toggle {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+.ticket-filter-menu__toggle svg { flex: none; }
+.ticket-filter-menu__count {
+  min-width: 1.125rem;
+  padding-inline: .3125rem;
+  border-radius: 4px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-family: var(--font-mono, ui-monospace, Menlo, monospace);
+  font-size: var(--type-2xs, 11px);
+  font-weight: 500;
+  line-height: 1.125rem;
+  text-align: center;
+}
+.ticket-filter-menu__panel {
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc(100% + .375rem);
+  z-index: 60;
+  width: 20rem;
+  max-width: calc(100vw - 2rem);
+  padding: .75rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--fd-radius-card);
+  background: var(--surface-primary);
+  box-shadow: var(--shadow-popover);
+}
+.ticket-filter-menu__form {
+  display: grid;
+  gap: .5rem;
+}
+.ticket-filter-menu__form > .filter-select,
+.ticket-filter-menu__form > .soft-select {
+  width: 100%;
+  min-height: var(--fd-control-height);
+  border: 1px solid var(--border-light);
+  border-radius: var(--fd-radius-control);
+  background-color: var(--surface-primary);
+  color: var(--text-primary);
+  font-size: var(--type-sm);
+}
+.ticket-filter-menu__form > .filter-select { padding-inline: .625rem 1.75rem; }
+.ticket-filter-menu__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .375rem;
+  padding-block-start: .25rem;
+}
+.ticket-filter-menu__label {
+  flex-basis: 100%;
+  color: var(--text-muted);
+  font-size: var(--type-2xs, 11px);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.ticket-filter-menu__chip {
+  display: inline-flex;
+  align-items: center;
+  height: 1.75rem;
+  padding-inline: .625rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--fd-radius-control);
+  color: var(--text-secondary);
+  font-size: var(--type-xs);
+  font-weight: 500;
+  text-decoration: none;
+}
+.ticket-filter-menu__chip:hover { background: var(--surface-secondary); color: var(--text-primary); }
+.ticket-filter-menu__chip.is-active {
+  border-color: transparent;
+  background: var(--fd-green-soft);
+  color: var(--fd-green);
+}
+.ticket-filter-menu .ticket-column-toggle {
+  display: inline-flex;
+  padding: 0;
+  font-size: var(--type-xs);
+  color: var(--text-secondary);
+}
+.ticket-filter-menu__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: .375rem;
+  padding-block-start: .375rem;
+  border-block-start: 1px dashed var(--border-light);
+}
+
+/* Toolbar: tabs on the left, active-filter chips inline on the right. ----- */
+.app-shell-page .ticket-registry-toolbar .ticket-filter-summary {
+  flex: 0 1 auto;
+  min-height: 0;
+  margin-inline-start: auto;
+  gap: .375rem;
+}
+.app-shell-page .ticket-registry-toolbar .ticket-filter-summary__chips { gap: .25rem; }
+.app-shell-page .ticket-filter-chip {
+  padding: .125rem .5rem;
+  border-color: transparent;
+  border-radius: var(--fd-radius-badge, 6px);
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.app-shell-page .ticket-filter-summary__clear { margin-inline-start: .25rem; }
+
+/* The in-table toolbar is gone on desktop: search lives in the top bar and
+   the selects in the Filter popover. Mobile keeps <details> filters. */
+.app-shell-page .ticket-filter-toolbar { display: none; }
+
+/* Details columns: the toggle now lives in the header popover, outside
+   #filter-form, so the theme rule that keys off the form cannot see it. */
+.app-shell-page[data-app-page="tickets"]:has(#ticket-extra-columns:checked) #filter-form .ticket-extra-column {
+  display: table-cell !important;
+}
+.app-shell-page[data-app-page="tickets"]:has(#ticket-extra-columns:checked) #filter-form .tickets-table {
+  min-inline-size: 1120px;
+}
+
+/* Column headers sort the list; the active one carries a small arrow. ----- */
+.app-shell-page .tickets-table thead th { white-space: nowrap; }
+.app-shell-page .ticket-sort-link {
+  display: inline-flex;
+  align-items: center;
+  gap: .2rem;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--type-xs);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  text-decoration: none;
+}
+.app-shell-page .ticket-sort-link svg {
+  width: .75rem;
+  height: .75rem;
+  stroke-width: 2.25;
+  opacity: 0;
+  transition: opacity var(--transition-fast, .15s);
+}
+.app-shell-page .ticket-sort-link:hover,
+.app-shell-page .ticket-sort-link:focus-visible {
+  background: transparent;
+  color: var(--text-primary);
+}
+.app-shell-page .ticket-sort-link:hover svg,
+.app-shell-page .ticket-sort-link:focus-visible svg { opacity: .6; }
+.app-shell-page .ticket-sort-link.is-active { color: var(--text-primary); background: transparent; }
+.app-shell-page .ticket-sort-link.is-active svg { opacity: 1; color: var(--primary); }
+
+/* Rows: quiet secondary meta, hover-revealed quick actions. --------------- */
+.app-shell-page .tickets-table tbody td { height: var(--fd-table-row-height); }
+.app-shell-page .ticket-secondary-meta { min-height: 1rem; color: var(--text-muted); }
+.app-shell-page .ticket-type-label.is-default { display: none; }
+.app-shell-page .ticket-row:hover .ticket-type-label.is-default,
+.app-shell-page .ticket-row:focus-within .ticket-type-label.is-default { display: inline; }
+.app-shell-page .ticket-row .inline-log-time__btn {
+  opacity: 0;
+  transition: opacity var(--transition-fast, .15s);
+}
+.app-shell-page .ticket-row:hover .inline-log-time__btn,
+.app-shell-page .ticket-row:focus-within .inline-log-time__btn,
+.app-shell-page .ticket-row .inline-log-time__btn:focus-visible { opacity: 1; }
+.ticket-row-actions {
+  display: inline-flex;
+  flex: none;
+  gap: .25rem;
+  margin-inline-start: .5rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-fast, .15s);
+}
+.ticket-row:hover .ticket-row-actions,
+.ticket-row:focus-within .ticket-row-actions {
+  opacity: 1;
+  visibility: visible;
+}
+.ticket-row-action {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  height: 1.375rem;
+  padding-inline: .5rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--fd-radius-badge, 6px);
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+  font-size: var(--type-2xs, 11px);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ticket-row-action svg { width: .6875rem; height: .6875rem; }
+.ticket-row-action:hover { background: var(--surface-secondary); color: var(--text-primary); }
+.ticket-row-action--primary {
+  border-color: transparent;
+  background: var(--primary);
+  color: #fff;
+}
+.ticket-row-action--primary:hover { background: var(--primary-hover); color: #fff; }
+.ticket-row-action[disabled] { opacity: .5; pointer-events: none; }
+
+/* Infinite loading: pagination stays for no-JS, a sentinel takes over. ---- */
+.ticket-registry-page.is-infinite .registry-pagination { display: none; }
+.ticket-infinite-sentinel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .25rem;
+  min-height: 2.75rem;
+  padding: .75rem;
+  color: var(--text-muted);
+  font-size: var(--type-xs);
+}
+.ticket-infinite-sentinel[hidden] { display: none; }
+.ticket-infinite-sentinel__label { visibility: hidden; }
+.ticket-infinite-sentinel.is-loading .ticket-infinite-sentinel__label { visibility: visible; }
+.ticket-infinite-sentinel__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0;
+}
+.ticket-infinite-sentinel.is-loading .ticket-infinite-sentinel__dot { opacity: .35; }
+.ticket-infinite-sentinel.is-loading .ticket-infinite-sentinel__dot:nth-child(2) { opacity: .6; }
+.ticket-infinite-sentinel.is-loading .ticket-infinite-sentinel__dot:nth-child(3) { opacity: .9; margin-inline-end: .375rem; }
+
+/* Mobile cards (≤1023px): status · code, title, then client · date · time. */
+@media (max-width: 1023px) {
+  .app-shell-page .ticket-list-item { min-width: 0; overflow-wrap: anywhere; }
+  .app-shell-page .ticket-mobile-heading {
+    display: flex;
+    align-items: center;
+    gap: .375rem;
+    font-size: var(--type-xs);
+    color: var(--text-secondary);
+  }
+  .app-shell-page .ticket-code-pill {
+    margin-inline-start: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-family: var(--font-mono, ui-monospace, Menlo, monospace);
+    font-size: var(--type-xs);
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+  .app-shell-page .ticket-mobile-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .25rem .375rem;
+    color: var(--text-muted);
+    font-size: var(--type-xs);
+  }
+  .app-shell-page .ticket-mobile-meta__client { order: 1; }
+  .app-shell-page .ticket-mobile-meta__date { order: 2; }
+  .app-shell-page .ticket-mobile-meta__time { order: 3; }
+  .app-shell-page .ticket-mobile-meta__due { order: 4; }
+  .app-shell-page .ticket-mobile-meta__priority { order: 5; }
+  .app-shell-page .ticket-mobile-meta .ticket-tag-pill { order: 6; }
+  .app-shell-page .ticket-mobile-meta__running { order: 7; flex-basis: 100%; color: var(--fd-green); }
+  .app-shell-page .ticket-mobile-meta__client::after,
+  .app-shell-page .ticket-mobile-meta__date:not(:last-child)::after {
+    content: "\00B7";
+    margin-inline-start: .375rem;
+    color: var(--border-medium);
+  }
+  .app-shell-page .ticket-mobile-meta__due.is-overdue { color: var(--fd-red); font-weight: 500; }
+  .app-shell-page .ticket-registry-card { overflow-x: hidden; }
+}
+
+/* Playful accents (2026-10): colour-coded views, priority marks, livelier rows. */
+.app-shell-page .ticket-view-tab { --tone: var(--text-primary); --tone-soft: var(--fd-pop-slate-soft); }
+.app-shell-page .ticket-view-tab[data-ticket-view-key="open"] { --tone: var(--fd-pop-blue); --tone-soft: var(--fd-pop-blue-soft); }
+.app-shell-page .ticket-view-tab[data-ticket-view-key="new"] { --tone: var(--fd-pop-violet); --tone-soft: var(--fd-pop-violet-soft); }
+.app-shell-page .ticket-view-tab[data-ticket-view-key="waiting"] { --tone: var(--fd-pop-amber); --tone-soft: var(--fd-pop-amber-soft); }
+.app-shell-page .ticket-view-tab[data-ticket-view-key="done"] { --tone: var(--fd-pop-green); --tone-soft: var(--fd-pop-green-soft); }
+.app-shell-page .ticket-view-tab[data-ticket-view-key^="archive"] { --tone: var(--fd-pop-slate); --tone-soft: var(--fd-pop-slate-soft); }
+.app-shell-page .ticket-view-tab > span:first-child::before {
+  content: "";
+  display: inline-block;
+  width: .4375rem;
+  height: .4375rem;
+  border-radius: 50%;
+  background: var(--tone);
+  margin-inline-end: .4rem;
+  vertical-align: 1px;
+  opacity: .85;
+}
+.app-shell-page .ticket-view-tab.is-active {
+  background: var(--tone-soft);
+  color: var(--tone);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 22%, transparent);
+}
+html .app-shell-page .ticket-registry-toolbar .ticket-view-tab.is-active,
+html .app-shell-page .ticket-registry-toolbar .ticket-view-tab.is-active > span { color: var(--tone); }
+.app-shell-page .ticket-view-tab.is-active .ticket-view-tab__count {
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+  border-radius: 999px;
+  padding: 0 .375rem;
+}
+.app-shell-page .ticket-view-tab:hover:not(.is-active) { background: var(--tone-soft); color: var(--tone); }
+
+.app-shell-page .ticket-registry-card thead th,
+.app-shell-page .ticket-registry-card thead th :is(a, button) {
+  font-size: var(--type-2xs, .6875rem);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+}
+.app-shell-page .ticket-row:hover { background: color-mix(in srgb, var(--fd-pop-blue) 5%, var(--surface-primary)); }
+.app-shell-page .ticket-row .ticket-row-date-link { color: var(--fd-pop-slate); font-weight: 600; }
+.app-shell-page .ticket-row.ticket-priority-row--urgent .ticket-subject-link::before,
+.app-shell-page .ticket-row.ticket-priority-row--high .ticket-subject-link::before {
+  content: "";
+  display: inline-block;
+  width: .5rem;
+  height: .5rem;
+  border-radius: 50%;
+  margin-inline-end: .4rem;
+  vertical-align: 1px;
+  background: var(--fd-pop-amber);
+  box-shadow: 0 0 0 2px var(--fd-pop-amber-soft);
+}
+.app-shell-page .ticket-row.ticket-priority-row--urgent .ticket-subject-link::before {
+  background: var(--fd-pop-red);
+  box-shadow: 0 0 0 2px var(--fd-pop-red-soft);
+}
+.app-shell-page .ticket-row-action:hover { background: var(--fd-pop-blue-soft); color: var(--fd-pop-blue); }
+.app-shell-page .ticket-row-action.js-row-start:hover { background: var(--fd-pop-green-soft); color: var(--fd-pop-green); }
+.app-shell-page .ticket-row-action--primary { background: var(--fd-brand-blue); color: #fff; }
+.app-shell-page .ticket-row-action--primary:hover { background: color-mix(in srgb, var(--fd-brand-blue) 86%, #000); color: #fff; }

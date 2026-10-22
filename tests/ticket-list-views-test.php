@@ -113,7 +113,7 @@ assert_ticket_list_view(str_contains($tickets_page, '$ticket_show_all_url'), 'Ti
 assert_ticket_list_view(str_contains($tickets_page, '$ticket_clear_url'), 'Tickets page should preserve the current view when clearing filters.');
 assert_ticket_list_view(str_contains($tickets_page, "tn('tickets.subtitle.overdue', \$ticket_overdue_count)"), 'Ticket page subtitle only names overdue tickets; counts live in the view tabs.');
 assert_ticket_list_view(str_contains($tickets_page, 'ticket_list_page_model($_GET'), 'Ticket list paging must be server-owned.');
-assert_ticket_list_view(str_contains($tickets_page, 'ticket_registry_render_pagination('), 'Ticket list must render paging controls.');
+assert_ticket_list_view(str_contains($tickets_page, 'class="registry-pagination"'), 'Ticket list must render paging controls.');
 
 $ticket_query = file_get_contents($root . '/includes/ticket-query-functions.php');
 assert_ticket_list_view(str_contains($ticket_query, "\$triage_state === 'new'"), 'Ticket query must implement the New triage branch.');

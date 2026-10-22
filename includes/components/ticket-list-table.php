@@ -1,10 +1,4 @@
-        <?php
-        // Check if any filters are active
-        $has_filters = !empty($search_query) || !empty($status_id) || !empty($priority_id) ||
-                       !empty($organization_id) || !empty($due_date_filter) || !empty($created_date_value) ||
-                       !empty($user_search) || !empty($assigned_to) || $staff_scope || ($tags_supported && !empty($tag_filters)) || $sort !== 'newest';
-        ?>
-
+        <!-- List mode: mobile filters, registry table, inline edits, and bulk actions. -->
         <!-- Mobile Filter Bar -->
         <details class="ticket-mobile-filters">
             <summary><?php echo get_icon('filter', 'w-4 h-4'); ?> <?php echo e(t('workflow.filters')); ?></summary>
@@ -19,21 +13,23 @@
                 <?php endif; ?>
                 <input type="text" name="search" value="<?php echo e($search_query); ?>"
                     placeholder="<?php echo e(t('Search...')); ?>"
+                    aria-label="<?php echo e(t('Search')); ?>"
                     class="form-input form-input-sm flex-1 min-w-[120px] text-xs">
                 <?php if ($tags_supported): ?>
                     <input type="text" name="tags" value="<?php echo e($tag_filter_csv); ?>"
                         placeholder="#<?php echo e(t('Tags')); ?>"
+                        aria-label="<?php echo e(t('Tags')); ?>"
                         class="form-input form-input-sm w-[140px] text-xs">
                 <?php endif; ?>
-                <select name="status" class="form-select form-select-sm text-xs" onchange="this.form.submit()">
+                <select name="status" aria-label="<?php echo e(t('Status')); ?>" class="form-select form-select-sm text-xs" onchange="this.form.submit()">
                     <option value=""><?php echo e(t('Status')); ?></option>
-                    <?php foreach ($statuses as $status): ?>
+                    <?php foreach ($filter_statuses as $status): ?>
                         <option value="<?php echo $status['id']; ?>" <?php echo $status_id == $status['id'] ? 'selected' : ''; ?>>
-                            <?php echo e($status['name']); ?>
+                            <?php echo e($status_display_name($status)); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
-                <select name="priority" class="form-select form-select-sm text-xs" onchange="this.form.submit()">
+                <select name="priority" aria-label="<?php echo e(t('Priority')); ?>" class="form-select form-select-sm text-xs" onchange="this.form.submit()">
                     <option value=""><?php echo e(t('Priority')); ?></option>
                     <?php foreach ($priorities as $priority): ?>
                         <option value="<?php echo $priority['id']; ?>" <?php echo $priority_id == $priority['id'] ? 'selected' : ''; ?>>
@@ -41,7 +37,7 @@
                         </option>
                     <?php endforeach; ?>
                 </select>
-                <select name="sort" class="form-select form-select-sm text-xs" onchange="this.form.submit()">
+                <select name="sort" aria-label="<?php echo e(t('Sort')); ?>" class="form-select form-select-sm text-xs" onchange="this.form.submit()">
                     <option value="newest" <?php echo $sort === 'newest' ? 'selected' : ''; ?>><?php echo e(t('Newest')); ?></option>
                     <option value="oldest" <?php echo $sort === 'oldest' ? 'selected' : ''; ?>><?php echo e(t('Oldest')); ?></option>
                     <option value="completed" <?php echo $sort === 'completed' ? 'selected' : ''; ?>><?php echo e(t('Completed')); ?></option>
@@ -55,7 +51,7 @@
                         <option value="tags" <?php echo $sort === 'tags' ? 'selected' : ''; ?>><?php echo e(t('Tags')); ?></option>
                     <?php endif; ?>
                 </select>
-                <button type="submit" class="btn btn-primary btn-xs"><?php echo get_icon('search', 'w-3 h-3'); ?></button>
+                <button type="submit" class="btn btn-primary btn-xs" aria-label="<?php echo e(t('Search')); ?>"><?php echo get_icon('search', 'w-3 h-3'); ?></button>
                 <?php if ($has_filters): ?>
                 <a href="<?php echo e($ticket_clear_url); ?>" class="btn btn-secondary btn-xs">
                     <?php echo get_icon('x', 'w-3 h-3'); ?>
@@ -74,31 +70,40 @@
             }
             $clear_tags_url = url('tickets', $clear_tags_params);
             ?>
-            <div class="border-b px-4 py-2.5 flex flex-wrap items-center gap-2" style="border-color: var(--border-light); background: var(--surface-secondary);">
-                <span class="text-xs font-medium text-theme-secondary"><?php echo e(t('Tags')); ?>:</span>
+            <div class="ticket-active-tags-bar">
+                <span class="ticket-active-tags-label"><?php echo e(t('Tags')); ?>:</span>
                 <?php foreach ($tag_filters as $active_tag): ?>
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs" style="background: var(--primary-soft); color: var(--primary);">
+                    <span class="ticket-active-tag">
                         #<?php echo e($active_tag); ?>
-                        <a href="<?php echo e($build_remove_tag_filter_url($active_tag)); ?>" class="opacity-80 hover:opacity-100" aria-label="<?php echo e(t('Remove')); ?>">
+                        <a href="<?php echo e($build_remove_tag_filter_url($active_tag)); ?>" class="ticket-active-tag-remove" aria-label="<?php echo e(t('Remove')); ?>">
                             &times;
                         </a>
                     </span>
                 <?php endforeach; ?>
-                <a href="<?php echo e($clear_tags_url); ?>" class="text-xs underline text-theme-secondary">
+                <a href="<?php echo e($clear_tags_url); ?>" class="ticket-active-tags-clear">
                     <?php echo e(t('Clear all tags')); ?>
                 </a>
             </div>
         <?php endif; ?>
-
         <!-- Mobile List View -->
         <div class="block lg:hidden">
             <?php foreach ($ticket_groups as $group): ?>
                 <?php if ($group['name'] === 'closed'): ?>
-                    <div class="p-3 text-center border-t cursor-pointer text-xs font-medium text-gray-500 hover:text-gray-700 bg-theme-secondary" onclick="document.getElementById('closed-tickets-mobile').classList.toggle('hidden')">
+                    <button type="button"
+                        class="ticket-closed-toggle ticket-closed-toggle--mobile p-3 text-xs font-medium"
+                        aria-controls="closed-tickets-mobile"
+                        aria-expanded="false"
+                        onclick="var target = document.getElementById('closed-tickets-mobile'); var collapsed = target.classList.toggle('hidden'); this.setAttribute('aria-expanded', collapsed ? 'false' : 'true');">
                         <?php echo e($group['label']); ?>
-                    </div>
+                    </button>
                     <div id="closed-tickets-mobile" class="hidden divide-y">
                 <?php else: ?>
+                    <?php if (!empty($group['label'])): ?>
+                        <div class="ticket-list-section-label">
+                            <span><?php echo e($group['label']); ?></span>
+                            <span><?php echo e((string) count($group['tickets'])); ?></span>
+                        </div>
+                    <?php endif; ?>
                     <div class="divide-y">
                 <?php endif; ?>
                 <?php foreach ($group['tickets'] as $ticket):
@@ -106,55 +111,34 @@
                 $priority_color = $ticket['priority_color'] ?? get_priority_color($ticket['priority_id'] ?? $ticket['priority'] ?? 'medium');
                 $is_overdue_mobile = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed']));
                 ?>
-                <div class="p-4 ticket-list-item<?php echo $is_overdue_mobile ? ' ticket-overdue' : ''; ?>">
-                    <div class="flex items-start gap-3">
+                <div class="ticket-list-item <?php echo e(ticket_registry_status_accent_class($ticket, $statuses)); ?><?php echo $is_overdue_mobile ? ' ticket-overdue' : ''; ?>"
+                     data-ticket-contract-row
+                     data-ticket-id="<?php echo (int) $ticket['id']; ?>">
+                    <div class="ticket-mobile-layout">
                         <?php if ($bulk_actions_enabled): ?>
                             <input type="checkbox" name="ticket_ids[]" value="<?php echo (int) $ticket['id']; ?>"
-                                class="bulk-checkbox hidden mt-1 rounded" form="bulk-actions-form" onclick="event.stopPropagation()">
+                                class="bulk-checkbox hidden mt-1 fd-rounded-control" form="bulk-actions-form" onclick="event.stopPropagation()"
+                                aria-label="<?php echo e(t('Select') . ': ' . $ticket['title']); ?>">
                         <?php endif; ?>
-                            <div class="ticket-mobile-content flex-1 min-w-0">
-                            <a href="<?php echo ticket_url($ticket); ?>" class="ticket-mobile-primary">
-                                <div class="ticket-mobile-heading flex items-center gap-2 text-xs text-theme-muted">
-                                    <span class="w-2 h-2 rounded-full"
-                                        style="background-color: <?php echo e($ticket['status_color']); ?>"></span>
-                                    <span><?php echo e($ticket['status_name']); ?></span>
-                                    <span class="ticket-code-pill" title="<?php echo e('#' . (int) $ticket['id']); ?>">
+                            <div class="ticket-mobile-content">
+                                <a href="<?php echo ticket_url($ticket); ?>" class="ticket-mobile-primary">
+                                <div class="ticket-mobile-heading">
+                                    <?php echo function_exists('ticket_status_color_dot_svg')
+                                        ? ticket_status_color_dot_svg(ticket_registry_status_from_ticket($ticket, $statuses))
+                                        : '<span class="' . e(ticket_registry_status_dot_class(ticket_registry_status_group_from_ticket($ticket, $statuses))) . '"></span>'; ?>
+                                    <span data-ticket-field="status"><?php echo e($ticket_status_display_name($ticket)); ?></span>
+                                    <span class="ticket-code-pill" data-ticket-field="code" title="<?php echo e('#' . (int) $ticket['id']); ?>">
                                         <?php echo e(get_ticket_code($ticket['id'])); ?>
                                     </span>
                                 </div>
-                                <div class="ticket-mobile-title font-medium truncate text-theme-primary" dir="auto"><?php echo e($ticket['title']); ?></div>
-                            </a>
-                                <div class="ticket-mobile-meta text-sm mt-1 flex flex-wrap items-center gap-2 text-theme-muted">
-                                    <span><?php echo format_date($ticket['created_at'], 'd.m.Y'); ?></span>
-                                    <?php if (!empty($ticket['due_date'])): ?>
-                                        <?php
-                                        $due_ts = strtotime($ticket['due_date']);
-                                        $is_overdue = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed']));
-                                        ?>
-                                        <span
-                                            class="<?php echo $is_overdue ? 'text-red-600 font-medium' : ''; ?> text-xs"
-                                            <?php if (!$is_overdue): ?>style="color: var(--text-muted);"<?php endif; ?>
-                                            title="<?php echo e(t('Due date')); ?>">
-                                            <?php echo get_icon('calendar-alt', 'ml-1 mr-0.5 w-3 h-3 inline'); ?>
-                                            <?php echo date('d.m.', $due_ts); ?>
-                                        </span>
+                                <div class="ticket-mobile-title" data-ticket-field="title"><bdi dir="auto"><?php echo e($ticket['title']); ?></bdi></div>
+                                </a>
+                                <div class="ticket-mobile-meta">
+                                    <?php // Order follows the flight-deck card: client · date · time, then due, priority, tags. ?>
+                                    <?php if ((is_admin() || is_agent()) && !empty($ticket['organization_name'])): ?>
+                                        <span class="ticket-mobile-meta__client" data-ticket-field="client"><?php echo e($ticket['organization_name']); ?></span>
                                     <?php endif; ?>
-                                    <span class="badge ticket-registry-priority-label"
-                                        style="background-color: <?php echo e($priority_color); ?>20; color: <?php echo e($priority_color); ?>">
-                                        <?php echo e($priority_name); ?>
-                                    </span>
-                                    <?php if (is_admin() && !empty($ticket['organization_name'])): ?>
-                                        <span class="text-xs text-theme-muted"><bdi><?php echo e($ticket['organization_name']); ?></bdi></span>
-                                    <?php endif; ?>
-                                    <?php if ($tags_supported && !empty($ticket['tags'])): ?>
-                                        <?php foreach (array_slice(get_ticket_tags_array($ticket['tags']), 0, 3) as $tag): ?>
-                                            <a href="<?php echo e($build_tag_filter_url($tag)); ?>"
-                                               class="ticket-tag-pill"
-                                               title="<?php echo e(t('Filter by this tag')); ?>">
-                                                #<?php echo e($tag); ?>
-                                            </a>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
+                                    <span class="ticket-mobile-meta__date"><?php echo format_date($ticket['created_at'], 'd.m.Y'); ?></span>
                                     <?php if ($show_time): ?>
                                         <?php
                                         $ticket_total = $ticket_time_totals[$ticket['id']] ?? 0;
@@ -170,15 +154,32 @@
                                             $running_elapsed = (int) ($first['elapsed_minutes'] ?? 0);
                                         }
                                         ?>
-                                        <span class="text-xs text-theme-muted">
-                                            <?php echo get_icon('clock', 'mr-1 w-3 h-3 inline'); ?><?php echo $ticket_total > 0 ? format_duration_minutes($ticket_total) : '-'; ?>
-                                        </span>
+                                        <span class="ticket-mobile-meta__time"><?php echo $ticket_total > 0 ? format_duration_minutes($ticket_total) : '-'; ?></span>
                                         <?php if (!empty($running_label)): ?>
-                                            <span class="text-xs text-green-600">
+                                            <span class="ticket-mobile-meta__running">
                                                 <?php echo e(t('Running')); ?>: <?php echo e($running_label); ?> -
                                                 <?php echo e(format_duration_minutes($running_elapsed)); ?>
                                             </span>
                                         <?php endif; ?>
+                                    <?php endif; ?>
+                                    <?php if (!empty($ticket['due_date'])): ?>
+                                        <span class="ticket-mobile-meta__due <?php echo $is_overdue_mobile ? 'is-overdue' : ''; ?>"
+                                            title="<?php echo e(t('Due date')); ?>">
+                                            <?php echo get_icon('calendar-alt', 'w-3 h-3 inline'); ?>
+                                            <?php echo date('d.m.', strtotime($ticket['due_date'])); ?>
+                                        </span>
+                                    <?php endif; ?>
+                                    <span class="<?php echo e(ticket_registry_priority_badge_class($priority_name)); ?> ticket-mobile-meta__priority" data-ticket-field="priority">
+                                        <?php echo e($priority_name); ?>
+                                    </span>
+                                    <?php if ($tags_supported && !empty($ticket['tags'])): ?>
+                                        <?php foreach (array_slice(get_ticket_tags_array($ticket['tags']), 0, 3) as $tag): ?>
+                                            <a href="<?php echo e($build_tag_filter_url($tag)); ?>"
+                                               class="ticket-tag-pill"
+                                               title="<?php echo e(t('Filter by this tag')); ?>">
+                                                #<?php echo e($tag); ?>
+                                            </a>
+                                        <?php endforeach; ?>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -188,7 +189,6 @@
             </div>
             <?php endforeach; ?>
         </div>
-
         <!-- Desktop Table View with Inline Filters -->
         <form method="get" action="index.php" id="filter-form">
                 <input type="hidden" name="page" value="tickets">
@@ -205,19 +205,20 @@
                                             placeholder="<?php echo e(t('Search...')); ?>"
                                             class="ticket-search-input"
                                             id="ticket-search-input"
+                                            aria-label="<?php echo e(t('Search')); ?>"
                                             autocomplete="off">
                                         <span class="search-icon"><?php echo get_icon('search', 'w-3 h-3'); ?></span>
                                         <div class="ticket-search-suggestions" id="ticket-search-suggestions"></div>
                                     </div>
-                <select name="status" class="filter-select" onchange="this.form.submit()">
+                <select name="status" aria-label="<?php echo e(t('Status')); ?>" class="filter-select" onchange="this.form.submit()">
                                 <option value=""><?php echo e(t('Status')); ?></option>
-                                <?php foreach ($statuses as $status): ?>
+                                <?php foreach ($filter_statuses as $status): ?>
                                     <option value="<?php echo $status['id']; ?>" <?php echo $status_id == $status['id'] ? 'selected' : ''; ?>>
-                                        <?php echo e($status['name']); ?>
+                                        <?php echo e($status_display_name($status)); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
-                <select name="priority" class="filter-select" onchange="this.form.submit()">
+                <select name="priority" aria-label="<?php echo e(t('Priority')); ?>" class="filter-select" onchange="this.form.submit()">
                                 <option value=""><?php echo e(t('Priority')); ?></option>
                                 <?php foreach ($priorities as $priority): ?>
                                     <option value="<?php echo $priority['id']; ?>" <?php echo $priority_id == $priority['id'] ? 'selected' : ''; ?>>
@@ -225,14 +226,14 @@
                                     </option>
                                 <?php endforeach; ?>
                             </select>
-                <select name="due_date" class="filter-select" onchange="this.form.submit()">
+                <select name="due_date" aria-label="<?php echo e(t('Due date')); ?>" class="filter-select" onchange="this.form.submit()">
                                 <option value=""><?php echo e(t('Due')); ?></option>
                                 <option value="overdue" <?php echo $due_date_filter === 'overdue' ? 'selected' : ''; ?>>!</option>
                                 <option value="today" <?php echo $due_date_filter === 'today' ? 'selected' : ''; ?>><?php echo e(t('Today')); ?></option>
                                 <option value="week" <?php echo $due_date_filter === 'week' ? 'selected' : ''; ?>><?php echo e(t('Week')); ?></option>
                             </select>
                 <?php if (is_admin() && !empty($organizations)): ?>
-                    <select name="organization" class="filter-select" onchange="this.form.submit()">
+                    <select name="organization" aria-label="<?php echo e(t('Company')); ?>" class="filter-select" onchange="this.form.submit()">
                                     <option value=""><?php echo e(t('Company')); ?></option>
                                     <?php foreach ($organizations as $org): ?>
                                         <option value="<?php echo $org['id']; ?>" <?php echo $organization_id == $org['id'] ? 'selected' : ''; ?>>
@@ -242,13 +243,13 @@
                                 </select>
                 <?php endif; ?>
                 <?php if (is_admin() || is_agent()): ?>
-                    <select name="user" class="filter-select" onchange="this.form.submit()">
+                    <select name="user" aria-label="<?php echo e(t('User')); ?>" class="filter-select" onchange="this.form.submit()">
                                     <option value=""><?php echo e(t('User...')); ?></option>
                                     <?php foreach ($filter_users as $fu): ?>
                                         <option value="<?php echo e($fu['first_name'] . ' ' . $fu['last_name']); ?>"
                                             <?php echo $user_search === ($fu['first_name'] . ' ' . $fu['last_name']) ? 'selected' : ''; ?>>
                                             <?php echo e($fu['first_name'] . ' ' . substr($fu['last_name'] ?? '', 0, 1) . '.'); ?>
-                                            <?php if ($fu['role'] !== 'user'): ?><span style="opacity:0.5">(<?php echo e($fu['role']); ?>)<?php endif; ?>
+                                            <?php if ($fu['role'] !== 'user'): ?>(<?php echo e($fu['role']); ?>)<?php endif; ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -266,37 +267,34 @@
                         <th scope="col" class="px-3 py-2.5 text-left tickets-col-date">
                             <div class="flex items-center gap-1">
                                 <?php if ($bulk_actions_enabled): ?>
-                                    <input type="checkbox" id="select-all" aria-label="<?php echo e(t('Select all')); ?>" class="rounded hidden" onchange="toggleAll(this)">
+                                    <input type="checkbox" id="select-all" class="fd-rounded-control hidden" onchange="toggleAll(this)"
+                                        aria-label="<?php echo e(t('Select all')); ?>">
                                 <?php endif; ?>
-                                <a href="<?php echo e($date_sort_url); ?>"
-                                   class="ticket-date-sort <?php echo $date_sort_is_active ? 'is-active' : ''; ?>"
-                                   title="<?php echo e($date_sort_title); ?>"
-                                   aria-label="<?php echo e($date_sort_title); ?>">
-                                    <span><?php echo e(t('Date')); ?></span>
-                                    <?php echo get_icon($date_sort_icon, 'w-3 h-3'); ?>
-                                </a>
+                                <?php ticket_registry_sort_header(t('ID'), 'ticket_number', 'ticket_number_asc', $sort, $_GET, $is_archive, ['newest' => 'desc', 'oldest' => 'asc'], $date_sort_url); ?>
                             </div>
                         </th>
                         <th scope="col" class="tickets-col-subject"><?php echo e(t('Subject')); ?></th>
-                        <th scope="col" class="tickets-col-status"><?php echo e(t('Status')); ?></th>
-                        <th scope="col" class="tickets-col-priority"><?php echo e(t('Priority')); ?></th>
-                        <th scope="col" class="tickets-col-due" title="<?php echo e(t('Due date')); ?>"><?php echo e(t('Due')); ?></th>
                         <?php if (is_admin()): ?>
-                            <th scope="col" class="tickets-col-company"><?php echo e(t('Company')); ?></th>
+                            <th scope="col" class="tickets-col-company"><?php echo e(t('Client')); ?></th>
                         <?php endif; ?>
+                        <th scope="col" class="tickets-col-status"><?php echo e(t('Status')); ?></th>
+                        <th scope="col" class="tickets-col-updated"><?php ticket_registry_sort_header(t('Last updated'), 'last_updated', null, $sort, $_GET, $is_archive); ?></th>
+                        <th scope="col" class="tickets-col-priority ticket-extra-column"><?php ticket_registry_sort_header(t('Priority'), 'priority', null, $sort, $_GET, $is_archive); ?></th>
+                        <th scope="col" class="tickets-col-due ticket-extra-column" title="<?php echo e(t('Due date')); ?>"><?php ticket_registry_sort_header(t('Due'), 'due_date', null, $sort, $_GET, $is_archive); ?></th>
                         <?php if (is_admin() || is_agent()): ?>
-                            <th scope="col" class="tickets-col-user"><?php echo e(t('workflow.assigned')); ?></th>
+                            <th scope="col" class="tickets-col-user ticket-extra-column"><?php echo e(t('workflow.assigned')); ?></th>
                             <th scope="col" class="tickets-col-time"><?php echo e(t('Time')); ?></th>
                         <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
                 <?php if ((is_agent() || is_admin()) && !$is_archive): ?>
-                    <tr id="new-ticket-row" class="new-ticket-row" style="background: var(--surface-secondary); display: none;">
+                    <tr id="new-ticket-row" class="new-ticket-row ticket-status-accent ticket-status-accent--archived hidden">
                         <td class="px-3 py-1.5 whitespace-nowrap align-middle text-center">
                             <button type="button" id="new-ticket-submit-btn"
                                     class="nt-plus-btn"
-                                    title="<?php echo e(t('Add ticket')); ?>">
+                                    title="<?php echo e(t('Add ticket')); ?>"
+                                    aria-label="<?php echo e(t('Add ticket')); ?>">
                                 <?php echo get_icon('plus', 'w-4 h-4'); ?>
                             </button>
                         </td>
@@ -304,9 +302,10 @@
                             <input type="text" id="new-ticket-subject"
                                    class="nt-input w-full"
                                    placeholder="<?php echo e(t('New ticket subject — press Enter')); ?>"
+                                   aria-label="<?php echo e(t('Subject')); ?>"
                                    maxlength="500">
                             <?php if (!empty($ticket_types_list)): ?>
-                            <select id="new-ticket-type" class="nt-input nt-input-sm mt-1 w-full" style="font-size: 10px;">
+                            <select id="new-ticket-type" aria-label="<?php echo e(t('Ticket type')); ?>" class="nt-input nt-input-sm mt-1 w-full ticket-new-type-select">
                                 <option value=""><?php echo e(t('Type')); ?></option>
                                 <?php foreach ($ticket_types_list as $tt): ?>
                                     <option value="<?php echo e($tt['slug']); ?>"><?php echo e($tt['name']); ?></option>
@@ -314,38 +313,40 @@
                             </select>
                             <?php endif; ?>
                         </td>
-                        <td class="px-2 py-1.5 align-middle">
-                            <select id="new-ticket-status" class="nt-input w-full">
-                                <?php foreach ($statuses as $st): ?>
-                                    <option value="<?php echo (int)$st['id']; ?>"><?php echo e($st['name']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </td>
-                        <td class="px-2 py-1.5 align-middle">
-                            <select id="new-ticket-priority" class="nt-input w-full">
-                                <option value=""><?php echo e(t('Priority')); ?></option>
-                                <?php foreach ($priorities as $pr): ?>
-                                    <option value="<?php echo (int)$pr['id']; ?>"><?php echo e($pr['name']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </td>
-                        <td class="px-2 py-1.5 align-middle">
-                            <input type="date" id="new-ticket-due" class="nt-input w-full">
-                        </td>
-                        <?php if (is_admin()): ?>
+                                                <?php if (is_admin()): ?>
                             <td class="px-2 py-1.5 align-middle">
                                 <?php if (!empty($organizations)): ?>
-                                <select id="new-ticket-company" class="nt-input w-full">
+                                <select id="new-ticket-company" aria-label="<?php echo e(t('Company')); ?>" class="nt-input w-full">
                                     <option value=""><?php echo e(t('Company')); ?></option>
                                     <?php foreach ($organizations as $org): ?>
                                         <option value="<?php echo (int)$org['id']; ?>"><?php echo e($org['name']); ?></option>
                                     <?php endforeach; ?>
                                 </select>
                                 <?php endif; ?>
+<td class="px-2 py-1.5 align-middle">
+                            <select id="new-ticket-status" aria-label="<?php echo e(t('Status')); ?>" class="nt-input w-full">
+                                <?php foreach ($workflow_statuses as $st): ?>
+                                    <option value="<?php echo (int)$st['id']; ?>"><?php echo e($status_display_name($st)); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                        <td class="ticket-cell-updated">—</td>
+                        <td class="ticket-extra-column px-2 py-1.5 align-middle">
+                            <select id="new-ticket-priority" aria-label="<?php echo e(t('Priority')); ?>" class="nt-input w-full">
+                                <option value=""><?php echo e(t('Priority')); ?></option>
+                                <?php foreach ($priorities as $pr): ?>
+                                    <option value="<?php echo (int)$pr['id']; ?>"><?php echo e($pr['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                        <td class="ticket-extra-column px-2 py-1.5 align-middle">
+                            <input type="date" id="new-ticket-due" aria-label="<?php echo e(t('Due date')); ?>" class="nt-input w-full">
+                        </td>
+
                             </td>
                         <?php endif; ?>
-                        <td class="px-2 py-1.5 align-middle">
-                            <select id="new-ticket-assignee" class="nt-input w-full">
+                        <td class="ticket-extra-column px-2 py-1.5 align-middle">
+                            <select id="new-ticket-assignee" aria-label="<?php echo e(t('Assign to')); ?>" class="nt-input w-full">
                                 <option value=""><?php echo e(t('Unassigned')); ?></option>
                                 <?php foreach ($assignable_agents as $_ag): ?>
                                     <option value="<?php echo (int)$_ag['id']; ?>">
@@ -359,6 +360,7 @@
                                    class="nt-input w-full"
                                    placeholder="<?php echo e(t('min')); ?>"
                                    min="0" max="1440" step="1"
+                                   aria-label="<?php echo e(t('Log time (minutes)')); ?>"
                                    title="<?php echo e(t('Log time (minutes)')); ?>">
                         </td>
                     </tr>
@@ -366,80 +368,119 @@
                 <?php foreach ($ticket_groups as $group): ?>
                     <?php if ($group['name'] === 'closed'): ?>
                         </tbody>
-                        <tbody class="border-t-2" style="border-top-color: var(--border-light)">
-                            <tr class="cursor-pointer bg-theme-secondary" onclick="document.getElementById('closed-tickets-desktop').classList.toggle('hidden')">
-                                <?php $colspan = is_admin() ? 8 : (is_agent() ? 6 : 5); ?>
-                                <td colspan="<?php echo $colspan; ?>" class="px-3 py-2 font-medium text-xs text-center text-gray-500 hover:text-gray-700">
-                                   <?php echo e($group['label']); ?>
+                        <tbody class="ticket-closed-group">
+                            <tr class="bg-theme-secondary">
+                                <?php $colspan = is_admin() ? 9 : (is_agent() ? 8 : 6); ?>
+                                <td colspan="<?php echo $colspan; ?>" class="p-0">
+                                    <button type="button"
+                                        class="ticket-closed-toggle ticket-closed-toggle--desktop px-3 py-2 text-xs font-medium"
+                                        aria-controls="closed-tickets-desktop"
+                                        aria-expanded="false"
+                                        onclick="var target = document.getElementById('closed-tickets-desktop'); var collapsed = target.classList.toggle('hidden'); this.setAttribute('aria-expanded', collapsed ? 'false' : 'true');">
+                                        <?php echo e($group['label']); ?>
+                                    </button>
                                 </td>
                             </tr>
                         </tbody>
                         <tbody id="closed-tickets-desktop" class="hidden">
+                    <?php elseif (!empty($group['label'])): ?>
+                        <tr class="ticket-list-section-row">
+                            <?php $colspan = is_admin() ? 8 : (is_agent() ? 6 : 5); ?>
+                            <td colspan="<?php echo $colspan; ?>">
+                                <span><?php echo e($group['label']); ?></span>
+                                <strong><?php echo e((string) count($group['tickets'])); ?></strong>
+                            </td>
+                        </tr>
                     <?php endif; ?>
                     <?php foreach ($group['tickets'] as $ticket):
                         $priority_name = $ticket['priority_name'] ?? get_priority_label($ticket['priority_id'] ?? $ticket['priority'] ?? 'medium');
                         $priority_color = $ticket['priority_color'] ?? get_priority_color($ticket['priority_id'] ?? $ticket['priority'] ?? 'medium');
                         $is_overdue = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed']));
+                        $ticket_type_slug = trim((string) ($ticket['type'] ?? ''));
+                        $ticket_type_is_default = $ticket_type_slug === '' || $ticket_type_slug === $ticket_default_type_slug;
                         ?>
-                        <tr class="ticket-row<?php echo $is_overdue ? ' ticket-overdue' : ''; ?>" data-href="<?php echo e(ticket_url($ticket)); ?>">
+                        <tr class="ticket-row <?php echo e(ticket_registry_status_accent_class($ticket, $statuses)); ?> ticket-priority-row--<?php echo e(ticket_registry_priority_key($priority_name)); ?><?php echo $is_overdue ? ' ticket-overdue' : ''; ?>"
+                            data-href="<?php echo e(ticket_url($ticket)); ?>"
+                            data-ticket-contract-row
+                            data-ticket-id="<?php echo (int) $ticket['id']; ?>">
                             <td class="px-3 py-2.5 whitespace-nowrap align-top">
                                 <div class="flex items-center gap-1.5">
                                     <?php if ($bulk_actions_enabled): ?>
                                         <input type="checkbox" name="ticket_ids[]" value="<?php echo (int) $ticket['id']; ?>"
-                                            class="bulk-checkbox hidden rounded flex-shrink-0" form="bulk-actions-form">
+                                            class="bulk-checkbox hidden fd-rounded-control flex-shrink-0" form="bulk-actions-form"
+                                            aria-label="<?php echo e(t('Select') . ': ' . $ticket['title']); ?>">
                                     <?php endif; ?>
                                     <div>
-                                        <a href="<?php echo ticket_url($ticket); ?>" class="font-medium text-xs text-theme-primary" title="<?php echo e(get_ticket_code($ticket['id'])); ?>">
-                                            <?php echo date('d.m.', strtotime($ticket['created_at'])); ?>
+                                        <a href="<?php echo ticket_url($ticket); ?>" class="ticket-row-date-link" data-ticket-field="code" title="<?php echo e(get_ticket_code($ticket['id'])); ?>">
+                                            <?php echo e(get_ticket_code($ticket['id'])); ?>
                                         </a>
-                                        <div class="text-[10px] text-theme-muted"><?php echo e(get_ticket_code($ticket['id'])); ?></div>
+
                                     </div>
                                 </div>
                             </td>
                             <td class="px-3 py-2.5 align-top">
                                 <div class="flex items-center gap-1.5">
-                                    <?php if (is_agent() || is_admin()): ?>
-                                    <span class="ticket-subject-link tl-inline-text tl-inline-edit"
-                                          dir="auto"
-                                          data-ticket="<?php echo (int)$ticket['id']; ?>"
-                                          data-field="subject"
-                                          data-value="<?php echo e($ticket['title']); ?>"
-                                          title="<?php echo e(t('Click to edit')); ?>"
-                                          style="cursor: text;"><?php echo e($ticket['title']); ?></span>
-                                    <?php else: ?>
-                                    <a href="<?php echo ticket_url($ticket); ?>" class="ticket-subject-link" dir="auto">
-                                        <?php echo e($ticket['title']); ?>
+                                    <a href="<?php echo ticket_url($ticket); ?>" class="ticket-subject-link" data-ticket-field="title" title="<?php echo e($ticket['title']); ?>">
+                                        <bdi dir="auto"><?php echo e($ticket['title']); ?></bdi>
                                     </a>
+                                    <?php if (is_agent() || is_admin()): ?>
+                                    <button type="button"
+                                            class="ticket-subject-edit-button tl-inline-edit"
+                                            data-ticket="<?php echo (int)$ticket['id']; ?>"
+                                            data-field="subject"
+                                            data-value="<?php echo e($ticket['title']); ?>"
+                                            aria-label="<?php echo e(t('Edit')); ?>: <?php echo e($ticket['title']); ?>"
+                                            title="<?php echo e(t('Edit')); ?>">
+                                        <?php echo get_icon('edit', 'w-3 h-3'); ?>
+                                    </button>
                                     <?php endif; ?>
                                     <?php if (!empty($ticket['attachment_count']) && $ticket['attachment_count'] > 0): ?>
                                         <span class="flex-shrink-0 text-theme-muted" title="<?php echo e(t('Attachments')); ?>: <?php echo $ticket['attachment_count']; ?>">
                                             <?php echo get_icon('paperclip', 'w-3 h-3'); ?>
                                         </span>
                                     <?php endif; ?>
+                                    <?php if ($ticket_row_actions_enabled): ?>
+                                        <span class="ticket-row-actions" data-ticket-row-actions>
+                                            <?php if ((int) ($ticket['assignee_id'] ?? 0) !== (int) $user['id']): ?>
+                                                <button type="button" class="ticket-row-action ticket-row-action--primary js-row-take"
+                                                        data-ticket-id="<?php echo (int) $ticket['id']; ?>"
+                                                        title="<?php echo e(t('workflow.mine')); ?>">
+                                                    <?php echo get_icon('check', 'w-3 h-3'); ?><?php echo e(t('tickets.row.take')); ?>
+                                                </button>
+                                            <?php endif; ?>
+                                            <?php if ($ticket_timer_available && empty($ticket['is_closed'])): ?>
+                                                <button type="button" class="ticket-row-action js-row-start"
+                                                        data-ticket-id="<?php echo (int) $ticket['id']; ?>"
+                                                        title="<?php echo e(t('Start timer')); ?>">
+                                                    <?php echo get_icon('play', 'w-3 h-3'); ?><?php echo e(t('tickets.row.start')); ?>
+                                                </button>
+                                            <?php endif; ?>
+                                            <a class="ticket-row-action" href="<?php echo ticket_url($ticket); ?>#comment-form"><?php echo e(t('tickets.row.reply')); ?></a>
+                                        </span>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="ticket-secondary-meta text-theme-muted">
                                     <?php if ((is_agent() || is_admin()) && !empty($ticket_types_list)): ?>
-                                        <span class="tl-inline-edit" style="position:relative; display:inline-block;">
-                                            <span class="tl-edit-trigger tl-type-trigger"
+                                        <span class="tl-inline-edit tl-inline-anchor">
+                                            <span class="tl-edit-trigger tl-type-trigger ticket-type-label<?php echo $ticket_type_is_default ? ' is-default' : ''; ?>"
                                                   data-ticket="<?php echo (int)$ticket['id']; ?>"
-                                                  data-field="type"
-                                                  style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;">
+                                                  data-field="type">
                                                 <?php echo e(get_type_label($ticket['type'])); ?>
                                             </span>
                                             <span class="tl-dropdown hidden" data-dropdown="type-<?php echo (int)$ticket['id']; ?>">
                                                 <?php foreach ($ticket_types_list as $tt): ?>
                                                     <button type="button" class="tl-dropdown-item"
-                                                        onclick="inlineUpdateType(<?php echo (int)$ticket['id']; ?>, '<?php echo e($tt['slug']); ?>', <?php echo e(json_encode($tt['name'])); ?>, this)">
+                                                        onclick="inlineUpdateType(<?php echo (int)$ticket['id']; ?>, <?php echo e(json_encode((string) $tt['slug'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)); ?>, <?php echo e(json_encode((string) $tt['name'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)); ?>, this)">
                                                         <?php echo e($tt['name']); ?>
                                                     </button>
                                                 <?php endforeach; ?>
                                             </span>
                                         </span>
                                     <?php else: ?>
-                                        <?php echo e(get_type_label($ticket['type'])); ?>
+                                        <span class="ticket-type-label<?php echo $ticket_type_is_default ? ' is-default' : ''; ?>"><?php echo e(get_type_label($ticket['type'])); ?></span>
                                     <?php endif; ?>
                                     <?php if (!is_admin() && !empty($ticket['organization_name'])): ?>
-                                        <span class="ml-1"><bdi><?php echo e($ticket['organization_name']); ?></bdi></span>
+                                        <span class="ml-1" data-ticket-field="client"><?php echo e($ticket['organization_name']); ?></span>
                                     <?php endif; ?>
                                     <?php if ($tags_supported && !empty($ticket['tags'])): ?>
                                         <?php foreach (array_slice(get_ticket_tags_array($ticket['tags']), 0, 3) as $tag): ?>
@@ -452,57 +493,76 @@
                                     <?php endif; ?>
                                 </div>
                             </td>
-                            <td class="px-2 py-2.5 whitespace-nowrap align-top">
+                                                        <?php if (is_admin()): ?>
+                                <td class="px-2 py-2.5 text-xs truncate align-top ticket-cell-muted ticket-cell-company" title="<?php echo e($ticket['organization_name'] ?? ''); ?>">
+                                    <span class="tl-inline-edit tl-inline-anchor">
+                                        <span class="tl-edit-trigger tl-company-trigger"
+                                              data-ticket="<?php echo (int)$ticket['id']; ?>"
+                                              data-field="company"
+                                              data-ticket-field="client"
+                                              title="<?php echo e(t('Click to change')); ?>">
+                                            <?php if (!empty($ticket['organization_name'])): ?>
+                                                <?php echo e($ticket['organization_name']); ?>
+                                            <?php else: ?>
+                                                <span class="ticket-empty-value">—</span>
+                                            <?php endif; ?>
+<td class="px-2 py-2.5 whitespace-nowrap align-top">
                                 <?php if (is_agent() || is_admin()): ?>
-                                <div class="tl-inline-edit" style="position:relative;">
-                                    <span class="badge-inline ticket-registry-status-label tl-edit-trigger" data-ticket="<?php echo (int)$ticket['id']; ?>" data-field="status"
-                                        style="background-color: <?php echo e($ticket['status_color']); ?>20; color: <?php echo e($ticket['status_color']); ?>; cursor:pointer;"
+                                <div class="tl-inline-edit tl-inline-anchor">
+                                    <span class="<?php echo e(ticket_registry_status_badge_class($ticket, $statuses)); ?> tl-edit-trigger" data-ticket="<?php echo (int)$ticket['id']; ?>" data-field="status" data-ticket-field="status"
                                         title="<?php echo e(t('Click to change')); ?>">
-                                        <?php echo e($ticket['status_name']); ?>
+                                        <?php echo e($ticket_status_display_name($ticket)); ?>
                                     </span>
                                     <div class="tl-dropdown hidden" data-dropdown="status-<?php echo (int)$ticket['id']; ?>">
-                                        <?php foreach ($statuses as $st): ?>
-                                        <button type="button" class="tl-dropdown-item" onclick="inlineUpdate(<?php echo (int)$ticket['id']; ?>, 'status', <?php echo (int)$st['id']; ?>, this)"
-                                            style="color: <?php echo e($st['color']); ?>;">
-                                            <span class="w-2 h-2 rounded-full inline-block mr-1.5" style="background:<?php echo e($st['color']); ?>;"></span>
-                                            <?php echo e($st['name']); ?>
+                                        <?php foreach ($workflow_statuses as $st): ?>
+                                        <?php $status_group = ticket_registry_status_group_from_status($st); ?>
+                                        <button type="button" class="tl-dropdown-item ticket-status-option ticket-status-option--<?php echo e($status_group); ?>"
+                                            data-tone-class="ticket-status-inline--<?php echo e($status_group); ?>"
+                                            data-row-accent-class="ticket-status-accent--<?php echo e($status_group); ?>"
+                                            onclick="inlineUpdate(<?php echo (int)$ticket['id']; ?>, 'status', <?php echo (int)$st['id']; ?>, this)">
+                                            <?php echo function_exists('ticket_status_color_dot_svg')
+                                                ? ticket_status_color_dot_svg($st, 'ticket-status-color-dot ticket-status-color-dot--spaced')
+                                                : '<span class="' . e(ticket_registry_status_dot_class($status_group)) . ' mr-1.5"></span>'; ?>
+                                            <?php echo e($status_display_name($st)); ?>
                                         </button>
                                         <?php endforeach; ?>
                                     </div>
                                 </div>
                                 <?php else: ?>
-                                <span class="badge-inline ticket-registry-status-label"
-                                    style="background-color: <?php echo e($ticket['status_color']); ?>20; color: <?php echo e($ticket['status_color']); ?>">
-                                    <?php echo e($ticket['status_name']); ?>
+                                <span class="<?php echo e(ticket_registry_status_badge_class($ticket, $statuses)); ?>" data-ticket-field="status">
+                                    <?php echo e($ticket_status_display_name($ticket)); ?>
                                 </span>
                                 <?php endif; ?>
                             </td>
-                            <td class="px-2 py-2.5 whitespace-nowrap align-top">
+                            <td class="ticket-cell-updated" data-ticket-field="updated" title="<?php echo e(format_date($ticket['updated_at'] ?? $ticket['created_at'])); ?>">
+                                <?php echo e(format_date($ticket['updated_at'] ?? $ticket['created_at'], 'd.m. H:i')); ?>
+                            </td>
+                            <td class="ticket-extra-column px-2 py-2.5 whitespace-nowrap align-top">
                                 <?php if (is_agent() || is_admin()): ?>
-                                <div class="tl-inline-edit" style="position:relative;">
-                                    <span class="badge-inline ticket-registry-priority-label tl-edit-trigger" data-ticket="<?php echo (int)$ticket['id']; ?>" data-field="priority"
-                                        style="background-color: <?php echo e($priority_color); ?>20; color: <?php echo e($priority_color); ?>; cursor:pointer;"
+                                <div class="tl-inline-edit tl-inline-anchor">
+                                    <span class="<?php echo e(ticket_registry_priority_badge_class($priority_name)); ?> tl-edit-trigger" data-ticket="<?php echo (int)$ticket['id']; ?>" data-field="priority" data-ticket-field="priority"
                                         title="<?php echo e(t('Click to change')); ?>">
                                         <?php echo e($priority_name); ?>
                                     </span>
                                     <div class="tl-dropdown hidden" data-dropdown="priority-<?php echo (int)$ticket['id']; ?>">
                                         <?php foreach ($priorities as $pr): ?>
-                                        <button type="button" class="tl-dropdown-item" onclick="inlineUpdate(<?php echo (int)$ticket['id']; ?>, 'priority', <?php echo (int)$pr['id']; ?>, this)"
-                                            style="color: <?php echo e($pr['color']); ?>;">
-                                            <span class="w-2 h-2 rounded-full inline-block mr-1.5" style="background:<?php echo e($pr['color']); ?>;"></span>
+                                        <?php $priority_option_key = ticket_registry_priority_key($pr['name']); ?>
+                                        <button type="button" class="tl-dropdown-item ticket-priority-option ticket-priority-option--<?php echo e($priority_option_key); ?>"
+                                            data-tone-class="ticket-priority-inline--<?php echo e($priority_option_key); ?>"
+                                            onclick="inlineUpdate(<?php echo (int)$ticket['id']; ?>, 'priority', <?php echo (int)$pr['id']; ?>, this)">
+                                            <span class="ticket-priority-dot ticket-priority-dot--<?php echo e($priority_option_key); ?> w-2 h-2 fd-rounded-pill inline-block mr-1.5"></span>
                                             <?php echo e($pr['name']); ?>
                                         </button>
                                         <?php endforeach; ?>
                                     </div>
                                 </div>
                                 <?php else: ?>
-                                <span class="badge-inline ticket-registry-priority-label"
-                                    style="background-color: <?php echo e($priority_color); ?>20; color: <?php echo e($priority_color); ?>">
+                                <span class="<?php echo e(ticket_registry_priority_badge_class($priority_name)); ?>" data-ticket-field="priority">
                                     <?php echo e($priority_name); ?>
                                 </span>
                                 <?php endif; ?>
                             </td>
-                            <td class="px-2 py-2.5 whitespace-nowrap align-top text-xs text-theme-muted">
+                            <td class="ticket-extra-column px-2 py-2.5 whitespace-nowrap align-top text-xs text-theme-muted">
                                 <?php
                                 $_due_ts = !empty($ticket['due_date']) ? strtotime($ticket['due_date']) : null;
                                 $_is_overdue = is_due_date_overdue($ticket['due_date'] ?? null, !empty($ticket['is_closed']));
@@ -513,7 +573,6 @@
                                           data-ticket="<?php echo (int)$ticket['id']; ?>"
                                           data-due="<?php echo e($_due_iso); ?>"
                                           data-is-closed="<?php echo !empty($ticket['is_closed']) ? '1' : '0'; ?>"
-                                          style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;"
                                           title="<?php echo e(t('Click to change')); ?>">
                                         <?php if ($_due_ts): ?>
                                             <?php echo date('d.m', $_due_ts); ?>
@@ -521,7 +580,7 @@
                                                 <?php echo get_icon('exclamation-circle', 'w-2.5 h-2.5 inline ml-0.5'); ?>
                                             <?php endif; ?>
                                         <?php else: ?>
-                                            <span style="opacity:0.4;">—</span>
+                                            <span class="ticket-empty-value">—</span>
                                         <?php endif; ?>
                                     </span>
                                 <?php elseif ($_due_ts): ?>
@@ -533,24 +592,12 @@
                                     </span>
                                 <?php endif; ?>
                             </td>
-                            <?php if (is_admin()): ?>
-                                <td class="px-2 py-2.5 text-xs truncate align-top" style="color: var(--text-muted); overflow: visible;" title="<?php echo e($ticket['organization_name'] ?? ''); ?>">
-                                    <span class="tl-inline-edit" style="position:relative; display:inline-block;">
-                                        <span class="tl-edit-trigger tl-company-trigger"
-                                              data-ticket="<?php echo (int)$ticket['id']; ?>"
-                                              data-field="company"
-                                              style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;"
-                                              title="<?php echo e(t('Click to change')); ?>">
-                                            <?php if (!empty($ticket['organization_name'])): ?>
-                                                <bdi><?php echo e($ticket['organization_name']); ?></bdi>
-                                            <?php else: ?>
-                                                <span style="opacity:0.4;">—</span>
-                                            <?php endif; ?>
+
                                         </span>
                                         <span class="tl-dropdown hidden" data-dropdown="company-<?php echo (int)$ticket['id']; ?>">
                                             <button type="button" class="tl-dropdown-item"
                                                 onclick="inlineUpdateCompany(<?php echo (int)$ticket['id']; ?>, '', <?php echo e(json_encode(t('No company'))); ?>, this)">
-                                                <span style="opacity:0.6;"><?php echo e(t('No company')); ?></span>
+                                                <span class="ticket-muted-value"><?php echo e(t('No company')); ?></span>
                                             </button>
                                             <?php foreach ($organizations as $org): ?>
                                                 <button type="button" class="tl-dropdown-item"
@@ -563,12 +610,12 @@
                                 </td>
                             <?php endif; ?>
                             <?php if (is_admin()): ?>
-                                <td class="px-2 py-2.5 text-xs truncate align-top" style="color: var(--text-muted); overflow: visible;" title="<?php echo e($ticket['first_name'] . ' ' . $ticket['last_name']); ?>">
-                                    <span class="tl-inline-edit" style="position:relative; display:inline-block;">
+                                <td class="ticket-extra-column px-2 py-2.5 text-xs truncate align-top ticket-cell-muted ticket-cell-user" title="<?php echo e($ticket['first_name'] . ' ' . $ticket['last_name']); ?>">
+                                    <span class="tl-inline-edit tl-inline-anchor">
                                         <span class="tl-edit-trigger tl-assign-trigger"
                                               data-ticket="<?php echo (int)$ticket['id']; ?>"
                                               data-field="assign"
-                                              style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;"
+                                              data-ticket-field="assignee"
                                               title="<?php echo e(t('Click to change')); ?>">
                                             <?php if (!empty($ticket['assignee_id'])):
                                                 $_assigned = null;
@@ -580,13 +627,13 @@
                                                     <?php echo e(t('Unassigned')); ?>
                                                 <?php endif; ?>
                                             <?php else: ?>
-                                                <span style="opacity:0.4;"><?php echo e(t('Unassigned')); ?></span>
+                                                <span class="ticket-empty-value"><?php echo e(t('Unassigned')); ?></span>
                                             <?php endif; ?>
                                         </span>
                                         <span class="tl-dropdown hidden" data-dropdown="assign-<?php echo (int)$ticket['id']; ?>">
                                             <button type="button" class="tl-dropdown-item"
                                                 onclick="inlineUpdateAssign(<?php echo (int)$ticket['id']; ?>, '', <?php echo e(json_encode(t('Unassigned'))); ?>, this)">
-                                                <span style="opacity:0.6;"><?php echo e(t('Unassigned')); ?></span>
+                                                <span class="ticket-muted-value"><?php echo e(t('Unassigned')); ?></span>
                                             </button>
                                             <?php foreach ($assignable_agents as $_ag): ?>
                                                 <button type="button" class="tl-dropdown-item"
@@ -618,12 +665,12 @@
                                     </div>
                                 </td>
                             <?php elseif (is_agent()): ?>
-                                <td class="px-2 py-2.5 text-xs truncate align-top" style="color: var(--text-muted); overflow: visible;" title="<?php echo e($ticket['first_name'] . ' ' . $ticket['last_name']); ?>">
-                                    <span class="tl-inline-edit" style="position:relative; display:inline-block;">
+                                <td class="ticket-extra-column px-2 py-2.5 text-xs truncate align-top ticket-cell-muted ticket-cell-user" title="<?php echo e($ticket['first_name'] . ' ' . $ticket['last_name']); ?>">
+                                    <span class="tl-inline-edit tl-inline-anchor">
                                         <span class="tl-edit-trigger tl-assign-trigger"
                                               data-ticket="<?php echo (int)$ticket['id']; ?>"
                                               data-field="assign"
-                                              style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;"
+                                              data-ticket-field="assignee"
                                               title="<?php echo e(t('Click to change')); ?>">
                                             <?php if (!empty($ticket['assignee_id'])):
                                                 $_assigned = null;
@@ -635,13 +682,13 @@
                                                     <?php echo e(t('Unassigned')); ?>
                                                 <?php endif; ?>
                                             <?php else: ?>
-                                                <span style="opacity:0.4;"><?php echo e(t('Unassigned')); ?></span>
+                                                <span class="ticket-empty-value"><?php echo e(t('Unassigned')); ?></span>
                                             <?php endif; ?>
                                         </span>
                                         <span class="tl-dropdown hidden" data-dropdown="assign-<?php echo (int)$ticket['id']; ?>">
                                             <button type="button" class="tl-dropdown-item"
                                                 onclick="inlineUpdateAssign(<?php echo (int)$ticket['id']; ?>, '', <?php echo e(json_encode(t('Unassigned'))); ?>, this)">
-                                                <span style="opacity:0.6;"><?php echo e(t('Unassigned')); ?></span>
+                                                <span class="ticket-muted-value"><?php echo e(t('Unassigned')); ?></span>
                                             </button>
                                             <?php foreach ($assignable_agents as $_ag): ?>
                                                 <button type="button" class="tl-dropdown-item"
@@ -680,14 +727,16 @@
             </table>
             </div>
         </form>
-
+        <div class="ticket-infinite-sentinel" data-ticket-infinite-sentinel hidden role="status" aria-live="polite">
+            <i class="ticket-infinite-sentinel__dot" aria-hidden="true"></i><i class="ticket-infinite-sentinel__dot" aria-hidden="true"></i><i class="ticket-infinite-sentinel__dot" aria-hidden="true"></i>
+            <span class="ticket-infinite-sentinel__label"><?php echo e(t('tickets.loading_more')); ?></span>
+        </div>
         <!-- Bulk Actions Bar -->
         <?php if ($bulk_actions_enabled): ?>
             <form method="post" id="bulk-actions-form">
                 <?php echo csrf_field(); ?>
                 <div id="bulk-actions"
-                    class="hidden sticky bottom-0 border-t card-body space-y-3 <?php echo $bulk_delete_mode ? 'bg-red-50 border-red-200' : ''; ?>"
-                    style="<?php echo $bulk_delete_mode ? '' : 'border-color: var(--border-light); background: var(--surface-secondary);'; ?>">
+                    class="ticket-bulk-actions hidden <?php echo $bulk_delete_mode ? 'ticket-bulk-actions--danger' : ''; ?>">
                     <div class="flex items-center justify-between">
                         <div class="inline-flex items-center gap-2 text-sm">
                             <span class="inline-flex items-center justify-center min-w-[1.75rem] h-7 px-2 fd-rounded-pill font-semibold bg-theme-tertiary text-theme-secondary">
@@ -696,7 +745,6 @@
                             <span class="text-theme-secondary"><?php echo e(t('selected')); ?></span>
                         </div>
                     </div>
-
                     <?php if ($bulk_archive_mode): ?>
                         <div class="grid grid-cols-1 <?php echo $tags_supported ? 'lg:grid-cols-5' : 'lg:grid-cols-3'; ?> gap-2 lg:gap-3">
                             <select name="bulk_organization_id" class="form-select form-select-sm">
@@ -708,8 +756,8 @@
                             </select>
                             <select name="bulk_status_id" class="form-select form-select-sm">
                                 <option value=""><?php echo e(t('Keep status')); ?></option>
-                                <?php foreach ($statuses as $status): ?>
-                                    <option value="<?php echo (int) $status['id']; ?>"><?php echo e($status['name']); ?></option>
+                                <?php foreach ($workflow_statuses as $status): ?>
+                                    <option value="<?php echo (int) $status['id']; ?>"><?php echo e($status_display_name($status)); ?></option>
                                 <?php endforeach; ?>
                             </select>
                             <select name="bulk_priority_id" class="form-select form-select-sm">

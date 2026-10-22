@@ -1,112 +1,11 @@
 (function() {
     'use strict';
 
-    var core = window.FoxDeskTicketListCore || {};
-    var label = core.label;
-    var csrfToken = core.csrfToken;
-    var toast = core.toast;
-    var errorToast = core.errorToast;
-    var apiCall = core.apiCall;
-
-    function bindNewTicketRow() {
-        var row = document.getElementById('new-ticket-row');
-        var button = document.getElementById('new-ticket-submit-btn');
-        var subject = document.getElementById('new-ticket-subject');
-        if (!row || !button || !subject) return;
-
-        function value(id) {
-            var element = document.getElementById(id);
-            return element ? element.value : '';
-        }
-
-        function isHidden() {
-            return row.classList.contains('hidden') || row.style.display === 'none';
-        }
-
-        window.toggleNewTicketRow = function(force) {
-            var show = typeof force === 'boolean' ? force : isHidden();
-            row.classList.toggle('hidden', !show);
-            row.style.display = show ? '' : 'none';
-            var toggleButton = document.getElementById('quick-add-toggle-btn');
-            if (toggleButton) {
-                toggleButton.classList.toggle('is-active', show);
-            }
-            if (show) {
-                setTimeout(function() {
-                    subject.focus();
-                }, 50);
-            }
-        };
-
-        var submitting = false;
-        function submit() {
-            if (submitting) return;
-            var title = subject.value.trim();
-            if (!title) {
-                subject.focus();
-                return;
-            }
-
-            var minutes = parseInt(value('new-ticket-minutes'), 10);
-            if (!isNaN(minutes) && (minutes < 0 || minutes > 1440)) {
-                errorToast(label('durationBounds', 'Duration must be between 1 and 1440 minutes.'));
-                return;
-            }
-
-            submitting = true;
-            button.disabled = true;
-            apiCall('quick-create-ticket', null, {
-                title: title,
-                status_id: value('new-ticket-status'),
-                priority_id: value('new-ticket-priority'),
-                due_date: value('new-ticket-due'),
-                organization_id: value('new-ticket-company'),
-                assignee_id: value('new-ticket-assignee'),
-                type: value('new-ticket-type')
-            }).then(function(result) {
-                if (!result.success) {
-                    submitting = false;
-                    button.disabled = false;
-                    errorToast(result.error);
-                    return;
-                }
-
-                var createdMessage = result.message || label('ticketCreated', 'Ticket created.');
-                if (!isNaN(minutes) && minutes > 0 && result.ticket_id) {
-                    apiCall('quick-log-time', result.ticket_id, { duration_minutes: minutes })
-                        .then(function() {
-                            toast(createdMessage, 'success');
-                            location.reload();
-                        })
-                        .catch(function() {
-                            toast(createdMessage, 'success');
-                            location.reload();
-                        });
-                    return;
-                }
-
-                toast(createdMessage, 'success');
-                location.reload();
-            }).catch(function() {
-                submitting = false;
-                button.disabled = false;
-                errorToast();
-            });
-        }
-
-        button.addEventListener('click', submit);
-        [subject, document.getElementById('new-ticket-minutes')].forEach(function(element) {
-            if (!element) return;
-            element.addEventListener('keydown', function(event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    submit();
-                } else if (event.key === 'Escape') {
-                    window.toggleNewTicketRow(false);
-                }
-            });
-        });
-    }
+    var ticketList = window.FoxDeskTicketList || {};
+    var label = ticketList.label || function(key, fallback) { return fallback || key; };
+    var csrfToken = ticketList.csrfToken || function() { return ''; };
+    var toast = ticketList.toast || function() {};
+    var errorToast = ticketList.errorToast || function() {};
 
     function bindInlineLogTime() {
         var activeChips = null;
@@ -330,9 +229,5 @@
         });
     }
 
-
-    document.addEventListener('DOMContentLoaded', function() {
-        bindNewTicketRow();
-        bindInlineLogTime();
-    });
+    document.addEventListener('DOMContentLoaded', bindInlineLogTime);
 })();

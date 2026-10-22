@@ -31,14 +31,14 @@
     }
 
     function refreshCsrfToken() {
+        if (window.FoxDeskApi && typeof window.FoxDeskApi.refreshCsrfToken === 'function') {
+            return window.FoxDeskApi.refreshCsrfToken();
+        }
         return fetch(apiUrl('csrf-token'), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
             .then(function(response) { return response.json(); })
             .then(function(payload) {
                 var token = payload && payload.data && payload.data.token ? payload.data.token : (payload && payload.token ? payload.token : '');
-                if (token) {
-                    window.csrfToken = token;
-                    if (window.appConfig) window.appConfig.csrfToken = token;
-                }
+                if (token) window.csrfToken = token;
                 return token;
             });
     }
@@ -58,7 +58,7 @@
             body: body
         }).then(function(response) {
             return response.json().then(function(data) {
-                // A stale tab (token rotated by re-login or an update) refreshes its token once and retries.
+                // A stale tab (token rotated by re-login or a deploy) refreshes its token once and retries.
                 if (!retried && response.status === 403 && /csrf/i.test(String((data && data.error) || ''))) {
                     return refreshCsrfToken().then(function(token) {
                         return token ? apiCall(action, ticketId, payload, true) : data;
@@ -69,13 +69,14 @@
         });
     }
 
-    window.FoxDeskTicketListCore = Object.freeze({
+    window.FoxDeskTicketList = {
+        config: config,
         label: label,
         csrfToken: csrfToken,
+        apiCall: apiCall,
         toast: toast,
-        errorToast: errorToast,
-        apiCall: apiCall
-    });
+        errorToast: errorToast
+    };
 
     function replaceModifierClass(element, prefix, nextClass) {
         if (!element) return;
@@ -97,26 +98,6 @@
         } catch (err) {}
     }
 
-    window.applyHeaderSort = function(value) {
-        var form = document.getElementById('filter-form');
-        if (form) {
-            var hidden = form.querySelector('input[name="sort"]');
-            if (!hidden) {
-                hidden = document.createElement('input');
-                hidden.type = 'hidden';
-                hidden.name = 'sort';
-                form.appendChild(hidden);
-            }
-            hidden.value = value;
-            form.submit();
-            return;
-        }
-
-        var url = new URL(window.location);
-        url.searchParams.set('sort', value);
-        window.location = url.toString();
-    };
-
     function syncBulkHighlights() {
         document.querySelectorAll('.bulk-checkbox').forEach(function(checkbox) {
             var tableRow = checkbox.closest('tr');
@@ -126,7 +107,6 @@
             [tableRow, mobileCard].forEach(function(element) {
                 if (!element) return;
                 element.classList.toggle('is-bulk-selected', isSelected);
-                element.style.background = isSelected ? 'var(--surface-secondary)' : '';
             });
         });
     }
@@ -191,9 +171,117 @@
         syncBulkHighlights();
     };
 
-    function bindBulkCheckboxes() {
-        document.querySelectorAll('.bulk-checkbox').forEach(function(checkbox) {
+    function bindBulkCheckboxes(root) {
+        (root || document).querySelectorAll('.bulk-checkbox').forEach(function(checkbox) {
+            if (checkbox.dataset.bulkBound === '1') return;
+            checkbox.dataset.bulkBound = '1';
             checkbox.addEventListener('change', window.updateSelectedCount);
+        });
+    }
+
+    // Rows appended by ticket-infinite.js arrive after the initial bindings.
+    // Row clicks, inline dropdowns, due-date and log-time popovers are all
+    // delegated on document; only the bulk checkboxes need per-element work.
+    function bindAppendedRows() {
+        document.addEventListener('ticketlist:appended', function(event) {
+            var rows = (event.detail && event.detail.rows) || [];
+            rows.forEach(function(row) {
+                bindBulkCheckboxes(row);
+                row.querySelectorAll('.bulk-checkbox').forEach(function(checkbox) {
+                    checkbox.classList.toggle('hidden', !bulkMode);
+                    checkbox.checked = false;
+                });
+            });
+        });
+    }
+
+    // Hover quick actions in the subject cell: Take (assign to me) and Start
+    // (timer). Reply is a plain link. Clicks never fall through to the row.
+    function bindRowQuickActions() {
+        document.addEventListener('click', function(event) {
+            var takeButton = event.target.closest('.js-row-take');
+            var startButton = takeButton ? null : event.target.closest('.js-row-start');
+            var button = takeButton || startButton;
+            if (!button || button.disabled) return;
+            event.preventDefault();
+            event.stopPropagation();
+            var ticketId = button.dataset.ticketId;
+            if (!ticketId) return;
+            var row = button.closest('tr');
+            button.disabled = true;
+
+            if (takeButton) {
+                var me = config.currentUserId;
+                if (!me) {
+                    button.disabled = false;
+                    return;
+                }
+                apiCall('quick-assign', ticketId, { assignee_id: me })
+                    .then(function(result) {
+                        if (!result.success) {
+                            button.disabled = false;
+                            errorToast(result.error);
+                            return;
+                        }
+                        var trigger = row && row.querySelector('.tl-assign-trigger[data-ticket="' + ticketId + '"]');
+                        if (trigger) {
+                            trigger.textContent = config.currentUserLabel || '';
+                        }
+                        button.remove();
+                        toast(result.message || label('assignedToYou', 'Assigned to you.'), 'success');
+                    })
+                    .catch(function() {
+                        button.disabled = false;
+                        errorToast();
+                    });
+                return;
+            }
+
+            apiCall('start-timer', ticketId, {})
+                .then(function(result) {
+                    if (!result.success) {
+                        button.disabled = false;
+                        errorToast(result.error);
+                        return;
+                    }
+                    if (row) {
+                        row.classList.add('is-timer-running');
+                        var logButton = row.querySelector('.inline-log-time__btn');
+                        var cell = logButton && logButton.parentNode;
+                        if (cell && config.runningIconHtml && !cell.querySelector('.ticket-time-running')) {
+                            var running = document.createElement('span');
+                            running.className = 'ticket-time-running text-green-600';
+                            running.innerHTML = config.runningIconHtml;
+                            cell.insertBefore(running, cell.firstChild);
+                        }
+                    }
+                    button.remove();
+                    toast(result.message || label('timerStarted', 'Timer started.'), 'success');
+                    document.dispatchEvent(new Event('timerStateChanged'));
+                })
+                .catch(function() {
+                    button.disabled = false;
+                    errorToast();
+                });
+        });
+    }
+
+    // The header Filter popover is a <details>; JS only adds outside-click and
+    // Escape closing. Soft-select popups live under <body>, so they count as
+    // inside.
+    function bindFilterMenu() {
+        var menu = document.querySelector('[data-ticket-filter-menu]');
+        if (!menu) return;
+        document.addEventListener('click', function(event) {
+            if (!menu.open) return;
+            if (menu.contains(event.target) || event.target.closest('.soft-select__popup')) return;
+            menu.open = false;
+        });
+        document.addEventListener('keydown', function(event) {
+            if (event.key !== 'Escape' || !menu.open) return;
+            menu.open = false;
+            var summary = menu.querySelector('summary');
+            if (summary) summary.focus();
         });
     }
 
@@ -352,12 +440,47 @@
     function bindInlineDropdowns() {
         var openDropdown = null;
         var openTrigger = null;
+        var openOriginalParent = null;
+        var openOriginalNextSibling = null;
+
+        function restoreOpenDropdown() {
+            if (!openDropdown || !openOriginalParent) return;
+            if (openOriginalNextSibling && openOriginalNextSibling.parentNode === openOriginalParent) {
+                openOriginalParent.insertBefore(openDropdown, openOriginalNextSibling);
+            } else {
+                openOriginalParent.appendChild(openDropdown);
+            }
+        }
+
+        function clearDropdownPosition(dropdown) {
+            dropdown.style.position = '';
+            dropdown.style.left = '';
+            dropdown.style.top = '';
+            dropdown.style.right = '';
+            dropdown.style.bottom = '';
+            dropdown.style.minWidth = '';
+            dropdown.style.zIndex = '';
+            dropdown.style.visibility = '';
+        }
 
         function positionDropdown(dropdown, trigger) {
             var rect = trigger.getBoundingClientRect();
+            if (dropdown.parentNode !== document.body) {
+                openOriginalParent = dropdown.parentNode;
+                openOriginalNextSibling = dropdown.nextSibling;
+                document.body.appendChild(dropdown);
+            }
+
+            // The dropdown lives under <body> while open, so viewport coordinates
+            // must be paired with fixed positioning. Mixing getBoundingClientRect()
+            // with document scroll offsets made the menu drift away from its row.
             dropdown.style.position = 'fixed';
-            dropdown.style.left = 'auto';
-            dropdown.style.top = 'auto';
+            dropdown.style.left = '0px';
+            dropdown.style.top = '0px';
+            dropdown.style.right = 'auto';
+            dropdown.style.bottom = 'auto';
+            dropdown.style.minWidth = Math.max(trigger.offsetWidth, 176) + 'px';
+            dropdown.style.zIndex = '1200';
             var previousVisibility = dropdown.style.visibility;
             dropdown.style.visibility = 'hidden';
             dropdown.classList.remove('hidden');
@@ -388,12 +511,13 @@
         function closeAll() {
             if (openDropdown) {
                 openDropdown.classList.add('hidden');
-                openDropdown.style.position = '';
-                openDropdown.style.left = '';
-                openDropdown.style.top = '';
+                restoreOpenDropdown();
+                clearDropdownPosition(openDropdown);
                 openDropdown = null;
             }
             openTrigger = null;
+            openOriginalParent = null;
+            openOriginalNextSibling = null;
             window.removeEventListener('scroll', onReposition, true);
             window.removeEventListener('resize', onReposition);
         }
@@ -464,12 +588,6 @@
                         var toneClass = button.dataset.toneClass || '';
                         if (toneClass) {
                             replaceModifierClass(trigger, field === 'status' ? 'ticket-status-inline' : 'ticket-priority-inline', toneClass);
-                        } else {
-                            var color = button.querySelector('.rounded-full') ? button.querySelector('.rounded-full').style.background : '';
-                            if (color) {
-                                trigger.style.backgroundColor = color + '20';
-                                trigger.style.color = color;
-                            }
                         }
                     }
 
@@ -477,9 +595,6 @@
                         var accentClass = button.dataset.rowAccentClass || '';
                         if (accentClass) {
                             replaceModifierClass(row, 'ticket-status-accent', accentClass);
-                        } else {
-                            var statusColor = button.querySelector('.rounded-full') ? button.querySelector('.rounded-full').style.background : '';
-                            if (statusColor) row.style.borderLeftColor = statusColor;
                         }
                     }
                     toast(result.message || label('saved', 'Saved'), 'success');
@@ -570,50 +685,65 @@
 
     function bindSubjectInlineEditor() {
         document.addEventListener('click', function(event) {
-            var subject = event.target.closest('.tl-inline-text[data-field="subject"]');
-            if (!subject || subject.dataset.editing === '1') return;
+            var editButton = event.target.closest('.ticket-subject-edit-button[data-field="subject"]');
+            if (!editButton || editButton.dataset.editing === '1') return;
 
             event.preventDefault();
             event.stopPropagation();
-            var ticketId = subject.dataset.ticket;
-            var current = subject.dataset.value || subject.textContent.trim();
+            var ticketId = editButton.dataset.ticket;
+            var container = editButton.parentNode;
+            var subjectLink = container && container.querySelector('.ticket-subject-link[data-ticket-field="title"]');
+            if (!subjectLink) return;
+            var subjectText = subjectLink.querySelector('bdi') || subjectLink;
+            var current = editButton.dataset.value || subjectText.textContent.trim();
             var input = document.createElement('input');
             input.type = 'text';
             input.value = current;
-            input.className = 'tl-inline-input';
+            input.className = 'tl-inline-input ticket-subject-inline-input';
             input.maxLength = 500;
-            subject.dataset.editing = '1';
-            subject.textContent = '';
-            subject.appendChild(input);
+            input.setAttribute('aria-label', editButton.getAttribute('aria-label') || label('subject', 'Subject'));
+            editButton.dataset.editing = '1';
+            subjectLink.classList.add('hidden');
+            editButton.classList.add('hidden');
+            container.insertBefore(input, editButton);
             input.focus();
             input.select();
 
             var committed = false;
+            function render(value) {
+                subjectText.textContent = value;
+                subjectLink.title = value;
+                editButton.dataset.value = value;
+            }
+            function restoreControls() {
+                input.remove();
+                subjectLink.classList.remove('hidden');
+                editButton.classList.remove('hidden');
+                editButton.dataset.editing = '';
+            }
             function commit(save) {
                 if (committed) return;
                 committed = true;
                 var nextValue = input.value.trim();
-                subject.dataset.editing = '';
                 if (!save || nextValue === '' || nextValue === current) {
-                    subject.textContent = current;
+                    render(current);
+                    restoreControls();
                     return;
                 }
 
-                subject.textContent = nextValue;
-                subject.dataset.value = nextValue;
+                render(nextValue);
+                restoreControls();
                 apiCall('quick-subject', ticketId, { title: nextValue })
                     .then(function(result) {
                         if (result.success) {
                             toast(result.message || label('saved', 'Saved'), 'success');
                             return;
                         }
-                        subject.textContent = current;
-                        subject.dataset.value = current;
+                        render(current);
                         errorToast(result.error);
                     })
                     .catch(function() {
-                        subject.textContent = current;
-                        subject.dataset.value = current;
+                        render(current);
                         errorToast();
                     });
             }
@@ -622,10 +752,9 @@
                 if (innerEvent.key === 'Enter') {
                     innerEvent.preventDefault();
                     commit(true);
-                    input.blur();
                 } else if (innerEvent.key === 'Escape') {
+                    innerEvent.preventDefault();
                     commit(false);
-                    input.blur();
                 }
             });
             input.addEventListener('blur', function() {
@@ -637,191 +766,124 @@
         });
     }
 
-    function bindDueDatePopover() {
-        var activePopover = null;
-        var activeTrigger = null;
-        var overdueIconHtml = config.overdueIconHtml || '';
+    function bindNewTicketRow() {
+        var row = document.getElementById('new-ticket-row');
+        var button = document.getElementById('new-ticket-submit-btn');
+        var subject = document.getElementById('new-ticket-subject');
+        if (!row || !button || !subject) return;
 
-        function closeDuePopover() {
-            if (activePopover) {
-                activePopover.remove();
-                activePopover = null;
+        function value(id) {
+            var element = document.getElementById(id);
+            return element ? element.value : '';
+        }
+
+        function isHidden() {
+            return row.classList.contains('hidden') || row.style.display === 'none';
+        }
+
+        window.toggleNewTicketRow = function(force) {
+            var show = typeof force === 'boolean' ? force : isHidden();
+            row.classList.toggle('hidden', !show);
+            row.style.display = show ? '' : 'none';
+            var toggleButton = document.getElementById('quick-add-toggle-btn');
+            if (toggleButton) {
+                toggleButton.classList.toggle('is-active', show);
             }
-            activeTrigger = null;
-            document.removeEventListener('click', onOutsideClick, true);
-            document.removeEventListener('keydown', onEscape);
-            window.removeEventListener('resize', reposition);
-            window.removeEventListener('scroll', reposition, true);
-        }
-
-        function onOutsideClick(event) {
-            if (event.target.closest('.tl-due-popover') || event.target.closest('.tl-due-trigger')) return;
-            closeDuePopover();
-        }
-
-        function onEscape(event) {
-            if (event.key === 'Escape') closeDuePopover();
-        }
-
-        function reposition() {
-            if (!activePopover || !activeTrigger) return;
-            var rect = activeTrigger.getBoundingClientRect();
-            var viewportWidth = document.documentElement.clientWidth;
-            var viewportHeight = document.documentElement.clientHeight;
-            var popoverWidth = activePopover.offsetWidth || 220;
-            var popoverHeight = activePopover.offsetHeight || 90;
-            var left = Math.min(rect.left, viewportWidth - popoverWidth - 8);
-            if (left < 8) left = 8;
-            var top = rect.bottom + 6;
-            if (top + popoverHeight > viewportHeight - 8) {
-                top = Math.max(8, rect.top - popoverHeight - 6);
+            if (show) {
+                setTimeout(function() {
+                    subject.focus();
+                }, 50);
             }
-            activePopover.style.left = left + 'px';
-            activePopover.style.top = top + 'px';
-        }
+        };
 
-        function renderTrigger(trigger, dueValue) {
-            trigger.dataset.due = dueValue || '';
-            trigger.classList.remove('text-red-600', 'font-medium');
-            var row = trigger.closest('.ticket-row, .ticket-list-item');
-            var isClosed = trigger.dataset.isClosed === '1';
-            if (!dueValue) {
-                trigger.innerHTML = '<span class="ticket-empty-value">&mdash;</span>';
-                if (row) row.classList.remove('ticket-overdue');
+        var submitting = false;
+        function submit() {
+            if (submitting) return;
+            var title = subject.value.trim();
+            if (!title) {
+                subject.focus();
                 return;
             }
 
-            var parts = dueValue.split('-');
-            var dueLabel = (parts[2] || '') + '.' + (parts[1] || '');
-            var dueEnd = new Date(dueValue + 'T23:59:59');
-            var isOverdue = !isClosed && !isNaN(dueEnd.getTime()) && dueEnd.getTime() < Date.now();
-            trigger.innerHTML = dueLabel + (isOverdue ? overdueIconHtml : '');
-            trigger.classList.toggle('text-red-600', isOverdue);
-            trigger.classList.toggle('font-medium', isOverdue);
-            if (row) row.classList.toggle('ticket-overdue', isOverdue);
-        }
+            var minutes = parseInt(value('new-ticket-minutes'), 10);
+            if (!isNaN(minutes) && (minutes < 0 || minutes > 1440)) {
+                errorToast(label('durationBounds', 'Duration must be between 1 and 1440 minutes.'));
+                return;
+            }
 
-        function syncDraft(input) {
-            if (!input) return '';
-            input.dataset.pendingValue = input.value || '';
-            return input.dataset.pendingValue;
-        }
-
-        function readDraft(input) {
-            if (!input) return '';
-            return typeof input.dataset.pendingValue === 'string'
-                ? input.dataset.pendingValue
-                : input.value || '';
-        }
-
-        function saveValue(trigger, input) {
-            var ticketId = trigger.dataset.ticket;
-            var nextValue = readDraft(input);
-            input.disabled = true;
-            apiCall('quick-due-date', ticketId, { due_date: nextValue })
-                .then(function(result) {
-                    if (result.success) {
-                        renderTrigger(trigger, typeof result.due_date_iso === 'string' ? result.due_date_iso : nextValue);
-                        closeDuePopover();
-                        toast(result.message || label('saved', 'Saved'), 'success');
-                        return;
-                    }
-                    input.disabled = false;
+            submitting = true;
+            button.disabled = true;
+            apiCall('quick-create-ticket', null, {
+                title: title,
+                status_id: value('new-ticket-status'),
+                priority_id: value('new-ticket-priority'),
+                due_date: value('new-ticket-due'),
+                organization_id: value('new-ticket-company'),
+                assignee_id: value('new-ticket-assignee'),
+                type: value('new-ticket-type')
+            }).then(function(result) {
+                if (!result.success) {
+                    submitting = false;
+                    button.disabled = false;
                     errorToast(result.error);
-                })
-                .catch(function() {
-                    input.disabled = false;
-                    errorToast();
-                });
+                    return;
+                }
+
+                var createdMessage = result.message || label('ticketCreated', 'Ticket created.');
+                if (!isNaN(minutes) && minutes > 0 && result.ticket_id) {
+                    apiCall('quick-log-time', result.ticket_id, { duration_minutes: minutes })
+                        .then(function() {
+                            toast(createdMessage, 'success');
+                            location.reload();
+                        })
+                        .catch(function() {
+                            toast(createdMessage, 'success');
+                            location.reload();
+                        });
+                    return;
+                }
+
+                toast(createdMessage, 'success');
+                location.reload();
+            }).catch(function() {
+                submitting = false;
+                button.disabled = false;
+                errorToast();
+            });
         }
 
-        document.addEventListener('click', function(event) {
-            var trigger = event.target.closest('.tl-due-trigger');
-            if (!trigger) return;
-            event.preventDefault();
-            event.stopPropagation();
-
-            if (activeTrigger === trigger) {
-                closeDuePopover();
-                return;
-            }
-
-            closeDuePopover();
-            var template = document.getElementById('tl-due-popover-tpl');
-            if (!template) return;
-            var fragment = template.content.cloneNode(true);
-            var popover = fragment.querySelector('.tl-due-popover');
-            var input = fragment.querySelector('.tl-due-popover__input');
-            var saveButton = fragment.querySelector('.tl-due-popover__save');
-            var clearButton = fragment.querySelector('.tl-due-popover__clear');
-
-            input.value = trigger.dataset.due || '';
-            input.dataset.pendingValue = trigger.dataset.due || '';
-            document.body.appendChild(popover);
-            activePopover = popover;
-            activeTrigger = trigger;
-            reposition();
-
-            input.addEventListener('input', function() {
-                syncDraft(input);
-            });
-            input.addEventListener('change', function() {
-                syncDraft(input);
-            });
-            saveButton.addEventListener('click', function(innerEvent) {
-                innerEvent.preventDefault();
-                innerEvent.stopPropagation();
-                syncDraft(input);
-                window.setTimeout(function() {
-                    saveValue(trigger, input);
-                }, 0);
-            });
-            clearButton.addEventListener('click', function(innerEvent) {
-                innerEvent.preventDefault();
-                innerEvent.stopPropagation();
-                input.value = '';
-                input.dataset.pendingValue = '';
-                window.setTimeout(function() {
-                    saveValue(trigger, input);
-                }, 0);
-            });
-            input.addEventListener('keydown', function(innerEvent) {
-                if (innerEvent.key === 'Enter') {
-                    innerEvent.preventDefault();
-                    syncDraft(input);
-                    window.setTimeout(function() {
-                        saveValue(trigger, input);
-                    }, 0);
-                } else if (innerEvent.key === 'Escape') {
-                    innerEvent.preventDefault();
-                    closeDuePopover();
+        button.addEventListener('click', submit);
+        [subject, document.getElementById('new-ticket-minutes')].forEach(function(element) {
+            if (!element) return;
+            element.addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    submit();
+                } else if (event.key === 'Escape') {
+                    window.toggleNewTicketRow(false);
                 }
             });
-
-            setTimeout(function() {
-                input.focus();
-                if (typeof input.showPicker === 'function') {
-                    try {
-                        input.showPicker();
-                    } catch (err) {}
-                }
-            }, 30);
-
-            setTimeout(function() {
-                document.addEventListener('click', onOutsideClick, true);
-                document.addEventListener('keydown', onEscape);
-                window.addEventListener('resize', reposition);
-                window.addEventListener('scroll', reposition, true);
-            }, 0);
         });
     }
 
     document.addEventListener('DOMContentLoaded', function() {
         syncTicketViewPreference();
         bindBulkCheckboxes();
+        bindAppendedRows();
+        bindRowQuickActions();
+        bindFilterMenu();
         bindSearchSuggestions();
         bindInlineDropdowns();
         bindSubjectInlineEditor();
-        bindDueDatePopover();
+        bindNewTicketRow();
     });
 })();
+
+// Kept for the ticket-list contract and any external callers: sorting now
+// lives in the column headers, so this just navigates to the chosen sort.
+window.applyHeaderSort = function (sortValue) {
+    var url = new URL(window.location.href);
+    url.searchParams.set('sort', String(sortValue || ''));
+    url.searchParams.delete('p');
+    window.location.assign(url.toString());
+};

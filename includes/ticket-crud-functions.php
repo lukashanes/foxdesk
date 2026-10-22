@@ -175,20 +175,53 @@ function get_ticket_tags_array($value) {
  * Get tickets
  */
 function get_tickets($filters = []) {
+    // When the ticket reached its current (done) status; drives the Done list grouping.
+    $completed_at_select = 't.updated_at as completed_at';
+    if (function_exists('ticket_history_table_exists') && ticket_history_table_exists()) {
+        $completed_at_select = "COALESCE(
+                        (
+                            SELECT MAX(th.created_at)
+                            FROM ticket_history th
+                            WHERE th.ticket_id = t.id
+                              AND th.field_name = 'status_id'
+                              AND CAST(th.new_value AS UNSIGNED) = t.status_id
+                        ),
+                        t.updated_at,
+                        t.created_at
+                   ) as completed_at";
+    }
+
+    $worked_time_select = '0 as worked_minutes';
+    $worked_time_join = '';
+    if (function_exists('ticket_time_table_exists')
+        && ticket_time_table_exists()
+        && function_exists('sql_timer_duration_minutes')) {
+        $duration_sql = sql_timer_duration_minutes('tte.');
+        $worked_time_select = 'IFNULL(wt.worked_minutes, 0) as worked_minutes';
+        $worked_time_join = " LEFT JOIN (
+            SELECT tte.ticket_id, SUM({$duration_sql}) AS worked_minutes
+            FROM ticket_time_entries tte
+            GROUP BY tte.ticket_id
+        ) wt ON wt.ticket_id = t.id";
+    }
+
     $sql = "SELECT t.*,
                    s.name as status_name, s.color as status_color, s.is_closed,
                    u.first_name, u.last_name, u.email,
                    o.name as organization_name,
                    p.name as priority_name, p.color as priority_color,
                    a.first_name as assignee_first_name, a.last_name as assignee_last_name,
-                   IFNULL(ac.attachment_count, 0) as attachment_count
+                   {$completed_at_select},
+                   IFNULL(ac.attachment_count, 0) as attachment_count,
+                   {$worked_time_select}
             FROM tickets t
             LEFT JOIN statuses s ON t.status_id = s.id
             LEFT JOIN users u ON t.user_id = u.id
             LEFT JOIN organizations o ON t.organization_id = o.id
             LEFT JOIN priorities p ON t.priority_id = p.id
             LEFT JOIN users a ON t.assignee_id = a.id
-            LEFT JOIN (SELECT ticket_id, COUNT(*) AS attachment_count FROM attachments GROUP BY ticket_id) ac ON ac.ticket_id = t.id";
+            LEFT JOIN (SELECT ticket_id, COUNT(*) AS attachment_count FROM attachments GROUP BY ticket_id) ac ON ac.ticket_id = t.id
+            {$worked_time_join}";
     $params = [];
     $sql .= build_ticket_where_clause($filters, $params);
 
@@ -441,6 +474,19 @@ function create_ticket($data) {
         $organization_id = $candidate_org > 0 ? $candidate_org : null;
     }
 
+    $created_at = date('Y-m-d H:i:s');
+    if (!empty($data['allow_backdated_created_at']) && array_key_exists('created_at', $data)) {
+        $normalized_created_at = function_exists('foxdesk_normalize_backdated_datetime_input')
+            ? foxdesk_normalize_backdated_datetime_input($data['created_at'])
+            : null;
+        if ($normalized_created_at === false) {
+            return false;
+        }
+        if ($normalized_created_at !== null) {
+            $created_at = $normalized_created_at;
+        }
+    }
+
     $ticket_data = [
         'title' => $data['title'],
         'description' => $data['description'] ?? '',
@@ -448,7 +494,8 @@ function create_ticket($data) {
         'user_id' => $data['user_id'],
         'organization_id' => $organization_id,
         'status_id' => $data['status_id'] ?? $default_status['id'],
-        'created_at' => date('Y-m-d H:i:s')
+        'created_at' => $created_at,
+        'updated_at' => $created_at,
     ];
 
     // Generate unique hash for secure URL
