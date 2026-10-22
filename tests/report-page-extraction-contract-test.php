@@ -33,7 +33,7 @@ $ratesView = $read('includes/modules/reports/views/rates.php');
 $publishedView = $read('includes/modules/reports/views/published.php');
 $entryModal = $read('includes/modules/reports/views/entry-modal.php');
 $pageJs = $read('assets/js/report-page.js');
-$pageCss = $read('assets/css/report-page.css');
+$pageCss = $read('theme.css');
 
 $routeLines = count(file($root . '/pages/admin/reports.php') ?: []);
 $jsLines = count(file($root . '/assets/js/report-page.js') ?: []);
@@ -108,7 +108,6 @@ foreach ([
     'assets/js/report-page.js',
     'assets/js/report-billing-review.js',
     'assets/js/report-time-delete.js',
-    'assets/css/report-page.css',
 ] as $needle) {
     $assert(str_contains($pageView, $needle), 'Reports page view missing: ' . $needle);
 }
