@@ -25,6 +25,9 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm ci
 
+      - name: Documentation contracts
+        run: npm run test:docs
+
       - name: Localization and RTL contracts
         run: npm run test:i18n
 
