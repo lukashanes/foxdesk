@@ -24,6 +24,7 @@
     "test:admin-ui": "sh ./bin/run-php.sh tests/admin-ui-contract-test.php",
     "test:app-shell-visual": "sh ./bin/run-php.sh tests/app-shell-visual-contract-test.php",
     "test:ui-system": "node tests/ui-system-contract.test.js",
+    "test:docs": "node tests/documentation-contract.test.js",
     "css:visual-audit": "node bin/css-visual-audit.js",
     "test:core-workflow-surface": "sh ./bin/run-php.sh tests/core-workflow-surface-contract-test.php",
     "test:product-copy": "sh -c 'sh ./bin/run-php.sh tests/source-language-product-copy-contract-test.php && sh ./bin/run-php.sh tests/section-heading-contract-test.php && sh ./bin/run-php.sh tests/translation-quality-contract-test.php'",

@@ -88,7 +88,8 @@ updates, IMAP/self-hosted operations, and the one-way self-hosted to SaaS migrat
 - Dynamic app manifest with custom icons
 
 **Multi-language**
-- English, Czech, German, Spanish, Italian
+- 24 locales, including Arabic and Hebrew RTL support and Chinese, Japanese, and Korean
+- Stable: English, Czech, German, Spanish, Italian; additional locales are available as beta
 - Per-user language preference
 
 **Auto-Updates**
@@ -145,11 +146,14 @@ Required PHP extensions: `pdo_mysql`, `mbstring`, `json`, `openssl`, `zip`
 
 1. Upload files to your web server
 2. Create a MySQL database
-3. Copy `config.example.php` to `config.php` and edit credentials
+3. Make sure PHP can write the FoxDesk root and the `uploads/`, `storage/`, and `backups/` directories
 4. Open `https://your-domain.tld/install.php`
-5. Follow the installer (database setup + admin account)
-6. Delete `install.php`
+5. Follow the installer (database setup + admin account); it creates `config.php`
+6. Delete `install.php` and make `config.php` read-only for the web-server user
 7. Log in and start using FoxDesk
+
+Do **not** create `config.php` before opening the installer on a fresh installation.
+Its presence tells FoxDesk that the application is already installed.
 
 See [INSTALL.md](INSTALL.md) for detailed instructions including shared hosting, VPS, Nginx, cron jobs, and email setup.
 
@@ -209,6 +213,7 @@ FoxDesk also includes a **pseudo-cron** system that runs tasks on page load, so 
 FoxDesk includes a REST API for automation and AI agent integrations.
 
 **Endpoints:**
+- `GET agent-docs` — Live instructions and version-matched API contract
 - `GET agent-me` — Current token identity
 - `GET agent-list-statuses` — List ticket statuses
 - `GET agent-list-priorities` — List priority levels
@@ -216,12 +221,16 @@ FoxDesk includes a REST API for automation and AI agent integrations.
 - `POST agent-create-ticket` — Create tickets
 - `GET agent-get-ticket` — Fetch full ticket detail
 - `POST agent-update-status` — Change ticket status
-- `POST agent-add-comment` — Add comments
+- `POST agent-add-update` — Add public comments or internal notes
 - `POST agent-log-time` — Log time entries
 - `GET agent-list-tickets` — List and filter tickets
 
 Authentication via Bearer token generated in **Settings -> API & agents**. Tokens
 inherit the creator's permissions and can be scoped by capability.
+
+Calls use `index.php?page=api&action=agent-*`. Load `agent-docs`, then
+`agent-me`, at the start of an integration session. Send an `Idempotency-Key`
+header on write requests.
 
 The **Agent Connect** page provides a ready-to-use system prompt and API documentation for connecting AI models.
 

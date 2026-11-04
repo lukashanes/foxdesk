@@ -1,7 +1,7 @@
 # FoxDesk — Installation Guide
 
 > Fresh installation instructions for shared hosting (FTP), VPS, or dedicated servers.
-> Version: **0.3.114** | Requires: PHP 8.1+ | MySQL 5.7+ / MariaDB 10.2+
+> Version: **0.3.137** | Requires: PHP 8.1+ | MySQL 5.7+ / MariaDB 10.2+
 
 ---
 
@@ -42,13 +42,15 @@
 | `openssl` | Yes | HTTPS, token generation |
 | `zip` | Yes | Backup & update system |
 | `fileinfo` | Recommended | File upload MIME detection |
+| `intl` | Recommended | Locale-aware dates, numbers, plurals, and Unicode normalization |
+| `curl` | Recommended | Web push and migration connectivity |
 | `imap` | Optional | Email-to-ticket ingest |
 
 ### Apache Modules
 
 | Module | Required | Purpose |
 |--------|----------|---------|
-| `mod_rewrite` | Yes | Authorization header passthrough |
+| `mod_rewrite` | Recommended | Clean routing and Authorization header passthrough |
 
 ---
 
@@ -56,12 +58,16 @@
 
 1. **Upload** all files to your web root via FTP
 2. **Create** a MySQL database and user
-3. **Copy** `config.example.php` to `config.php`
-4. **Edit** `config.php` with your database credentials and APP_URL
-5. **Open** `https://your-domain.tld/install.php` in your browser
-6. **Follow** the two-step installer (database setup + admin account)
-7. **Delete** `install.php` from the server (security)
+3. **Ensure** PHP can write the FoxDesk root and the `uploads/`, `storage/`, and `backups/` directories
+4. **Open** `https://your-domain.tld/install.php` in your browser
+5. **Follow** the two-step installer (database setup + admin account); it creates `config.php`
+6. **Delete** `install.php` from the server (security)
+7. **Make** `config.php` read-only for the web-server user
 8. **Log in** at `https://your-domain.tld/`
+
+> Do not copy `config.example.php` to `config.php` before a fresh web
+> installation. An existing `config.php` marks FoxDesk as already installed and
+> the installer will redirect away.
 
 ---
 
@@ -102,45 +108,26 @@ GRANT ALL PRIVILEGES ON helpdesk_db.* TO 'helpdesk_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
-### Step 3: Create Configuration
+### Step 3: Prepare Writable Paths
 
-Copy `config.example.php` to `config.php`:
+The installer creates `config.php`. On a fresh installation, do not create that
+file yourself. Ensure the PHP/web-server user can write:
 
-```bash
-cp config.example.php config.php
-```
+- the FoxDesk root while the installer creates `config.php`
+- `uploads/` for attachments
+- `storage/` for generated and imported data
+- `backups/` for updates and recovery
 
-Edit `config.php` with your settings:
-
-```php
-<?php
-// Database
-define('DB_HOST', 'localhost');
-define('DB_PORT', '3306');
-define('DB_NAME', 'helpdesk_db');
-define('DB_USER', 'helpdesk_user');
-define('DB_PASS', 'strong_password_here');
-
-// Security - generate a random 64-char hex string
-// Use: php -r "echo bin2hex(random_bytes(32));"
-define('SECRET_KEY', 'your_64_char_hex_string_here');
-
-// Application
-define('APP_NAME', 'My Helpdesk');
-define('APP_URL', 'https://helpdesk.example.com');
-
-// ... keep IMAP and upload settings from example
-```
+On shared hosting these paths are usually writable already. On a VPS, grant
+ownership to the web-server user instead of using world-writable permissions.
 
 ### Step 4: Set Directory Permissions
 
 ```bash
 # Writable directories (created automatically on first use)
 chmod 755 uploads/
+chmod 755 storage/
 chmod 755 backups/
-
-# Config file (read-only after setup)
-chmod 644 config.php
 
 # Protect sensitive files
 chmod 644 .htaccess
@@ -153,9 +140,10 @@ On shared hosting, directories usually default to 755 which is correct.
 Open `https://your-domain.tld/install.php` in your browser.
 
 **Step 1 of 2: Database Setup**
-- Enter your database credentials (should match config.php)
+- Enter your database credentials
 - The installer tests the connection
 - Creates all database tables from `includes/schema.sql`
+- Writes the generated `config.php`
 
 **Step 2 of 2: Admin Account**
 - Enter your app name
@@ -164,21 +152,28 @@ Open `https://your-domain.tld/install.php` in your browser.
 
 ### Step 6: Post-Install Security
 
-**IMPORTANT: Delete or rename `install.php` after installation:**
+**IMPORTANT: Delete `install.php` after installation and restrict the generated
+configuration:**
 
 ```bash
 rm install.php
-# or
-mv install.php install.php.bak
+chmod 640 config.php
 ```
 
-This prevents anyone from re-running the installer.
+Do not keep a renamed installer in the public web root. Deleting it prevents
+anyone from attempting to rerun setup; restricting `config.php` protects the
+database credentials and application secret.
 
 ---
 
 ## Configuration Reference
 
-### config.php - Full Reference
+### config.php - Advanced Manual Reference
+
+The web installer generates this file automatically. Use the following only
+when you intentionally perform a manual installation or need to inspect the
+core settings. Application, email, locale, and security preferences should be
+managed in the FoxDesk Settings UI after installation.
 
 ```php
 <?php
@@ -204,26 +199,6 @@ define('APP_NAME', 'FoxDesk');
 define('APP_URL', 'https://your-domain.tld');  // No trailing slash!
 
 // ============================================================
-// EMAIL INGEST (IMAP) - Optional
-// ============================================================
-define('IMAP_ENABLED', false);                    // Enable email-to-ticket
-define('IMAP_HOST', 'imap.example.com');          // IMAP server
-define('IMAP_PORT', 993);                         // IMAP port
-define('IMAP_ENCRYPTION', 'ssl');                 // ssl | tls | none
-define('IMAP_VALIDATE_CERT', false);              // Validate SSL certificate
-define('IMAP_USERNAME', 'support@example.com');   // IMAP login
-define('IMAP_PASSWORD', 'email_password');         // IMAP password
-define('IMAP_FOLDER', 'INBOX');                   // Folder to monitor
-define('IMAP_PROCESSED_FOLDER', 'Processed');     // Move processed emails here
-define('IMAP_FAILED_FOLDER', 'Failed');           // Move failed emails here
-define('IMAP_MAX_EMAILS_PER_RUN', 50);            // Max emails per cron run
-define('IMAP_MAX_ATTACHMENT_SIZE', 10 * 1024 * 1024);  // 10 MB
-define('IMAP_DENY_EXTENSIONS', 'php,phtml,php3,php4,php5,phar,exe,bat,cmd,js,vbs,ps1,sh');
-define('IMAP_STORAGE_BASE', 'storage/tickets');
-define('IMAP_MARK_SEEN_ON_SKIP', true);
-define('IMAP_ALLOW_UNKNOWN_SENDERS', false);      // Only whitelisted senders
-
-// ============================================================
 // UPLOADS
 // ============================================================
 define('UPLOAD_DIR', 'uploads/');
@@ -241,17 +216,18 @@ date_default_timezone_set('Europe/Prague');        // Your timezone
 
 After the installer completes, log in as admin and configure:
 
-### 1. General Settings (Admin > Settings > General)
+### 1. Workspace Settings (Settings > Workspace)
 
 - **App Name** — Display name for your helpdesk
 - **Logo** — Upload a custom logo
 - **Favicon** — Upload a custom favicon
 - **Primary Color** — Brand color for UI accents
-- **Language** — Default language (en, cs, de, es, it)
+- **Language** — Default workspace language. FoxDesk ships 24 locales; English,
+  Czech, German, Spanish, and Italian are stable and the other 19 are beta
 - **Currency** — For billing (CZK, EUR, USD, etc.)
 - **Time Rounding** — Round time to nearest N minutes (0, 15, 30, 60)
 
-### 2. Email (Admin > Settings > Email)
+### 2. Email (Settings > Email)
 
 Configure SMTP for outbound email notifications:
 - SMTP Host, Port, Encryption (TLS/SSL)
@@ -261,28 +237,30 @@ Configure SMTP for outbound email notifications:
 
 ### 3. Ticket Workflow
 
-- **Statuses** (Admin > Statuses) — Customize workflow states, drag to reorder
-- **Priorities** (Admin > Priorities) — Set severity levels, drag to reorder
-- **Ticket Types** (Admin > Ticket Types) — Issue categories
+- **Statuses** (Settings > Ticket workflow) — Customize workflow states, drag to reorder
+- **Priorities** (Settings > Ticket workflow) — Set severity levels, drag to reorder
+- **Ticket Types** (Settings > Ticket workflow) — Issue categories
 
 ### 4. Organizations & Users
 
-- Create organizations (Admin > Organizations) with billing rates
-- Add agents/staff (Admin > Users)
-- Create client accounts (Admin > Clients)
+- Create companies (Settings > Companies) with billing rates
+- Add agents/staff (Settings > Team & access)
+- Create client accounts (Settings > Clients)
 
 ### 5. AI Agents (Optional)
 
 To set up AI agent integration:
-1. Go to Admin > Users > AI Agents tab
-2. Create a new agent (name, cost rate)
-3. Generate an API token
-4. Visit Agent Connect for system prompt and API docs
-5. Use the token in your AI automation
+1. Open **Settings > Team & access > AI agents** to create a managed AI agent,
+   or **Settings > API & agents** to create a scoped key for an existing user
+2. Select only the scopes the integration needs
+3. Copy the token once
+4. Load `agent-docs`, then call `agent-me` before doing work
+5. Follow [docs/AGENT_API_QUICKSTART.md](docs/AGENT_API_QUICKSTART.md) for the
+   canonical URLs, examples, and permission model
 
 ### 6. Recurring Tasks (Optional)
 
-- Go to Admin > Recurring Tasks
+- Go to Settings > Recurring tasks
 - Create templates for tickets that should be created on schedule
 - Set recurrence: weekly, monthly, yearly, or custom interval
 
@@ -295,7 +273,7 @@ Notification preferences are per-user in Profile settings:
 
 ### 8. Security
 
-- Open **Admin > Settings > Security** and decide which roles must use 2FA
+- Open **Settings > Security** and decide which roles must use 2FA
 - Ask each admin/agent to enable TOTP in their **Profile** and store backup codes safely
 - Review **Allowed Senders** if you plan to use IMAP email-to-ticket
 
@@ -329,7 +307,8 @@ Notification preferences are per-user in Profile settings:
 
 FoxDesk includes a pseudo-cron system that automatically runs background tasks (recurring tasks, email ingest) on each page load. This works out of the box on shared hosting without configuring cron jobs.
 
-To enable: Admin > Settings > enable Pseudo-Cron.
+Pseudo-cron is enabled by default. Verify its status and last-run timestamps in
+**Settings > System > Background tasks**.
 
 ### Cron Jobs via cPanel (Optional, Recommended)
 
@@ -358,22 +337,23 @@ server {
         try_files $uri $uri/ /index.php?$query_string;
     }
 
+    # Protect internal data before the generic PHP handler.
+    location ~ ^/(backups|bin|includes|storage|uploads)(?:/|$) {
+        deny all;
+    }
+
+    # Protect installation and runtime configuration files.
+    location ~ ^/(config(?:\.example)?\.php|version\.json|\.maintenance)$ {
+        deny all;
+    }
+
     location ~ \.php$ {
+        try_files $fastcgi_script_name =404;
         fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         include fastcgi_params;
         # Pass Authorization header to PHP
         fastcgi_param HTTP_AUTHORIZATION $http_authorization;
-    }
-
-    # Protect sensitive directories
-    location ~ ^/(backups|bin|includes)/ {
-        deny all;
-    }
-
-    # Prevent PHP execution in uploads
-    location ~ ^/uploads/.*\.php$ {
-        deny all;
     }
 }
 ```
@@ -428,7 +408,10 @@ Find your PHP path with: `which php` or ask your hosting provider.
 
 ### Pseudo-Cron Alternative
 
-If you cannot set up system cron jobs, enable **Pseudo-Cron** in Admin > Settings. FoxDesk will automatically run background tasks (email ingest, recurring tasks) on each page load by an authenticated user.
+If you cannot set up system cron jobs, keep **Background tasks** enabled in
+**Settings > System**. FoxDesk will trigger email ingest, recurring tasks, and
+maintenance from authenticated page requests. Check the last-run timestamps
+there after normal use.
 
 ---
 
@@ -436,7 +419,7 @@ If you cannot set up system cron jobs, enable **Pseudo-Cron** in Admin > Setting
 
 ### SMTP Setup (Outbound)
 
-Configure in **Admin > Settings > Email**:
+Configure in **Settings > Email**:
 
 **Gmail/Google Workspace:**
 - Host: `smtp.gmail.com`
@@ -459,13 +442,15 @@ Configure in **Admin > Settings > Email**:
 
 ### IMAP Setup (Inbound - Email to Ticket)
 
-Configure in `config.php`:
+Configure in **Settings > Email**:
 
-1. Set `IMAP_ENABLED` to `true`
-2. Enter IMAP server credentials
-3. Create the IMAP folders (Processed, Failed)
-4. Set up the cron job for `bin/ingest-emails.php` (or enable pseudo-cron)
-5. Configure allowed senders in Admin > Settings (Allowed Senders section)
+1. Enable inbound email and enter the IMAP server credentials
+2. Confirm that the PHP `imap` extension is loaded
+3. Use **Save and test IMAP**
+4. Use **Save and run IMAP now** for the first controlled ingest
+5. Configure allowed senders before accepting inbound messages
+6. Set up `bin/ingest-emails.php` as a cron job, or keep background tasks
+   enabled in **Settings > System**
 
 ---
 
@@ -477,15 +462,15 @@ Configure in `config.php`:
 2. **Use HTTPS** — Get a free SSL certificate from Let's Encrypt
 3. **Strong SECRET_KEY** — Generate 64 random hex chars
 4. **Strong passwords** — Enforce for all admin/agent accounts
-5. **Enable 2FA for sensitive roles** — Configure requirements in Admin > Settings > Security
+5. **Enable 2FA for sensitive roles** — Configure requirements in Settings > Security
 6. **Restrict file permissions** — `config.php` should be 644 or 640
 
 ### File Protection
 
 The `.htaccess` file included with FoxDesk:
 - Passes Authorization headers to PHP (required for API)
-- Blocks direct access to `backups/` directory
-- Prevents PHP execution in `uploads/` directory
+- Blocks direct access to `backups/`, `bin/`, `includes/`, `storage/`, and `uploads/`
+- Blocks direct access to configuration, version, and maintenance files
 
 ### Additional Server Hardening
 
@@ -557,13 +542,14 @@ session.cookie_samesite = Lax
 - Check the script file path is absolute
 - Look at cron logs: `grep CRON /var/log/syslog`
 - Test manually: `php /path/to/bin/process-recurring-tasks.php`
-- Alternative: Enable pseudo-cron in Admin > Settings
+- Alternative: keep background tasks enabled in Settings > System
 
 ### Update Fails
 
 - Use `rescue.php` to disable maintenance mode if stuck
 - Check that `backups/` directory is writable
-- Try manual update: download ZIP from foxdesk.org, upload via Admin > Updates
+- Try a manual update: download the release ZIP from GitHub Releases and upload
+  it in Settings > System > Updates
 
 ### "Headers already sent" Error
 

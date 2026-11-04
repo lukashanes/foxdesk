@@ -1,6 +1,6 @@
 # FoxDesk — User Manual
 
-> **Version 0.3.131** | Self-hosted PHP helpdesk & time-tracking platform
+> **Version 0.3.137** | Self-hosted PHP helpdesk & time-tracking platform
 
 ---
 
@@ -42,7 +42,12 @@ FoxDesk is a self-hosted helpdesk and ticketing system designed for small to mid
 
 ### Languages
 
-FoxDesk supports English, Czech, German, Spanish, and Italian. Each user can set their preferred language in their profile. The admin sets the default language in Settings.
+FoxDesk ships 24 locales. English, Czech, German, Spanish, and Italian are
+stable. Arabic, French, Brazilian and European Portuguese, Polish, Dutch,
+Turkish, Russian, Ukrainian, Japanese, Simplified and Traditional Chinese,
+Korean, Hebrew, Persian, Urdu, Hindi, Indonesian, and Vietnamese are available
+as beta pending native-speaker review. Each user can set a preferred language
+in their profile; the workspace default is set in **Settings > Workspace**.
 
 ---
 
@@ -119,14 +124,15 @@ The ticket detail page has two areas:
 ### Ticket Statuses & Workflow
 
 Statuses are fully customizable by the admin. Default statuses:
-- New, Open, In Progress, Waiting, Resolved, Closed
+- New, Testing, Waiting for customer, In progress, Done
 
-Drag to reorder statuses in Admin > Statuses. Archive statuses you no longer use.
+Drag to reorder statuses in **Settings > Ticket workflow**. Archive statuses
+you no longer use.
 
 ### Priorities
 
 Priorities are customizable with colors. Default levels:
-- Low, Medium, High, Critical
+- Low, Medium, High, Urgent
 
 ### Tags
 
@@ -282,7 +288,7 @@ Organizations group users and tickets. Each organization can have:
 - Notes
 - Active/inactive status
 
-Create and manage organizations in Admin > Organizations.
+Create and manage companies in **Settings > Companies**.
 
 ### Clients
 
@@ -292,7 +298,7 @@ Client accounts are users with the "Client" role:
 - Can be activated/deactivated
 - Admin can reset their password and send login credentials via email
 
-Manage clients in Admin > Clients.
+Manage clients in **Settings > Clients**.
 
 ### Multi-Organization Support
 
@@ -304,7 +310,7 @@ A single user can be assigned to multiple organizations. Tickets can be filtered
 
 ### Report Builder
 
-Create custom reports in Admin > Reports:
+Create custom reports in **Settings > Time reports**:
 
 1. Click **New Report**
 2. Set date range and filters (organization, agents, tags)
@@ -343,7 +349,7 @@ Automate repetitive ticket creation with recurring tasks.
 
 ### Creating a Recurring Task
 
-Admin > Recurring Tasks > New Task:
+Settings > Recurring tasks > New Task:
 - **Title** — Ticket subject that will be created
 - **Description** — Ticket body
 - **Recurrence** — Weekly, monthly, yearly, or custom interval
@@ -369,15 +375,17 @@ FoxDesk provides a REST API for connecting AI models and automation tools.
 
 ### Setting Up an AI Agent
 
-1. Go to Admin > Users > AI Agents tab
-2. Click **Create Agent**
-3. Enter agent name and cost rate
-4. Click **Generate Token**
-5. Copy the token immediately (it's shown only once)
+1. Open **Settings > Team & access > AI agents** to create a managed AI agent,
+   or **Settings > API & agents** to create a scoped key for an existing user
+2. Select only the scopes the integration needs
+3. Generate the token
+4. Copy it immediately; the full value is shown only once
+5. Load the live `agent-docs` endpoint and verify the identity with `agent-me`
+   before doing work
 
 ### Agent Connect
 
-The **Agent Connect** page (Admin > Agent Connect) provides:
+The **Agent Connect** action for a managed AI agent provides:
 - A ready-to-use **system prompt** for your AI model
 - Complete **API documentation** with endpoints and examples
 - The base URL and authentication format
@@ -391,16 +399,22 @@ Authorization: Bearer your-api-token
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `?page=api&action=agent-me` | Return token identity and linked AI agent |
-| GET | `?page=api&action=agent-list-statuses` | List all ticket statuses |
-| GET | `?page=api&action=agent-list-priorities` | List all priorities |
-| GET | `?page=api&action=agent-list-users` | List users (optionally filtered to agents) |
-| POST | `?page=api&action=agent-create-ticket` | Create a new ticket |
-| GET | `?page=api&action=agent-get-ticket` | Fetch full ticket detail |
-| POST | `?page=api&action=agent-update-status` | Change ticket status |
-| POST | `?page=api&action=agent-add-comment` | Add a comment to a ticket |
-| POST | `?page=api&action=agent-log-time` | Log a time entry |
-| GET | `?page=api&action=agent-list-tickets` | List and filter tickets |
+| GET | `index.php?page=api&action=agent-docs` | Return live instructions and endpoint contracts |
+| GET | `index.php?page=api&action=agent-me` | Return token identity, permissions, and scopes |
+| GET | `index.php?page=api&action=agent-list-statuses` | List all ticket statuses |
+| GET | `index.php?page=api&action=agent-list-priorities` | List all priorities |
+| GET | `index.php?page=api&action=agent-list-users` | List users (optionally filtered to agents) |
+| POST | `index.php?page=api&action=agent-create-ticket` | Create a new ticket |
+| GET | `index.php?page=api&action=agent-get-ticket` | Fetch full ticket detail |
+| POST | `index.php?page=api&action=agent-update-status` | Change ticket status |
+| POST | `index.php?page=api&action=agent-add-update` | Add a public comment or internal note |
+| POST | `index.php?page=api&action=agent-log-time` | Log a standalone time entry |
+| GET | `index.php?page=api&action=agent-list-tickets` | List and filter tickets |
+
+Use an `Idempotency-Key` header on write requests. For comment-plus-time work,
+use the plan/apply workflow described in
+[docs/AGENT_TICKET_WORKFLOW.md](docs/AGENT_TICKET_WORKFLOW.md). The complete,
+version-matched contract is always returned by `agent-docs`.
 
 ### Token Management
 
@@ -415,7 +429,7 @@ Authorization: Bearer your-api-token
 
 ### Outbound Email (SMTP)
 
-Configure SMTP in Admin > Settings > Email to send:
+Configure SMTP in **Settings > Email** to send:
 - Ticket assignment notifications
 - New comment notifications
 - Status change alerts
@@ -428,9 +442,10 @@ Test your SMTP configuration with the built-in "Test SMTP" button.
 
 Convert incoming emails to tickets automatically:
 
-1. Configure IMAP settings in `config.php`
-2. Set up a cron job for `bin/ingest-emails.php` (or enable pseudo-cron)
-3. Manage allowed senders in Admin > Settings
+1. Configure and test IMAP in **Settings > Email**
+2. Set up `bin/ingest-emails.php` as a cron job, or keep background tasks
+   enabled in **Settings > System**
+3. Review allowed senders before running the first ingest
 
 **How it works:**
 - New emails from known senders create tickets
@@ -441,9 +456,9 @@ Convert incoming emails to tickets automatically:
 ### Allowed Senders
 
 Control who can create tickets via email:
-- Admin > Settings > Allowed Senders
+- Settings > Email > Allowed senders
 - Add email addresses or domains (e.g., `@company.com`)
-- Toggle `IMAP_ALLOW_UNKNOWN_SENDERS` in config.php to allow all senders
+- Enable unknown senders only when the mailbox is intentionally public
 
 ---
 
@@ -453,10 +468,10 @@ Control who can create tickets via email:
 
 | Type | Created in | Authentication |
 |------|-----------|----------------|
-| Admin | Admin > Users | Email + password |
-| Agent | Admin > Users | Email + password |
-| Client | Admin > Clients | Email + password |
-| AI Agent | Admin > Users > AI Agents | Bearer token |
+| Admin | Settings > Team & access | Email + password |
+| Agent | Settings > Team & access | Email + password |
+| Client | Settings > Clients | Email + password |
+| AI Agent | Settings > Team & access > AI agents | Bearer token |
 
 ### User Fields
 
@@ -531,7 +546,7 @@ Control who can create tickets via email:
 
 ## 14. Activity Tracking
 
-Admin > Activity provides visibility into user behavior.
+**Settings > Activity** provides visibility into user behavior.
 
 ### Overview Tab
 
@@ -570,24 +585,24 @@ FoxDesk checks for updates from foxdesk.org (primary) and GitHub releases (fallb
 
 **Update process:**
 1. Admin sees update notification banner
-2. Click **Update Available** in Admin > Settings
+2. Click **Update Available** in Settings > System
 3. Review changelog
 4. Click **Update Now**
 5. FoxDesk creates a backup, downloads the update, applies it
-6. Review the post-update health check in Admin > Settings
+6. Review the post-update health check in Settings > System
 
 ### Manual Update
 
 If auto-update fails or your server can't reach the internet:
-1. Download the update ZIP from foxdesk.org
-2. Go to Admin > Settings > Updates
+1. Download the release ZIP from GitHub Releases
+2. Go to Settings > System > Updates
 3. Upload the ZIP manually
 4. FoxDesk applies the update
 
 ### Backup & Recovery
 
 - Automatic backup before every update
-- Download backups from Admin > Settings
+- Download backups from Settings > System
 - Use `rescue.php` to disable maintenance mode if an update fails
 - Use `upgrade.php` to run database migrations manually
 
@@ -665,7 +680,7 @@ FoxDesk logs security events:
 - Ensure PHP 8.1+ with required extensions
 
 **Emails not sending**
-- Test SMTP in Admin > Settings > Email
+- Test SMTP in Settings > Email
 - Check SMTP credentials and port
 - Verify your email provider allows app passwords
 

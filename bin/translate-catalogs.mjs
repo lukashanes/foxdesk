@@ -31,10 +31,23 @@ const cacheRoot = path.resolve(
 const dryRun = args.includes("--dry-run");
 const provider = process.env.FOXDESK_TRANSLATION_PROVIDER ?? "google";
 const lingvaBase = (process.env.FOXDESK_LINGVA_BASE_URL ?? "https://lingva.ml").replace(/\/+$/u, "");
+const translatePaApiKey = process.env.FOXDESK_TRANSLATE_PA_API_KEY ?? "";
+const previousCatalogPath = process.env.FOXDESK_TRANSLATION_PREVIOUS_CATALOG
+  ? path.resolve(process.env.FOXDESK_TRANSLATION_PREVIOUS_CATALOG)
+  : null;
+const previousEnglishDocument = previousCatalogPath
+  ? JSON.parse(fs.readFileSync(previousCatalogPath, "utf8"))
+  : null;
+const { _meta: _previousEnglishMeta, ...previousEnglish } = previousEnglishDocument ?? {};
 const concurrency = Math.max(
   1,
-  Number(process.env.FOXDESK_TRANSLATION_CONCURRENCY ?? (provider === "lingva" ? 4 : 1)),
+  Number(process.env.FOXDESK_TRANSLATION_CONCURRENCY ?? (
+    ["lingva", "translate-pa"].includes(provider) ? 4 : 1
+  )),
 );
+if (provider === "translate-pa" && translatePaApiKey === "") {
+  throw new Error("FOXDESK_TRANSLATE_PA_API_KEY is required for the translate-pa provider.");
+}
 
 const googleCodes = {
   "pt-BR": "pt",
@@ -106,7 +119,9 @@ function placeholders(value) {
 function protect(value) {
   const tokens = [];
   const text = value.replace(protectedPattern, (match) => {
-    const token = `__FDPROTECT${tokens.length}__`;
+    const token = provider === "translate-pa"
+      ? `<span class="notranslate">P${tokens.length}</span>`
+      : `⟦P${tokens.length}⟧`;
     tokens.push([token, match]);
     return token;
   });
@@ -151,9 +166,13 @@ function chunk(
   locale,
   maxItems = provider === "lingva"
     ? (["ar", "fa", "ur"].includes(locale) ? 12 : 36)
+    : provider === "translate-pa"
+      ? 64
     : 80,
   maxCharacters = provider === "lingva"
     ? (["ar", "fa", "ur"].includes(locale) ? 800 : 2_400)
+    : provider === "translate-pa"
+      ? 4_500
     : 12_000,
 ) {
   const chunks = [];
@@ -193,11 +212,13 @@ function parseBatch(value, count) {
 
 async function requestTranslation(values, locale, attempt = 0) {
   const prepared = values.map(protect);
-  const query = values.length === 1
-    ? prepared[0].text
-    : prepared
-      .map(({ text }, index) => `⟦FD${String(index).padStart(4, "0")}⟧ ${text}`)
-      .join("\n");
+  const query = provider === "translate-pa"
+    ? null
+    : values.length === 1
+      ? prepared[0].text
+      : prepared
+        .map(({ text }, index) => `⟦FD${String(index).padStart(4, "0")}⟧ ${text}`)
+        .join("\n");
   const body = new URLSearchParams({
     client: "gtx",
     sl: "en",
@@ -206,8 +227,21 @@ async function requestTranslation(values, locale, attempt = 0) {
     q: query,
   });
   try {
-    const response = provider === "lingva"
-      ? await fetch(
+    const response = provider === "translate-pa"
+      ? await fetch("https://translate-pa.googleapis.com/v1/translateHtml", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json+protobuf",
+          "x-goog-api-key": translatePaApiKey,
+        },
+        body: JSON.stringify([
+          [prepared.map(({ text }) => text), "en", googleCodes[locale] ?? locale],
+          "wt_lib",
+        ]),
+        signal: AbortSignal.timeout(45_000),
+      })
+      : provider === "lingva"
+        ? await fetch(
         `${lingvaBase}/api/v1/en/${lingvaCodes[locale] ?? locale}/${encodeURIComponent(query)}`,
         {
           headers: { "user-agent": "FoxDesk localization build/1.0" },
@@ -225,10 +259,19 @@ async function requestTranslation(values, locale, attempt = 0) {
       });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
-    const translated = provider === "lingva"
+    const translated = provider === "translate-pa"
+      ? payload?.[0] ?? []
+      : provider === "lingva"
       ? payload?.translation ?? ""
       : payload?.[0]?.map((segment) => segment?.[0] ?? "").join("") ?? "";
-    const parsed = values.length === 1 ? [translated.trim()] : parseBatch(translated, values.length);
+    const parsed = provider === "translate-pa"
+      ? translated
+      : values.length === 1
+        ? [translated.trim()]
+        : parseBatch(translated, values.length);
+    if (parsed.length !== values.length) {
+      throw new Error(`Expected ${values.length} translations, received ${parsed.length}.`);
+    }
     return parsed.map((item, index) => (
       restore(item, prepared[index].tokens, values[index])
     ));
@@ -274,7 +317,9 @@ for (const locale of locales) {
   const catalogPath = path.join(catalogDir, `${locale}.json`);
   const targetDocument = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
   const { _meta: targetMeta, ...target } = targetDocument;
-  const cache = collectPairs(english, target, readCache(locale));
+  const cache = previousCatalogPath
+    ? collectPairs(previousEnglish, target, readCache(locale))
+    : collectPairs(english, target, readCache(locale));
   const sources = [];
   walkStrings(english, (value) => {
     if (!cache.has(value) && needsTranslation(value)) sources.push(value);
