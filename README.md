@@ -149,6 +149,8 @@ The repository includes:
 
 Tokens inherit the creating user's permissions and can be limited by capability. Do not paste production tokens into prompts, issues, or logs.
 
+Calls use `index.php?page=api&action=agent-*`. Load `agent-docs`, then `agent-me`, at the start of an integration session, and send an `Idempotency-Key` header on write requests. Tokens are created in **Settings > Team & access > AI agents** (managed agents) or **Settings > API & agents** (scoped keys for existing users).
+
 ## Releases and updates
 
 FoxDesk 0.3.152 (October 23, 2026) brings the flight deck interface: a new dashboard with billable amounts, people, clients and the activity feed, a redesigned ticket list with one filter popover and row actions, a consolidated ticket workspace with the status pipeline, an icon rail sidebar and a bottom navigation on phones. 0.3.151 added the Time work ledger, client directory, report history, notification review, document preview and prebuilt Docker images.
