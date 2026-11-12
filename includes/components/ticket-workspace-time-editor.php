@@ -17,6 +17,6 @@ $workspace_editable_entries = array_values(array_filter($time_entries, static fn
         <footer><label class="ticket-workspace-editor__billable"><input type="checkbox" name="is_billable" checked><?php echo e(t('Billable')); ?></label><button type="button" class="btn btn-ghost text-red-600" data-workspace-time-delete hidden><?php echo e(t('Delete')); ?></button><button type="submit" class="btn btn-primary"><?php echo e(t('Save')); ?></button></footer>
         <p role="alert" data-workspace-time-error hidden></p>
     </form>
-    <script type="application/json" data-workspace-time-entries><?php echo json_encode(array_map(static fn($row) => array_intersect_key($row, array_flip(['id','ticket_id','comment_id','started_at','worked_on','time_precision','duration_minutes','summary','is_billable'])), $workspace_editable_entries), JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT); ?></script>
+    <script type="application/json" data-workspace-time-entries><?php echo json_encode(array_map(static fn($row) => array_intersect_key($row, array_flip(['id','ticket_id','comment_id','started_at','worked_on','time_precision','has_clock_times','duration_minutes','summary','is_billable'])), $workspace_editable_entries), JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT); ?></script>
 </dialog>
 <script defer src="assets/js/ticket-workspace.js?v=<?php echo (int) filemtime(BASE_PATH . '/assets/js/ticket-workspace.js'); ?>"></script>

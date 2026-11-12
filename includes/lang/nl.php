@@ -1939,4 +1939,8 @@ Met',
     'work.recent.title' => 'Recent bijgewerkt',
     'work.recent.empty' => 'Recent niets bijgewerkt.',
     'work.scope.team_total' => 'hele team',
+    'settings.api.change_permissions' => 'Rechten',
+    'settings.api.change_permissions_hint' => 'Wijzigingen gelden direct voor deze sleutel. De sleutel zelf blijft hetzelfde.',
+    'settings.api.save_permissions' => 'Rechten opslaan',
+    'settings.api.permissions_saved' => 'Rechten van de API-sleutel opgeslagen.',
 ];

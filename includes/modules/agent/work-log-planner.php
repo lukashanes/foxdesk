@@ -30,11 +30,124 @@ function foxdesk_agent_assert_structured_temporal_text(
     string $field,
     bool $allow_temporal_text = false
 ): void {
-    if (!$allow_temporal_text && foxdesk_agent_temporal_text_matches($value) !== []) {
+    if ($allow_temporal_text) {
+        return;
+    }
+    $matches = foxdesk_agent_temporal_text_matches($value);
+    if ($matches !== []) {
+        $type = (string) array_key_first($matches);
+        $found = (string) $matches[$type];
         throw new InvalidArgumentException(
-            "{$field} contains date/time text. Put dates in worked_on and time in duration_minutes or exact timestamp fields."
+            "{$field} contains date/time text ({$type}: \"{$found}\"). Put dates in worked_on and time in duration_minutes or exact timestamp fields."
+            . ' If the text must contain it (for example a video length), send allow_temporal_text:true with temporal_text_reason.'
         );
     }
+}
+
+function foxdesk_agent_plan_entry_has_clock_input(array $entry): bool
+{
+    foreach (['started_at', 'ended_at', 'manual_start_time', 'manual_end_time'] as $key) {
+        if (trim((string) ($entry[$key] ?? '')) !== '') {
+            return true;
+        }
+    }
+    return false;
+}
+
+function foxdesk_agent_plan_clock_time(string $value, string $field): string
+{
+    if (preg_match('/^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/', trim($value), $m) !== 1) {
+        throw new InvalidArgumentException("{$field} must use HH:MM.");
+    }
+    return sprintf('%02d:%02d:%02d', (int) $m[1], (int) $m[2], (int) ($m[3] ?? 0));
+}
+
+/**
+ * Resolve the clock times of one planned entry.
+ *
+ * started_at/ended_at and manual_date + manual_start_time + manual_end_time
+ * are equivalent inputs. Times are never dropped silently: they are either
+ * stored exactly as given or the plan is rejected with 422. Entries without
+ * known times return null times and are never given invented hours.
+ *
+ * @return array{0: ?string, 1: ?string, 2: string} [started_at, ended_at, worked_on]
+ */
+function foxdesk_agent_plan_entry_clock_times(array $entry, string $precision, int $duration, string $field): array
+{
+    $started_at = trim((string) ($entry['started_at'] ?? ''));
+    $ended_at = trim((string) ($entry['ended_at'] ?? ''));
+    $manual_date = trim((string) ($entry['manual_date'] ?? ''));
+    $manual_start = trim((string) ($entry['manual_start_time'] ?? ''));
+    $manual_end = trim((string) ($entry['manual_end_time'] ?? ''));
+    $worked_on_input = trim((string) ($entry['worked_on'] ?? ''));
+
+    if ($manual_date !== '') {
+        $manual_date = foxdesk_agent_plan_date($manual_date, "{$field}.manual_date");
+        if ($worked_on_input !== '' && foxdesk_agent_plan_date($worked_on_input, "{$field}.worked_on") !== $manual_date) {
+            throw new InvalidArgumentException("{$field}.manual_date and worked_on must be the same day.");
+        }
+    }
+
+    if ($manual_start !== '' || $manual_end !== '') {
+        if ($started_at !== '' || $ended_at !== '') {
+            throw new InvalidArgumentException("{$field}: use either started_at/ended_at or manual_start_time/manual_end_time, not both.");
+        }
+        if ($manual_start === '' || $manual_end === '') {
+            throw new InvalidArgumentException("{$field}.manual_start_time and manual_end_time are required together.");
+        }
+        $day = $manual_date !== '' ? $manual_date : ($worked_on_input !== '' ? foxdesk_agent_plan_date($worked_on_input, "{$field}.worked_on") : '');
+        if ($day === '') {
+            throw new InvalidArgumentException("{$field}.manual_date is required with manual_start_time and manual_end_time.");
+        }
+        $start_clock = foxdesk_agent_plan_clock_time($manual_start, "{$field}.manual_start_time");
+        $end_clock = foxdesk_agent_plan_clock_time($manual_end, "{$field}.manual_end_time");
+        $end_day = $end_clock <= $start_clock
+            ? (new DateTimeImmutable($day))->modify('+1 day')->format('Y-m-d')
+            : $day;
+        $started_at = $day . ' ' . $start_clock;
+        $ended_at = $end_day . ' ' . $end_clock;
+    }
+
+    if ($started_at === '' && $ended_at === '') {
+        if ($precision === 'exact') {
+            throw new InvalidArgumentException("{$field}: exact entries require started_at and ended_at (or manual_date with manual_start_time and manual_end_time).");
+        }
+        $worked_on = $manual_date !== '' ? $manual_date : $worked_on_input;
+        if ($worked_on === '') {
+            throw new InvalidArgumentException("{$field}.worked_on is required when the work times are not known.");
+        }
+        return [null, null, foxdesk_agent_plan_date($worked_on, "{$field}.worked_on")];
+    }
+
+    if ($started_at === '' || $ended_at === '') {
+        throw new InvalidArgumentException("{$field}.started_at and ended_at are required together.");
+    }
+    $allows_clock_times = function_exists('ticket_time_precision_allows_clock_times')
+        ? ticket_time_precision_allows_clock_times($precision)
+        : in_array($precision, ['exact', 'derived'], true);
+    if (!$allows_clock_times) {
+        throw new InvalidArgumentException(
+            "{$field}: time_precision {$precision} cannot carry clock times. Use exact or derived when start and end times are known."
+        );
+    }
+
+    $started_at = foxdesk_agent_plan_datetime($started_at, "{$field}.started_at");
+    $ended_at = foxdesk_agent_plan_datetime($ended_at, "{$field}.ended_at");
+    $seconds = strtotime($ended_at) - strtotime($started_at);
+    if ($seconds <= 0) {
+        throw new InvalidArgumentException("{$field}.ended_at must be after started_at.");
+    }
+    if ((int) round($seconds / 60) !== $duration) {
+        throw new InvalidArgumentException("{$field}.duration_minutes must match started_at and ended_at.");
+    }
+
+    $start_day = substr($started_at, 0, 10);
+    $worked_on = $manual_date !== '' ? $manual_date : ($worked_on_input !== '' ? foxdesk_agent_plan_date($worked_on_input, "{$field}.worked_on") : $start_day);
+    if ($worked_on !== $start_day) {
+        throw new InvalidArgumentException("{$field}.worked_on must be the day of started_at.");
+    }
+
+    return [$started_at, $ended_at, $worked_on];
 }
 
 function foxdesk_agent_plan_date(string $value, string $field = 'worked_on'): string
@@ -178,10 +291,12 @@ function foxdesk_agent_normalize_work_log_plan(array $input, array $user): array
             }
             $precision = strtolower(trim((string) ($entry['time_precision'] ?? '')));
             if ($precision === '') {
-                $precision = $allocation_basis === 'approved_total' ? 'allocated' : 'duration_only';
+                $precision = $allocation_basis === 'approved_total'
+                    ? 'allocated'
+                    : (foxdesk_agent_plan_entry_has_clock_input($entry) ? 'exact' : 'duration_only');
             }
-            if (!in_array($precision, ['exact', 'duration_only', 'allocated'], true)) {
-                throw new InvalidArgumentException('time_precision must be exact, duration_only, or allocated.');
+            if (!in_array($precision, ['exact', 'derived', 'estimated', 'allocated', 'duration_only'], true)) {
+                throw new InvalidArgumentException('time_precision must be exact, derived, estimated, allocated, or duration_only.');
             }
             if ($allocation_basis === 'approved_total' && $precision !== 'allocated') {
                 throw new InvalidArgumentException('approved_total plans must mark every entry as allocated.');
@@ -190,29 +305,8 @@ function foxdesk_agent_normalize_work_log_plan(array $input, array $user): array
                 throw new InvalidArgumentException('actual plans cannot mark entries as allocated.');
             }
 
-            $started_at = trim((string) ($entry['started_at'] ?? ''));
-            $ended_at = trim((string) ($entry['ended_at'] ?? ''));
-            if ($precision === 'exact') {
-                if ($started_at === '' || $ended_at === '') {
-                    throw new InvalidArgumentException('Exact entries require started_at and ended_at.');
-                }
-                $started_at = foxdesk_agent_plan_datetime($started_at, 'started_at');
-                $ended_at = foxdesk_agent_plan_datetime($ended_at, 'ended_at');
-                $seconds = strtotime($ended_at) - strtotime($started_at);
-                if ($seconds <= 0 || (int) floor($seconds / 60) !== $duration) {
-                    throw new InvalidArgumentException('Exact entry duration_minutes must match started_at and ended_at.');
-                }
-                $worked_on = foxdesk_agent_plan_date(
-                    (string) ($entry['worked_on'] ?? date('Y-m-d', strtotime($started_at)))
-                );
-            } else {
-                if ($started_at !== '' || $ended_at !== '') {
-                    throw new InvalidArgumentException('Non-exact entries must not invent started_at or ended_at.');
-                }
-                $worked_on = foxdesk_agent_plan_date((string) ($entry['worked_on'] ?? ''));
-                $started_at = null;
-                $ended_at = null;
-            }
+            $field_prefix = "tickets[{$ticket_index}].entries[{$entry_index}]";
+            [$started_at, $ended_at, $worked_on] = foxdesk_agent_plan_entry_clock_times($entry, $precision, $duration, $field_prefix);
             $summary = trim((string) ($entry['time_summary'] ?? ''));
             foxdesk_agent_assert_structured_temporal_text(
                 $summary,
@@ -226,6 +320,7 @@ function foxdesk_agent_normalize_work_log_plan(array $input, array $user): array
                 'time_precision' => $precision,
                 'started_at' => $started_at,
                 'ended_at' => $ended_at,
+                'has_clock_times' => $started_at !== null,
                 'time_summary' => $summary !== '' ? $summary : null,
                 'is_billable' => foxdesk_agent_plan_bool($entry, 'is_billable', true),
                 'is_internal' => foxdesk_agent_plan_bool($entry, 'is_internal', false),
@@ -261,7 +356,7 @@ function foxdesk_agent_normalize_work_log_plan(array $input, array $user): array
         }
     }
     return [
-        'schema_version' => 1,
+        'schema_version' => 2,
         'structure' => $structure,
         'allocation_basis' => $allocation_basis,
         'total_minutes' => $expected_total,
@@ -284,6 +379,8 @@ function foxdesk_agent_work_log_preview(array $plan): array
                 'worked_on' => $entry['worked_on'],
                 'duration_minutes' => (int) $entry['duration_minutes'],
                 'time_precision' => $entry['time_precision'],
+                'started_at' => $entry['started_at'] ?? null,
+                'ended_at' => $entry['ended_at'] ?? null,
                 'content_text' => trim(preg_replace('/\s+/u', ' ', strip_tags((string) $entry['content']))),
             ];
         }
@@ -429,7 +526,8 @@ function api_agent_apply_work_log_plan(): void
             $entry_ids = [];
             $comment_ids = [];
             foreach ($ticket['entries'] as $entry_index => $entry) {
-                $comment_created_at = $entry['worked_on'] . ' 12:' . str_pad((string) ($entry_index % 60), 2, '0', STR_PAD_LEFT) . ':00';
+                $has_clock_times = !empty($entry['started_at']) && !empty($entry['ended_at']);
+                $comment_created_at = $has_clock_times ? (string) $entry['ended_at'] : $entry['worked_on'] . ' 12:' . str_pad((string) ($entry_index % 60), 2, '0', STR_PAD_LEFT) . ':00';
                 $comment_id = (int) add_comment(
                     $ticket_id,
                     (int) $user['id'],
@@ -443,17 +541,20 @@ function api_agent_apply_work_log_plan(): void
                 if ($comment_id <= 0) {
                     throw new RuntimeException('Failed to create planned work comment.');
                 }
-                if ($entry['time_precision'] === 'exact') {
-                    $started_at = $entry['started_at'];
-                    $ended_at = $entry['ended_at'];
+                if ($has_clock_times) {
+                    $started_at = (string) $entry['started_at'];
+                    $ended_at = (string) $entry['ended_at'];
                 } else {
-                    $ended_at = $entry['worked_on'] . ' 12:00:00';
-                    $started_at = date('Y-m-d H:i:s', strtotime($ended_at) - ((int) $entry['duration_minutes'] * 60));
+                    // Internal date anchor only; has_clock_times = 0 keeps it out of every view and API response.
+                    $anchor = ticket_time_date_anchor((string) $entry['worked_on'], (int) $entry['duration_minutes']);
+                    $started_at = $anchor['started_at'];
+                    $ended_at = $anchor['ended_at'];
                 }
                 $entry_id = (int) add_manual_time_entry($ticket_id, (int) $user['id'], [
                     'comment_id' => $comment_id,
                     'worked_on' => $entry['worked_on'],
                     'time_precision' => $entry['time_precision'],
+                    'has_clock_times' => $has_clock_times ? 1 : 0,
                     'started_at' => $started_at,
                     'ended_at' => $ended_at,
                     'duration_minutes' => (int) $entry['duration_minutes'],

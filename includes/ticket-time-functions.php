@@ -22,13 +22,231 @@ function ticket_time_work_metadata_columns_exist(): bool
 function ticket_time_entry_precision(array $entry): string
 {
     $precision = strtolower(trim((string) ($entry['time_precision'] ?? 'exact')));
-    return in_array($precision, ['exact', 'duration_only', 'allocated'], true) ? $precision : 'exact';
+    return in_array($precision, ['exact', 'derived', 'estimated', 'allocated', 'duration_only'], true) ? $precision : 'exact';
+}
+
+/**
+ * Whether the entry stores real clock times (from-to).
+ *
+ * Entries without known times keep an internal date anchor in started_at /
+ * ended_at so date-range reports keep working, but that anchor is never a
+ * real time and must not be shown or returned. Databases without the
+ * has_clock_times column fall back to "exact precision means real times".
+ */
+function ticket_time_entry_has_clock_times(array $entry): bool
+{
+    if (array_key_exists('has_clock_times', $entry) && $entry['has_clock_times'] !== null && $entry['has_clock_times'] !== '') {
+        return (int) $entry['has_clock_times'] === 1;
+    }
+
+    return ticket_time_entry_precision($entry) === 'exact';
+}
+
+/**
+ * Internal started_at/ended_at anchor for an entry whose clock times are unknown.
+ *
+ * Date-range reports filter on started_at, so the row needs a value on the
+ * right day. It is stored with has_clock_times = 0 and is never displayed or
+ * returned as a time. Today's anchor never lies in the future.
+ */
+function ticket_time_date_anchor(string $worked_on, int $duration_minutes): array
+{
+    $end = strtotime($worked_on . ' 12:00:00');
+    if ($end === false) {
+        $end = time();
+    }
+    if ($worked_on === date('Y-m-d') && $end > time()) {
+        $end = time();
+    }
+
+    return [
+        'started_at' => date('Y-m-d H:i:s', $end - max(0, $duration_minutes) * 60),
+        'ended_at' => date('Y-m-d H:i:s', $end),
+    ];
+}
+
+/**
+ * Resolve the new time fields for an update of one saved time entry.
+ *
+ * Accepts started_at / ended_at (or manual_date + manual_start_time +
+ * manual_end_time), duration_minutes, worked_on and time_precision. Fields
+ * that are not sent keep their stored value. The stored date anchor of an
+ * entry without known times is never treated as a real time. Setting both
+ * started_at and ended_at to null removes known times from the entry.
+ *
+ * @throws InvalidArgumentException with a client-facing message (HTTP 422)
+ * @return array{started_at: string, ended_at: string, worked_on: string, time_precision: string, has_clock_times: int, duration_minutes: int}
+ */
+function ticket_time_entry_resolve_update(array $entry, array $input): array
+{
+    $normalize_datetime = static function ($value, string $field): string {
+        $normalized = function_exists('foxdesk_normalize_backdated_datetime_input')
+            ? foxdesk_normalize_backdated_datetime_input($value)
+            : false;
+        if ($normalized === false || $normalized === null) {
+            throw new InvalidArgumentException("{$field} is invalid or in the future.");
+        }
+        return $normalized;
+    };
+    $normalize_date = static function ($value, string $field): string {
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', trim((string) $value));
+        $errors = DateTimeImmutable::getLastErrors();
+        if (!$date || ($errors !== false && ((int) ($errors['warning_count'] ?? 0) > 0 || (int) ($errors['error_count'] ?? 0) > 0))) {
+            throw new InvalidArgumentException("{$field} must use YYYY-MM-DD.");
+        }
+        return $date->format('Y-m-d');
+    };
+    $normalize_clock = static function ($value, string $field): string {
+        if (preg_match('/^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/', trim((string) $value), $m) !== 1) {
+            throw new InvalidArgumentException("{$field} must use HH:MM.");
+        }
+        return sprintf('%02d:%02d:%02d', (int) $m[1], (int) $m[2], (int) ($m[3] ?? 0));
+    };
+
+    $entry_has_clock = ticket_time_entry_has_clock_times($entry);
+    $stored_precision = ticket_time_entry_precision($entry);
+    $precision_given = array_key_exists('time_precision', $input) && trim((string) $input['time_precision']) !== '';
+    $precision = $precision_given ? strtolower(trim((string) $input['time_precision'])) : $stored_precision;
+    if (!in_array($precision, ['exact', 'derived', 'estimated', 'allocated', 'duration_only'], true)) {
+        throw new InvalidArgumentException('time_precision must be exact, derived, estimated, allocated, or duration_only.');
+    }
+
+    $duration_given = array_key_exists('duration_minutes', $input) && $input['duration_minutes'] !== null && $input['duration_minutes'] !== '';
+    if ($duration_given && (!is_numeric($input['duration_minutes']) || (int) $input['duration_minutes'] != $input['duration_minutes'])) {
+        throw new InvalidArgumentException('duration_minutes must be a whole number of minutes.');
+    }
+    $duration = $duration_given ? (int) $input['duration_minutes'] : (int) ($entry['duration_minutes'] ?? 0);
+
+    $worked_on_given = array_key_exists('worked_on', $input) && trim((string) $input['worked_on']) !== '';
+    $worked_on = $worked_on_given
+        ? $normalize_date($input['worked_on'], 'worked_on')
+        : trim((string) ($entry['worked_on'] ?? ''));
+
+    $start_raw = array_key_exists('started_at', $input) && $input['started_at'] !== null ? trim((string) $input['started_at']) : '';
+    $end_raw = array_key_exists('ended_at', $input) && $input['ended_at'] !== null ? trim((string) $input['ended_at']) : '';
+    $clear_times = array_key_exists('started_at', $input) && $input['started_at'] === null
+        && array_key_exists('ended_at', $input) && $input['ended_at'] === null;
+
+    $manual_start = trim((string) ($input['manual_start_time'] ?? ''));
+    $manual_end = trim((string) ($input['manual_end_time'] ?? ''));
+    $manual_date = trim((string) ($input['manual_date'] ?? ''));
+    if ($manual_date !== '') {
+        $manual_date = $normalize_date($manual_date, 'manual_date');
+        if ($worked_on_given && $worked_on !== $manual_date) {
+            throw new InvalidArgumentException('manual_date and worked_on must be the same day.');
+        }
+        $worked_on = $manual_date;
+        $worked_on_given = true;
+    }
+    if ($manual_start !== '' || $manual_end !== '') {
+        if ($start_raw !== '' || $end_raw !== '') {
+            throw new InvalidArgumentException('Use either started_at/ended_at or manual_start_time/manual_end_time, not both.');
+        }
+        if ($manual_start === '' || $manual_end === '') {
+            throw new InvalidArgumentException('manual_start_time and manual_end_time are required together.');
+        }
+        if ($worked_on === '') {
+            throw new InvalidArgumentException('manual_date is required with manual_start_time and manual_end_time.');
+        }
+        $start_clock = $normalize_clock($manual_start, 'manual_start_time');
+        $end_clock = $normalize_clock($manual_end, 'manual_end_time');
+        $end_day = $end_clock <= $start_clock
+            ? (new DateTimeImmutable($worked_on))->modify('+1 day')->format('Y-m-d')
+            : $worked_on;
+        $start_raw = $worked_on . ' ' . $start_clock;
+        $end_raw = $end_day . ' ' . $end_clock;
+    }
+
+    $started_at = null;
+    $ended_at = null;
+    if ($start_raw !== '' && $end_raw !== '') {
+        $started_at = $normalize_datetime($start_raw, 'started_at');
+        $ended_at = $normalize_datetime($end_raw, 'ended_at');
+        $seconds = strtotime($ended_at) - strtotime($started_at);
+        if ($seconds <= 0) {
+            throw new InvalidArgumentException('ended_at must be after started_at.');
+        }
+        $computed = (int) round($seconds / 60);
+        if ($duration_given && $computed !== $duration) {
+            throw new InvalidArgumentException('duration_minutes must match started_at and ended_at.');
+        }
+        $duration = $computed;
+    } elseif ($start_raw !== '') {
+        $started_at = $normalize_datetime($start_raw, 'started_at');
+        $ended_at = date('Y-m-d H:i:s', strtotime($started_at) + $duration * 60);
+    } elseif ($end_raw !== '') {
+        $ended_at = $normalize_datetime($end_raw, 'ended_at');
+        $started_at = date('Y-m-d H:i:s', strtotime($ended_at) - $duration * 60);
+    } elseif ($entry_has_clock && !$clear_times && !empty($entry['started_at'])) {
+        // Keep the known start; a new duration moves the end.
+        $started_at = date('Y-m-d H:i:s', strtotime((string) $entry['started_at']));
+        $ended_at = $duration_given || empty($entry['ended_at'])
+            ? date('Y-m-d H:i:s', strtotime($started_at) + $duration * 60)
+            : date('Y-m-d H:i:s', strtotime((string) $entry['ended_at']));
+    }
+
+    if ($duration < 1 || $duration > 1440) {
+        throw new InvalidArgumentException('duration_minutes must be between 1 and 1440.');
+    }
+
+    if ($started_at !== null) {
+        if (!ticket_time_precision_allows_clock_times($precision)) {
+            if ($precision_given) {
+                throw new InvalidArgumentException("time_precision {$precision} cannot carry clock times. Use exact or derived when start and end times are known.");
+            }
+            $precision = 'exact';
+        }
+        $start_day = substr($started_at, 0, 10);
+        if ($worked_on_given && $worked_on !== $start_day) {
+            throw new InvalidArgumentException('worked_on must be the day of started_at.');
+        }
+        return [
+            'started_at' => $started_at,
+            'ended_at' => $ended_at,
+            'worked_on' => $start_day,
+            'time_precision' => $precision,
+            'has_clock_times' => 1,
+            'duration_minutes' => $duration,
+        ];
+    }
+
+    if ($precision === 'exact') {
+        if ($precision_given) {
+            throw new InvalidArgumentException('time_precision exact requires started_at and ended_at.');
+        }
+        // The stored entry was exact; removing its times keeps a duration-only record.
+        $precision = 'duration_only';
+    }
+    if ($worked_on === '') {
+        $worked_on = !empty($entry['started_at']) ? substr((string) $entry['started_at'], 0, 10) : date('Y-m-d');
+    }
+    $anchor = ticket_time_date_anchor($worked_on, $duration);
+
+    return [
+        'started_at' => $anchor['started_at'],
+        'ended_at' => $anchor['ended_at'],
+        'worked_on' => $worked_on,
+        'time_precision' => $precision,
+        'has_clock_times' => 0,
+        'duration_minutes' => $duration,
+    ];
+}
+
+function ticket_time_clock_times_column_exists(): bool
+{
+    return ticket_time_table_exists() && column_exists('ticket_time_entries', 'has_clock_times');
+}
+
+/** Precision values that may carry real clock times. */
+function ticket_time_precision_allows_clock_times(string $precision): bool
+{
+    return in_array($precision, ['exact', 'derived'], true);
 }
 
 function ticket_time_entry_display_date(array $entry): string
 {
     $worked_on = trim((string) ($entry['worked_on'] ?? ''));
-    if (ticket_time_entry_precision($entry) !== 'exact' && $worked_on !== '') {
+    if (!ticket_time_entry_has_clock_times($entry) && $worked_on !== '') {
         return function_exists('format_date') ? format_date($worked_on, 'd.m.Y') : $worked_on;
     }
     $started_at = trim((string) ($entry['started_at'] ?? ''));
@@ -37,7 +255,7 @@ function ticket_time_entry_display_date(array $entry): string
 
 function ticket_time_entry_public_timestamps(array $entry): array
 {
-    if (ticket_time_entry_precision($entry) !== 'exact') {
+    if (!ticket_time_entry_has_clock_times($entry)) {
         return ['started_at' => null, 'ended_at' => null];
     }
     return [
@@ -477,6 +695,11 @@ function add_manual_time_entry($ticket_id, $user_id, $data) {
             $insert['worked_on'] = $worked_on !== '' ? $worked_on : null;
             $insert['time_precision'] = ticket_time_entry_precision($data);
         }
+        if (ticket_time_clock_times_column_exists()) {
+            $insert['has_clock_times'] = array_key_exists('has_clock_times', $data)
+                ? ((int) $data['has_clock_times'] === 1 ? 1 : 0)
+                : (ticket_time_entry_precision($data) === 'exact' ? 1 : 0);
+        }
 
         // Set source column if it exists
         if (time_entry_source_column_exists()) {
@@ -517,7 +740,7 @@ function add_manual_time_entry($ticket_id, $user_id, $data) {
 function ticket_time_entry_display_range(array $entry): string
 {
     $date = (string) ($entry['worked_on'] ?? $entry['started_at'] ?? '');
-    if (ticket_time_entry_precision($entry) !== 'exact') {
+    if (!ticket_time_entry_has_clock_times($entry)) {
         return format_date($date, 'd.m.Y') . ' · ' . t('ticket.workspace.no_exact_time');
     }
     $start = (string) ($entry['started_at'] ?? '');
@@ -616,6 +839,9 @@ function update_time_entry($entry_id, $data) {
         $entry = db_fetch_one("SELECT id FROM ticket_time_entries WHERE id = ?", [$entry_id]);
         if (!$entry) {
             return false;
+        }
+        if (array_key_exists('has_clock_times', $data) && !ticket_time_clock_times_column_exists()) {
+            unset($data['has_clock_times']);
         }
         db_update('ticket_time_entries', $data, 'id = ?', [$entry_id]);
         return true; // Query executed successfully
@@ -724,16 +950,18 @@ function calculate_timer_elapsed($timer) {
 function sql_timer_duration_minutes(string $prefix = ''): string
 {
     $p = $prefix;
+    // started_at is written with PHP date(); NOW() may run in another time zone (UTC).
+    $now = "'" . foxdesk_db_datetime() . "'";
     if (timer_pause_columns_exist()) {
         return "CASE
             WHEN {$p}ended_at IS NOT NULL THEN {$p}duration_minutes
             WHEN {$p}paused_at IS NOT NULL THEN
                 GREATEST(0, FLOOR((TIMESTAMPDIFF(SECOND, {$p}started_at, {$p}paused_at) - IFNULL({$p}paused_seconds, 0)) / 60))
             ELSE
-                GREATEST(0, FLOOR((TIMESTAMPDIFF(SECOND, {$p}started_at, NOW()) - IFNULL({$p}paused_seconds, 0)) / 60))
+                GREATEST(0, FLOOR((TIMESTAMPDIFF(SECOND, {$p}started_at, {$now}) - IFNULL({$p}paused_seconds, 0)) / 60))
             END";
     }
-    return "CASE WHEN {$p}ended_at IS NULL THEN TIMESTAMPDIFF(MINUTE, {$p}started_at, NOW()) ELSE {$p}duration_minutes END";
+    return "CASE WHEN {$p}ended_at IS NULL THEN TIMESTAMPDIFF(MINUTE, {$p}started_at, {$now}) ELSE {$p}duration_minutes END";
 }
 
 /**

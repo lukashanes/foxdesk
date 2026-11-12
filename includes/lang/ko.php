@@ -1938,4 +1938,8 @@ return [
     'work.recent.title' => '최근 수정',
     'work.recent.empty' => '최근 수정된 항목이 없습니다.',
     'work.scope.team_total' => '팀 전체',
+    'settings.api.change_permissions' => '권한',
+    'settings.api.change_permissions_hint' => '변경 사항은 이 키에 즉시 적용됩니다. 키 자체는 그대로 유지됩니다.',
+    'settings.api.save_permissions' => '권한 저장',
+    'settings.api.permissions_saved' => 'API 키 권한이 저장되었습니다.',
 ];

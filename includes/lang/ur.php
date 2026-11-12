@@ -1938,4 +1938,8 @@ return [
     'work.recent.title' => 'حال ہی میں اپ ڈیٹ',
     'work.recent.empty' => 'حال ہی میں کچھ اپ ڈیٹ نہیں ہوا۔',
     'work.scope.team_total' => 'پوری ٹیم',
+    'settings.api.change_permissions' => 'اجازتیں',
+    'settings.api.change_permissions_hint' => 'تبدیلیاں اس کلید پر فوراً لاگو ہوتی ہیں۔ کلید خود وہی رہتی ہے۔',
+    'settings.api.save_permissions' => 'اجازتیں محفوظ کریں',
+    'settings.api.permissions_saved' => 'API کلید کی اجازتیں محفوظ ہو گئیں۔',
 ];

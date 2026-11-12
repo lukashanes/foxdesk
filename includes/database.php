@@ -22,6 +22,27 @@ class FoxDeskDatabaseUpgradeRequired extends RuntimeException
     }
 }
 
+/**
+ * Application clock for values PHP writes with date() and later compares in SQL.
+ *
+ * The database session clock (NOW(), CURDATE()) can run in another time zone:
+ * MariaDB in Docker defaults to UTC while PHP runs in Europe/Prague. A window
+ * such as "the last minute" must therefore be computed from the same clock
+ * that stored the rows. Tests may pin the clock with
+ * $GLOBALS['foxdesk_clock_override'] (a Unix timestamp).
+ */
+function foxdesk_clock_time(): int
+{
+    $override = $GLOBALS['foxdesk_clock_override'] ?? null;
+    return is_int($override) ? $override : time();
+}
+
+/** Local DATETIME string (PHP time zone) offset from the application clock. */
+function foxdesk_db_datetime(int $offset_seconds = 0): string
+{
+    return date('Y-m-d H:i:s', foxdesk_clock_time() + $offset_seconds);
+}
+
 function create_pdo_connection($host)
 {
     $dsn = "mysql:host=" . $host . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";

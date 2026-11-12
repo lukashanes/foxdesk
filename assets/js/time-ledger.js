@@ -19,7 +19,7 @@
         precision = row?.time_precision || 'exact';
         if (row) {
             field('worked_on').value = row.worked_on || row.started_at.slice(0,10);
-            field('start_time').value = precision === 'exact' ? row.started_at.slice(11,16) : '';
+            field('start_time').value = (row.has_clock_times !== undefined ? Number(row.has_clock_times) === 1 : precision === 'exact') ? row.started_at.slice(11,16) : '';
             field('duration_minutes').value = row.duration_minutes;
             field('summary').value = row.summary || '';
             field('is_billable').checked = Number(row.is_billable) === 1;
@@ -60,7 +60,7 @@
         const submit=form.querySelector('[type="submit"]'); submit.disabled=true; error.hidden=true;
         const body={ticket_id:Number(field('ticket_id').value),time_entry_id:Number(field('entry_id').value),
             duration_minutes:Number(field('duration_minutes').value),summary:field('summary').value,is_billable:field('is_billable').checked,
-            worked_on:field('worked_on').value,time_precision:field('start_time').value?'exact':(precision==='exact'?'duration_only':precision),
+            worked_on:field('worked_on').value,time_precision:field('start_time').value?(precision==='derived'?'derived':'exact'):(precision==='exact'?'duration_only':precision),
             started_at:field('start_time').value?field('worked_on').value+'T'+field('start_time').value:null,ended_at:null};
         try {
             await window.FoxDeskApi.request(body.time_entry_id?'app-update-time-entry':'app-log-time',{method:'POST',body});

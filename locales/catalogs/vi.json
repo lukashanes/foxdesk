@@ -1933,5 +1933,9 @@
     "work.feed.repeat": "{count}×",
     "work.recent.title": "Mới cập nhật",
     "work.recent.empty": "Gần đây chưa có gì được cập nhật.",
-    "work.scope.team_total": "cả nhóm"
+    "work.scope.team_total": "cả nhóm",
+    "settings.api.change_permissions": "Quyền",
+    "settings.api.change_permissions_hint": "Thay đổi áp dụng ngay cho khóa này. Bản thân khóa vẫn giữ nguyên.",
+    "settings.api.save_permissions": "Lưu quyền",
+    "settings.api.permissions_saved": "Đã lưu quyền của khóa API."
 }

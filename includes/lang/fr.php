@@ -1957,4 +1957,8 @@ Agents',
     'work.recent.title' => 'Modifiés récemment',
     'work.recent.empty' => 'Rien de modifié récemment.',
     'work.scope.team_total' => 'toute l’équipe',
+    'settings.api.change_permissions' => 'Autorisations',
+    'settings.api.change_permissions_hint' => 'Les modifications s’appliquent immédiatement à cette clé. La clé elle-même ne change pas.',
+    'settings.api.save_permissions' => 'Enregistrer les autorisations',
+    'settings.api.permissions_saved' => 'Autorisations de la clé API enregistrées.',
 ];

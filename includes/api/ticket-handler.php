@@ -1176,11 +1176,22 @@ function api_update_time_inline() {
 
     $duration = max(1, (int) floor(($end_dt->getTimestamp() - $start_dt->getTimestamp()) / 60));
 
-    db_update('ticket_time_entries', [
+    $inline_updates = [
         'started_at'       => $start_dt->format('Y-m-d H:i:s'),
         'ended_at'         => $end_dt->format('Y-m-d H:i:s'),
         'duration_minutes' => $duration
-    ], 'id = ?', [$entry_id]);
+    ];
+    // The entry now has real clock times; keep its precision label consistent.
+    if (function_exists('ticket_time_clock_times_column_exists') && ticket_time_clock_times_column_exists()) {
+        $inline_updates['has_clock_times'] = 1;
+    }
+    if (ticket_time_work_metadata_columns_exist()) {
+        $inline_updates['worked_on'] = $start_dt->format('Y-m-d');
+        if (!ticket_time_precision_allows_clock_times(ticket_time_entry_precision($entry))) {
+            $inline_updates['time_precision'] = 'exact';
+        }
+    }
+    db_update('ticket_time_entries', $inline_updates, 'id = ?', [$entry_id]);
 
     api_success([
         'duration_minutes'  => $duration,

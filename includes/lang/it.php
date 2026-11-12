@@ -1938,4 +1938,8 @@ return [
     'work.recent.title' => 'Aggiornati di recente',
     'work.recent.empty' => 'Niente di aggiornato di recente.',
     'work.scope.team_total' => 'tutto il team',
+    'settings.api.change_permissions' => 'Autorizzazioni',
+    'settings.api.change_permissions_hint' => 'Le modifiche si applicano subito a questa chiave. La chiave resta la stessa.',
+    'settings.api.save_permissions' => 'Salva autorizzazioni',
+    'settings.api.permissions_saved' => 'Autorizzazioni della chiave API salvate.',
 ];

@@ -1946,4 +1946,8 @@ relatório',
     'work.recent.title' => 'Atualizados recentemente',
     'work.recent.empty' => 'Nada atualizado recentemente.',
     'work.scope.team_total' => 'equipa toda',
+    'settings.api.change_permissions' => 'Permissões',
+    'settings.api.change_permissions_hint' => 'As alterações aplicam-se a esta chave de imediato. A chave mantém-se a mesma.',
+    'settings.api.save_permissions' => 'Guardar permissões',
+    'settings.api.permissions_saved' => 'Permissões da chave de API guardadas.',
 ];

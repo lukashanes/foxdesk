@@ -91,4 +91,27 @@ $assert(str_contains($contents['profile'], 'copyProfileApiKey('), 'Profile gener
 $assert(str_contains($contents['docs'], 'idempotency'), 'Agent API docs must describe idempotency.');
 $assert(str_contains($contents['docs'], 'inherits the creator'), 'Agent API docs must describe permission inheritance.');
 
+$agentHandler = (string) file_get_contents($root . '/includes/api/agent-handler.php');
+
+// 2026-11-12: rate limit window must use the PHP clock and ignore its own 429s.
+$assert(!str_contains($contents['auth'], 'DATE_SUB(NOW(), INTERVAL 1 MINUTE)'), 'Rate limit must not compare PHP-written rows with MySQL NOW().');
+$assert(str_contains($contents['auth'], "(status_code IS NULL OR status_code <> 429)"), 'Rejected 429 calls must not count toward the rate limit.');
+$assert(str_contains($contents['auth'], "header('Retry-After: '"), '429 must send Retry-After.');
+$assert(str_contains($contents['auth'], "header('X-RateLimit-Limit: '"), 'Responses must send X-RateLimit-Limit.');
+$assert(str_contains($contents['auth'], "header('X-RateLimit-Remaining: '"), 'Responses must send X-RateLimit-Remaining.');
+$assert(str_contains($contents['auth'], "'created_at' => foxdesk_db_datetime()"), 'Audit rows must use the same clock as the rate-limit window.');
+$assert(str_contains($agentHandler, "'rate_limit' => ["), 'agent-docs must document the rate limit.');
+$assert(str_contains($agentHandler, "'temporal_text_check' => ["), 'agent-docs must document the temporal-text check and its override.');
+
+// Existing keys can gain or lose scopes without issuing a new key.
+$assert(str_contains($contents['auth'], 'function update_api_token_scopes(int $token_id, array $owner, $scopes): ?array'), 'Token scopes must be editable in place.');
+$assert(str_contains($contents['auth'], 'api_token_normalize_scopes(is_array($scopes)'), 'Edited scopes must be limited to what the owner may grant.');
+$assert(str_contains($contents['profile'], "name=\"update_api_token_scopes\""), 'Profile API access must offer the permissions editor.');
+
+// Saved time entries can be corrected through the agent API.
+$assert(str_contains($contents['router'], "'agent-update-work-entry' => 'api_agent_update_work_entry'"), 'agent-update-work-entry must be routed.');
+$assert(str_contains($contents['auth'], "'agent-update-work-entry' => 'time:write'"), 'agent-update-work-entry must require time:write.');
+$assert(str_contains($agentHandler, "['action' => 'agent-update-work-entry'"), 'agent-docs must list agent-update-work-entry.');
+$assert(str_contains($agentHandler, "log_ticket_history(\n") || str_contains($agentHandler, "log_ticket_history(\r\n"), 'Time entry corrections must be recorded in ticket history.');
+
 echo "Agent API control contract OK\n";

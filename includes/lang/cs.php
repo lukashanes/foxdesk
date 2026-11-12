@@ -1938,4 +1938,8 @@ return [
     'work.recent.title' => 'Naposledy upravené',
     'work.recent.empty' => 'Nedávno se nic neupravilo.',
     'work.scope.team_total' => 'celý tým',
+    'settings.api.change_permissions' => 'Oprávnění',
+    'settings.api.change_permissions_hint' => 'Změna platí pro tento klíč hned. Samotný klíč zůstává stejný.',
+    'settings.api.save_permissions' => 'Uložit oprávnění',
+    'settings.api.permissions_saved' => 'Oprávnění API klíče jsou uložena.',
 ];

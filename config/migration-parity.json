@@ -8,7 +8,8 @@
     {"semanticId": "agent-work-log-metadata", "file": "2026072501_agent_work_log_metadata.php", "sha256": "d1dd9f2c891872837125d4c39d099a66ec456744dc371977309990617d5b8273"},
     {"semanticId": "locale-tag-width", "file": "2026072601_locale_tag_width.php", "sha256": "98ae49726184b6ef6b793253dc10dc39d6b414d324e38c19626bdfe326ef6d47"},
     {"semanticId": "user-language-inheritance", "file": "2026081702_user_language_inheritance.php", "sha256": "7d0b27931a97eaeb0791ba4fce49587fe3575685b08fb270bcf0defed053202f"},
-    {"semanticId": "microsoft-mail-connections", "file": "2026081703_microsoft_mail_connections.sql", "sha256": "0151f68ae78bc05b0425fafcaa9a1871e9497905a5d5aa02dd3b9e0a09e30478"}
+    {"semanticId": "microsoft-mail-connections", "file": "2026081703_microsoft_mail_connections.sql", "sha256": "0151f68ae78bc05b0425fafcaa9a1871e9497905a5d5aa02dd3b9e0a09e30478"},
+    {"semanticId": "time-entry-clock-times", "file": "2026111201_time_entry_clock_times.php", "sha256": "6845c425a3322c356c0008f89bc9a612ccab21ea2804ea8e342d94f69453f97e"}
   ],
   "editionOnly": []
 }

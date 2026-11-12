@@ -1938,4 +1938,8 @@ return [
     'work.recent.title' => 'हाल ही में अपडेट',
     'work.recent.empty' => 'हाल ही में कुछ अपडेट नहीं हुआ।',
     'work.scope.team_total' => 'पूरी टीम',
+    'settings.api.change_permissions' => 'अनुमतियाँ',
+    'settings.api.change_permissions_hint' => 'बदलाव इस कुंजी पर तुरंत लागू होते हैं। कुंजी स्वयं वही रहती है।',
+    'settings.api.save_permissions' => 'अनुमतियाँ सहेजें',
+    'settings.api.permissions_saved' => 'API कुंजी की अनुमतियाँ सहेजी गईं।',
 ];

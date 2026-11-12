@@ -1964,4 +1964,8 @@ Przesłano logo',
     'work.recent.title' => 'Ostatnio zmienione',
     'work.recent.empty' => 'Ostatnio nic nie zmieniono.',
     'work.scope.team_total' => 'cały zespół',
+    'settings.api.change_permissions' => 'Uprawnienia',
+    'settings.api.change_permissions_hint' => 'Zmiany obowiązują dla tego klucza od razu. Sam klucz pozostaje bez zmian.',
+    'settings.api.save_permissions' => 'Zapisz uprawnienia',
+    'settings.api.permissions_saved' => 'Uprawnienia klucza API zostały zapisane.',
 ];

@@ -1948,4 +1948,8 @@ return [
     'work.recent.title' => 'Нещодавно змінені',
     'work.recent.empty' => 'Нещодавно нічого не змінювалося.',
     'work.scope.team_total' => 'уся команда',
+    'settings.api.change_permissions' => 'Дозволи',
+    'settings.api.change_permissions_hint' => 'Зміни одразу застосовуються до цього ключа. Сам ключ не змінюється.',
+    'settings.api.save_permissions' => 'Зберегти дозволи',
+    'settings.api.permissions_saved' => 'Дозволи API-ключа збережено.',
 ];

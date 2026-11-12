@@ -17,7 +17,7 @@
         field('comment_id').dispatchEvent(new Event('change', {bubbles:true}));
         if (entry) {
             field('worked_on').value = entry.worked_on || entry.started_at.slice(0, 10);
-            field('start_time').value = precision === 'exact' ? entry.started_at.slice(11, 16) : '';
+            field('start_time').value = (entry.has_clock_times !== undefined ? Number(entry.has_clock_times) === 1 : precision === 'exact') ? entry.started_at.slice(11, 16) : '';
             field('duration_minutes').value = entry.duration_minutes;
             field('summary').value = entry.summary || '';
             field('is_billable').checked = Number(entry.is_billable) === 1;
@@ -44,7 +44,7 @@
         const body = {ticket_id:Number(field('ticket_id').value), time_entry_id:Number(field('time_entry_id').value),
             comment_id:Number(field('comment_id').value), duration_minutes:Number(field('duration_minutes').value),
             summary:field('summary').value, is_billable:field('is_billable').checked, worked_on:field('worked_on').value,
-            time_precision:field('start_time').value ? 'exact' : (precision === 'exact' ? 'duration_only' : precision),
+            time_precision:field('start_time').value ? (precision === 'derived' ? 'derived' : 'exact') : (precision === 'exact' ? 'duration_only' : precision),
             started_at:field('start_time').value ? field('worked_on').value+'T'+field('start_time').value : null, ended_at:null};
         try {
             const result = await window.FoxDeskApi.request(body.time_entry_id ? 'app-update-time-entry' : 'app-log-time', {method:'POST',body});

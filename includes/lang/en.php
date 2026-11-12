@@ -1938,4 +1938,8 @@ return [
     'work.recent.title' => 'Recently updated',
     'work.recent.empty' => 'Nothing updated recently.',
     'work.scope.team_total' => 'whole team',
+    'settings.api.change_permissions' => 'Permissions',
+    'settings.api.change_permissions_hint' => 'Changes apply to this key immediately. The key itself stays the same.',
+    'settings.api.save_permissions' => 'Save permissions',
+    'settings.api.permissions_saved' => 'API key permissions saved.',
 ];

@@ -79,8 +79,8 @@ function api_app_resolve_log_time_input(array $input): array
         $worked_on = api_app_normalize_worked_on($worked_on);
     }
     $requested_precision = strtolower(trim((string) ($input['time_precision'] ?? '')));
-    if ($requested_precision !== '' && !in_array($requested_precision, ['exact', 'duration_only', 'allocated'], true)) {
-        api_error('time_precision must be exact, duration_only, or allocated.', 422);
+    if ($requested_precision !== '' && !in_array($requested_precision, ['exact', 'derived', 'estimated', 'allocated', 'duration_only'], true)) {
+        api_error('time_precision must be exact, derived, estimated, allocated, or duration_only.', 422);
     }
     $started_at = $started_raw !== '' ? api_app_normalize_datetime_for_time($started_raw, 'started_at') : null;
     $ended_at = $ended_raw !== '' ? api_app_normalize_datetime_for_time($ended_raw, 'ended_at') : null;
@@ -106,13 +106,21 @@ function api_app_resolve_log_time_input(array $input): array
         if ($worked_on === '') {
             $worked_on = date('Y-m-d');
         }
-        $ended_at = $worked_on . ' 12:00:00';
-        $started_at = date('Y-m-d H:i:s', strtotime($ended_at) - ($duration * 60));
+        // Internal date anchor only (has_clock_times = 0); never shown or returned as a time.
+        $anchor = ticket_time_date_anchor($worked_on, $duration);
+        $started_at = $anchor['started_at'];
+        $ended_at = $anchor['ended_at'];
     }
 
-    $precision = ($started_raw !== '' || $ended_raw !== '')
-        ? 'exact'
-        : ($requested_precision !== '' ? $requested_precision : 'duration_only');
+    $has_clock_times = $started_raw !== '' || $ended_raw !== '';
+    if ($has_clock_times) {
+        $precision = $requested_precision !== '' ? $requested_precision : 'exact';
+        if (!ticket_time_precision_allows_clock_times($precision)) {
+            api_error('time_precision ' . $precision . ' cannot carry clock times. Use exact or derived when start and end times are known.', 422);
+        }
+    } else {
+        $precision = $requested_precision !== '' ? $requested_precision : 'duration_only';
+    }
     if ($worked_on === '') {
         $worked_on = date('Y-m-d', strtotime((string) $started_at));
     }
@@ -122,6 +130,7 @@ function api_app_resolve_log_time_input(array $input): array
         'ended_at' => $ended_at,
         'worked_on' => $worked_on,
         'time_precision' => $precision,
+        'has_clock_times' => $has_clock_times ? 1 : 0,
         'duration_minutes' => $duration,
     ];
 }
@@ -580,6 +589,7 @@ function api_app_log_time()
         'comment_id' => api_app_time_comment_id($input, (int) $ticket['id']),
         'worked_on' => $time_input['worked_on'],
         'time_precision' => $time_input['time_precision'],
+        'has_clock_times' => (int) ($time_input['has_clock_times'] ?? 0),
         'started_at' => $time_input['started_at'],
         'ended_at' => $time_input['ended_at'],
         'duration_minutes' => $duration,
@@ -598,8 +608,9 @@ function api_app_log_time()
         'duration_minutes' => $duration,
         'worked_on' => $time_input['worked_on'],
         'time_precision' => $time_input['time_precision'],
-        'started_at' => $time_input['time_precision'] === 'exact' ? $time_input['started_at'] : null,
-        'ended_at' => $time_input['time_precision'] === 'exact' ? $time_input['ended_at'] : null,
+        'has_clock_times' => (int) ($time_input['has_clock_times'] ?? 0),
+        'started_at' => !empty($time_input['has_clock_times']) ? $time_input['started_at'] : null,
+        'ended_at' => !empty($time_input['has_clock_times']) ? $time_input['ended_at'] : null,
     ];
 
     api_app_contract_success($response, ['resource' => 'log_time'], $response);
@@ -701,23 +712,14 @@ function api_app_update_time_entry()
     }
     api_app_require_backdate_permission($input, $user);
 
-    $duration = array_key_exists('duration_minutes', $input)
-        ? (int) $input['duration_minutes']
-        : (int) ($entry['duration_minutes'] ?? 0);
-    $has_started_at = array_key_exists('started_at', $input);
-    $has_ended_at = array_key_exists('ended_at', $input);
-    $started_at_input = $has_started_at ? $input['started_at'] : ($entry['started_at'] ?? null);
-    $ended_at_input = $has_ended_at
-        ? $input['ended_at']
-        : ($has_started_at ? null : (array_key_exists('duration_minutes', $input) ? null : ($entry['ended_at'] ?? null)));
-    $time_input = api_app_resolve_log_time_input([
-        'duration_minutes' => $duration,
-        'started_at' => $started_at_input,
-        'ended_at' => $ended_at_input,
-        'worked_on' => $input['worked_on'] ?? ($entry['worked_on'] ?? ''),
-        'time_precision' => $input['time_precision'] ?? ticket_time_entry_precision($entry),
-    ]);
-    $updates = $time_input;
+    require_once BASE_PATH . '/includes/ticket-time-functions.php';
+    try {
+        // Shared rules with agent-update-work-entry: unsent fields keep their
+        // value, and a stored date anchor is never reused as a real time.
+        $updates = ticket_time_entry_resolve_update($entry, $input);
+    } catch (InvalidArgumentException $e) {
+        api_error($e->getMessage(), 422);
+    }
     if (array_key_exists('comment_id', $input)) {
         $updates['comment_id'] = api_app_time_comment_id($input, (int) $entry['ticket_id']);
     }
@@ -744,6 +746,9 @@ function api_app_update_time_entry()
         'time_entry_id' => $entry_id,
         'worked_on' => $updates['worked_on'],
         'time_precision' => $updates['time_precision'],
+        // The iOS client decodes started_at/ended_at as required strings, so this
+        // response keeps them; has_clock_times tells whether they are real times.
+        'has_clock_times' => (int) $updates['has_clock_times'],
         'started_at' => $updates['started_at'],
         'ended_at' => $updates['ended_at'],
         'duration_minutes' => (int) $updates['duration_minutes'],

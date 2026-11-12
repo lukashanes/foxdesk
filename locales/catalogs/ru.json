@@ -1933,5 +1933,9 @@
     "work.feed.repeat": "{count}×",
     "work.recent.title": "Недавно изменённые",
     "work.recent.empty": "Недавно ничего не менялось.",
-    "work.scope.team_total": "вся команда"
+    "work.scope.team_total": "вся команда",
+    "settings.api.change_permissions": "Права",
+    "settings.api.change_permissions_hint": "Изменения сразу применяются к этому ключу. Сам ключ не меняется.",
+    "settings.api.save_permissions": "Сохранить права",
+    "settings.api.permissions_saved": "Права API-ключа сохранены."
 }
