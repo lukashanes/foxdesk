@@ -117,8 +117,9 @@ assert_ticket_list_view(str_contains($tickets_page, 'class="registry-pagination"
 
 $ticket_query = file_get_contents($root . '/includes/ticket-query-functions.php');
 assert_ticket_list_view(str_contains($ticket_query, "\$triage_state === 'new'"), 'Ticket query must implement the New triage branch.');
-assert_ticket_list_view(str_contains($ticket_query, 't.assignee_id IS NULL AND t.created_at > DATE_SUB(NOW(), INTERVAL {$new_window_hours} HOUR)'), 'New triage query must require an unassigned ticket inside the 48-hour window.');
-assert_ticket_list_view(str_contains($ticket_query, 't.assignee_id IS NOT NULL OR t.created_at <= DATE_SUB(NOW(), INTERVAL {$new_window_hours} HOUR)'), 'Open query must include assigned tickets and expired unassigned tickets.');
+assert_ticket_list_view(str_contains($ticket_query, "\$new_window_start = foxdesk_db_datetime_shift(-(int) \$new_window_hours, 'hour');"), 'New/Open triage window must be computed on the PHP clock.');
+assert_ticket_list_view(str_contains($ticket_query, 't.assignee_id IS NULL AND t.created_at > ?'), 'New triage query must require an unassigned ticket inside the 48-hour window.');
+assert_ticket_list_view(str_contains($ticket_query, 't.assignee_id IS NOT NULL OR t.created_at <= ?'), 'Open query must include assigned tickets and expired unassigned tickets.');
 assert_ticket_list_view(!str_contains($ticket_registry_surface, 'ticket-filter-summary__count'), 'Ticket registry summary must not repeat the selected view count below the view tabs.');
 assert_ticket_list_view(substr_count($tickets_page, 'name="search_scope" value="all"') >= 2, 'Ticket search forms should request all-ticket search by default.');
 assert_ticket_list_view(str_contains($ticket_row_model, 'ticket_list_view_shows_closed_inline'), 'Ticket row model must use the closed visibility helper.');

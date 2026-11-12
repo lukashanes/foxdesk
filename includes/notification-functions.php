@@ -1161,16 +1161,17 @@ function process_due_date_notifications(): array
     // 1. Due within the next 24 hours (due_soon)
     // 2. Already overdue (past due_date)
     // Exclude closed/archived tickets
+    // due_date is entered in local (PHP) time; the window uses the PHP clock.
     $tickets = db_fetch_all("
         SELECT t.id, t.title, t.due_date, t.assignee_id, t.hash
         FROM tickets t
         WHERE t.due_date IS NOT NULL
-          AND t.due_date <= DATE_ADD(NOW(), INTERVAL 24 HOUR)
+          AND t.due_date <= ?
           AND (t.is_archived IS NULL OR t.is_archived = 0)
           AND t.status_id NOT IN ({$closed_placeholder})
         ORDER BY t.due_date ASC
         LIMIT 100
-    ", $params);
+    ", array_merge([foxdesk_db_datetime_shift(24, 'hour')], $params));
 
     if (empty($tickets)) {
         return $result;

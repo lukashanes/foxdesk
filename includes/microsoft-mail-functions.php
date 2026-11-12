@@ -272,7 +272,7 @@ function microsoft_mail_save_pending(
             (tenant_id, provider, tenant_identifier, client_id, client_secret_ciphertext,
              status, oauth_state_hash, oauth_state_expires_at, code_verifier_ciphertext,
              created_by, created_at, updated_at)
-         VALUES (?, 'microsoft', ?, ?, ?, 'pending', ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), ?, ?, NOW(), NOW())
+         VALUES (?, 'microsoft', ?, ?, ?, 'pending', ?, ?, ?, ?, NOW(), NOW())
          ON DUPLICATE KEY UPDATE
             tenant_identifier = VALUES(tenant_identifier),
             client_id = VALUES(client_id),
@@ -290,6 +290,9 @@ function microsoft_mail_save_pending(
             $clientId,
             $storedClientSecret,
             $stateHash,
+            // Checked later with PHP strtotime()/time(); MySQL NOW() may be UTC,
+            // which made the state look expired as soon as it was stored.
+            foxdesk_db_datetime(600),
             $verifierCiphertext,
             $createdBy,
         ]
