@@ -305,11 +305,14 @@ function build_ticket_where_clause($filters, &$params)
             ? max(1, ticket_list_new_window_hours())
             : 48;
 
+        // tickets.created_at is written with PHP date(); same clock for the window.
+        $new_window_start = foxdesk_db_datetime_shift(-(int) $new_window_hours, 'hour');
         if ($triage_state === 'new') {
-            $sql .= " AND t.assignee_id IS NULL AND t.created_at > DATE_SUB(NOW(), INTERVAL {$new_window_hours} HOUR)";
+            $sql .= " AND t.assignee_id IS NULL AND t.created_at > ?";
         } else {
-            $sql .= " AND (t.assignee_id IS NOT NULL OR t.created_at <= DATE_SUB(NOW(), INTERVAL {$new_window_hours} HOUR))";
+            $sql .= " AND (t.assignee_id IS NOT NULL OR t.created_at <= ?)";
         }
+        $params[] = $new_window_start;
     }
 
     if (!empty($filters['last_public_comment_role'])) {
@@ -443,15 +446,22 @@ function build_ticket_where_clause($filters, &$params)
 
     if (!empty($due_date_filter)) {
         switch ($due_date_filter) {
+            // due_date is entered in local (PHP) time; "now", "today" and the
+            // week come from the PHP clock, never MySQL NOW()/CURDATE().
             case 'overdue':
-                $sql .= " AND t.due_date IS NOT NULL AND t.due_date < NOW()";
+                $sql .= " AND t.due_date IS NOT NULL AND t.due_date < ?";
+                $params[] = foxdesk_db_datetime();
                 break;
             case 'today':
-                $sql .= " AND DATE(t.due_date) = CURDATE()";
+                $sql .= " AND DATE(t.due_date) = ?";
+                $params[] = foxdesk_db_date();
                 break;
             case 'this_week':
                 // Match current calendar week (Monday to Sunday)
-                $sql .= " AND DATE(t.due_date) BETWEEN DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE())) DAY) AND DATE_ADD(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE())) DAY), INTERVAL 6 DAY)";
+                [$week_monday, $week_sunday] = foxdesk_db_week_bounds();
+                $sql .= " AND DATE(t.due_date) BETWEEN ? AND ?";
+                $params[] = $week_monday;
+                $params[] = $week_sunday;
                 break;
         }
     }

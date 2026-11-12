@@ -161,7 +161,7 @@ if ($now - $last_maintenance >= 86400) {
     // Prune page_views older than 90 days
     try {
         if (function_exists('page_views_table_exists') && page_views_table_exists()) {
-            db_query("DELETE FROM page_views WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)");
+            db_query("DELETE FROM page_views WHERE created_at < ?", [foxdesk_db_datetime_shift(-90, 'day')]);
         }
     } catch (Throwable $e) {
         $errors[] = 'page_views_cleanup: ' . $e->getMessage();

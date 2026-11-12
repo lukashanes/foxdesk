@@ -389,16 +389,20 @@ function work_flight_deck_attention(array $user, bool $team, array $money): arra
             build_ticket_visibility_filters_for_user($user, $base + $mine + ['status_group_not' => ['done', 'archived']]),
             $params
         );
+        // comments/tickets created_at are written with PHP date(): same clock here.
+        $unanswered_cutoff = foxdesk_db_datetime_shift(-24, 'hour');
+        $params[] = $unanswered_cutoff;
+        $params[] = $unanswered_cutoff;
         $row = db_fetch_one("SELECT COUNT(*) AS c FROM tickets t {$where} AND (
                 EXISTS (
                     SELECT 1 FROM comments lc JOIN users lcu ON lcu.id = lc.user_id
                     WHERE lc.ticket_id = t.id AND lc.is_internal = 0 AND lcu.role = 'user'
-                      AND lc.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                      AND lc.created_at < ?
                       AND lc.created_at = (SELECT MAX(lc2.created_at) FROM comments lc2 WHERE lc2.ticket_id = t.id AND lc2.is_internal = 0)
                 )
                 OR (
                     NOT EXISTS (SELECT 1 FROM comments lc3 WHERE lc3.ticket_id = t.id AND lc3.is_internal = 0)
-                    AND t.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                    AND t.created_at < ?
                     AND EXISTS (SELECT 1 FROM users cu WHERE cu.id = t.user_id AND cu.role = 'user')
                 )
             )", $params);

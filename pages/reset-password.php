@@ -30,7 +30,9 @@ if (!empty($token)) {
 // Verify token (hashed only - no legacy plaintext support)
 if (!empty($token)) {
     $token_hash = hash_reset_token($token);
-    $user = db_fetch_one("SELECT id, email FROM users WHERE reset_token = ? AND reset_token_expires > NOW() AND is_active = 1", [$token_hash]);
+    // reset_token_expires is written with PHP date(); compare on the same clock
+    // (MySQL NOW() may be UTC and would keep links alive 1-2 hours longer).
+    $user = db_fetch_one("SELECT id, email FROM users WHERE reset_token = ? AND reset_token_expires > ? AND is_active = 1", [$token_hash, foxdesk_db_datetime()]);
     $valid_token = (bool) $user;
 }
 

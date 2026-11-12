@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf_token();
     if (isset($_POST['clear_old'])) {
         $days = max(7, (int) ($_POST['days'] ?? 90));
-        db_query("DELETE FROM page_views WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)", [$days]);
+        db_query("DELETE FROM page_views WHERE created_at < ?", [foxdesk_db_datetime_shift(-$days, 'day')]);
         flash(t('Deleted activity data older than {days} days.', ['days' => $days]), 'success');
         redirect('admin', ['section' => 'activity']);
     }
@@ -90,7 +90,7 @@ function pv_page_icon($pg) {
 // Total counts
 $total_views = (int) (db_fetch_one("SELECT COUNT(*) as c FROM page_views WHERE created_at >= ?", [$range_date])['c'] ?? 0);
 $total_users = (int) (db_fetch_one("SELECT COUNT(DISTINCT user_id) as c FROM page_views WHERE created_at >= ?", [$range_date])['c'] ?? 0);
-$today_views = (int) (db_fetch_one("SELECT COUNT(*) as c FROM page_views WHERE created_at >= CURDATE()")['c'] ?? 0);
+$today_views = (int) (db_fetch_one("SELECT COUNT(*) as c FROM page_views WHERE created_at >= ?", [foxdesk_db_date() . ' 00:00:00'])['c'] ?? 0);
 
 // Page popularity
 $popular_pages = db_fetch_all("

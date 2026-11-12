@@ -77,7 +77,8 @@ function dashboard_selected_agent_activity(int $selected_agent_id, bool $can_vie
     }
 
     $dur_expr = function_exists('sql_timer_duration_minutes') ? sql_timer_duration_minutes('tte.') : 'tte.duration_minutes';
-    $ticket_params = [$selected_agent_id];
+    // started_at is written with PHP date(); windows use the PHP clock, not NOW()/CURDATE().
+    $ticket_params = [$selected_agent_id, foxdesk_db_datetime_shift(-30, 'day')];
     $ticket_tenant_filter = dashboard_legacy_tenant_filter('tickets', 't', $ticket_params);
     $entries = db_fetch_all("
         SELECT
@@ -97,7 +98,7 @@ function dashboard_selected_agent_activity(int $selected_agent_id, bool $can_vie
         JOIN tickets t ON t.id = tte.ticket_id
         LEFT JOIN statuses s ON s.id = t.status_id
         WHERE tte.user_id = ?
-          AND tte.started_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+          AND tte.started_at >= ?
           {$ticket_tenant_filter}
         ORDER BY tte.started_at DESC
         LIMIT 20
@@ -107,11 +108,11 @@ function dashboard_selected_agent_activity(int $selected_agent_id, bool $can_vie
     $week_end = date('Y-m-d 23:59:59', strtotime('sunday this week'));
     $month_start = date('Y-m-01 00:00:00');
     $month_end = date('Y-m-t 23:59:59');
-    $totals_params = [$week_start, $week_end, $month_start, $month_end, $selected_agent_id];
+    $totals_params = [foxdesk_db_date(), $week_start, $week_end, $month_start, $month_end, $selected_agent_id];
     $totals_tenant_filter = dashboard_legacy_tenant_filter('tickets', 't', $totals_params);
     $totals = db_fetch_one("
         SELECT
-            SUM(CASE WHEN DATE(tte.started_at) = CURDATE() THEN ({$dur_expr}) ELSE 0 END) AS today,
+            SUM(CASE WHEN DATE(tte.started_at) = ? THEN ({$dur_expr}) ELSE 0 END) AS today,
             SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_expr}) ELSE 0 END) AS week,
             SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_expr}) ELSE 0 END) AS month
         FROM ticket_time_entries tte
