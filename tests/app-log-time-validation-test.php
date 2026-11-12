@@ -22,6 +22,7 @@ function foxdesk_normalize_backdated_datetime_input($value)
     return $timestamp === false ? false : date('Y-m-d H:i:s', $timestamp);
 }
 
+require_once dirname(__DIR__) . '/includes/ticket-time-functions.php';
 require_once dirname(__DIR__) . '/includes/api/app-handler.php';
 
 $assert = static function (bool $condition, string $message): void {
@@ -42,6 +43,7 @@ $assert(($default_end - $default_start) === 1020, 'Duration-only logging must pr
 $assert($default['worked_on'] === '2026-07-24', 'Duration-only logging must preserve worked_on.');
 $assert($default['time_precision'] === 'duration_only', 'Duration-only logging must preserve its precision.');
 $assert($default['ended_at'] === '2026-07-24 12:00:00', 'Compatibility timestamps must remain deterministic and internal.');
+$assert($default['has_clock_times'] === 0, 'The internal date anchor must be flagged as not a real time.');
 
 $explicit = api_app_resolve_log_time_input([
     'duration_minutes' => 48,
@@ -51,6 +53,15 @@ $explicit = api_app_resolve_log_time_input([
 $assert($explicit['started_at'] === '2026-05-25 21:18:00', 'Explicit start time must be preserved.');
 $assert($explicit['ended_at'] === '2026-05-25 22:06:00', 'Explicit end time must be preserved.');
 $assert($explicit['time_precision'] === 'exact', 'Explicit timestamp ranges must be marked exact.');
+$assert($explicit['has_clock_times'] === 1, 'Explicit timestamp ranges carry clock times.');
+
+$derived = api_app_resolve_log_time_input([
+    'duration_minutes' => 48,
+    'started_at' => '2026-05-25 21:18:00',
+    'ended_at' => '2026-05-25 22:06:00',
+    'time_precision' => 'derived',
+]);
+$assert($derived['time_precision'] === 'derived' && $derived['started_at'] === '2026-05-25 21:18:00', 'Derived precision may carry known times.');
 
 foreach ([
     ['duration_minutes' => 1441],

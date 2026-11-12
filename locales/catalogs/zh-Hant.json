@@ -1933,5 +1933,9 @@
     "work.feed.repeat": "{count} 次",
     "work.recent.title": "最近更新",
     "work.recent.empty": "最近沒有更新。",
-    "work.scope.team_total": "整個團隊"
+    "work.scope.team_total": "整個團隊",
+    "settings.api.change_permissions": "權限",
+    "settings.api.change_permissions_hint": "變更會立即套用到此金鑰。金鑰本身保持不變。",
+    "settings.api.save_permissions": "儲存權限",
+    "settings.api.permissions_saved": "API 金鑰權限已儲存。"
 }

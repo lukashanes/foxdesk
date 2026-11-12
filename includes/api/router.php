@@ -177,6 +177,7 @@ function route_api_request($action) {
         'agent-log-time' => 'api_agent_log_time',
         'agent-delete-ticket-preflight' => 'api_agent_delete_ticket_preflight',
         'agent-delete-ticket-permanently' => 'api_agent_delete_ticket_permanently',
+        'agent-update-work-entry' => 'api_agent_update_work_entry',
 
         // --- Timeline endpoint ---
         'get-timeline' => 'api_get_timeline',

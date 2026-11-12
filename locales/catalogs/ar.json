@@ -1933,5 +1933,9 @@
     "work.feed.repeat": "×{count}",
     "work.recent.title": "المحدَّثة مؤخرًا",
     "work.recent.empty": "لا شيء محدَّث مؤخرًا.",
-    "work.scope.team_total": "الفريق كله"
+    "work.scope.team_total": "الفريق كله",
+    "settings.api.change_permissions": "الأذونات",
+    "settings.api.change_permissions_hint": "تُطبَّق التغييرات على هذا المفتاح فورًا. يبقى المفتاح نفسه دون تغيير.",
+    "settings.api.save_permissions": "حفظ الأذونات",
+    "settings.api.permissions_saved": "تم حفظ أذونات مفتاح API."
 }

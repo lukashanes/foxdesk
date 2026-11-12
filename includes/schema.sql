@@ -174,6 +174,7 @@ CREATE TABLE IF NOT EXISTS ticket_time_entries (
     comment_id INT,
     worked_on DATE DEFAULT NULL,
     time_precision VARCHAR(24) NOT NULL DEFAULT 'exact',
+    has_clock_times TINYINT(1) NOT NULL DEFAULT 1,
     started_at DATETIME NOT NULL,
     ended_at DATETIME DEFAULT NULL,
     paused_at DATETIME DEFAULT NULL,

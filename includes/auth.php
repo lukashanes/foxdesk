@@ -584,6 +584,7 @@ function api_token_required_scope_for_action(string $action): ?string
         'agent-update-status' => 'tickets:write',
         'agent-ticket-workflow' => 'tickets:write',
         'agent-log-time' => 'time:write',
+        'agent-update-work-entry' => 'time:write',
         'agent-delete-ticket-preflight' => 'tickets:read',
         'agent-delete-ticket-permanently' => 'delete:write',
         'app-shell' => 'work:read',
@@ -631,22 +632,107 @@ function api_token_action_is_write(string $action): bool
     return in_array(strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')), ['POST', 'PUT', 'PATCH', 'DELETE'], true);
 }
 
+const FOXDESK_API_TOKEN_RATE_LIMIT_WINDOW_SECONDS = 60;
+const FOXDESK_API_TOKEN_RATE_LIMIT_DEFAULT_PER_MINUTE = 120;
+
+function api_token_rate_limit_per_minute(): int
+{
+    $configured = getenv('FOXDESK_API_TOKEN_RATE_LIMIT_PER_MINUTE');
+    if ($configured === false || trim((string) $configured) === '') {
+        return FOXDESK_API_TOKEN_RATE_LIMIT_DEFAULT_PER_MINUTE;
+    }
+
+    return (int) $configured;
+}
+
+/**
+ * Count the calls of one token inside the sliding 60-second window.
+ *
+ * Rows are written with PHP date() (see api_token_log_action()), so the window
+ * start is computed with the same PHP clock instead of MySQL NOW(), which may
+ * run in UTC. Rejected 429 responses are logged for audit but never counted,
+ * otherwise retries would keep extending the block.
+ */
+function api_token_rate_limit_state(int $token_id, int $limit, ?int $now = null): array
+{
+    $now = $now ?? foxdesk_clock_time();
+    $window = FOXDESK_API_TOKEN_RATE_LIMIT_WINDOW_SECONDS;
+    $window_start = date('Y-m-d H:i:s', $now - $window);
+
+    $row = db_fetch_one(
+        "SELECT COUNT(*) AS total, MIN(created_at) AS oldest
+         FROM api_token_audit_logs
+         WHERE token_id = ? AND created_at > ? AND (status_code IS NULL OR status_code <> 429)",
+        [$token_id, $window_start]
+    );
+    $used = (int) ($row['total'] ?? 0);
+
+    $retry_after = 0;
+    if ($used >= $limit) {
+        // The window frees one slot when the oldest counted call is older than 60 s.
+        $oldest_offset = max(0, $used - $limit);
+        $oldest = db_fetch_one(
+            "SELECT created_at FROM api_token_audit_logs
+             WHERE token_id = ? AND created_at > ? AND (status_code IS NULL OR status_code <> 429)
+             ORDER BY created_at ASC, id ASC LIMIT 1 OFFSET {$oldest_offset}",
+            [$token_id, $window_start]
+        );
+        $oldest_ts = strtotime((string) ($oldest['created_at'] ?? $row['oldest'] ?? ''));
+        $retry_after = $oldest_ts ? max(1, ($oldest_ts + $window) - $now) : $window;
+        $retry_after = min($window, $retry_after);
+    }
+
+    return [
+        'limit' => $limit,
+        'used' => $used,
+        'remaining' => max(0, $limit - $used),
+        'retry_after' => $retry_after,
+        'window_seconds' => $window,
+    ];
+}
+
 function api_token_rate_limit_check(string $action): void
 {
     $token = api_token_current_row();
     if (!$token || !table_exists('api_token_audit_logs')) {
         return;
     }
-    $limit = (int) (getenv('FOXDESK_API_TOKEN_RATE_LIMIT_PER_MINUTE') ?: 120);
+
+    $limit = api_token_rate_limit_per_minute();
     if ($limit <= 0) {
         return;
     }
+
     try {
-        $count = db_fetch_one("SELECT COUNT(*) AS total FROM api_token_audit_logs WHERE token_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 MINUTE)", [(int) $token['id']]);
-        if ((int) ($count['total'] ?? 0) >= $limit) {
-            api_error('API token rate limit exceeded.', 429);
-        }
+        $state = api_token_rate_limit_state((int) $token['id'], $limit);
     } catch (Throwable $e) {
+        // Never fail a valid request only because rate-limit bookkeeping failed.
+        return;
+    }
+
+    if (!headers_sent()) {
+        header('X-RateLimit-Limit: ' . $state['limit']);
+    }
+
+    if ($state['used'] >= $limit) {
+        if (!headers_sent()) {
+            header('X-RateLimit-Remaining: 0');
+            header('Retry-After: ' . $state['retry_after']);
+        }
+        api_error('API token rate limit exceeded.', 429, [
+            'error_code' => 'rate_limited',
+            'retry_after_seconds' => $state['retry_after'],
+            'rate_limit' => [
+                'limit' => $state['limit'],
+                'window_seconds' => $state['window_seconds'],
+                'remaining' => 0,
+            ],
+        ]);
+    }
+
+    if (!headers_sent()) {
+        // This request is counted once it finishes, so it uses one slot.
+        header('X-RateLimit-Remaining: ' . max(0, $state['remaining'] - 1));
     }
 }
 
@@ -720,7 +806,7 @@ function api_idempotency_replay_if_available(string $action): void
 
     $row = db_fetch_one("SELECT * FROM api_idempotency_keys WHERE token_id = ? AND action = ? AND idempotency_key = ? LIMIT 1", [(int) $token['id'], $action, $key]);
     if ($row && strtotime((string) ($row['expires_at'] ?? '')) <= time()) {
-        db_delete('api_idempotency_keys', 'id = ? AND expires_at <= NOW()', [(int) $row['id']]);
+        db_delete('api_idempotency_keys', 'id = ? AND expires_at <= ?', [(int) $row['id'], foxdesk_db_datetime()]);
         try {
             if (!$db->inTransaction()) {
                 $db->beginTransaction();
@@ -850,7 +936,8 @@ function api_token_log_action(string $action, array $response = [], int $status_
             'idempotency_key' => api_token_idempotency_key() ?: null,
             'ip_address' => substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45) ?: null,
             'user_agent' => substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255) ?: null,
-            'created_at' => date('Y-m-d H:i:s'),
+            // Same clock as api_token_rate_limit_state(); never compare with MySQL NOW().
+            'created_at' => foxdesk_db_datetime(),
         ]);
     } catch (Throwable $e) {
     }
@@ -974,6 +1061,43 @@ function generate_api_token($user_id, $name, $expires_at = null, $scopes = null)
     $id = db_insert('api_tokens', $data);
 
     return ['token' => $raw_token, 'id' => $id, 'scopes' => $granted_scopes];
+}
+
+/**
+ * Change the scopes of an existing, active API token without issuing a new key.
+ *
+ * The token must belong to $owner. Scopes are normalized against what the
+ * owner may grant, exactly as on creation, so an edit can never widen a token
+ * beyond its owner's role. Returns the stored scopes, or null when the token
+ * is not found, inactive, or not owned.
+ */
+function update_api_token_scopes(int $token_id, array $owner, $scopes): ?array
+{
+    if ($token_id <= 0 || empty($owner['id']) || !api_tokens_table_exists()
+        || !column_exists('api_tokens', 'scopes_json')) {
+        return null;
+    }
+
+    $where = 'id = ? AND user_id = ? AND is_active = 1';
+    $params = [$token_id, (int) $owner['id']];
+    if (column_exists('api_tokens', 'revoked_at')) {
+        $where .= ' AND revoked_at IS NULL';
+    }
+
+    $token = db_fetch_one("SELECT id, scopes_json FROM api_tokens WHERE {$where} LIMIT 1", $params);
+    if (!$token) {
+        return null;
+    }
+
+    $granted = api_token_normalize_scopes(is_array($scopes) ? array_values($scopes) : $scopes, $owner);
+    db_update(
+        'api_tokens',
+        ['scopes_json' => json_encode($granted, JSON_UNESCAPED_SLASHES)],
+        $where,
+        $params
+    );
+
+    return $granted;
 }
 
 /**

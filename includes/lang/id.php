@@ -1941,4 +1941,8 @@ Tanda',
     'work.recent.title' => 'Baru diperbarui',
     'work.recent.empty' => 'Belum ada yang diperbarui baru-baru ini.',
     'work.scope.team_total' => 'seluruh tim',
+    'settings.api.change_permissions' => 'Izin',
+    'settings.api.change_permissions_hint' => 'Perubahan langsung berlaku untuk kunci ini. Kuncinya sendiri tetap sama.',
+    'settings.api.save_permissions' => 'Simpan izin',
+    'settings.api.permissions_saved' => 'Izin kunci API disimpan.',
 ];

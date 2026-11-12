@@ -1976,4 +1976,8 @@ return [
     'work.recent.title' => 'به‌تازگی به‌روز شده',
     'work.recent.empty' => 'اخیراً چیزی به‌روز نشده.',
     'work.scope.team_total' => 'کل تیم',
+    'settings.api.change_permissions' => 'مجوزها',
+    'settings.api.change_permissions_hint' => 'تغییرات فوراً روی این کلید اعمال می‌شود. خود کلید تغییر نمی‌کند.',
+    'settings.api.save_permissions' => 'ذخیره مجوزها',
+    'settings.api.permissions_saved' => 'مجوزهای کلید API ذخیره شد.',
 ];

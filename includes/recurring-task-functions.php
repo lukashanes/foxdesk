@@ -337,6 +337,8 @@ function calculate_next_run_date($task, $from_date = null)
 function process_recurring_tasks()
 {
     $now = date('Y-m-d H:i:s');
+    // Same PHP clock as next_run_date; CURDATE() may be a UTC date.
+    $today = date('Y-m-d');
 
     ensure_recurring_task_columns();
 
@@ -347,9 +349,9 @@ function process_recurring_tasks()
         SELECT * FROM recurring_tasks
         WHERE is_active = 1
         AND next_run_date <= ?
-        AND (end_date IS NULL OR end_date >= CURDATE())
+        AND (end_date IS NULL OR end_date >= ?)
         ORDER BY next_run_date ASC
-    ", [$now]);
+    ", [$now, $today]);
 
     $processed = 0;
 

@@ -97,11 +97,12 @@ function ticket_undo_finalize_expired(int $limit = 25): int
     }
 
     $limit = max(1, min(100, $limit));
-    $params = [];
+    // expires_at is written with PHP date(); compare with the same clock, not NOW().
+    $params = [foxdesk_db_datetime()];
     $tenantSql = function_exists('tenant_sql_filter') ? tenant_sql_filter('pending_deletions', '', $params) : '';
     $rows = db_fetch_all(
         "SELECT * FROM pending_deletions
-         WHERE expires_at <= NOW(){$tenantSql}
+         WHERE expires_at <= ?{$tenantSql}
          ORDER BY id ASC LIMIT {$limit}",
         $params
     );

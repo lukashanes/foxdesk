@@ -13,7 +13,7 @@ check_ledger(time_ledger_page(['page_size'=>'all'],101)['count']===101,'All reta
 check_ledger(time_ledger_csv_value(' =HYPERLINK("bad")')[0]==="'",'CSV formula injection is neutralized');
 check_ledger(time_ledger_csv_value('ordinary')==='ordinary','Ordinary CSV values are preserved');
 $api=file_get_contents(dirname(__DIR__).'/includes/api/app-handler.php');
-check_ledger(str_contains($api,"'time_precision' => \$input['time_precision'] ?? ticket_time_entry_precision(\$entry)"),'Time edits preserve precision');
+check_ledger(str_contains($api,"ticket_time_entry_resolve_update(\$entry, \$input)"),'Time edits preserve precision');
 echo "Time ledger contract passed\n";
 $router=file_get_contents(dirname(__DIR__).'/includes/api/router.php');
 $auth=file_get_contents(dirname(__DIR__).'/includes/auth.php');

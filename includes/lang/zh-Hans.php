@@ -1941,4 +1941,8 @@ return [
     'work.recent.title' => '最近更新',
     'work.recent.empty' => '最近没有更新。',
     'work.scope.team_total' => '整个团队',
+    'settings.api.change_permissions' => '权限',
+    'settings.api.change_permissions_hint' => '更改会立即应用到此密钥。密钥本身保持不变。',
+    'settings.api.save_permissions' => '保存权限',
+    'settings.api.permissions_saved' => 'API 密钥权限已保存。',
 ];

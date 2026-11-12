@@ -1938,4 +1938,8 @@ return [
     'work.recent.title' => 'Zuletzt bearbeitet',
     'work.recent.empty' => 'Zuletzt nichts bearbeitet.',
     'work.scope.team_total' => 'gesamtes Team',
+    'settings.api.change_permissions' => 'Berechtigungen',
+    'settings.api.change_permissions_hint' => 'Änderungen gelten sofort für diesen Schlüssel. Der Schlüssel selbst bleibt gleich.',
+    'settings.api.save_permissions' => 'Berechtigungen speichern',
+    'settings.api.permissions_saved' => 'Berechtigungen des API-Schlüssels gespeichert.',
 ];

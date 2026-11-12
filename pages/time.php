@@ -57,7 +57,7 @@ require BASE_PATH . '/includes/header.php';
 <section class="fd-card ledger-card">
 <header class="agenda-toolbar"><h2><?php echo e(t('Work log')); ?></h2><a class="btn btn-secondary btn-sm" href="<?php echo e($link(['export' => 'csv'])); ?>" download data-no-page-transition>CSV</a></header>
 <div class="ledger-scroll" role="region" tabindex="0" aria-label="<?php echo e(t('Work log')); ?>"><table class="ledger-table"><thead><tr><?php foreach (['Date', 'Ticket', 'Client', 'Agent', 'Billable', 'Time', 'Actions'] as $label): ?><th><?php echo e(t($label)); ?></th><?php endforeach; ?></tr></thead><tbody>
-<?php foreach ($ledger['rows'] as $row): $exact = ticket_time_entry_precision($row) === 'exact'; ?>
+<?php foreach ($ledger['rows'] as $row): $exact = ticket_time_entry_has_clock_times($row); ?>
 <tr><td><?php echo e(format_date($exact ? $row['started_at'] : ($row['worked_on'] ?: $row['started_at']), 'd.m.Y')); ?><small><?php echo $exact ? e(date('H:i', strtotime($row['started_at'])) . ' – ' . date('H:i', strtotime($row['ended_at']))) : '—'; ?></small></td>
 <td><a href="<?php echo e(url('ticket', ['t' => $row['ticket_hash']]) . '#time-entry-' . (int) $row['id']); ?>"><bdi dir="auto"><?php echo e($row['summary'] ?: $row['ticket_title']); ?></bdi><small><?php echo e(get_ticket_code($row['ticket_id'])); ?> · <bdi dir="auto"><?php echo e($row['ticket_title']); ?></bdi></small></a></td>
 <td><bdi dir="auto"><?php echo e($row['client_name'] ?: '—'); ?></bdi></td><td><bdi dir="auto"><?php echo e(trim($row['first_name'] . ' ' . $row['last_name'])); ?></bdi></td><td><?php echo e($row['is_billable'] ? t('Yes') : t('No')); ?></td><td class="ledger-number"><?php echo e(format_duration_minutes((int) $row['duration_minutes'])); ?></td>
@@ -80,7 +80,7 @@ require BASE_PATH . '/includes/header.php';
 <label><input type="checkbox" name="is_billable" checked> <?php echo e(t('Billable')); ?></label>
 <p role="alert" data-time-error hidden></p><button type="submit" class="btn btn-primary"><?php echo e(t('Save changes')); ?></button>
 </form></dialog>
-<script type="application/json" data-time-rows><?php echo json_encode(array_map(static fn($row) => array_intersect_key($row, array_flip(['id','ticket_id','ticket_title','started_at','ended_at','worked_on','time_precision','duration_minutes','summary','is_billable'])), $ledger['rows']), JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT); ?></script>
+<script type="application/json" data-time-rows><?php echo json_encode(array_map(static fn($row) => array_intersect_key($row, array_flip(['id','ticket_id','ticket_title','started_at','ended_at','worked_on','time_precision','has_clock_times','duration_minutes','summary','is_billable'])), $ledger['rows']), JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT); ?></script>
 </div>
 <script defer src="assets/js/time-ledger.js?v=<?php echo e((defined('APP_VERSION') ? APP_VERSION : '1') . '-' . (string) (@filemtime(BASE_PATH . '/assets/js/time-ledger.js') ?: '0')); ?>"></script>
 <?php require BASE_PATH . '/includes/footer.php'; ?>

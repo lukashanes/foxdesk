@@ -26,6 +26,7 @@ async function call(id, method, params = {}) {
     'foxdesk_add_comment',
     'foxdesk_add_work_entry',
     'foxdesk_log_time',
+    'foxdesk_update_work_entry',
     'foxdesk_prepare_report',
   ]) {
     assert(toolNames.includes(name), `Missing tool ${name}`);

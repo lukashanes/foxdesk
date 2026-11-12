@@ -1938,4 +1938,8 @@ return [
     'work.recent.title' => 'Son güncellenenler',
     'work.recent.empty' => 'Yakın zamanda güncellenen yok.',
     'work.scope.team_total' => 'tüm ekip',
+    'settings.api.change_permissions' => 'İzinler',
+    'settings.api.change_permissions_hint' => 'Değişiklikler bu anahtar için hemen geçerli olur. Anahtarın kendisi aynı kalır.',
+    'settings.api.save_permissions' => 'İzinleri kaydet',
+    'settings.api.permissions_saved' => 'API anahtarı izinleri kaydedildi.',
 ];

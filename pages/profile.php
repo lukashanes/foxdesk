@@ -162,6 +162,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('profile');
     }
 
+    if (isset($_POST['update_api_token_scopes']) && function_exists('update_api_token_scopes')) {
+        $token_id = (int) ($_POST['token_id'] ?? 0);
+        $selected_scopes = $_POST['api_token_scopes'] ?? [];
+        $selected_scopes = is_array($selected_scopes) ? array_map('strval', $selected_scopes) : [];
+        $granted = update_api_token_scopes($token_id, $user, $selected_scopes);
+        if ($granted === null) {
+            flash(t('API key not found.'), 'error');
+        } else {
+            if (function_exists('log_security_event')) {
+                log_security_event('api_token_scopes_changed', (int) $user['id'], json_encode([
+                    'token_id' => $token_id,
+                    'scopes' => $granted,
+                ], JSON_UNESCAPED_SLASHES));
+            }
+            flash(t('settings.api.permissions_saved'), 'success');
+        }
+        redirect('profile');
+    }
+
     if (isset($_POST['revoke_api_token']) && function_exists('revoke_api_token')) {
         $token_id = (int) ($_POST['token_id'] ?? 0);
         $token = $token_id > 0 && function_exists('api_tokens_table_exists') && api_tokens_table_exists()
@@ -694,6 +713,31 @@ include BASE_PATH . '/includes/components/page-header.php';
                                     <?php endif; ?>
                                 </td>
                             </tr>
+                            <?php if ($is_active_token && !empty($api_scope_catalog)): ?>
+                                <tr data-api-token-scope-row>
+                                    <td colspan="5" class="pb-3 text-xs text-theme-muted">
+                                        <?php $token_scope_set = array_fill_keys($token_scopes, true); ?>
+                                        <details data-api-token-scope-editor>
+                                            <summary class="btn btn-secondary btn-sm cursor-pointer"><?php echo e(t('settings.api.change_permissions')); ?></summary>
+                                            <form method="post" class="mt-2 p-3 rounded-lg border border-theme-light space-y-1">
+                                                <?php echo csrf_field(); ?>
+                                                <input type="hidden" name="token_id" value="<?php echo (int) $token['id']; ?>">
+                                                <?php foreach ($api_scope_catalog as $scope_key => $scope_label): ?>
+                                                    <label class="flex items-start gap-2 text-xs text-theme-secondary">
+                                                        <input type="checkbox" name="api_token_scopes[]" value="<?php echo e($scope_key); ?>"
+                                                            <?php echo (isset($token_scope_set['*']) || isset($token_scope_set[$scope_key])) ? 'checked' : ''; ?>>
+                                                        <span><code class="font-mono"><?php echo e($scope_key); ?></code> · <?php echo e(t($scope_label)); ?></span>
+                                                    </label>
+                                                <?php endforeach; ?>
+                                                <p class="text-xs text-theme-muted pt-1"><?php echo e(t('settings.api.change_permissions_hint')); ?></p>
+                                                <button type="submit" name="update_api_token_scopes" class="btn btn-primary btn-sm">
+                                                    <?php echo e(t('settings.api.save_permissions')); ?>
+                                                </button>
+                                            </form>
+                                        </details>
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
                         <?php endforeach; ?>
                     </tbody>
                 </table>

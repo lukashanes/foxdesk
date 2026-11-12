@@ -57,6 +57,9 @@ MCP clients, automations, and tracked AI-agent identities.
 - The token inherits the creator's role, organization visibility, and permission
   map.
 - A token cannot request a scope the creator does not have.
+- The owner can change the scopes of an existing key in Profile → API access →
+  Permissions without issuing a new key. Only scopes the owner may grant are
+  stored, and the change is written to the security log.
 - Disabling the user disables the user's tokens.
 - Revoking the token immediately blocks future requests.
 - Self-hosted tokens are instance-bound.
@@ -69,6 +72,10 @@ MCP clients, automations, and tracked AI-agent identities.
 - Create tickets.
 - Add public or internal comments.
 - Add manual time entries to a ticket.
+- Correct a saved time entry with `agent-update-work-entry` (scope
+  `time:write`): start, end, duration, day, precision, billable flag, and
+  summary. It needs an `Idempotency-Key`, uses the same validation as new
+  entries, and records the old and new value in the ticket history.
 - Start, pause, resume, stop, or discard a timer.
 - Attach files when the user can attach files.
 - Prepare report drafts and export/share reports when the user can access
@@ -87,7 +94,26 @@ MCP clients, automations, and tracked AI-agent identities.
 - MCP write actions require `confirm:true` and support `dry_run:true`.
 - Destructive actions need explicit scopes and should support dry-run before
   they are exposed.
-- Tokens have rate limits and last-used metadata.
+- Tokens have rate limits and last-used metadata. The limit is 120 calls per
+  token in a sliding 60-second window (`FOXDESK_API_TOKEN_RATE_LIMIT_PER_MINUTE`).
+  Every response carries `X-RateLimit-Limit` and `X-RateLimit-Remaining`; a
+  `429` also carries `Retry-After` (seconds) and `retry_after_seconds` in the
+  body. Agents wait that long and retry once. Rejected `429` calls are logged
+  for audit but do not count toward the limit, so retries never extend a block.
+  The window is computed with the PHP clock that writes the audit rows, never
+  with MySQL `NOW()`, because the database may run in UTC.
+- Work-log time rules: known start and end times (`started_at`/`ended_at` or
+  `manual_date` + `manual_start_time` + `manual_end_time`) are stored exactly
+  or rejected with `422`; they are never dropped. `exact` and `derived`
+  precision may carry times; `estimated`, `allocated`, and `duration_only` never
+  do. An entry without known times stores `worked_on` and the duration only:
+  `has_clock_times = 0` marks the internal date anchor, and no view, export, or
+  API response shows it as a clock time.
+- The temporal-text check rejects dates, clock times, and durations (a number
+  followed by min/h/hod/hours, which also matches media lengths such as
+  "3 min 8 s") inside titles, descriptions, comments, and time summaries.
+  When such text is part of the work itself, send `allow_temporal_text: true`
+  with a `temporal_text_reason`.
 - Tokens are stored hashed; raw token values are shown only once.
 
 ## Acceptance Criteria

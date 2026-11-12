@@ -1941,4 +1941,8 @@ return [
     'work.recent.title' => '最近更新',
     'work.recent.empty' => '最近の更新はありません。',
     'work.scope.team_total' => 'チーム全体',
+    'settings.api.change_permissions' => '権限',
+    'settings.api.change_permissions_hint' => '変更はこのキーにすぐ反映されます。キー自体は変わりません。',
+    'settings.api.save_permissions' => '権限を保存',
+    'settings.api.permissions_saved' => 'APIキーの権限を保存しました。',
 ];

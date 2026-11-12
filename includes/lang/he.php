@@ -1947,4 +1947,8 @@ return [
     'work.recent.title' => 'עודכנו לאחרונה',
     'work.recent.empty' => 'לא עודכן דבר לאחרונה.',
     'work.scope.team_total' => 'כל הצוות',
+    'settings.api.change_permissions' => 'הרשאות',
+    'settings.api.change_permissions_hint' => 'השינויים חלים על המפתח הזה מיד. המפתח עצמו נשאר זהה.',
+    'settings.api.save_permissions' => 'שמירת הרשאות',
+    'settings.api.permissions_saved' => 'הרשאות מפתח ה-API נשמרו.',
 ];
