@@ -1546,7 +1546,7 @@ require_once BASE_PATH . '/includes/header.php';
                                 <?php
                                 $comment_anchor = !empty($attachment['comment_id']) ? ('#comment-' . $attachment['comment_id']) : '';
                                 $uploader_name = trim(($attachment['first_name'] ?? '') . ' ' . ($attachment['last_name'] ?? ''));
-                                $_att_url = e(upload_url(UPLOAD_DIR . $attachment['filename']));
+                                $_att_url = e(attachment_download_url($attachment));
                                 $_is_img = is_image_mime($attachment['mime_type'] ?? '');
                                 ?>
                                 <div class="flex items-start gap-2 p-1.5 rounded group tr-hover">

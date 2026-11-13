@@ -124,7 +124,7 @@ $expires_label = !empty($share['expires_at']) ? format_date($share['expires_at']
                     <h4 class="text-sm font-medium text-gray-700 mb-2"><?php echo e(t('Attachments')); ?></h4>
                     <div class="flex flex-wrap gap-2">
                         <?php foreach ($initial_attachments as $attachment): ?>
-                            <?php $_share_url = e(upload_url(UPLOAD_DIR . $attachment['filename'])); ?>
+                            <?php $_share_url = e(attachment_download_url($attachment, $token)); ?>
                             <?php if (is_image_mime($attachment['mime_type'] ?? '')): ?>
                                 <a href="<?php echo $_share_url; ?>" target="_blank"
                                    class="block rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition"
@@ -189,7 +189,7 @@ $expires_label = !empty($share['expires_at']) ? format_date($share['expires_at']
                                     <?php if (!empty($comment_attachments)): ?>
                                         <div class="mt-3 flex flex-wrap gap-2">
                                             <?php foreach ($comment_attachments as $attachment): ?>
-                                                <?php $_share_c_url = e(upload_url(UPLOAD_DIR . $attachment['filename'])); ?>
+                                                <?php $_share_c_url = e(attachment_download_url($attachment, $token)); ?>
                                                 <?php if (is_image_mime($attachment['mime_type'] ?? '')): ?>
                                                     <a href="<?php echo $_share_c_url; ?>" target="_blank"
                                                        class="block rounded overflow-hidden border border-gray-200 hover:shadow-sm transition"

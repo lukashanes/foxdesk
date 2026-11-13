@@ -32,7 +32,7 @@ foreach ($component_attachments as $_att) {
 <?php if (!empty($_images)): ?>
 <div class="<?php echo $_layout === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 gap-2' : 'flex flex-wrap gap-2'; ?> mt-2">
     <?php foreach ($_images as $_img): ?>
-        <?php $_src = upload_url(UPLOAD_DIR . $_img['filename']); ?>
+        <?php $_src = attachment_download_url($_img); ?>
         <a href="<?php echo e($_src); ?>" target="_blank"
            class="attachment-thumb group relative block rounded-lg overflow-hidden border hover:shadow-md transition"
            style="border-color: var(--border-light);"
@@ -54,7 +54,7 @@ foreach ($component_attachments as $_att) {
 <?php if (!empty($_files)): ?>
 <div class="flex flex-wrap gap-2 <?php echo !empty($_images) ? 'mt-2' : 'mt-2'; ?>">
     <?php foreach ($_files as $_f): ?>
-        <a href="<?php echo e(upload_url(UPLOAD_DIR . $_f['filename'])); ?>" target="_blank"
+        <a href="<?php echo e(attachment_download_url($_f)); ?>" target="_blank"
            class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition hover:shadow-sm"
            style="background: var(--surface-secondary); color: var(--text-secondary); border: 1px solid var(--border-light);">
             <?php echo get_icon(get_file_icon($_f['mime_type']), 'w-3.5 h-3.5 flex-shrink-0'); ?>

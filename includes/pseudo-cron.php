@@ -64,10 +64,18 @@ function pseudo_cron_trigger()
     }
 
     // Build URL to cron endpoint
-    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $script_path = dirname($_SERVER['SCRIPT_NAME'] ?? '/index.php');
-    $url = $protocol . '://' . $host . rtrim($script_path, '/') . '/index.php?page=cron&token=' . urlencode($secret);
+    $base_url = function_exists('foxdesk_get_request_base_url')
+        ? foxdesk_get_request_base_url($_SERVER['SCRIPT_NAME'] ?? '/index.php')
+        : null;
+
+    if ($base_url === null || $base_url === '') {
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $script_path = dirname($_SERVER['SCRIPT_NAME'] ?? '/index.php');
+        $base_url = $protocol . '://' . $host . rtrim($script_path, '/');
+    }
+
+    $url = rtrim($base_url, '/') . '/index.php?page=cron&token=' . urlencode($secret);
 
     $parts = parse_url($url);
     if (!$parts || empty($parts['host'])) {

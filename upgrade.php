@@ -12,18 +12,25 @@
  * Delete this file after use on shared hosting.
  */
 
-session_start();
+define('BASE_PATH', __DIR__);
+define('SESSION_LIFETIME', 2592000);
 
 ini_set('default_charset', 'UTF-8');
 header('Content-Type: text/html; charset=UTF-8');
 
 // Check if installed
-if (!file_exists('config.php')) {
+if (!file_exists(BASE_PATH . '/config.php')) {
     die('The app is not installed. Run install.php');
 }
 
-require_once 'config.php';
-require_once 'includes/database.php';
+error_reporting(E_ALL);
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+
+require_once BASE_PATH . '/config.php';
+require_once BASE_PATH . '/includes/database.php';
+require_once BASE_PATH . '/includes/session-bootstrap.php';
+foxdesk_bootstrap_session();
 
 // ── Access control ──────────────────────────────────────────────────────────
 // CLI always allowed; logged-in admins always allowed; anonymous web needs token.
@@ -66,6 +73,26 @@ function add_index_if_missing($table, $index_name, $sql)
         }
     } catch (Exception $e) {
         $messages[] = "ERROR: Failed to add index $index_name on $table: " . $e->getMessage();
+    }
+}
+
+// Create persistent sessions table
+$check = db_fetch_one("SHOW TABLES LIKE 'app_sessions'");
+if (!$check) {
+    try {
+        db_query("
+            CREATE TABLE app_sessions (
+                id VARCHAR(128) NOT NULL PRIMARY KEY,
+                session_data MEDIUMBLOB NOT NULL,
+                last_activity INT UNSIGNED NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_last_activity (last_activity)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $messages[] = "OK: Created table `app_sessions`";
+    } catch (Exception $e) {
+        $messages[] = "ERROR: Failed to create table app_sessions: " . $e->getMessage();
     }
 }
 
@@ -1210,4 +1237,3 @@ if (empty($messages)) {
 </body>
 
 </html>
-

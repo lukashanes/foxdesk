@@ -6,35 +6,46 @@
  * Works on any PHP hosting (PHP 8.1+)
  */
 
+// Define base path early so session storage can live inside the app directory.
+define('BASE_PATH', __DIR__);
+
 // Constants (must be defined before session init)
 define('SESSION_LIFETIME', 2592000); // 30 days
 define('REMEMBER_ME_DURATION', 30 * 86400); // 30 days
 
-// Start session (hardened settings)
-$is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-ini_set('session.use_strict_mode', '1');
-ini_set('session.cookie_httponly', '1');
-ini_set('session.cookie_samesite', 'Lax');
-ini_set('session.gc_maxlifetime', (string) SESSION_LIFETIME);
-if ($is_https) {
-    ini_set('session.cookie_secure', '1');
+require_once BASE_PATH . '/includes/session-bootstrap.php';
+
+define('APP_VERSION', '0.3.100');
+
+// Check if installed
+if (!file_exists(BASE_PATH . '/config.php')) {
+    header('Location: install.php');
+    exit;
 }
-session_set_cookie_params([
-    'lifetime' => SESSION_LIFETIME,
-    'path' => '/',
-    'secure' => $is_https,
-    'httponly' => true,
-    'samesite' => 'Lax'
-]);
-session_start();
+
+// Prevent config warnings from breaking session headers during bootstrap.
+error_reporting(E_ALL);
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+
+// Load configuration
+require_once BASE_PATH . '/config.php';
+
+// Error reporting (debug on localhost or when APP_DEBUG is set)
+$debug = defined('APP_DEBUG') ? APP_DEBUG : (
+    strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false ||
+    ($_SERVER['HTTP_HOST'] ?? '') === '127.0.0.1'
+);
+error_reporting(E_ALL);
+ini_set('display_errors', $debug ? '1' : '0');
+ini_set('log_errors', '1');
+
+require_once BASE_PATH . '/includes/database.php';
+foxdesk_bootstrap_session();
 
 // Force UTF-8 for all HTML responses to prevent mojibake in translations.
 ini_set('default_charset', 'UTF-8');
 header('Content-Type: text/html; charset=UTF-8');
-
-// Define base path
-define('BASE_PATH', __DIR__);
-define('APP_VERSION', '0.3.99');
 
 // Maintenance mode – shown during update/rollback operations.
 // The .maintenance file is created by apply_update()/rollback_update()
@@ -68,15 +79,6 @@ if (file_exists($maintenance_file)) {
     }
 }
 
-// Check if installed
-if (!file_exists(BASE_PATH . '/config.php')) {
-    header('Location: install.php');
-    exit;
-}
-
-// Load configuration
-require_once BASE_PATH . '/config.php';
-
 // If a docker placeholder DB host is present on non-docker hosting, reopen installer.
 if (defined('DB_HOST')) {
     $configured_db_host = strtolower(trim((string) DB_HOST));
@@ -89,15 +91,6 @@ if (defined('DB_HOST')) {
     }
 }
 
-// Error reporting (debug on localhost or when APP_DEBUG is set)
-$debug = defined('APP_DEBUG') ? APP_DEBUG : (
-    strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false ||
-    ($_SERVER['HTTP_HOST'] ?? '') === '127.0.0.1'
-);
-error_reporting(E_ALL);
-ini_set('display_errors', $debug ? '1' : '0');
-ini_set('log_errors', '1');
-require_once BASE_PATH . '/includes/database.php';
 require_once BASE_PATH . '/includes/functions.php';
 require_once BASE_PATH . '/includes/auth.php';
 send_security_headers();
@@ -482,4 +475,3 @@ switch ($page) {
     default:
         require_once BASE_PATH . '/pages/dashboard.php';
 }
-

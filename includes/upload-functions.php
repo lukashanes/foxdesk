@@ -9,9 +9,32 @@
  * Get ticket attachments
  */
 function get_ticket_attachments($ticket_id) {
-    return db_fetch_all("SELECT a.*, u.first_name, u.last_name
+    static $has_ticket_message_attachments = null;
+    if ($has_ticket_message_attachments === null) {
+        try {
+            $has_ticket_message_attachments = (bool) db_fetch_one("SHOW TABLES LIKE 'ticket_message_attachments'");
+        } catch (Throwable $e) {
+            $has_ticket_message_attachments = false;
+        }
+    }
+
+    $storage_select = "NULL AS storage_path";
+    $storage_join = "";
+
+    if ($has_ticket_message_attachments) {
+        $storage_select = "tma.storage_path";
+        $storage_join = "LEFT JOIN (
+                             SELECT attachment_id, MAX(storage_path) AS storage_path
+                             FROM ticket_message_attachments
+                             WHERE attachment_id IS NOT NULL
+                             GROUP BY attachment_id
+                         ) tma ON tma.attachment_id = a.id";
+    }
+
+    return db_fetch_all("SELECT a.*, u.first_name, u.last_name, {$storage_select}
                          FROM attachments a
                          LEFT JOIN users u ON a.uploaded_by = u.id
+                         {$storage_join}
                          WHERE a.ticket_id = ?
                          ORDER BY a.created_at ASC", [$ticket_id]);
 }
@@ -119,5 +142,155 @@ function get_attachment($id) {
     return db_fetch_one("SELECT * FROM attachments WHERE id = ?", [$id]);
 }
 
+/**
+ * Resolve an attachment row from its relative storage path.
+ */
+function find_attachment_by_relative_path($relative_path)
+{
+    static $has_ticket_message_attachments = null;
 
+    $relative_path = ltrim(str_replace('\\', '/', trim((string) $relative_path)), '/');
+    if ($relative_path === '') {
+        return null;
+    }
 
+    if ($has_ticket_message_attachments === null) {
+        try {
+            $has_ticket_message_attachments = (bool) db_fetch_one("SHOW TABLES LIKE 'ticket_message_attachments'");
+        } catch (Throwable $e) {
+            $has_ticket_message_attachments = false;
+        }
+    }
+
+    $upload_dir = trim((defined('UPLOAD_DIR') ? UPLOAD_DIR : 'uploads/'), '/\\');
+    if (
+        $upload_dir !== ''
+        && ($relative_path === $upload_dir || str_starts_with($relative_path, $upload_dir . '/'))
+    ) {
+        $filename = basename($relative_path);
+        return db_fetch_one(
+            "SELECT a.*, c.is_internal AS comment_is_internal
+             FROM attachments a
+             LEFT JOIN comments c ON c.id = a.comment_id
+             WHERE a.filename = ?
+             LIMIT 1",
+            [$filename]
+        );
+    }
+
+    if (!$has_ticket_message_attachments) {
+        return null;
+    }
+
+    return db_fetch_one(
+        "SELECT a.*, c.is_internal AS comment_is_internal, tma.storage_path
+         FROM ticket_message_attachments tma
+         LEFT JOIN attachments a ON a.id = tma.attachment_id
+         LEFT JOIN comments c ON c.id = a.comment_id
+         WHERE tma.storage_path = ?
+         ORDER BY tma.id DESC
+         LIMIT 1",
+        [$relative_path]
+    );
+}
+
+/**
+ * Check whether the current logged-in user can access an attachment.
+ */
+function attachment_user_can_access($attachment, $user = null)
+{
+    if (empty($attachment['ticket_id'])) {
+        return false;
+    }
+
+    if ($user === null) {
+        $user = current_user();
+    }
+
+    if (!$user) {
+        return false;
+    }
+
+    $ticket = get_ticket((int) $attachment['ticket_id']);
+    if (!$ticket || !can_see_ticket($ticket, $user)) {
+        return false;
+    }
+
+    if (!empty($attachment['comment_id']) && !empty($attachment['comment_is_internal']) && !is_agent()) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * Check whether a public share token can access an attachment.
+ */
+function attachment_share_token_can_access($attachment, $share_token)
+{
+    if (empty($attachment['ticket_id']) || trim((string) $share_token) === '') {
+        return false;
+    }
+
+    $share = get_ticket_share_by_token(trim((string) $share_token));
+    if (!$share || !is_ticket_share_active($share)) {
+        return false;
+    }
+
+    if ((int) $share['ticket_id'] !== (int) $attachment['ticket_id']) {
+        return false;
+    }
+
+    if (!empty($attachment['comment_id']) && !empty($attachment['comment_is_internal'])) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * Resolve attachment storage path relative to BASE_PATH.
+ */
+function attachment_storage_relative_path($attachment) {
+    $storage_path = trim((string)($attachment['storage_path'] ?? ''));
+    if ($storage_path !== '') {
+        return ltrim(str_replace('\\', '/', $storage_path), '/');
+    }
+
+    $filename = basename((string)($attachment['filename'] ?? ''));
+    if ($filename === '') {
+        return '';
+    }
+
+    $upload_dir = trim((defined('UPLOAD_DIR') ? UPLOAD_DIR : 'uploads/'), '/\\');
+    return $upload_dir . '/' . $filename;
+}
+
+/**
+ * Resolve absolute attachment file path on disk.
+ */
+function attachment_absolute_path($attachment) {
+    $relative_path = attachment_storage_relative_path($attachment);
+    if ($relative_path === '') {
+        return '';
+    }
+
+    return BASE_PATH . '/' . $relative_path;
+}
+
+/**
+ * Generate URL for serving an attachment file.
+ */
+function attachment_download_url($attachment, $share_token = null) {
+    $relative_path = attachment_storage_relative_path($attachment);
+    if ($relative_path === '') {
+        return '';
+    }
+
+    $url = 'attachment.php?f=' . rawurlencode($relative_path);
+    if (!empty($share_token)) {
+        $url .= '&share_token=' . rawurlencode((string) $share_token);
+    }
+
+    return $url;
+}

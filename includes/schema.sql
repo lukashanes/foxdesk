@@ -545,3 +545,13 @@ CREATE TABLE IF NOT EXISTS notifications (
     INDEX idx_ticket (ticket_id),
     INDEX idx_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Persistent application sessions
+CREATE TABLE IF NOT EXISTS app_sessions (
+    id VARCHAR(128) NOT NULL PRIMARY KEY,
+    session_data MEDIUMBLOB NOT NULL,
+    last_activity INT UNSIGNED NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_last_activity (last_activity)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -438,6 +438,10 @@ function get_base_url()
         return rtrim(APP_URL, '/');
     }
 
+    if (function_exists('foxdesk_get_request_base_url')) {
+        return foxdesk_get_request_base_url($_SERVER['SCRIPT_NAME'] ?? '');
+    }
+
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
     $path = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');

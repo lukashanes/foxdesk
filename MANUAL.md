@@ -1,6 +1,6 @@
 # FoxDesk — User Manual
 
-> **Version 0.3.74** | Self-hosted PHP helpdesk & time-tracking platform
+> **Version 0.3.100** | Self-hosted PHP helpdesk & time-tracking platform
 
 ---
 
@@ -139,6 +139,14 @@ On the ticket list page, select multiple tickets and apply:
 - Change priority
 - Assign to agent
 
+### Ticket List Power Tools
+
+The list view also supports fast inline work without opening the ticket detail:
+- Click the **subject** to rename a ticket inline
+- Update **type, status, priority, due date, company, and assignee** directly from the row
+- Use the **Quick Add** button in the header to open a compact inline create row
+- Optionally log time in minutes while creating a ticket from the Quick Add row
+
 ### Ticket Sharing
 
 Share a ticket with anyone via a secure public link:
@@ -153,11 +161,12 @@ Recipients can view the ticket (public comments only) without logging in. Revoke
 
 The ticket list supports filtering by:
 - Status, priority, type
-- Assignee, organization
+- Assignee, organization, creator/user search
 - Tags (multi-select)
-- Due date range
+- Created date and due date
 - Search by subject/description (full-text)
 - Show/hide archived tickets
+- List or Kanban board view with saved preference
 
 ---
 
@@ -239,6 +248,7 @@ Each user can configure in their profile:
 - **Email notifications** — Receive email for each event
 - **In-app notifications** — Show in the notification center
 - **Sound** — Play a sound on new notifications
+- **Browser push** — Receive notifications even when the tab is closed (supported browsers)
 
 ---
 
@@ -379,7 +389,13 @@ Authorization: Bearer your-api-token
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| GET | `?page=api&action=agent-me` | Return token identity and linked AI agent |
+| GET | `?page=api&action=agent-list-statuses` | List all ticket statuses |
+| GET | `?page=api&action=agent-list-priorities` | List all priorities |
+| GET | `?page=api&action=agent-list-users` | List users (optionally filtered to agents) |
 | POST | `?page=api&action=agent-create-ticket` | Create a new ticket |
+| GET | `?page=api&action=agent-get-ticket` | Fetch full ticket detail |
+| POST | `?page=api&action=agent-update-status` | Change ticket status |
 | POST | `?page=api&action=agent-add-comment` | Add a comment to a ticket |
 | POST | `?page=api&action=agent-log-time` | Log a time entry |
 | GET | `?page=api&action=agent-list-tickets` | List and filter tickets |
@@ -455,6 +471,7 @@ Control who can create tickets via email:
 
 - **Remember Me** — Persistent login cookie for returning users
 - **Password Reset** — Self-service via email token
+- **TOTP 2FA** — Authenticator app setup with backup codes
 - **Session Security** — HttpOnly, SameSite, Secure cookie flags
 - **Login Throttling** — Protection against brute force
 
@@ -482,6 +499,12 @@ Control who can create tickets via email:
 - SMTP configuration (host, port, encryption, credentials)
 - From name and email
 - Test SMTP connection
+
+### Security
+
+- Role-based 2FA enforcement
+- Allowed senders management for inbound email
+- Security impact hints for sensitive settings
 
 ### Updates
 
@@ -549,7 +572,7 @@ FoxDesk checks for updates from foxdesk.org (primary) and GitHub releases (fallb
 3. Review changelog
 4. Click **Update Now**
 5. FoxDesk creates a backup, downloads the update, applies it
-6. Verify the update in the dashboard
+6. Review the post-update health check in Admin > Settings
 
 ### Manual Update
 
@@ -568,7 +591,7 @@ If auto-update fails or your server can't reach the internet:
 
 ### Maintenance Mode
 
-During updates, FoxDesk enables maintenance mode. Only admins can access the system. Maintenance mode auto-expires after 10 minutes as a safety net.
+During updates, FoxDesk enables maintenance mode. The admin session performing the update can continue; other users see a temporary maintenance screen. Maintenance mode auto-expires after 10 minutes as a safety net.
 
 ---
 
@@ -605,10 +628,12 @@ FoxDesk includes keyboard shortcuts for common actions. View the full shortcut l
 
 - **CSRF tokens** on all forms
 - **Password hashing** with bcrypt
+- **TOTP 2FA** with backup codes and optional per-role enforcement
 - **Session hardening** (HttpOnly, SameSite, Secure flags)
 - **SQL injection prevention** (parameterized queries)
 - **XSS prevention** (HTML escaping)
 - **File upload validation** (type and size checks)
+- **API token safeguards** with prefix-based storage and revocation
 
 ### Audit Logging
 

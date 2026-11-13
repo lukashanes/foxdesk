@@ -3,6 +3,7 @@
 Open-source helpdesk and ticketing system built with PHP, Tailwind CSS, and Alpine.js.
 
 **Website:** [foxdesk.org](https://foxdesk.org)
+**Current Version:** `0.3.100` (`2026-04-20`)
 
 ---
 
@@ -14,6 +15,8 @@ Open-source helpdesk and ticketing system built with PHP, Tailwind CSS, and Alpi
 - Tags, due dates, and organization assignment
 - Internal notes (agent-only) and public comments
 - Public ticket sharing via secure links with expiration
+- Inline ticket-list editing for subject, type, status, priority, due date, company, and assignee
+- Compact Quick Add row for creating tickets directly from the list
 - Bulk actions (status, priority, assignment)
 - Advanced filtering and full-text search
 - Edit history tracking on all fields
@@ -34,6 +37,7 @@ Open-source helpdesk and ticketing system built with PHP, Tailwind CSS, and Alpi
 - Header dropdown with real-time badge count
 - Dashboard notification widget
 - Email notifications for ticket events
+- Browser push notifications with one-click opt-in
 - Per-user notification preferences (email, in-app, sound)
 
 **Reporting & Analytics**
@@ -47,10 +51,11 @@ Open-source helpdesk and ticketing system built with PHP, Tailwind CSS, and Alpi
 - REST API for AI automation
 - Agent Connect page with system prompt generator
 - Bearer token authentication with usage tracking
-- Endpoints: create tickets, add comments, log time, list tickets
+- Endpoints for ticket creation, lookup, status updates, comments, time logs, and metadata lists
 
 **Email Integration**
 - IMAP email-to-ticket ingest with sender whitelist
+- Inbound email attachments linked directly to ticket threads
 - SMTP notifications with customizable templates
 - CC/BCC recipients on ticket replies
 
@@ -81,6 +86,13 @@ Open-source helpdesk and ticketing system built with PHP, Tailwind CSS, and Alpi
 - Automatic backup before each update
 - Manual ZIP upload for offline environments
 - Dual-source checking (foxdesk.org + GitHub)
+
+**Security & Ops**
+- TOTP 2FA with backup codes and optional per-role enforcement
+- Attachment downloads respect ticket access and public share permissions
+- Database-backed sessions survive app or container restarts
+- Public health check endpoint for uptime monitoring
+- Post-update health checks and automatic maintenance recovery
 
 **More**
 - Dark mode with CSS variable theming
@@ -172,7 +184,13 @@ FoxDesk also includes a **pseudo-cron** system that runs tasks on page load, so 
 FoxDesk includes a REST API for automation and AI agent integrations.
 
 **Endpoints:**
+- `GET agent-me` — Current token identity
+- `GET agent-list-statuses` — List ticket statuses
+- `GET agent-list-priorities` — List priority levels
+- `GET agent-list-users` — List users / agents
 - `POST agent-create-ticket` — Create tickets
+- `GET agent-get-ticket` — Fetch full ticket detail
+- `POST agent-update-status` — Change ticket status
 - `POST agent-add-comment` — Add comments
 - `POST agent-log-time` — Log time entries
 - `GET agent-list-tickets` — List and filter tickets

@@ -10,6 +10,10 @@
  */
 function get_app_url()
 {
+    if (function_exists('get_base_url')) {
+        return get_base_url();
+    }
+
     if (defined('APP_URL') && !empty(APP_URL)) {
         return rtrim(APP_URL, '/');
     }
@@ -1274,4 +1278,3 @@ function send_long_timer_alert($user, $time_entry, $ticket)
 
     return send_email($user['email'], $subject, $body, false);
 }
-
