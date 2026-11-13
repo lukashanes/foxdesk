@@ -685,6 +685,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('ticket', ['id' => $ticket_id]);
     }
 
+    // Update ticket billing rate directly from the sidebar
+    if (isset($_POST['update_ticket_billing_rate']) && is_admin()) {
+        $new_rate = function_exists('parse_optional_rate_value')
+            ? parse_optional_rate_value($_POST['custom_billable_rate'] ?? null)
+            : null;
+
+        if (update_ticket_with_history($ticket_id, ['custom_billable_rate' => $new_rate], $user['id'])) {
+            if (function_exists('sync_ticket_time_entry_billable_rates')) {
+                sync_ticket_time_entry_billable_rates($ticket_id);
+            }
+            log_activity($ticket_id, $user['id'], 'ticket_edited', 'Ticket billing rate updated');
+            flash(t('Ticket updated.'), 'success');
+        } else {
+            flash(t('Failed to update ticket.'), 'error');
+        }
+
+        redirect('ticket', ['id' => $ticket_id]);
+    }
+
     // Archive ticket
     if (isset($_POST['archive_ticket']) && (is_admin() || (is_agent() && can_archive_tickets()))) {
         db_update('tickets', ['is_archived' => 1], 'id = ?', [$ticket_id]);

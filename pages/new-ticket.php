@@ -63,7 +63,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $assignee_id = (is_admin() || is_agent()) && !empty($_POST['assignee_id']) ? (int) $_POST['assignee_id'] : null;
         $on_behalf_of = (is_admin() || is_agent()) && !empty($_POST['on_behalf_of']) ? (int) $_POST['on_behalf_of'] : null;
         $status_id = (is_admin() || is_agent()) && !empty($_POST['status_id']) ? (int) $_POST['status_id'] : null;
-        // Manual time entry (start/end times)
+        // Manual time entry (quick minutes or exact start/end range)
+        $manual_duration_input = trim((string) ($_POST['manual_duration_minutes'] ?? ''));
+        $manual_duration_minutes = $manual_duration_input !== '' ? (int) $manual_duration_input : 0;
         $manual_date = trim($_POST['manual_date'] ?? '');
         $manual_start_time = trim($_POST['manual_start_time'] ?? '');
         $manual_end_time = trim($_POST['manual_end_time'] ?? '');
@@ -90,6 +92,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = t('Enter a subject.');
         } elseif ($organization_id !== null && $organization_id > 0 && !in_array($organization_id, $allowed_organization_ids, true)) {
             $error = t('Selected organization is not available.');
+        } elseif (
+            is_agent()
+            && function_exists('ticket_time_table_exists')
+            && ticket_time_table_exists()
+            && $manual_duration_input !== ''
+            && ($manual_duration_minutes < 1 || $manual_duration_minutes > 1440)
+        ) {
+            $error = t('Duration must be between 1 and 1440 minutes.');
         } else {
             $upload_errors = [];
             $create_data = [
@@ -138,6 +148,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $manual_time_logged = true;
                         }
                     }
+                }
+
+                if (!$manual_time_logged && $manual_duration_input !== '' && $manual_duration_minutes > 0 && function_exists('add_manual_time_entry')) {
+                    $end_dt = new DateTime();
+                    $start_dt = (clone $end_dt)->modify('-' . $manual_duration_minutes . ' minutes');
+                    add_manual_time_entry($ticket_id, $user['id'], [
+                        'started_at' => $start_dt->format('Y-m-d H:i:s'),
+                        'ended_at' => $end_dt->format('Y-m-d H:i:s'),
+                        'duration_minutes' => $manual_duration_minutes,
+                        'summary' => t('Ticket creation'),
+                        'is_billable' => 1,
+                    ]);
+                    $manual_time_logged = true;
                 }
 
                 if (!$manual_time_logged && $timer_elapsed > 0) {
@@ -491,18 +514,43 @@ include BASE_PATH . '/includes/components/page-header.php';
         <?php if (is_agent() && function_exists('ticket_time_table_exists') && ticket_time_table_exists()): ?>
         <!-- Manual Time Entry (hidden by default) -->
         <div id="nt-manual-entry-row" class="hidden mt-3 pt-3 border-t" style="border-color: var(--border-light);">
-            <div class="grid grid-cols-3 gap-2">
+            <div class="space-y-3">
                 <div>
-                    <label class="form-label-sm mb-1"><?php echo e(t('Date')); ?></label>
-                    <input type="date" name="manual_date" value="<?php echo e(date('Y-m-d')); ?>" class="form-input text-sm h-9">
+                    <label class="form-label-sm mb-1"><?php echo e(t('Time (min)')); ?></label>
+                    <input
+                        type="number"
+                        name="manual_duration_minutes"
+                        id="nt-manual-duration-minutes"
+                        min="1"
+                        max="1440"
+                        step="1"
+                        placeholder="15"
+                        value="<?php echo e($_POST['manual_duration_minutes'] ?? ''); ?>"
+                        class="form-input text-sm h-9 max-w-xs">
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        <button type="button" class="nt-manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="5">+5</button>
+                        <button type="button" class="nt-manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="10">+10</button>
+                        <button type="button" class="nt-manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="15">+15</button>
+                        <button type="button" class="nt-manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="30">+30</button>
+                        <button type="button" class="nt-manual-duration-chip btn btn-ghost px-2 py-1 text-xs" data-minutes="60">+60</button>
+                    </div>
+                    <p class="mt-2 text-xs" style="color: var(--text-muted);">
+                        <?php echo e(t('Leave Start and End empty to log quick minutes ending now. If both are filled, the exact range is used instead.')); ?>
+                    </p>
                 </div>
-                <div>
-                    <label class="form-label-sm mb-1"><?php echo e(t('Start')); ?></label>
-                    <input type="time" name="manual_start_time" class="form-input text-sm h-9">
-                </div>
-                <div>
-                    <label class="form-label-sm mb-1"><?php echo e(t('End')); ?></label>
-                    <input type="time" name="manual_end_time" class="form-input text-sm h-9">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <div>
+                        <label class="form-label-sm mb-1"><?php echo e(t('Date')); ?></label>
+                        <input type="date" name="manual_date" value="<?php echo e($_POST['manual_date'] ?? date('Y-m-d')); ?>" class="form-input text-sm h-9">
+                    </div>
+                    <div>
+                        <label class="form-label-sm mb-1"><?php echo e(t('Start')); ?></label>
+                        <input type="time" name="manual_start_time" value="<?php echo e($_POST['manual_start_time'] ?? ''); ?>" class="form-input text-sm h-9">
+                    </div>
+                    <div>
+                        <label class="form-label-sm mb-1"><?php echo e(t('End')); ?></label>
+                        <input type="time" name="manual_end_time" value="<?php echo e($_POST['manual_end_time'] ?? ''); ?>" class="form-input text-sm h-9">
+                    </div>
                 </div>
             </div>
         </div>
@@ -1150,10 +1198,66 @@ include BASE_PATH . '/includes/components/page-header.php';
 (function() {
     var toggle = document.getElementById('nt-manual-toggle');
     var row = document.getElementById('nt-manual-entry-row');
+    var durationInput = document.getElementById('nt-manual-duration-minutes');
+    var durationButtons = document.querySelectorAll('.nt-manual-duration-chip');
+    var dateInput = document.querySelector('input[name="manual_date"]');
+    var startInput = document.querySelector('input[name="manual_start_time"]');
+    var endInput = document.querySelector('input[name="manual_end_time"]');
     if (!toggle || !row) return;
+
+    function setManualVisible(visible) {
+        row.classList.toggle('hidden', !visible);
+        toggle.style.color = visible ? 'var(--accent-primary)' : 'var(--text-muted)';
+    }
+
+    function activateQuickMinutes(minutes) {
+        if (!durationInput) return;
+        durationInput.value = minutes;
+        if (startInput) startInput.value = '';
+        if (endInput) endInput.value = '';
+        setManualVisible(true);
+        durationInput.focus();
+    }
+
+    if (
+        (durationInput && durationInput.value !== '') ||
+        (startInput && startInput.value !== '') ||
+        (endInput && endInput.value !== '')
+    ) {
+        setManualVisible(true);
+    }
+
     toggle.addEventListener('click', function() {
-        var hidden = row.classList.toggle('hidden');
-        toggle.style.color = hidden ? 'var(--text-muted)' : 'var(--accent-primary)';
+        setManualVisible(row.classList.contains('hidden'));
+    });
+
+    if (durationInput) {
+        durationInput.addEventListener('input', function() {
+            if (this.value !== '') {
+                if (startInput) startInput.value = '';
+                if (endInput) endInput.value = '';
+                if (dateInput && dateInput.value === '') {
+                    dateInput.value = '<?php echo e(date('Y-m-d')); ?>';
+                }
+                setManualVisible(true);
+            }
+        });
+    }
+
+    durationButtons.forEach(function(button) {
+        button.addEventListener('click', function() {
+            activateQuickMinutes(this.dataset.minutes);
+        });
+    });
+
+    [startInput, endInput].forEach(function(input) {
+        if (!input) return;
+        input.addEventListener('input', function() {
+            if (durationInput && this.value !== '') {
+                durationInput.value = '';
+            }
+            setManualVisible(true);
+        });
     });
 })();
 </script>

@@ -1579,6 +1579,14 @@ require_once BASE_PATH . '/includes/header.php';
                                 </div>
                         <?php endif; ?>
                 <?php endif; ?>
+                <?php if (is_admin()): ?>
+                        <div class="flex justify-between items-center">
+                            <dt class="text-xs" style="color: var(--text-muted);"><?php echo e(t('Billable rate')); ?></dt>
+                            <dd class="text-xs font-medium" style="color: var(--text-primary);">
+                                <?php echo format_money($ticket_effective_billable_rate); ?>
+                            </dd>
+                        </div>
+                <?php endif; ?>
             </dl>
         </div>
 
@@ -1705,11 +1713,35 @@ require_once BASE_PATH . '/includes/header.php';
                                         <option value=""><?php echo e(t('-- None --')); ?></option>
                                         <?php foreach ($companies as $company): ?>
                                                 <option value="<?php echo $company['id']; ?>" <?php echo ($ticket['organization_id'] ?? 0) == $company['id'] ? 'selected' : ''; ?>>
-                                                    <?php echo e($company['name']); ?>
+                                            <?php echo e($company['name']); ?>
                                                 </option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
+
+                                <?php if (is_admin()): ?>
+                                        <div>
+                                            <label class="form-label-sm mb-0.5">
+                                                <?php echo e(t('Custom billable rate (per hour)')); ?>
+                                            </label>
+                                            <form method="post" class="space-y-2">
+                                                <?php echo csrf_field(); ?>
+                                                <input type="number"
+                                                    name="custom_billable_rate"
+                                                    step="0.01"
+                                                    min="0"
+                                                    class="form-input text-sm py-1.5 w-full"
+                                                    value="<?php echo e($ticket_custom_billable_rate !== null ? number_format((float) $ticket_custom_billable_rate, 2, '.', '') : ''); ?>"
+                                                    placeholder="<?php echo e(t('Leave empty to use the company default')); ?>">
+                                                <p class="text-xs" style="color: var(--text-muted);">
+                                                    <?php echo e(t('Company default rate: {rate}', ['rate' => format_money($org_billable_rate)])); ?>
+                                                </p>
+                                                <button type="submit" name="update_ticket_billing_rate" class="btn btn-primary btn-xs w-full justify-center">
+                                                    <?php echo e(t('Save')); ?>
+                                                </button>
+                                            </form>
+                                        </div>
+                                <?php endif; ?>
                             </div>
 
                             <!-- Additional Fields (Ticket Access, Share Link, etc.) -->
