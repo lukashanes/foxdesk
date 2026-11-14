@@ -366,6 +366,9 @@ $upgrades = [
     // Tickets table - due_date
     ['tickets', 'due_date', "ALTER TABLE tickets ADD COLUMN due_date DATETIME AFTER assignee_id"],
 
+    // Tickets table - custom billable rate
+    ['tickets', 'custom_billable_rate', "ALTER TABLE tickets ADD COLUMN custom_billable_rate DECIMAL(10,2) NULL DEFAULT NULL AFTER due_date"],
+
     // Tickets table - tags
     ['tickets', 'tags', "ALTER TABLE tickets ADD COLUMN tags TEXT AFTER due_date"],
 
@@ -780,6 +783,7 @@ if (!$check) {
                 show_financials TINYINT(1) DEFAULT 1,
                 show_team_attribution TINYINT(1) DEFAULT 1,
                 show_cost_breakdown TINYINT(1) DEFAULT 0,
+                custom_billable_rate DECIMAL(10,2) NULL DEFAULT NULL,
                 group_by VARCHAR(50) DEFAULT 'none',
                 rounding_minutes INT DEFAULT 15,
                 theme_color VARCHAR(50),
@@ -799,6 +803,21 @@ if (!$check) {
     } catch (Exception $e) {
         $messages[] = "ERROR: Failed to create table `report_templates`: " . $e->getMessage();
     }
+}
+
+try {
+    $report_templates_exists = db_fetch_one("SHOW TABLES LIKE 'report_templates'");
+    $check = $report_templates_exists ? db_fetch_one("SHOW COLUMNS FROM report_templates LIKE 'custom_billable_rate'") : null;
+    if ($report_templates_exists && !$check) {
+        try {
+            db_query("ALTER TABLE report_templates ADD COLUMN custom_billable_rate DECIMAL(10,2) NULL DEFAULT NULL AFTER show_cost_breakdown");
+            $messages[] = "OK: Added column `custom_billable_rate` to `report_templates`";
+        } catch (Exception $e) {
+            $messages[] = "ERROR: Failed to add custom_billable_rate to report_templates: " . $e->getMessage();
+        }
+    }
+} catch (Exception $e) {
+    $messages[] = "ERROR: Failed to check report_templates.custom_billable_rate: " . $e->getMessage();
 }
 
 // Create report_snapshots table

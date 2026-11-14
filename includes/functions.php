@@ -319,6 +319,25 @@ function upload_url(string $path): string
 }
 
 /**
+ * Parse nullable date/time input for MySQL. Returns null for empty input and
+ * false for invalid input so callers can distinguish "clear" from "bad date".
+ */
+function parse_nullable_datetime($value)
+{
+    $value = trim((string) $value);
+    if ($value === '') {
+        return null;
+    }
+
+    $timestamp = strtotime($value);
+    if ($timestamp === false) {
+        return false;
+    }
+
+    return date('Y-m-d H:i:s', $timestamp);
+}
+
+/**
  * Generate URL
  */
 function url($page, $params = [])
@@ -897,7 +916,6 @@ function get_time_range_bounds($range, $from_date = '', $to_date = '')
         $start = DateTime::createFromFormat('Y-m-d', $from_date);
         $end = DateTime::createFromFormat('Y-m-d', $to_date);
         if (!$start || !$end) {
-            $range = 'all';
             $start = null;
             $end = null;
         } else {

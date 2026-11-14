@@ -41,8 +41,8 @@ SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
 
 # ── Block direct access to internal directories ─────────────────────────────
 <IfModule mod_rewrite.c>
-  # Block includes/, bin/, backups/ from direct web access
-  RewriteRule ^(includes|bin|backups)/ - [F,L]
+  # Block internal/private file stores from direct web access
+  RewriteRule ^(includes|bin|backups|storage|uploads)/ - [F,L]
 </IfModule>
 
 # ── Block SQL and log files ──────────────────────────────────────────────────

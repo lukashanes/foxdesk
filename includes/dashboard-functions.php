@@ -4,6 +4,49 @@
  * Handles data aggregation and logic for the dashboard view.
  */
 
+function dashboard_ticket_scope_clause($user, $alias = 't')
+{
+    if (!$user) {
+        return ['1=0', []];
+    }
+
+    if (($user['role'] ?? '') === 'admin') {
+        return ['1=1', []];
+    }
+
+    $user_id = (int) $user['id'];
+    $conditions = [
+        "{$alias}.user_id = ?",
+        "{$alias}.assignee_id = ?",
+    ];
+    $params = [$user_id, $user_id];
+
+    if (function_exists('ticket_access_table_exists') && ticket_access_table_exists()) {
+        $conditions[] = "EXISTS (SELECT 1 FROM ticket_access ta WHERE ta.ticket_id = {$alias}.id AND ta.user_id = ?)";
+        $params[] = $user_id;
+    }
+
+    $permissions = get_user_permissions($user_id) ?? [];
+    $scope = $permissions['ticket_scope'] ?? (($user['role'] ?? '') === 'agent' ? 'assigned' : 'own');
+
+    if ($scope === 'all') {
+        return ['1=1', []];
+    }
+
+    if ($scope === 'organization') {
+        $org_ids = get_user_organization_ids($user_id);
+        if (!empty($org_ids)) {
+            $placeholders = implode(',', array_fill(0, count($org_ids), '?'));
+            $conditions[] = "{$alias}.organization_id IN ({$placeholders})";
+            foreach ($org_ids as $org_id) {
+                $params[] = (int) $org_id;
+            }
+        }
+    }
+
+    return ['(' . implode(' OR ', $conditions) . ')', $params];
+}
+
 function get_dashboard_data($user, $tags = [])
 {
     $is_admin = $user['role'] === 'admin';
@@ -28,17 +71,7 @@ function get_dashboard_data($user, $tags = [])
     $closed_placeholder = !empty($closed_ids) ? implode(',', array_fill(0, count($closed_ids), '?')) : '0';
     $closed_lookup = array_flip($closed_ids);
 
-    $scope_where = '';
-    $scope_params = [];
-    if ($is_admin) {
-        $scope_where = "t.assignee_id IN (SELECT id FROM users WHERE role IN ('agent', 'admin'))";
-    } elseif ($is_agent) {
-        $scope_where = 't.assignee_id = ?';
-        $scope_params[] = $user['id'];
-    } else {
-        $scope_where = 't.user_id = ?';
-        $scope_params[] = $user['id'];
-    }
+    [$scope_where, $scope_params] = dashboard_ticket_scope_clause($user, 't');
 
     $week_start = date('Y-m-d 00:00:00', strtotime('monday this week'));
     $week_end = date('Y-m-d 23:59:59', strtotime('sunday this week'));
@@ -125,10 +158,7 @@ function get_dashboard_data($user, $tags = [])
     }
 
     // ─── Priority data ──────────────────────────────────────
-    $priority_scope_where = $is_admin
-        ? "t.assignee_id IN (SELECT id FROM users WHERE role IN ('agent', 'admin'))"
-        : ($is_agent ? 't.assignee_id = ?' : 't.user_id = ?');
-    $priority_scope_params = $is_admin ? [] : [$user['id']];
+    [$priority_scope_where, $priority_scope_params] = dashboard_ticket_scope_clause($user, 't');
 
     $priority_counts = db_fetch_all("
         SELECT p.id, p.name, p.color, COUNT(t.id) as count
@@ -214,13 +244,7 @@ function get_dashboard_data($user, $tags = [])
     }
 
     // ─── Link Parameters ────────────────────────────────────
-    if ($is_agent && !$is_admin) {
-        $scope_link_params = ['assigned_to' => $user['id']];
-    } elseif ($is_admin) {
-        $scope_link_params = ['scope' => 'staff'];
-    } else {
-        $scope_link_params = [];
-    }
+    $scope_link_params = [];
     // Carry tag filter through to ticket list links
     if (!empty($tags)) {
         $scope_link_params['tags'] = implode(',', $tags);
@@ -237,10 +261,7 @@ function get_dashboard_data($user, $tags = [])
     $link_reports = url('admin', ['section' => 'reports']);
 
     // ─── Ticket Queries ─────────────────────────────────────
-    $ticket_scope_where = $is_admin
-        ? "t.assignee_id IN (SELECT id FROM users WHERE role IN ('agent', 'admin'))"
-        : ($is_agent ? 't.assignee_id = ?' : 't.user_id = ?');
-    $ticket_scope_params = ($is_admin) ? [] : [$user['id']];
+    [$ticket_scope_where, $ticket_scope_params] = dashboard_ticket_scope_clause($user, 't');
 
     $recent_tickets = db_fetch_all("
         SELECT t.*,

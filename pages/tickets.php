@@ -43,12 +43,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_agent()) {
 
     if (isset($_POST['bulk_delete']) && $is_archive) {
         $deleted_count = 0;
-        $upload_dir = rtrim(BASE_PATH . '/' . (defined('UPLOAD_DIR') ? UPLOAD_DIR : 'uploads/'), '/\\') . DIRECTORY_SEPARATOR;
         foreach ($editable_tickets as $ticket_id => $ticket_item) {
             $attachments = get_ticket_attachments($ticket_id);
             foreach ($attachments as $attachment) {
-                $path = $upload_dir . ($attachment['filename'] ?? '');
-                if (is_file($path)) {
+                $path = function_exists('resolve_attachment_file_path') ? resolve_attachment_file_path($attachment) : null;
+                if (!$path) {
+                    $upload_dir = rtrim(BASE_PATH . '/' . (defined('UPLOAD_DIR') ? UPLOAD_DIR : 'uploads/'), '/\\') . DIRECTORY_SEPARATOR;
+                    $path = $upload_dir . ($attachment['filename'] ?? '');
+                }
+                if ($path && is_file($path)) {
                     @unlink($path);
                 }
             }

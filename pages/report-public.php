@@ -449,7 +449,9 @@ $extract_report_tags = static function ($value) {
                                                 <?php if ($template['show_financials'] && $template['show_cost_breakdown']): ?>
                                                     <td class="px-4 py-3 text-sm text-right font-medium text-gray-900">
                                                         <?php
-                                                        $rate = $entry['billable_rate'] ?: 0;
+                                                        $rate = function_exists('get_report_entry_billable_rate')
+                                                            ? get_report_entry_billable_rate($entry, $template)
+                                                            : ((float) ($entry['billable_rate'] ?? 0));
                                                         $cost = ($entry['duration_minutes'] / 60) * $rate;
                                                         echo format_money($cost);
                                                         ?>
@@ -517,7 +519,9 @@ $extract_report_tags = static function ($value) {
                                     <?php if ($template['show_financials'] && $template['show_cost_breakdown']): ?>
                                         <td class="px-4 py-3 text-sm text-right font-medium text-gray-900">
                                             <?php
-                                            $rate = $entry['cost_rate'] ?: $entry['user_cost_rate'] ?: 0;
+                                            $rate = function_exists('get_report_entry_billable_rate')
+                                                ? get_report_entry_billable_rate($entry, $template)
+                                                : ((float) ($entry['billable_rate'] ?? 0));
                                             $cost = ($entry['duration_minutes'] / 60) * $rate;
                                             echo format_money($cost);
                                             ?>

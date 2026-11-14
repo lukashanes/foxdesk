@@ -54,6 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'show_financials' => $source['show_financials'] ?? 1,
                 'show_team_attribution' => $source['show_team_attribution'] ?? 1,
                 'show_cost_breakdown' => $source['show_cost_breakdown'] ?? 0,
+                'custom_billable_rate' => $source['custom_billable_rate'] ?? null,
                 'group_by' => $source['group_by'] ?? 'none',
                 'rounding_minutes' => $source['rounding_minutes'] ?? 15,
                 'theme_color' => $source['theme_color'] ?? null,

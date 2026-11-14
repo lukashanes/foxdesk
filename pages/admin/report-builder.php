@@ -46,10 +46,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($rounding_minutes, $allowed_rounding, true)) {
         $rounding_minutes = 15;
     }
+    $custom_billable_rate_raw = trim((string) ($_POST['custom_billable_rate'] ?? ''));
+    $custom_billable_rate = $custom_billable_rate_raw !== ''
+        ? max(0, (float) str_replace(',', '.', $custom_billable_rate_raw))
+        : null;
     $theme_color = trim((string) ($_POST['theme_color'] ?? ''));
     if ($theme_color !== '' && !preg_match('/^#[0-9a-fA-F]{6}$/', $theme_color)) {
         $theme_color = '';
     }
+    $schedule_interval = in_array(($_POST['schedule_interval'] ?? ''), ['weekly', 'monthly', 'quarterly'], true)
+        ? $_POST['schedule_interval']
+        : 'monthly';
+    $schedule_day_source = $schedule_interval === 'weekly'
+        ? ($_POST['schedule_day'] ?? 1)
+        : ($_POST['schedule_day_num'] ?? ($_POST['schedule_day'] ?? 1));
+    $schedule_day = max(1, min($schedule_interval === 'weekly' ? 7 : 28, (int) $schedule_day_source));
 
     $report_data = [
         'organization_id' => $organization_id,
@@ -62,16 +73,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'show_financials' => isset($_POST['show_financials']) ? 1 : 0,
         'show_team_attribution' => isset($_POST['show_team_attribution']) ? 1 : 0,
         'show_cost_breakdown' => isset($_POST['show_cost_breakdown']) ? 1 : 0,
+        'custom_billable_rate' => $custom_billable_rate,
         'group_by' => $group_by,
         'rounding_minutes' => $rounding_minutes,
         'theme_color' => $theme_color !== '' ? $theme_color : null,
         'hide_branding' => isset($_POST['hide_branding']) ? 1 : 0,
         'is_draft' => isset($_POST['save_as_draft']) ? 1 : 0,
         'schedule_enabled' => isset($_POST['schedule_enabled']) ? 1 : 0,
-        'schedule_interval' => in_array(($_POST['schedule_interval'] ?? ''), ['weekly', 'monthly', 'quarterly']) ? $_POST['schedule_interval'] : 'monthly',
-        'schedule_day' => max(1, min(31, (int) ($_POST['schedule_day'] ?? 1))),
+        'schedule_interval' => $schedule_interval,
+        'schedule_day' => $schedule_day,
         'schedule_recipients' => trim((string) ($_POST['schedule_recipients'] ?? '')),
     ];
+
+    if (!empty($report_data['schedule_enabled']) && function_exists('calculate_next_report_due')) {
+        ensure_report_schedule_columns();
+        $report_data['schedule_next_due'] = calculate_next_report_due($report_data['schedule_interval'], $report_data['schedule_day']);
+    } else {
+        $report_data['schedule_next_due'] = null;
+    }
 
     $validation_errors = [];
     if ($organization_id <= 0 || !get_organization($organization_id)) {
@@ -101,12 +120,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($success) {
-                // Update schedule_next_due if scheduling enabled
-                if (!empty($report_data['schedule_enabled']) && function_exists('calculate_next_report_due')) {
-                    ensure_report_schedule_columns();
-                    $next = calculate_next_report_due($report_data['schedule_interval'], $report_data['schedule_day']);
-                    db_update('report_templates', ['schedule_next_due' => $next], 'id = ?', [$update_id]);
-                }
                 flash(t('Report updated successfully.'), 'success');
                 redirect('admin', ['section' => 'reports-list']);
             } else {
@@ -122,12 +135,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($report_id) {
-                // Set schedule_next_due if scheduling enabled
-                if (!empty($report_data['schedule_enabled']) && function_exists('calculate_next_report_due')) {
-                    ensure_report_schedule_columns();
-                    $next = calculate_next_report_due($report_data['schedule_interval'], $report_data['schedule_day']);
-                    db_update('report_templates', ['schedule_next_due' => $next], 'id = ?', [$report_id]);
-                }
                 if ($report_data['is_draft']) {
                     flash(t('Report draft saved successfully.'), 'success');
                 } else {
@@ -184,6 +191,9 @@ if ($editing && $_SERVER['REQUEST_METHOD'] !== 'POST') {
         'show_financials' => !empty($edit_report['show_financials']),
         'show_team_attribution' => !empty($edit_report['show_team_attribution']),
         'show_cost_breakdown' => !empty($edit_report['show_cost_breakdown']),
+        'custom_billable_rate' => isset($edit_report['custom_billable_rate']) && $edit_report['custom_billable_rate'] !== null
+            ? (float) $edit_report['custom_billable_rate']
+            : null,
         'hide_branding' => !empty($edit_report['hide_branding']),
         'schedule_enabled' => !empty($edit_report['schedule_enabled']),
         'schedule_interval' => trim((string) ($edit_report['schedule_interval'] ?? 'monthly')),
@@ -204,10 +214,13 @@ if ($editing && $_SERVER['REQUEST_METHOD'] !== 'POST') {
         'show_financials' => $_SERVER['REQUEST_METHOD'] === 'POST' ? isset($_POST['show_financials']) : true,
         'show_team_attribution' => $_SERVER['REQUEST_METHOD'] === 'POST' ? isset($_POST['show_team_attribution']) : true,
         'show_cost_breakdown' => $_SERVER['REQUEST_METHOD'] === 'POST' ? isset($_POST['show_cost_breakdown']) : false,
+        'custom_billable_rate' => ($_POST['custom_billable_rate'] ?? '') !== ''
+            ? max(0, (float) str_replace(',', '.', (string) $_POST['custom_billable_rate']))
+            : null,
         'hide_branding' => $_SERVER['REQUEST_METHOD'] === 'POST' ? isset($_POST['hide_branding']) : false,
         'schedule_enabled' => $_SERVER['REQUEST_METHOD'] === 'POST' ? isset($_POST['schedule_enabled']) : false,
-        'schedule_interval' => trim((string) ($_POST['schedule_interval'] ?? 'monthly')),
-        'schedule_day' => (int) ($_POST['schedule_day'] ?? 1),
+        'schedule_interval' => isset($schedule_interval) ? $schedule_interval : trim((string) ($_POST['schedule_interval'] ?? 'monthly')),
+        'schedule_day' => isset($schedule_day) ? $schedule_day : (int) ($_POST['schedule_day'] ?? 1),
         'schedule_recipients' => trim((string) ($_POST['schedule_recipients'] ?? '')),
     ];
 }
@@ -222,6 +235,49 @@ if (!in_array($form_values['rounding_minutes'], $allowed_rounding, true)) {
 }
 if (!preg_match('/^#[0-9a-fA-F]{6}$/', $form_values['theme_color'])) {
     $form_values['theme_color'] = '#3B82F6';
+}
+
+$report_defaults_by_org = [];
+if (!$editing && function_exists('get_latest_report_templates_by_organization')) {
+    $organization_ids = array_map(function ($org) {
+        return (int) ($org['id'] ?? 0);
+    }, $organizations);
+    $latest_reports_by_org = get_latest_report_templates_by_organization($organization_ids);
+
+    foreach ($latest_reports_by_org as $org_id => $report) {
+        $schedule_interval_value = trim((string) ($report['schedule_interval'] ?? 'monthly'));
+        if (!in_array($schedule_interval_value, ['weekly', 'monthly', 'quarterly'], true)) {
+            $schedule_interval_value = 'monthly';
+        }
+
+        $report_defaults_by_org[(string) $org_id] = [
+            'title' => trim((string) ($report['title'] ?? '')),
+            'report_language' => trim((string) ($report['report_language'] ?? 'en')),
+            'date_from' => trim((string) ($report['date_from'] ?? $first_of_last_month)),
+            'date_to' => trim((string) ($report['date_to'] ?? $last_of_last_month)),
+            'executive_summary' => (string) ($report['executive_summary'] ?? ''),
+            'show_financials' => !empty($report['show_financials']),
+            'show_team_attribution' => !empty($report['show_team_attribution']),
+            'show_cost_breakdown' => !empty($report['show_cost_breakdown']),
+            'custom_billable_rate' => isset($report['custom_billable_rate']) && $report['custom_billable_rate'] !== null
+                ? (float) $report['custom_billable_rate']
+                : null,
+            'hide_branding' => !empty($report['hide_branding']),
+            'group_by' => trim((string) ($report['group_by'] ?? 'none')),
+            'rounding_minutes' => (int) ($report['rounding_minutes'] ?? 15),
+            'theme_color' => preg_match('/^#[0-9a-fA-F]{6}$/', (string) ($report['theme_color'] ?? ''))
+                ? (string) $report['theme_color']
+                : '#3B82F6',
+            'schedule_enabled' => !empty($report['schedule_enabled']),
+            'schedule_interval' => $schedule_interval_value,
+            'schedule_day' => (int) ($report['schedule_day'] ?? 1),
+            'schedule_recipients' => trim((string) ($report['schedule_recipients'] ?? '')),
+        ];
+    }
+}
+$report_defaults_json = json_encode($report_defaults_by_org);
+if ($report_defaults_json === false) {
+    $report_defaults_json = '{}';
 }
 
 include BASE_PATH . '/includes/header.php';
@@ -398,6 +454,18 @@ include BASE_PATH . '/includes/header.php';
                             <span class="block text-xs" style="color: var(--text-muted);"><?php echo e(t('Display hourly rates and total costs')); ?></span>
                         </span>
                     </label>
+
+                    <div class="pl-7">
+                        <label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+                            <?php echo e(t('Custom report rate (per hour)')); ?>
+                        </label>
+                        <input type="number" name="custom_billable_rate" step="0.01" min="0" class="form-input"
+                               value="<?php echo e($form_values['custom_billable_rate'] !== null ? number_format((float) $form_values['custom_billable_rate'], 2, '.', '') : ''); ?>"
+                               placeholder="<?php echo e(t('Leave empty to use ticket or client rates')); ?>">
+                        <p class="mt-1 text-xs" style="color: var(--text-muted);">
+                            <?php echo e(t('Apply one custom hourly rate to this report without changing ticket data.')); ?>
+                        </p>
+                    </div>
 
                     <!-- Show Team Attribution -->
                     <label class="flex items-center">
@@ -626,6 +694,82 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<script>
+var reportDefaultsByOrg = <?php echo $report_defaults_json; ?>;
+var reportAutoFillDefaults = <?php echo json_encode(!$editing); ?>;
+
+function setReportFieldValue(name, value) {
+    var field = document.querySelector('[name="' + name + '"]');
+    if (!field) return;
+
+    var nextValue = value === null || typeof value === 'undefined' ? '' : String(value);
+    if (field.tagName === 'SELECT') {
+        var hasOption = Array.prototype.some.call(field.options, function(option) {
+            return option.value === nextValue;
+        });
+        if (!hasOption) return;
+    }
+
+    field.value = nextValue;
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function setReportCheckboxValue(name, value) {
+    var field = document.querySelector('[name="' + name + '"]');
+    if (!field) return;
+    field.checked = value === true || value === 1 || value === '1';
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function applyReportDefaultsForOrg(orgId) {
+    if (!reportAutoFillDefaults || !orgId || !reportDefaultsByOrg[orgId]) return;
+
+    var defaults = reportDefaultsByOrg[orgId];
+    setReportFieldValue('title', defaults.title);
+    setReportFieldValue('report_language', defaults.report_language || 'en');
+    setReportFieldValue('date_from', defaults.date_from);
+    setReportFieldValue('date_to', defaults.date_to);
+    setReportFieldValue('executive_summary', defaults.executive_summary);
+    setReportCheckboxValue('show_financials', defaults.show_financials);
+    setReportCheckboxValue('show_team_attribution', defaults.show_team_attribution);
+    setReportCheckboxValue('show_cost_breakdown', defaults.show_cost_breakdown);
+    setReportFieldValue(
+        'custom_billable_rate',
+        defaults.custom_billable_rate === null || typeof defaults.custom_billable_rate === 'undefined'
+            ? ''
+            : Number(defaults.custom_billable_rate).toFixed(2)
+    );
+    setReportCheckboxValue('hide_branding', defaults.hide_branding);
+    setReportFieldValue('group_by', defaults.group_by || 'none');
+    setReportFieldValue('rounding_minutes', defaults.rounding_minutes || 15);
+
+    var themeColor = /^#[0-9a-fA-F]{6}$/.test(defaults.theme_color || '') ? defaults.theme_color : '#3B82F6';
+    setReportFieldValue('theme_color', themeColor);
+    var colorDisplay = document.getElementById('color_display');
+    if (colorDisplay) colorDisplay.textContent = themeColor.toUpperCase();
+
+    setReportCheckboxValue('schedule_enabled', defaults.schedule_enabled);
+    setReportFieldValue('schedule_interval', defaults.schedule_interval || 'monthly');
+    if (typeof updateScheduleDayLabel === 'function') {
+        updateScheduleDayLabel();
+    }
+
+    var scheduleDay = parseInt(defaults.schedule_day || 1, 10);
+    if (!isFinite(scheduleDay) || scheduleDay < 1) scheduleDay = 1;
+    if ((defaults.schedule_interval || 'monthly') === 'weekly') {
+        setReportFieldValue('schedule_day', Math.min(scheduleDay, 7));
+    } else {
+        setReportFieldValue('schedule_day_num', Math.min(scheduleDay, 28));
+    }
+    setReportFieldValue('schedule_recipients', defaults.schedule_recipients);
+
+    if (typeof toggleScheduleFields === 'function') {
+        toggleScheduleFields();
+    }
+}
+</script>
+
 <!-- Organization Searchable Dropdown -->
 <script>
 (function() {
@@ -694,6 +838,7 @@ function selectOrg(el) {
     searchInput.dataset.selectedName = el.dataset.name;
     dropdown.classList.add('hidden');
     if (clearBtn) clearBtn.classList.remove('hidden');
+    applyReportDefaultsForOrg(el.dataset.value);
 }
 
 function clearOrgSelection() {

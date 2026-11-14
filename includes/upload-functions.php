@@ -9,9 +9,17 @@
  * Get ticket attachments
  */
 function get_ticket_attachments($ticket_id) {
-    return db_fetch_all("SELECT a.*, u.first_name, u.last_name
+    $storage_select = '';
+    $storage_join = '';
+    if (table_exists('ticket_message_attachments')) {
+        $storage_select = ', tma.storage_path';
+        $storage_join = ' LEFT JOIN ticket_message_attachments tma ON tma.attachment_id = a.id';
+    }
+
+    return db_fetch_all("SELECT a.*, u.first_name, u.last_name{$storage_select}
                          FROM attachments a
                          LEFT JOIN users u ON a.uploaded_by = u.id
+                         {$storage_join}
                          WHERE a.ticket_id = ?
                          ORDER BY a.created_at ASC", [$ticket_id]);
 }
@@ -103,10 +111,19 @@ function upload_file($file, $allowed_types = null, $max_size = null) {
  * Delete an attachment file
  */
 function delete_attachment_file($filename) {
-    $upload_dir = defined('UPLOAD_DIR') ? UPLOAD_DIR : 'uploads/';
-    $filepath = BASE_PATH . '/' . $upload_dir . $filename;
+    $attachment = null;
+    if (is_numeric($filename)) {
+        $attachment = get_attachment((int) $filename);
+    }
 
-    if (file_exists($filepath)) {
+    if (!$attachment) {
+        $attachment = [
+            'filename' => (string) $filename,
+        ];
+    }
+
+    $filepath = resolve_attachment_file_path($attachment);
+    if ($filepath && file_exists($filepath)) {
         return unlink($filepath);
     }
     return false;
@@ -116,7 +133,148 @@ function delete_attachment_file($filename) {
  * Get attachment by ID
  */
 function get_attachment($id) {
-    return db_fetch_one("SELECT * FROM attachments WHERE id = ?", [$id]);
+    $storage_select = '';
+    $storage_join = '';
+    if (table_exists('ticket_message_attachments')) {
+        $storage_select = ', tma.storage_path';
+        $storage_join = ' LEFT JOIN ticket_message_attachments tma ON tma.attachment_id = a.id';
+    }
+
+    return db_fetch_one("SELECT a.*{$storage_select}
+                         FROM attachments a
+                         {$storage_join}
+                         WHERE a.id = ?", [$id]);
+}
+
+/**
+ * Get attachment metadata by stored filename.
+ */
+function get_attachment_by_filename($filename) {
+    $filename = basename((string) $filename);
+    if ($filename === '') {
+        return null;
+    }
+
+    $storage_select = '';
+    $storage_join = '';
+    if (table_exists('ticket_message_attachments')) {
+        $storage_select = ', tma.storage_path';
+        $storage_join = ' LEFT JOIN ticket_message_attachments tma ON tma.attachment_id = a.id';
+    }
+
+    return db_fetch_one("SELECT a.*{$storage_select}
+                         FROM attachments a
+                         {$storage_join}
+                         WHERE a.filename = ?
+                         ORDER BY a.id DESC
+                         LIMIT 1", [$filename]);
+}
+
+/**
+ * URL for ticket attachments. Uses attachment.php so files are authorization-checked
+ * and non-image attachments can be downloaded.
+ */
+function attachment_url($attachment, $token = '', $download = false) {
+    $params = [];
+    if (is_array($attachment) && !empty($attachment['id'])) {
+        $params['id'] = (int) $attachment['id'];
+    } elseif (is_array($attachment) && !empty($attachment['filename'])) {
+        $params['f'] = basename((string) $attachment['filename']);
+    } else {
+        $params['f'] = basename((string) $attachment);
+    }
+
+    if ($token !== '') {
+        $params['token'] = $token;
+    }
+    if ($download) {
+        $params['download'] = '1';
+    }
+
+    return 'attachment.php?' . http_build_query($params);
+}
+
+/**
+ * Resolve an attachment row to a safe local file path.
+ */
+function resolve_attachment_file_path($attachment) {
+    $candidates = [];
+
+    if (!empty($attachment['storage_path'])) {
+        $candidates[] = (string) $attachment['storage_path'];
+    }
+
+    if (!empty($attachment['filename'])) {
+        $filename = (string) $attachment['filename'];
+        if (str_contains($filename, '/') || str_contains($filename, '\\')) {
+            $candidates[] = $filename;
+        }
+        $upload_dir = defined('UPLOAD_DIR') ? UPLOAD_DIR : 'uploads/';
+        $candidates[] = rtrim($upload_dir, '/\\') . '/' . basename($filename);
+    }
+
+    $allowed_roots = [
+        BASE_PATH . DIRECTORY_SEPARATOR . 'uploads',
+        BASE_PATH . DIRECTORY_SEPARATOR . 'storage',
+    ];
+
+    foreach ($candidates as $candidate) {
+        $path = $candidate;
+        if (!preg_match('~^[A-Za-z]:[\\\\/]~', $path) && !str_starts_with($path, '/') && !str_starts_with($path, '\\')) {
+            $path = BASE_PATH . DIRECTORY_SEPARATOR . ltrim($path, '/\\');
+        }
+
+        $real = realpath($path);
+        if ($real === false || !is_file($real)) {
+            continue;
+        }
+
+        foreach ($allowed_roots as $root) {
+            $real_root = realpath($root);
+            if ($real_root === false) {
+                continue;
+            }
+            $normalized_real = rtrim(str_replace('\\', '/', $real), '/') . '/';
+            $normalized_root = rtrim(str_replace('\\', '/', $real_root), '/') . '/';
+            if (str_starts_with($normalized_real, $normalized_root)) {
+                return $real;
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Check whether the current request may read an attachment.
+ */
+function can_access_attachment($attachment, $user = null, $token = '') {
+    if (empty($attachment) || empty($attachment['ticket_id'])) {
+        return false;
+    }
+
+    if ($token !== '') {
+        $share = get_ticket_share_by_token($token);
+        if ($share && is_ticket_share_active($share) && (int) $share['ticket_id'] === (int) $attachment['ticket_id']) {
+            if (!empty($attachment['comment_id'])) {
+                $comment = db_fetch_one("SELECT is_internal FROM comments WHERE id = ?", [(int) $attachment['comment_id']]);
+                if ($comment && !empty($comment['is_internal'])) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    if ($user === null) {
+        $user = current_user();
+    }
+    if (!$user) {
+        return false;
+    }
+
+    $ticket = get_ticket((int) $attachment['ticket_id']);
+    return $ticket && can_see_ticket($ticket, $user);
 }
 
 

@@ -4,6 +4,15 @@ $flash = get_flash();
 $settings = get_settings();
 $app_name = $settings['app_name'] ?? (defined('APP_NAME') ? APP_NAME : 'FoxDesk');
 $app_version = defined('APP_VERSION') ? APP_VERSION : '';
+// Asset cache-buster: combine APP_VERSION with file mtime so edits reload instantly.
+if (!function_exists('asset_v')) {
+    function asset_v($rel_path) {
+        $full = BASE_PATH . '/' . ltrim($rel_path, '/');
+        $v = defined('APP_VERSION') ? APP_VERSION : '';
+        if (file_exists($full)) $v .= '.' . filemtime($full);
+        return $v;
+    }
+}
 $in_app_notifications_enabled = user_in_app_notifications_enabled($user);
 $in_app_sound_enabled = user_in_app_sound_enabled($user);
 
@@ -119,9 +128,9 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
     <link rel="preload" id="favicon-timer" as="image" type="image/svg+xml" href="data:image/svg+xml,<?php echo rawurlencode('<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 32 32\'><rect width=\'32\' height=\'32\' rx=\'6\' fill=\'#22c55e\'/><circle cx=\'16\' cy=\'16\' r=\'10\' fill=\'none\' stroke=\'white\' stroke-width=\'2\'/><path d=\'M16 10 L16 16 L20 16\' fill=\'none\' stroke=\'white\' stroke-width=\'2\' stroke-linecap=\'round\'/></svg>'); ?>">
     <?php endif; ?>
 
-    <link href="tailwind.min.css?v=<?php echo APP_VERSION; ?>" rel="stylesheet">
+    <link href="tailwind.min.css?v=<?php echo asset_v('tailwind.min.css'); ?>" rel="stylesheet">
 
-    <link href="theme.css?v=<?php echo APP_VERSION; ?>" rel="stylesheet">
+    <link href="theme.css?v=<?php echo asset_v('theme.css'); ?>" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
     <script defer src="assets/js/app-header.js?v=<?php echo APP_VERSION; ?>"></script>
     <script defer src="assets/js/shortcuts.js?v=<?php echo APP_VERSION; ?>"></script>

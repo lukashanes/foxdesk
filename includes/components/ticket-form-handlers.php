@@ -10,7 +10,7 @@
  *
  * Required variables (set by ticket-detail.php before include):
  *   $ticket, $ticket_id, $user,
- *   $organizations, $org_billable_rate, $user_cost_rate
+ *   $organizations, $org_billable_rate, $ticket_effective_billable_rate, $user_cost_rate
  */
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -142,8 +142,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $update_data['organization_id'] = $new_org_id;
         }
 
+        if (
+            is_admin()
+            && function_exists('ensure_ticket_custom_billable_rate_column')
+            && ensure_ticket_custom_billable_rate_column()
+            && array_key_exists('edit_custom_billable_rate', $_POST)
+        ) {
+            $update_data['custom_billable_rate'] = function_exists('parse_optional_rate_value')
+                ? parse_optional_rate_value($_POST['edit_custom_billable_rate'])
+                : null;
+        }
+
         // Update with history tracking
         if (update_ticket_with_history($ticket_id, $update_data, $user['id'])) {
+            if (
+                function_exists('sync_ticket_time_entry_billable_rates')
+                && (array_key_exists('organization_id', $update_data) || array_key_exists('custom_billable_rate', $update_data))
+            ) {
+                sync_ticket_time_entry_billable_rates($ticket_id);
+            }
             log_activity($ticket_id, $user['id'], 'ticket_edited', 'Ticket details updated');
             flash(t('Ticket updated.'), 'success');
         } else {
@@ -172,7 +189,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'ended_at' => null,
             'duration_minutes' => 0,
             'is_billable' => 1,
-            'billable_rate' => $org_billable_rate,
+            'billable_rate' => $ticket_effective_billable_rate ?? $org_billable_rate,
             'cost_rate' => $user_cost_rate,
             'is_manual' => 0,
             'created_at' => date('Y-m-d H:i:s')
@@ -263,10 +280,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $manual_date_input = trim($_POST['manual_date'] ?? date('Y-m-d'));
         $manual_start_time_input = trim($_POST['manual_start_time'] ?? '');
         $manual_end_time_input = trim($_POST['manual_end_time'] ?? '');
+        // Quick duration input: "10" = last 10 minutes up to now (end = now, start = now - N).
+        $manual_duration_input = (int) ($_POST['manual_duration_minutes'] ?? 0);
         $manual_start_input = '';
         $manual_end_input = '';
 
-        if ($manual_start_time_input !== '' || $manual_end_time_input !== '') {
+        if ($manual_duration_input > 0 && is_agent()) {
+            // Duration takes precedence — end = now, start = now - N minutes.
+            $now = new DateTime();
+            $start = (clone $now)->modify('-' . $manual_duration_input . ' minutes');
+            $manual_start_input = $start->format('Y-m-d\TH:i');
+            $manual_end_input = $now->format('Y-m-d\TH:i');
+            // Clear precise fields so we don't double-process.
+            $manual_start_time_input = $start->format('H:i');
+            $manual_end_time_input = $now->format('H:i');
+            $manual_date_input = $start->format('Y-m-d');
+        } elseif ($manual_start_time_input !== '' || $manual_end_time_input !== '') {
             $base_date = $manual_date_input !== '' ? $manual_date_input : date('Y-m-d');
             $manual_start_input = $base_date . 'T' . $manual_start_time_input;
             // Midnight overflow: if end time is earlier than start time, it's the next day
@@ -277,7 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $manual_end_input = $end_date . 'T' . $manual_end_time_input;
         }
 
-        $manual_requested = is_agent() && ($manual_start_input !== '' || $manual_end_input !== '' || $manual_start_time_input !== '' || $manual_end_time_input !== '');
+        $manual_requested = is_agent() && ($manual_start_input !== '' || $manual_end_input !== '' || $manual_start_time_input !== '' || $manual_end_time_input !== '' || $manual_duration_input > 0);
         $log_time_requested = $stop_timer || $manual_requested;
         $comment_time_spent = 0;
         $manual_start_dt = null;
@@ -422,7 +451,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'ended_at' => $manual_end_dt->format('Y-m-d H:i:s'),
                     'duration_minutes' => $manual_duration,
                     'is_billable' => 1,
-                    'billable_rate' => $org_billable_rate,
+                    'billable_rate' => $ticket_effective_billable_rate ?? $org_billable_rate,
                     'cost_rate' => $user_cost_rate,
                     'is_manual' => 1,
                     'created_at' => date('Y-m-d H:i:s')
@@ -576,8 +605,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $due_date = !empty($_POST['due_date']) ? $_POST['due_date'] : null;
 
         // Convert datetime-local format to MySQL datetime format
-        if ($due_date) {
-            $due_date = date('Y-m-d H:i:s', strtotime($due_date));
+        if (function_exists('parse_nullable_datetime')) {
+            $due_date = parse_nullable_datetime($due_date);
+            if ($due_date === false) {
+                flash(t('Invalid due date.'), 'error');
+                redirect('ticket', ['id' => $ticket_id]);
+            }
+        } elseif ($due_date) {
+            $timestamp = strtotime($due_date);
+            if ($timestamp === false) {
+                flash(t('Invalid due date.'), 'error');
+                redirect('ticket', ['id' => $ticket_id]);
+            }
+            $due_date = date('Y-m-d H:i:s', $timestamp);
         }
 
         db_update('tickets', ['due_date' => $due_date], 'id = ?', [$ticket_id]);
@@ -602,14 +642,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $org_input = trim((string) ($_POST['organization_id'] ?? ''));
         if ($org_input !== '') {
             $new_org_id = (int) $org_input;
+            $org_allowed = false;
+            foreach ($organizations as $org) {
+                if ((int) ($org['id'] ?? 0) === $new_org_id) {
+                    $org_allowed = true;
+                    break;
+                }
+            }
+            if (!$org_allowed) {
+                flash(t('Selected organization is not available.'), 'error');
+                redirect('ticket', ['id' => $ticket_id]);
+            }
         }
         $old_org_id = $ticket['organization_id'] ?? null;
         db_update('tickets', ['organization_id' => $new_org_id], 'id = ?', [$ticket_id]);
         if (function_exists('log_ticket_history')) {
             log_ticket_history($ticket_id, $user['id'], 'organization_id', $old_org_id, $new_org_id);
         }
+        if (function_exists('sync_ticket_time_entry_billable_rates')) {
+            sync_ticket_time_entry_billable_rates($ticket_id);
+        }
         log_activity($ticket_id, $user['id'], 'company_updated', 'Company updated');
         flash(t('Company updated.'), 'success');
+        redirect('ticket', ['id' => $ticket_id]);
+    }
+
+    // Update ticket billing rate directly from the sidebar
+    if (isset($_POST['update_ticket_billing_rate']) && is_admin()) {
+        if (function_exists('ensure_ticket_custom_billable_rate_column') && !ensure_ticket_custom_billable_rate_column()) {
+            flash(t('Billing rate storage is not available.'), 'error');
+            redirect('ticket', ['id' => $ticket_id]);
+        }
+
+        $new_rate = function_exists('parse_optional_rate_value')
+            ? parse_optional_rate_value($_POST['custom_billable_rate'] ?? null)
+            : null;
+
+        if (update_ticket_with_history($ticket_id, ['custom_billable_rate' => $new_rate], $user['id'])) {
+            if (function_exists('sync_ticket_time_entry_billable_rates')) {
+                sync_ticket_time_entry_billable_rates($ticket_id);
+            }
+            log_activity($ticket_id, $user['id'], 'ticket_edited', 'Ticket billing rate updated');
+            flash(t('Ticket updated.'), 'success');
+        } else {
+            flash(t('Failed to update ticket.'), 'error');
+        }
+
         redirect('ticket', ['id' => $ticket_id]);
     }
 
@@ -675,6 +753,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'summary' => $summary ?: null,
                         'is_billable' => $is_billable
                     ];
+
+                    if (
+                        $is_billable
+                        && ((int) ($entry['is_billable'] ?? 0) === 0 || (float) ($entry['billable_rate'] ?? 0) <= 0)
+                        && function_exists('get_ticket_effective_billable_rate')
+                    ) {
+                        $update_data['billable_rate'] = get_ticket_effective_billable_rate($ticket_id);
+                    }
 
                     if (update_time_entry($entry_id, $update_data)) {
                         log_activity($ticket_id, $user['id'], 'time_updated', "Updated time entry to " . format_duration_minutes($duration_minutes));

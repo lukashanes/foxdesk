@@ -13,6 +13,17 @@
  * @return int|false Report template ID or false on failure
  */
 function create_report_template($data) {
+    ensure_report_custom_billable_rate_column();
+    if (
+        array_key_exists('schedule_enabled', $data) ||
+        array_key_exists('schedule_interval', $data) ||
+        array_key_exists('schedule_day', $data) ||
+        array_key_exists('schedule_recipients', $data) ||
+        array_key_exists('schedule_next_due', $data)
+    ) {
+        ensure_report_schedule_columns();
+    }
+
     $uuid = generate_uuid();
 
     $insert_data = [
@@ -27,11 +38,17 @@ function create_report_template($data) {
         'show_financials' => $data['show_financials'] ?? 1,
         'show_team_attribution' => $data['show_team_attribution'] ?? 1,
         'show_cost_breakdown' => $data['show_cost_breakdown'] ?? 0,
+        'custom_billable_rate' => $data['custom_billable_rate'] ?? null,
         'group_by' => $data['group_by'] ?? 'none',
         'rounding_minutes' => $data['rounding_minutes'] ?? 15,
         'theme_color' => $data['theme_color'] ?? null,
         'hide_branding' => $data['hide_branding'] ?? 0,
-        'is_draft' => $data['is_draft'] ?? 1
+        'is_draft' => $data['is_draft'] ?? 1,
+        'schedule_enabled' => $data['schedule_enabled'] ?? 0,
+        'schedule_interval' => $data['schedule_interval'] ?? 'monthly',
+        'schedule_day' => $data['schedule_day'] ?? 1,
+        'schedule_recipients' => $data['schedule_recipients'] ?? null,
+        'schedule_next_due' => $data['schedule_next_due'] ?? null,
     ];
 
     $insert_data = report_filter_template_data($insert_data);
@@ -68,6 +85,29 @@ function report_template_column_exists($column_name) {
 }
 
 /**
+ * Auto-migrate: add custom billable rate override to report templates.
+ */
+function ensure_report_custom_billable_rate_column(): void
+{
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    if (report_template_column_exists('custom_billable_rate')) {
+        return;
+    }
+
+    try {
+        db_query("ALTER TABLE report_templates ADD COLUMN custom_billable_rate DECIMAL(10,2) NULL DEFAULT NULL AFTER show_cost_breakdown");
+        column_exists('report_templates', 'custom_billable_rate', true);
+    } catch (Throwable $e) {
+        // Ignore duplicate/unsupported migrations.
+    }
+}
+
+/**
  * Filter report_templates data against currently available columns.
  */
 function report_filter_template_data(array $data): array {
@@ -85,6 +125,20 @@ function report_filter_template_data(array $data): array {
  */
 function report_ticket_tags_column_exists(): bool {
     return column_exists('tickets', 'tags');
+}
+
+/**
+ * Check if tickets table has a custom billable rate column.
+ */
+function report_ticket_custom_billable_rate_column_exists(): bool {
+    return column_exists('tickets', 'custom_billable_rate');
+}
+
+/**
+ * Check if tickets table has the normalized ticket_type_id column.
+ */
+function report_ticket_type_id_column_exists(): bool {
+    return column_exists('tickets', 'ticket_type_id');
 }
 
 /**
@@ -108,6 +162,50 @@ function get_report_template($id) {
         LEFT JOIN users u ON rt.created_by_user_id = u.id
         WHERE rt.id = ?
     ", [$id]);
+}
+
+/**
+ * Get the newest saved report configuration for each requested organization.
+ */
+function get_latest_report_templates_by_organization(array $organization_ids, int $exclude_report_id = 0): array {
+    $organization_ids = array_values(array_unique(array_filter(array_map('intval', $organization_ids), function ($id) {
+        return $id > 0;
+    })));
+
+    if (empty($organization_ids)) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($organization_ids), '?'));
+    $params = $organization_ids;
+    $sql = "SELECT * FROM report_templates WHERE organization_id IN ($placeholders)";
+
+    if ($exclude_report_id > 0) {
+        $sql .= " AND id <> ?";
+        $params[] = $exclude_report_id;
+    }
+    if (report_template_column_exists('is_archived')) {
+        $sql .= " AND is_archived = 0";
+    }
+
+    $sql .= " ORDER BY organization_id ASC, updated_at DESC, created_at DESC, id DESC";
+
+    try {
+        $rows = db_fetch_all($sql, $params);
+    } catch (Throwable $e) {
+        error_log('Latest report defaults lookup failed: ' . $e->getMessage());
+        return [];
+    }
+
+    $latest = [];
+    foreach ($rows as $row) {
+        $org_id = (int) ($row['organization_id'] ?? 0);
+        if ($org_id > 0 && !isset($latest[$org_id])) {
+            $latest[$org_id] = $row;
+        }
+    }
+
+    return $latest;
 }
 
 /**
@@ -147,12 +245,25 @@ function get_report_template_by_uuid($uuid) {
  */
 function update_report_template($id, $data) {
     $update_data = [];
+    ensure_report_custom_billable_rate_column();
+
+    if (
+        array_key_exists('schedule_enabled', $data) ||
+        array_key_exists('schedule_interval', $data) ||
+        array_key_exists('schedule_day', $data) ||
+        array_key_exists('schedule_recipients', $data) ||
+        array_key_exists('schedule_next_due', $data)
+    ) {
+        ensure_report_schedule_columns();
+    }
 
     $allowed_fields = [
-        'title', 'report_language', 'date_from', 'date_to',
+        'organization_id', 'title', 'report_language', 'date_from', 'date_to',
         'executive_summary', 'show_financials', 'show_team_attribution',
-        'show_cost_breakdown', 'group_by', 'rounding_minutes',
-        'theme_color', 'hide_branding', 'is_draft', 'is_archived', 'expires_at'
+        'show_cost_breakdown', 'custom_billable_rate', 'group_by', 'rounding_minutes',
+        'theme_color', 'hide_branding', 'is_draft', 'is_archived', 'expires_at',
+        'schedule_enabled', 'schedule_interval', 'schedule_day', 'schedule_recipients',
+        'schedule_next_due'
     ];
 
     foreach ($allowed_fields as $field) {
@@ -194,10 +305,17 @@ function delete_report_template($id) {
  * @return array Time entries with ticket and user details
  */
 function get_report_time_entries($template) {
+    ensure_report_custom_billable_rate_column();
     $has_ticket_tags = report_ticket_tags_column_exists();
     $ticket_tags_select = $has_ticket_tags
         ? 't.tags as ticket_tags,'
         : 'NULL as ticket_tags,';
+    $ticket_custom_rate_select = report_ticket_custom_billable_rate_column_exists()
+        ? 't.custom_billable_rate as ticket_custom_billable_rate,'
+        : 'NULL as ticket_custom_billable_rate,';
+    $ticket_type_join = report_ticket_type_id_column_exists()
+        ? "LEFT JOIN ticket_types tt ON (t.ticket_type_id = tt.id OR (t.ticket_type_id IS NULL AND t.type = tt.slug))"
+        : "LEFT JOIN ticket_types tt ON t.type = tt.slug";
 
     $sql = "
         SELECT
@@ -215,14 +333,15 @@ function get_report_time_entries($template) {
             t.hash as ticket_number,
             t.title as ticket_title,
             {$ticket_tags_select}
-            tt.name as ticket_type,
+            {$ticket_custom_rate_select}
+            COALESCE(tt.name, t.type) as ticket_type,
             u.first_name,
             u.last_name,
             u.cost_rate as user_cost_rate,
             DATE(te.started_at) as entry_date
         FROM ticket_time_entries te
         INNER JOIN tickets t ON te.ticket_id = t.id
-        LEFT JOIN ticket_types tt ON t.type = tt.id
+        {$ticket_type_join}
         LEFT JOIN users u ON te.user_id = u.id
         WHERE t.organization_id = ?
           AND DATE(te.started_at) >= ?
@@ -269,6 +388,24 @@ function get_report_time_entries($template) {
 }
 
 /**
+ * Resolve the billable rate that should be used inside a report.
+ */
+function get_report_entry_billable_rate(array $entry, array $template): float
+{
+    $template_rate = $template['custom_billable_rate'] ?? null;
+    if ($template_rate !== null && trim((string) $template_rate) !== '') {
+        return max(0, (float) str_replace(',', '.', trim((string) $template_rate)));
+    }
+
+    $ticket_rate = $entry['ticket_custom_billable_rate'] ?? null;
+    if ($ticket_rate !== null && trim((string) $ticket_rate) !== '') {
+        return max(0, (float) str_replace(',', '.', trim((string) $ticket_rate)));
+    }
+
+    return (float) ($entry['billable_rate'] ?? 0);
+}
+
+/**
  * Calculate report KPIs
  *
  * @param array $time_entries Time entries data
@@ -299,7 +436,7 @@ function calculate_report_kpis($time_entries, $template) {
 
         // Calculate billable amount if financials are enabled (use billable_rate for client reports)
         if ($template['show_financials']) {
-            $rate = $entry['billable_rate'] ?: 0;
+            $rate = get_report_entry_billable_rate($entry, $template);
             $total_cost += ($minutes / 60) * $rate;
         }
 
@@ -412,7 +549,7 @@ function group_report_entries($time_entries, $group_by, $template) {
             $grouped[$key]['entries'][] = $entry;
 
             if ($template['show_financials']) {
-                $rate = $entry['billable_rate'] ?: 0;
+                $rate = get_report_entry_billable_rate($entry, $template);
                 $grouped[$key]['total_cost'] += ($minutes / 60) * $rate;
             }
         }
@@ -439,7 +576,7 @@ function group_report_entries($time_entries, $group_by, $template) {
             $grouped[$key]['entries'][] = $entry;
 
             if ($template['show_financials']) {
-                $rate = $entry['billable_rate'] ?: 0;
+                $rate = get_report_entry_billable_rate($entry, $template);
                 $grouped[$key]['total_cost'] += ($minutes / 60) * $rate;
             }
         }
@@ -566,6 +703,7 @@ function ensure_report_schedule_columns(): void
             try {
                 db_query("ALTER TABLE report_templates ADD COLUMN {$col} {$def}");
             } catch (Throwable $e) { /* ignore */ }
+            column_exists('report_templates', $col, true);
         }
     }
 }
@@ -598,6 +736,17 @@ function get_due_scheduled_reports(): array
  * @param string|null $from Base date (default: today)
  * @return string Next due date (Y-m-d)
  */
+function report_days_in_month(int $year, int $month): int
+{
+    $month = max(1, min(12, $month));
+    $date = DateTimeImmutable::createFromFormat('!Y-n-j', $year . '-' . $month . '-1');
+    if (!$date) {
+        return 31;
+    }
+
+    return (int) $date->format('t');
+}
+
 function calculate_next_report_due(string $interval, int $day, ?string $from = null): string
 {
     $base = new DateTime($from ?? 'today');
@@ -620,7 +769,7 @@ function calculate_next_report_due(string $interval, int $day, ?string $from = n
                 $base->modify('+1 year');
             }
             $year = (int) $base->format('Y');
-            $max_day = cal_days_in_month(CAL_GREGORIAN, $quarter_start, $year);
+            $max_day = report_days_in_month($year, $quarter_start);
             $actual_day = min($day, $max_day);
             $base->setDate($year, $quarter_start, $actual_day);
             break;
@@ -629,7 +778,7 @@ function calculate_next_report_due(string $interval, int $day, ?string $from = n
             $base->modify('+1 month');
             $year = (int) $base->format('Y');
             $month = (int) $base->format('n');
-            $max_day = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+            $max_day = report_days_in_month($year, $month);
             $actual_day = min($day, $max_day);
             $base->setDate($year, $month, $actual_day);
             break;
@@ -745,7 +894,7 @@ function send_scheduled_report_email(array $report, string $date_from, string $d
     $org_name = $report['organization_name'] ?? 'Client';
     $report_title = $report['title'] ?? 'Report';
     $uuid = $report['uuid'] ?? '';
-    $report_link = $app_url . '/index.php?page=report-public&uuid=' . urlencode($uuid);
+    $report_link = $app_url . '/index.php?page=report-public&token=' . urlencode($uuid);
 
     // Fetch latest snapshot KPIs
     $kpi_html = '';

@@ -458,10 +458,10 @@ function email_ingest_process_uid($imap, $uid, $cfg, $dry_run = false)
 
         $ticket_id = email_ingest_resolve_ticket_id($subject, $in_reply_to, $reference_ids);
         if ($ticket_id <= 0) {
-            $ticket_id = email_ingest_create_ticket_from_email($requester_user_id, $subject, $body_text);
+            $ticket_id = email_ingest_create_ticket_from_email($requester_user_id, $subject, $body_text, $body_html);
             $ticket_created = true;
         } else {
-            $comment_id = email_ingest_add_inbound_comment($ticket_id, $requester_user_id, $body_text);
+            $comment_id = email_ingest_add_inbound_comment($ticket_id, $requester_user_id, $body_text, $body_html);
         }
 
         if ($ticket_id <= 0) {
@@ -1358,7 +1358,7 @@ function email_ingest_resolve_ticket_id($subject, $in_reply_to, $reference_ids)
 /**
  * Create a ticket from inbound email.
  */
-function email_ingest_create_ticket_from_email($requester_user_id, $subject, $body_text)
+function email_ingest_create_ticket_from_email($requester_user_id, $subject, $body_text, $body_html = '')
 {
     $default_status = db_fetch_one("SELECT id FROM statuses WHERE is_default = 1 ORDER BY id ASC LIMIT 1");
     if (!$default_status) {
@@ -1378,10 +1378,19 @@ function email_ingest_create_ticket_from_email($requester_user_id, $subject, $bo
     $user = db_fetch_one("SELECT organization_id FROM users WHERE id = ? LIMIT 1", [$requester_user_id]);
     $organization_id = $user ? ($user['organization_id'] !== null ? (int) $user['organization_id'] : null) : null;
 
+    // Prefer sanitized HTML body (preserves paragraphs, lists, formatting) when available,
+    // otherwise fall back to plain text (render_content handles both).
+    $html_body = trim((string) $body_html);
+    if ($html_body !== '') {
+        $description = email_ingest_convert_to_utf8($html_body);
+    } else {
+        $description = email_ingest_convert_to_utf8((string) $body_text);
+    }
+
     $ticket_data = [
         'hash' => email_ingest_generate_ticket_hash(),
         'title' => mb_substr(email_ingest_convert_to_utf8((string) $subject), 0, 255),
-        'description' => email_ingest_convert_to_utf8((string) $body_text),
+        'description' => $description,
         'type' => 'general',
         'priority_id' => $priority_id,
         'user_id' => $requester_user_id,
@@ -1398,9 +1407,14 @@ function email_ingest_create_ticket_from_email($requester_user_id, $subject, $bo
 /**
  * Add inbound comment for appended ticket message.
  */
-function email_ingest_add_inbound_comment($ticket_id, $user_id, $body_text)
+function email_ingest_add_inbound_comment($ticket_id, $user_id, $body_text, $body_html = '')
 {
-    $content = trim(email_ingest_convert_to_utf8((string) $body_text));
+    $html_body = trim((string) $body_html);
+    if ($html_body !== '') {
+        $content = trim(email_ingest_convert_to_utf8($html_body));
+    } else {
+        $content = trim(email_ingest_convert_to_utf8((string) $body_text));
+    }
     if ($content === '') {
         $content = '(No content)';
     }
@@ -1719,12 +1733,41 @@ function email_ingest_sanitize_html($html)
 
 /**
  * Convert HTML to text fallback.
+ * Preserves line breaks from block-level tags (<br>, <p>, <div>, <li>, <tr>, <h1-6>, <blockquote>).
  */
 function email_ingest_html_to_text($html)
 {
-    $text = html_entity_decode(strip_tags((string) $html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $html = (string) $html;
+    if ($html === '') {
+        return '';
+    }
+
+    // Drop invisible content first
+    $html = preg_replace('/<(script|style|head)\b[^>]*>.*?<\/\1>/is', '', $html);
+
+    // Convert <br> to newline
+    $html = preg_replace('/<br\s*\/?>/i', "\n", $html);
+
+    // Block-level closing tags → newline
+    $html = preg_replace('/<\/(p|div|li|tr|h[1-6]|blockquote|pre|section|article|header|footer|ul|ol|table|thead|tbody|tfoot)\s*>/i', "\n", $html);
+
+    // Paragraph / list-item opening tags → newline (handles <p style="...">)
+    $html = preg_replace('/<(p|div|li|tr|h[1-6]|blockquote|pre|section|article|header|footer)\b[^>]*>/i', "\n", $html);
+
+    // Table cells → tab separator for readability
+    $html = preg_replace('/<\/(td|th)\s*>/i', "\t", $html);
+
+    $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+    // Normalise whitespace
     $text = preg_replace("/\r\n|\r/", "\n", $text);
+    // Collapse runs of spaces/tabs but leave newlines intact
+    $text = preg_replace('/[ \t]+/', ' ', $text);
+    // Strip leading/trailing spaces per line
+    $text = preg_replace('/ *\n */', "\n", $text);
+    // Limit blank lines
     $text = preg_replace("/\n{3,}/", "\n\n", $text);
+
     return trim($text);
 }
 

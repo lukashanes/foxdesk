@@ -171,16 +171,17 @@ function table_exists($table)
  *
  * @param string $table  Table name (e.g. 'tickets')
  * @param string $column Column name (e.g. 'hash')
+ * @param bool $refresh Bypass and update the cached result
  * @return bool
  */
-function column_exists($table, $column)
+function column_exists($table, $column, $refresh = false)
 {
     static $cache = [];
     validate_sql_identifier($table);
     validate_sql_identifier($column);
 
     $key = $table . '.' . $column;
-    if (array_key_exists($key, $cache)) {
+    if (!$refresh && array_key_exists($key, $cache)) {
         return $cache[$key];
     }
 

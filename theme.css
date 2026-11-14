@@ -3193,12 +3193,24 @@ font-size: 0.75rem;
 }
 }
 .comment-internal {
-background: rgba(245, 158, 11, 0.04);
-border-left: 3px solid rgba(245, 158, 11, 0.5);
+background: rgba(245, 158, 11, 0.08);
+border-left: 4px solid rgba(245, 158, 11, 0.85);
+position: relative;
+}
+.comment-internal::before {
+content: "";
+position: absolute;
+inset: 0;
+pointer-events: none;
+box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.18);
+border-radius: 0;
 }
 [data-theme="dark"] .comment-internal {
-background: rgba(234, 179, 8, 0.06);
-border-left-color: rgba(234, 179, 8, 0.4);
+background: rgba(234, 179, 8, 0.10);
+border-left-color: rgba(234, 179, 8, 0.75);
+}
+[data-theme="dark"] .comment-internal::before {
+box-shadow: inset 0 0 0 1px rgba(234, 179, 8, 0.22);
 }
 .comment-actions {
 display: flex;
@@ -3620,4 +3632,348 @@ transform: rotate(180deg);
 }
 details > summary::-webkit-details-marker {
 display: none;
+}
+
+/* ============================================================ */
+/* UI/UX REFRESH v0.3.75                                         */
+/* Goals: clearer hierarchy, breathing room, signal on key items */
+/* ============================================================ */
+
+/* Required-field asterisk — make it actually noticeable */
+.required-asterisk,
+label .required {
+color: #ef4444;
+font-weight: 700;
+margin-left: 2px;
+}
+
+/* Empty states — larger, friendlier */
+.empty-state {
+padding: 2.5rem 1.25rem !important;
+border-radius: var(--radius-lg);
+background: var(--surface-secondary);
+border: 1px dashed var(--border-light);
+}
+.empty-state__icon {
+font-size: 2rem;
+opacity: 0.55;
+margin-bottom: 0.5rem;
+}
+.empty-state__title {
+font-size: 0.9375rem;
+font-weight: 600;
+}
+.empty-state__message {
+font-size: 0.8125rem;
+color: var(--text-muted);
+}
+
+/* Dashboard ticket cards — a touch more room */
+.db-ticket {
+padding: 12px !important;
+}
+.db-ticket + .db-ticket {
+margin-top: 6px;
+}
+
+/* KPI cards — slightly airier */
+.kpi-card,
+.dashboard-kpi {
+padding: 18px 22px !important;
+}
+
+/* Toolbar icon normalisation — consistent click target */
+.td-tool-btn {
+min-width: 28px;
+min-height: 28px;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+border-radius: var(--radius-sm);
+transition: background 120ms ease, color 120ms ease;
+}
+.td-tool-btn:hover {
+background: var(--surface-secondary);
+}
+.td-tool-sep {
+display: inline-block;
+width: 1px;
+height: 18px;
+background: var(--border-light);
+margin: 0 6px;
+opacity: 0.9;
+}
+
+/* Ticket sidebar — emphasize Status & Assigned rows */
+.ticket-sidebar-row--primary {
+padding: 8px 10px;
+border-radius: var(--radius-sm);
+background: var(--surface-secondary);
+margin-bottom: 4px;
+}
+.ticket-sidebar-row--primary dt {
+font-size: 0.6875rem !important;
+font-weight: 600;
+text-transform: uppercase;
+letter-spacing: 0.04em;
+color: var(--text-muted);
+}
+.ticket-sidebar-row--primary dd select,
+.ticket-sidebar-row--primary dd .badge {
+font-size: 0.8125rem !important;
+font-weight: 600;
+padding: 3px 8px !important;
+}
+
+/* "Assign to me" tool button — friendly accent colour */
+.td-tool-btn--assign-me {
+color: var(--primary);
+}
+.td-tool-btn--assign-me:hover {
+background: rgba(10, 132, 255, 0.10);
+}
+
+/* Rich content preserved newlines from email ingest */
+.rich-content p {
+margin: 0 0 0.5rem 0;
+}
+.rich-content blockquote {
+border-left: 3px solid var(--border-light);
+padding-left: 0.75rem;
+color: var(--text-muted);
+margin: 0.5rem 0;
+}
+
+/* Smooth transitions on interactive chrome */
+button, select, .td-tool-btn, .db-ticket {
+transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+/* Quick-duration preset chips */
+.duration-preset {
+border: 1px solid var(--border-light);
+background: var(--surface-secondary);
+color: var(--text-secondary);
+font-weight: 500;
+line-height: 1;
+min-height: 28px;
+}
+.duration-preset:hover {
+background: var(--primary-soft);
+color: var(--primary-dark);
+border-color: var(--primary);
+}
+.duration-preset--active {
+background: var(--primary);
+color: #fff;
+border-color: var(--primary);
+}
+.duration-preset--active:hover {
+background: var(--primary-dark);
+color: #fff;
+}
+
+/* Inline log-time: chip row unfolds next to the clock icon. One click = save. */
+.ilt-chips {
+display: inline-flex;
+gap: 4px;
+margin-left: 6px;
+margin-right: 6px;
+align-items: center;
+animation: ilt-fade-in 120ms ease-out;
+}
+.ilt-chips--left {
+margin-left: 0;
+margin-right: 6px;
+}
+.ilt-chips--floating {
+position: fixed;
+z-index: 65;
+background: var(--surface-primary);
+border: 1px solid var(--border-light);
+border-radius: 999px;
+padding: 4px 6px;
+box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+margin: 0;
+}
+@keyframes ilt-fade-in {
+from { opacity: 0; transform: translateX(4px); }
+to   { opacity: 1; transform: translateX(0); }
+}
+.ilt-chip {
+padding: 3px 8px;
+font-size: 11px;
+font-weight: 600;
+line-height: 1;
+border: 1px solid var(--border-light);
+border-radius: 999px;
+background: var(--surface-primary);
+color: var(--text-secondary);
+cursor: pointer;
+min-width: 34px;
+white-space: nowrap;
+}
+.ilt-chip:hover {
+background: var(--primary-soft);
+color: var(--primary);
+border-color: var(--primary);
+}
+.ilt-chip:disabled {
+opacity: 0.5;
+cursor: wait;
+}
+.ilt-chip--custom {
+min-width: 28px;
+padding: 3px 6px;
+font-weight: 700;
+}
+
+/* Custom-duration popover (only when user hits …) */
+.ilt-custom {
+position: fixed;
+z-index: 70;
+width: 240px;
+background: var(--surface-primary);
+border: 1px solid var(--border-light);
+border-radius: var(--radius-md);
+padding: 10px;
+box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+}
+.ilt-custom input[type="number"],
+.ilt-custom textarea {
+width: 100%;
+padding: 6px 8px;
+font-size: 13px;
+border: 1px solid var(--border-light);
+border-radius: var(--radius-sm);
+background: var(--surface-primary);
+color: var(--text-primary);
+margin-bottom: 6px;
+}
+.ilt-custom textarea {
+resize: vertical;
+}
+.ilt-custom__actions {
+display: flex;
+justify-content: flex-end;
+gap: 6px;
+}
+.ilt-custom__actions button {
+padding: 4px 10px;
+font-size: 12px;
+border-radius: var(--radius-sm);
+cursor: pointer;
+}
+.ilt-cancel {
+background: transparent;
+color: var(--text-muted);
+border: 1px solid var(--border-light);
+}
+.ilt-save {
+background: var(--primary);
+color: #fff;
+border: 1px solid var(--primary);
+font-weight: 600;
+}
+.ilt-save:disabled { opacity: 0.5; cursor: wait; }
+
+/* Inline log-time popover on tickets list */
+.inline-log-time {
+position: relative;
+display: inline-block;
+}
+.inline-log-time__btn {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+width: 24px;
+height: 24px;
+border-radius: var(--radius-sm);
+color: var(--text-muted);
+border: 1px solid transparent;
+background: transparent;
+}
+.inline-log-time__btn:hover {
+background: var(--primary-soft);
+color: var(--primary);
+border-color: var(--primary);
+}
+.inline-log-time__popover {
+position: fixed;
+z-index: 60;
+background: var(--surface-primary);
+border: 1px solid var(--border-light);
+border-radius: var(--radius-md);
+padding: 10px;
+width: 260px;
+box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+}
+.inline-log-time__popover h4 {
+margin: 0 0 6px 0;
+font-size: 0.75rem;
+font-weight: 600;
+color: var(--text-muted);
+text-transform: uppercase;
+letter-spacing: 0.04em;
+}
+.inline-log-time__popover .preset-row {
+display: flex;
+gap: 4px;
+flex-wrap: wrap;
+margin-bottom: 8px;
+}
+.inline-log-time__popover .preset-row button {
+padding: 3px 8px;
+font-size: 0.75rem;
+border-radius: var(--radius-sm);
+border: 1px solid var(--border-light);
+background: var(--surface-secondary);
+color: var(--text-secondary);
+cursor: pointer;
+}
+.inline-log-time__popover .preset-row button:hover {
+background: var(--primary-soft);
+color: var(--primary);
+border-color: var(--primary);
+}
+.inline-log-time__popover input[type="number"],
+.inline-log-time__popover textarea {
+width: 100%;
+padding: 6px 8px;
+font-size: 0.8125rem;
+border: 1px solid var(--border-light);
+border-radius: var(--radius-sm);
+background: var(--surface-primary);
+color: var(--text-primary);
+margin-bottom: 6px;
+}
+.inline-log-time__popover textarea {
+min-height: 48px;
+resize: vertical;
+}
+.inline-log-time__popover .actions {
+display: flex;
+justify-content: flex-end;
+gap: 6px;
+}
+.inline-log-time__popover .actions button {
+padding: 5px 10px;
+font-size: 0.75rem;
+border-radius: var(--radius-sm);
+cursor: pointer;
+}
+.inline-log-time__popover .btn-cancel {
+background: transparent;
+color: var(--text-muted);
+border: 1px solid var(--border-light);
+}
+.inline-log-time__popover .btn-save {
+background: var(--primary);
+color: #fff;
+border: 1px solid var(--primary);
+font-weight: 600;
+}
+.inline-log-time__popover .btn-save:disabled {
+opacity: 0.5;
+cursor: not-allowed;
 }

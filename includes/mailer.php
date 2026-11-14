@@ -371,6 +371,63 @@ function send_status_change_notification($ticket, $old_status, $new_status, $com
 }
 
 /**
+ * Render a ticket comment safely for HTML notification emails.
+ */
+function mailer_render_comment_html($content): string
+{
+    $content = (string) $content;
+    if ($content === '') {
+        return '';
+    }
+
+    if (function_exists('is_html_content') && is_html_content($content)) {
+        $html = function_exists('safe_html') ? safe_html($content) : strip_tags($content, '<p><br><strong><b><em><i><u><ul><ol><li><a><blockquote><pre><code><span><div>');
+        return function_exists('linkify_urls') ? linkify_urls($html) : $html;
+    }
+
+    $html = nl2br(e($content));
+    return function_exists('linkify_urls') ? linkify_urls($html) : $html;
+}
+
+/**
+ * Render a plain-text template as HTML while allowing selected placeholders
+ * to inject already-sanitized rich HTML.
+ */
+function mailer_render_template_email_html(string $body, array $plain_replacements, array $html_replacements = []): string
+{
+    $tokens = [];
+    foreach ($html_replacements as $placeholder => $html) {
+        $token = 'FOXDESK_HTML_SLOT_' . count($tokens);
+        $body = str_replace($placeholder, $token, $body);
+        $tokens[$token] = $html;
+    }
+
+    foreach ($tokens as $token => $_html) {
+        $body = preg_replace('/\r?\n?---\s*\r?\n' . preg_quote($token, '/') . '\r?\n---\s*\r?\n?/m', "\n" . $token . "\n", $body);
+    }
+
+    foreach ($plain_replacements as $placeholder => $value) {
+        $body = str_replace($placeholder, (string) $value, $body);
+    }
+
+    $html_body = nl2br(e($body));
+    if (function_exists('linkify_urls')) {
+        $html_body = linkify_urls($html_body);
+    }
+
+    foreach ($tokens as $token => $html) {
+        $comment_block = '<div style="margin:14px 0;padding:16px;border-left:4px solid #3b82f6;background:#f8fafc;border-radius:8px;color:#111827;line-height:1.55;">'
+            . $html
+            . '</div>';
+        $html_body = str_replace($token, $comment_block, $html_body);
+    }
+
+    return '<div style="font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe UI&quot;,Roboto,Arial,sans-serif;max-width:720px;color:#111827;font-size:15px;line-height:1.55;">'
+        . $html_body
+        . '</div>';
+}
+
+/**
  * Send new comment notification with comment text, time, attachments, and direct link
  */
 function send_new_comment_notification($ticket, $comment, $commenter, $comment_id = null, $attachments = [], $cc_user_ids = [])
@@ -392,6 +449,8 @@ function send_new_comment_notification($ticket, $comment, $commenter, $comment_i
     }
 
     $comment_text = $comment['content'] ?? '';
+    $comment_html = mailer_render_comment_html($comment_text);
+    $comment_plain = trim(html_entity_decode(strip_tags((string) $comment_text), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     $commenter_name = trim(($commenter['first_name'] ?? '') . ' ' . ($commenter['last_name'] ?? ''));
     if ($commenter_name === '') {
         $commenter_name = $commenter['email'] ?? t('System');
@@ -437,7 +496,7 @@ function send_new_comment_notification($ticket, $comment, $commenter, $comment_i
     // Previous commenters (participants) — notify everyone who commented on this ticket
     try {
         $participants = db_fetch_all(
-            "SELECT DISTINCT user_id FROM ticket_comments WHERE ticket_id = ? AND user_id != ?",
+            "SELECT DISTINCT user_id FROM comments WHERE ticket_id = ? AND user_id != ?",
             [$ticket['id'], $commenter['id']]
         );
         foreach ($participants as $p) {
@@ -498,11 +557,11 @@ function send_new_comment_notification($ticket, $comment, $commenter, $comment_i
             $subject = '[CC] ' . $subject;
         }
 
-        $replacements = [
+        $subject_replacements = [
             '{ticket_id}' => $ticket_code,
             '{ticket_title}' => $ticket['title'] ?? '',
-            '{comment_text}' => $comment_text,
-            '{comment}' => $comment_text,
+            '{comment_text}' => $comment_plain,
+            '{comment}' => $comment_plain,
             '{commenter_name}' => $commenter_name,
             '{commenter}' => $commenter_name,
             '{time_spent}' => $time_spent !== '' ? $time_spent : get_email_template_phrase('not_provided', $lang),
@@ -513,11 +572,16 @@ function send_new_comment_notification($ticket, $comment, $commenter, $comment_i
             '{recipient_name}' => $recipient_name,
             '{name}' => $recipient_name
         ];
+        $body_replacements = $subject_replacements;
+        unset($body_replacements['{comment_text}'], $body_replacements['{comment}']);
 
-        $subject = str_replace(array_keys($replacements), array_values($replacements), $subject);
-        $body = str_replace(array_keys($replacements), array_values($replacements), $body);
+        $subject = str_replace(array_keys($subject_replacements), array_values($subject_replacements), $subject);
+        $body = mailer_render_template_email_html($body, $body_replacements, [
+            '{comment_text}' => $comment_html,
+            '{comment}' => $comment_html,
+        ]);
 
-        if (send_email($recipient['email'], $subject, $body, false)) {
+        if (send_email($recipient['email'], $subject, $body, true)) {
             $any_sent = true;
         } else {
             $all_ok = false;

@@ -116,6 +116,8 @@ $timer_is_paused = false;
 $time_breakdown = $time_tracking_available ? get_ticket_time_breakdown($ticket_id) : ['total' => 0, 'human' => 0, 'ai' => 0];
 $total_time_minutes = $time_breakdown['total'];
 $org_billable_rate = 0.0;
+$ticket_custom_billable_rate = function_exists('get_ticket_custom_billable_rate') ? get_ticket_custom_billable_rate($ticket) : null;
+$ticket_effective_billable_rate = function_exists('get_ticket_effective_billable_rate') ? get_ticket_effective_billable_rate($ticket) : 0.0;
 $user_cost_rate = (float) ($user['cost_rate'] ?? 0);
 if (!empty($ticket['organization_id'])) {
     $org = get_organization($ticket['organization_id']);
@@ -626,6 +628,16 @@ require_once BASE_PATH . '/includes/header.php';
     }
 </style>
 
+<?php
+// Pre-fetch data used by toolbar and sidebar (agents list, priorities, types).
+$_sidebar_agents = $_sidebar_priorities = $_sidebar_types = [];
+if (is_agent()) {
+    $_ai_excl = (function_exists('ai_agent_column_exists') && ai_agent_column_exists()) ? ' AND is_ai_agent = 0' : '';
+    $_sidebar_agents = db_fetch_all("SELECT id, first_name, last_name FROM users WHERE role IN ('agent', 'admin') AND is_active = 1{$_ai_excl} ORDER BY first_name") ?: [];
+    $_sidebar_priorities = db_fetch_all("SELECT id, name FROM priorities ORDER BY sort_order") ?: [];
+    $_sidebar_types = db_fetch_all("SELECT slug, name FROM ticket_types WHERE is_active = 1 ORDER BY sort_order") ?: [];
+}
+?>
 <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
     <!-- Main Content -->
     <div class="md:col-span-2 lg:col-span-3 space-y-3">
@@ -664,6 +676,44 @@ require_once BASE_PATH . '/includes/header.php';
                 <a href="#comment-form" class="td-tool-btn" title="<?php echo e(t('Comment')); ?>">
                     <?php echo get_icon('comment', 'w-3.5 h-3.5'); ?>
                 </a>
+                <?php if (is_agent()): ?>
+                    <span class="td-tool-sep"></span>
+                    <?php
+                    $_assignee_name = '';
+                    $_assignee_id_current = (int) ($ticket['assignee_id'] ?? 0);
+                    if ($_assignee_id_current > 0) {
+                        foreach ($_sidebar_agents as $_ag) {
+                            if ((int) $_ag['id'] === $_assignee_id_current) {
+                                $_assignee_name = $_ag['first_name'] . ' ' . $_ag['last_name'];
+                                break;
+                            }
+                        }
+                    }
+                    ?>
+                    <label class="inline-flex items-center gap-1 text-[11px]" style="color: var(--text-muted);">
+                        <?php echo get_icon('user', 'w-3.5 h-3.5'); ?>
+                        <select id="toolbar-assign-select"
+                            class="text-[11px] py-0.5 px-1 rounded border-0 cursor-pointer"
+                            style="color: var(--text-primary); background: var(--surface-secondary);"
+                            title="<?php echo e(t('Assigned')); ?>"
+                            onchange="quickEditField('quick-assign', {assignee_id: this.value})">
+                            <option value=""><?php echo e(t('-- Unassigned --')); ?></option>
+                            <?php foreach ($_sidebar_agents as $_ag): ?>
+                                <option value="<?php echo $_ag['id']; ?>" <?php echo $_assignee_id_current == $_ag['id'] ? 'selected' : ''; ?>>
+                                    <?php echo e($_ag['first_name'] . ' ' . $_ag['last_name']); ?><?php if ($_ag['id'] == $user['id']): ?> (<?php echo e(t('me')); ?>)<?php endif; ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <?php if ($_assignee_id_current !== (int) $user['id']): ?>
+                        <button type="button"
+                            class="td-tool-btn td-tool-btn--assign-me"
+                            title="<?php echo e(t('Assign to me')); ?>"
+                            onclick="quickEditField('quick-assign', {assignee_id: '<?php echo (int) $user['id']; ?>'}); var s=document.getElementById('toolbar-assign-select'); if(s){s.value='<?php echo (int) $user['id']; ?>';}">
+                            <?php echo get_icon('user-plus', 'w-3.5 h-3.5'); ?>
+                        </button>
+                    <?php endif; ?>
+                <?php endif; ?>
                 <?php if (is_agent() && $time_tracking_available): ?>
                     <span class="td-tool-sep"></span>
                     <button type="button" id="toolbar-timer-btn"
@@ -1204,22 +1254,77 @@ require_once BASE_PATH . '/includes/header.php';
                 <?php if (is_agent() && $time_tracking_available): ?>
                         <!-- Manual Time Entry (expandable, between attachments and submit row) -->
                         <div id="manual-entry-row" class="hidden mt-2 pt-2 border-t" style="border-color: var(--border-light);">
-                            <div class="grid grid-cols-3 gap-2">
-                                <div>
-                                    <label class="form-label-sm mb-1"><?php echo e(t('Date')); ?></label>
-                                    <input type="date" name="manual_date" value="<?php echo e(date('Y-m-d')); ?>"
-                                        class="form-input text-sm h-9">
+                            <!-- Primary: quick duration -->
+                            <div class="flex flex-wrap items-end gap-2">
+                                <div class="flex-1 min-w-[180px]">
+                                    <label class="form-label-sm mb-1"><?php echo e(t('Duration (minutes)')); ?></label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" min="1" max="1440" step="1" id="manual-duration-input"
+                                            name="manual_duration_minutes" placeholder="10"
+                                            class="form-input text-sm h-9 w-24 tabular-nums">
+                                        <span class="text-xs" style="color: var(--text-muted);">
+                                            <?php echo e(t('Start = now − N min, End = now')); ?>
+                                        </span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label class="form-label-sm mb-1"><?php echo e(t('Start')); ?></label>
-                                    <input type="time" name="manual_start_time" class="form-input text-sm h-9">
-                                </div>
-                                <div>
-                                    <label class="form-label-sm mb-1"><?php echo e(t('End')); ?></label>
-                                    <input type="time" name="manual_end_time" class="form-input text-sm h-9">
+                                <div class="flex flex-wrap items-center gap-1" id="duration-presets" role="group" aria-label="<?php echo e(t('Quick duration')); ?>">
+                                    <?php foreach ([5, 10, 15, 30, 60, 90, 120] as $_mins): ?>
+                                        <button type="button" class="duration-preset btn btn-ghost px-2 py-1 text-xs rounded"
+                                            data-minutes="<?php echo (int) $_mins; ?>">+<?php echo (int) $_mins; ?> min</button>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
+                            <!-- Secondary: precise override (date + start + end) -->
+                            <details class="mt-2">
+                                <summary class="text-xs cursor-pointer select-none" style="color: var(--text-muted);">
+                                    <?php echo e(t('Or set exact start / end time')); ?>
+                                </summary>
+                                <div class="grid grid-cols-3 gap-2 mt-2">
+                                    <div>
+                                        <label class="form-label-sm mb-1"><?php echo e(t('Date')); ?></label>
+                                        <input type="date" name="manual_date" value="<?php echo e(date('Y-m-d')); ?>"
+                                            class="form-input text-sm h-9 manual-precise-input">
+                                    </div>
+                                    <div>
+                                        <label class="form-label-sm mb-1"><?php echo e(t('Start')); ?></label>
+                                        <input type="time" name="manual_start_time"
+                                            class="form-input text-sm h-9 manual-precise-input">
+                                    </div>
+                                    <div>
+                                        <label class="form-label-sm mb-1"><?php echo e(t('End')); ?></label>
+                                        <input type="time" name="manual_end_time"
+                                            class="form-input text-sm h-9 manual-precise-input">
+                                    </div>
+                                </div>
+                            </details>
                         </div>
+                        <script>
+                        (function() {
+                            const input = document.getElementById('manual-duration-input');
+                            const presets = document.querySelectorAll('#duration-presets .duration-preset');
+                            const preciseInputs = document.querySelectorAll('.manual-precise-input');
+                            if (!input) return;
+                            presets.forEach(function(btn) {
+                                btn.addEventListener('click', function() {
+                                    const m = parseInt(btn.dataset.minutes, 10) || 0;
+                                    if (m <= 0) return;
+                                    input.value = m;
+                                    // Clear precise fields so duration wins
+                                    preciseInputs.forEach(function(f) {
+                                        if (f.type === 'time') f.value = '';
+                                    });
+                                    input.dispatchEvent(new Event('input', {bubbles: true}));
+                                    presets.forEach(function(b) { b.classList.remove('duration-preset--active'); });
+                                    btn.classList.add('duration-preset--active');
+                                });
+                            });
+                            input.addEventListener('input', function() {
+                                presets.forEach(function(b) {
+                                    b.classList.toggle('duration-preset--active', String(b.dataset.minutes) === String(input.value));
+                                });
+                            });
+                        })();
+                        </script>
                 <?php endif; ?>
 
                 <!-- Submit row: timer + notification on LEFT, CC + send on RIGHT -->
@@ -1329,13 +1434,8 @@ require_once BASE_PATH . '/includes/header.php';
 
     <!-- Sidebar -->
     <?php
-    // Pre-fetch data for sidebar dropdowns (agents only)
-    if (is_agent()) {
-        $_ai_excl = (function_exists('ai_agent_column_exists') && ai_agent_column_exists()) ? ' AND is_ai_agent = 0' : '';
-        $_sidebar_agents = db_fetch_all("SELECT id, first_name, last_name FROM users WHERE role IN ('agent', 'admin') AND is_active = 1{$_ai_excl} ORDER BY first_name");
-        $_sidebar_priorities = db_fetch_all("SELECT id, name FROM priorities ORDER BY sort_order");
-        $_sidebar_types = db_fetch_all("SELECT slug, name FROM ticket_types WHERE is_active = 1 ORDER BY sort_order");
-    }
+    // $_sidebar_agents / $_sidebar_priorities / $_sidebar_types were pre-fetched near the top
+    // (before the toolbar) so both the toolbar and sidebar can use them.
     ?>
     <div class="ticket-sidebar">
         <!-- Details -->
@@ -1357,7 +1457,7 @@ require_once BASE_PATH . '/includes/header.php';
                         <?php echo get_ticket_code($ticket_id); ?>
                     </dd>
                 </div>
-                <div class="flex justify-between items-center">
+                <div class="flex justify-between items-center ticket-sidebar-row--primary">
                     <dt class="text-xs" style="color: var(--text-muted);"><?php echo e(t('Status')); ?></dt>
                     <dd>
                         <span class="badge px-2 py-0.5 text-xs"
@@ -1367,7 +1467,7 @@ require_once BASE_PATH . '/includes/header.php';
                     </dd>
                 </div>
                 <?php if (is_agent()): ?>
-                <div class="flex justify-between items-center">
+                <div class="flex justify-between items-center ticket-sidebar-row--primary">
                     <dt class="text-xs" style="color: var(--text-muted);"><?php echo e(t('Assigned')); ?></dt>
                     <dd>
                         <select class="text-xs py-0.5 px-1 rounded border-0 cursor-pointer" style="color: var(--text-primary); background: var(--surface-secondary);" onchange="quickEditField('quick-assign', {assignee_id: this.value})">
@@ -1520,6 +1620,14 @@ require_once BASE_PATH . '/includes/header.php';
                                 </div>
                         <?php endif; ?>
                 <?php endif; ?>
+                <?php if (is_admin()): ?>
+                        <div class="flex justify-between items-center">
+                            <dt class="text-xs" style="color: var(--text-muted);"><?php echo e(t('Billable rate')); ?></dt>
+                            <dd class="text-xs font-medium" style="color: var(--text-primary);">
+                                <?php echo format_money($ticket_effective_billable_rate); ?>
+                            </dd>
+                        </div>
+                <?php endif; ?>
             </dl>
         </div>
 
@@ -1546,7 +1654,7 @@ require_once BASE_PATH . '/includes/header.php';
                                 <?php
                                 $comment_anchor = !empty($attachment['comment_id']) ? ('#comment-' . $attachment['comment_id']) : '';
                                 $uploader_name = trim(($attachment['first_name'] ?? '') . ' ' . ($attachment['last_name'] ?? ''));
-                                $_att_url = e(upload_url(UPLOAD_DIR . $attachment['filename']));
+                                $_att_url = e(attachment_url($attachment, '', !is_image_mime($attachment['mime_type'] ?? '')));
                                 $_is_img = is_image_mime($attachment['mime_type'] ?? '');
                                 ?>
                                 <div class="flex items-start gap-2 p-1.5 rounded group tr-hover">
@@ -1651,6 +1759,30 @@ require_once BASE_PATH . '/includes/header.php';
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
+
+                                <?php if (is_admin()): ?>
+                                        <div>
+                                            <label class="form-label-sm mb-0.5">
+                                                <?php echo e(t('Custom billable rate (per hour)')); ?>
+                                            </label>
+                                            <form method="post" class="space-y-2">
+                                                <?php echo csrf_field(); ?>
+                                                <input type="number"
+                                                    name="custom_billable_rate"
+                                                    step="0.01"
+                                                    min="0"
+                                                    class="form-input text-sm py-1.5 w-full"
+                                                    value="<?php echo e($ticket_custom_billable_rate !== null ? number_format((float) $ticket_custom_billable_rate, 2, '.', '') : ''); ?>"
+                                                    placeholder="<?php echo e(t('Leave empty to use the company default')); ?>">
+                                                <p class="text-xs" style="color: var(--text-muted);">
+                                                    <?php echo e(t('Company default rate: {rate}', ['rate' => format_money($org_billable_rate)])); ?>
+                                                </p>
+                                                <button type="submit" name="update_ticket_billing_rate" class="btn btn-primary btn-xs w-full justify-center">
+                                                    <?php echo e(t('Save')); ?>
+                                                </button>
+                                            </form>
+                                        </div>
+                                <?php endif; ?>
                             </div>
 
                             <!-- Additional Fields (Ticket Access, Share Link, etc.) -->
@@ -1830,6 +1962,20 @@ require_once BASE_PATH . '/includes/header.php';
                                                     </option>
                                             <?php endforeach; ?>
                                         </select>
+                                    </div>
+                            <?php endif; ?>
+
+                            <?php if (is_admin()): ?>
+                                    <div>
+                                        <label class="block text-xs font-medium mb-1"
+                                            style="color: var(--text-muted);"><?php echo e(t('Custom billable rate (per hour)')); ?></label>
+                                        <input type="number" name="edit_custom_billable_rate" step="0.01" min="0"
+                                            value="<?php echo e($ticket_custom_billable_rate !== null ? number_format((float) $ticket_custom_billable_rate, 2, '.', '') : ''); ?>"
+                                            class="form-input w-full"
+                                            placeholder="<?php echo e(t('Leave empty to use the company default')); ?>">
+                                        <p class="mt-1 text-xs" style="color: var(--text-muted);">
+                                            <?php echo e(t('Company default rate: {rate}', ['rate' => format_money($org_billable_rate)])); ?>
+                                        </p>
                                     </div>
                             <?php endif; ?>
                         </div>

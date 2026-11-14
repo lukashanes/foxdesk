@@ -444,9 +444,9 @@ function get_notification_snippet(array $notif): string
         case 'new_comment':
             // Fallback: fetch latest comment text from DB
             if (!empty($data['comment_id'])) {
-                $comment = db_fetch_one("SELECT body FROM ticket_comments WHERE id = ?", [(int) $data['comment_id']]);
-                if ($comment && !empty($comment['body'])) {
-                    $text = strip_tags($comment['body']);
+                $comment = db_fetch_one("SELECT content FROM comments WHERE id = ?", [(int) $data['comment_id']]);
+                if ($comment && !empty($comment['content'])) {
+                    $text = strip_tags($comment['content']);
                     return mb_strlen($text) > 80 ? mb_substr($text, 0, 77) . '...' : $text;
                 }
             }

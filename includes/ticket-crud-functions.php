@@ -771,9 +771,9 @@ function can_edit_ticket($ticket, $user) {
         return true;
     }
 
-    // Agent can edit assigned tickets or tickets they can see
+    // Agents can edit tickets within their configured visibility scope.
     if ($user['role'] === 'agent') {
-        return true; // Agents can edit any ticket they can access
+        return can_see_ticket($ticket, $user);
     }
 
     // Regular user can only edit their own tickets

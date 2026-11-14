@@ -78,11 +78,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Convert datetime-local format to MySQL datetime format
-        if ($due_date) {
-            $due_date = date('Y-m-d H:i:s', strtotime($due_date));
+        if (function_exists('parse_nullable_datetime')) {
+            $due_date = parse_nullable_datetime($due_date);
+            if ($due_date === false) {
+                $error = t('Invalid due date.');
+            }
+        } elseif ($due_date) {
+            $timestamp = strtotime($due_date);
+            if ($timestamp === false) {
+                $error = t('Invalid due date.');
+            } else {
+                $due_date = date('Y-m-d H:i:s', $timestamp);
+            }
         }
 
-        if (empty($title)) {
+        if ($error !== '') {
+            // Keep the validation error set above.
+        } elseif (empty($title)) {
             $error = t('Enter a subject.');
         } elseif ($organization_id !== null && $organization_id > 0 && !in_array($organization_id, $allowed_organization_ids, true)) {
             $error = t('Selected organization is not available.');
@@ -138,11 +150,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (!$manual_time_logged && $timer_elapsed > 0) {
                     // Timer was running — save as completed entry
-                    $org_billable_rate = 0.0;
-                    if (!empty($organization_id)) {
-                        $org = get_organization($organization_id);
-                        $org_billable_rate = (float)($org['billable_rate'] ?? 0);
-                    }
+                    $ticket_billable_rate = function_exists('get_ticket_effective_billable_rate')
+                        ? get_ticket_effective_billable_rate($ticket_id)
+                        : 0.0;
                     $user_cost_rate = (float)($user['cost_rate'] ?? 0);
                     $timer_started = date('Y-m-d H:i:s', time() - $timer_elapsed);
                     $timer_duration = max(1, (int) floor($timer_elapsed / 60));
@@ -153,7 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'ended_at' => date('Y-m-d H:i:s'),
                         'duration_minutes' => $timer_duration,
                         'is_billable' => 1,
-                        'billable_rate' => $org_billable_rate,
+                        'billable_rate' => $ticket_billable_rate,
                         'cost_rate' => $user_cost_rate,
                         'is_manual' => 0,
                         'created_at' => date('Y-m-d H:i:s')
