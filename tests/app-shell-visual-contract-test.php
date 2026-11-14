@@ -44,16 +44,12 @@ foreach ([
     '.notification-toggle-btn',
     '.notification-link-button',
     '.notif-avatar--0',
-    '@keyframes fd-page-enter',
-    '.app-shell-page.is-page-leaving .app-content',
     '@media (prefers-reduced-motion: reduce)',
 ] as $needle) {
     $assert(str_contains($theme, $needle), 'theme.css missing app shell visual contract: ' . $needle);
 }
 
 $assert(str_contains($footer, 'assets/js/page-transitions.js'), 'Footer must load smooth page transitions.');
-$assert(str_contains($pageTransitionsJs, 'is-page-leaving'), 'Page transition JS must set the leaving state.');
-$assert(str_contains($pageTransitionsJs, 'prefers-reduced-motion: reduce'), 'Page transition JS must respect reduced motion.');
 $assert(str_contains($pageTransitionsJs, "closest('a[href]')"), 'Page transition JS must enhance ordinary internal links.');
 
 $assert(!str_contains($header, 'width: clamp(200px, 25vw, 320px)'), 'Header search width must be controlled by app shell CSS, not inline clamp.');

@@ -12,6 +12,8 @@
     }
 
     function initSurface(surface) {
+        if (surface.dataset.workSearchReady) return;
+        surface.dataset.workSearchReady = "1";
         var mode = surface.getAttribute('data-work-filter-mode') || '';
         var input = surface.querySelector('[data-work-log-search]');
         var prompt = surface.querySelector('[data-work-search-prompt]');
@@ -86,6 +88,10 @@
 
         applySearch();
     }
+
+    document.addEventListener('foxdesk:work-updated', function () {
+        document.querySelectorAll('[data-work-log-surface]').forEach(initSurface);
+    });
 
     function init() {
         document.querySelectorAll('[data-work-log-surface]').forEach(initSurface);
