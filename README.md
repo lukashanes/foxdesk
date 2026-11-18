@@ -47,16 +47,30 @@ It runs on ordinary PHP hosting, a VPS, or Docker. There is no per-agent fee, no
 
 ## Install in a few minutes
 
-### With Docker Compose
+### With Docker Compose and the prebuilt image
+
+Every release is published as an image for amd64 and arm64: `ghcr.io/lukashanes/foxdesk:<version>`. Nothing is built on your machine.
 
 ```bash
 git clone https://github.com/lukashanes/foxdesk.git
 cd foxdesk
 cp .env.example .env          # set DB_PASSWORD and DB_ROOT_PASSWORD
-docker compose up -d --build
+echo "FOXDESK_IMAGE=ghcr.io/lukashanes/foxdesk:0.3.153" >> .env
+docker compose pull app cron
+docker compose up -d --no-build
 ```
 
-Open `http://localhost:8080/install.php` and use `db` as the database host with the credentials from `.env`. The stack includes PHP 8.2 with Apache, MariaDB 11, a scheduler container for background tasks, and persistent volumes for configuration, uploads, and backups. Backups, upgrades, and HTTPS proxy examples are in the [Docker guide](docs/DOCKER.md).
+Open `http://localhost:8080/install.php` and use `db` as the database host with the credentials from `.env`. Use the newest version from [Releases](https://github.com/lukashanes/foxdesk/releases) and pin it instead of `latest`, so a restart never changes the release unexpectedly.
+
+The stack includes PHP 8.2 with Apache, MariaDB 11, a scheduler container for background tasks, and persistent volumes for configuration, uploads, and backups. Backups, upgrades, and HTTPS proxy examples are in the [Docker guide](docs/DOCKER.md).
+
+### With Docker Compose, built from source
+
+Skip the `FOXDESK_IMAGE`, `pull` and `--no-build` lines above and build the image locally instead:
+
+```bash
+docker compose up -d --build
+```
 
 ### On PHP hosting or a VPS
 
