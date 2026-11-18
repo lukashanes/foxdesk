@@ -1,7 +1,7 @@
 # FoxDesk — Installation Guide
 
 > Fresh installation instructions for shared hosting (FTP), VPS, dedicated servers, or Docker.
-> Version: **0.3.152** | Requires: PHP 8.1+ | MySQL 5.7+ / MariaDB 10.2+ (the Docker setup includes both)
+> Version: **0.3.153** | Requires: PHP 8.1+ | MySQL 5.7+ / MariaDB 10.2+ (the Docker setup includes both)
 
 ---
 
