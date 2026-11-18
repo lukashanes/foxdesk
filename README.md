@@ -153,7 +153,7 @@ Calls use `index.php?page=api&action=agent-*`. Load `agent-docs`, then `agent-me
 
 ## Releases and updates
 
-FoxDesk 0.3.152 (October 23, 2026) brings the flight deck interface: a new dashboard with billable amounts, people, clients and the activity feed, a redesigned ticket list with one filter popover and row actions, a consolidated ticket workspace with the status pipeline, an icon rail sidebar and a bottom navigation on phones. 0.3.151 added the Time work ledger, client directory, report history, notification review, document preview and prebuilt Docker images.
+FoxDesk 0.3.153 (November 18, 2026) fixes time windows when PHP and the database run in different time zones (password reset, share links, dashboard, notifications and the API rate limit), keeps exact work-log times and adds agent-update-work-entry. 0.3.152 brought the flight deck interface: a new dashboard, a redesigned ticket list, a consolidated ticket workspace, an icon rail sidebar and a bottom navigation on phones.
 
 The [latest release page](https://github.com/lukashanes/foxdesk/releases/latest) always shows the current version, its changelog, and its download assets. Earlier versions are listed under [GitHub Releases](https://github.com/lukashanes/foxdesk/releases).
 
