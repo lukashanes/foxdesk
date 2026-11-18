@@ -250,7 +250,7 @@ function create_report_template_share_record($report_template_id, $organization_
  */
 function get_active_report_share($organization_id) {
     try {
-        return db_fetch_one("SELECT * FROM report_shares WHERE organization_id = ? AND is_revoked = 0 AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY created_at DESC LIMIT 1", [$organization_id]);
+        return db_fetch_one("SELECT * FROM report_shares WHERE organization_id = ? AND is_revoked = 0 AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at DESC LIMIT 1", [$organization_id, foxdesk_db_datetime()]);
     } catch (Exception $e) {
         return null;
     }
@@ -260,7 +260,7 @@ function get_active_report_template_share($report_template_id) {
     ensure_report_template_share_columns();
 
     try {
-        $share = db_fetch_one("SELECT * FROM report_shares WHERE report_template_id = ? AND is_revoked = 0 AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY created_at DESC LIMIT 1", [$report_template_id]);
+        $share = db_fetch_one("SELECT * FROM report_shares WHERE report_template_id = ? AND is_revoked = 0 AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at DESC LIMIT 1", [$report_template_id, foxdesk_db_datetime()]);
         return attach_report_template_share_token($share);
     } catch (Exception $e) {
         return null;

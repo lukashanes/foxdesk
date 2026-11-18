@@ -43,6 +43,44 @@ function foxdesk_db_datetime(int $offset_seconds = 0): string
     return date('Y-m-d H:i:s', foxdesk_clock_time() + $offset_seconds);
 }
 
+/**
+ * Local DATETIME shifted by whole calendar units on the application clock.
+ *
+ * PHP counterpart of DATE_ADD(NOW(), INTERVAL n unit) / DATE_SUB(...): use it
+ * for SQL bounds on columns PHP writes with date(), e.g.
+ * foxdesk_db_datetime_shift(-24, 'hour') for "created in the last 24 hours".
+ */
+function foxdesk_db_datetime_shift(int $amount, string $unit): string
+{
+    if (!in_array($unit, ['minute', 'hour', 'day', 'week', 'month'], true)) {
+        throw new InvalidArgumentException('Unsupported clock unit: ' . $unit);
+    }
+    $base = foxdesk_clock_time();
+    if ($amount === 0) {
+        return date('Y-m-d H:i:s', $base);
+    }
+    return date('Y-m-d H:i:s', strtotime(sprintf('%+d %s', $amount, $unit), $base));
+}
+
+/** Local calendar date (Y-m-d) on the application clock: the PHP CURDATE(). */
+function foxdesk_db_date(int $offset_days = 0): string
+{
+    $base = foxdesk_clock_time();
+    if ($offset_days === 0) {
+        return date('Y-m-d', $base);
+    }
+    return date('Y-m-d', strtotime(sprintf('%+d day', $offset_days), $base));
+}
+
+/** Monday and Sunday (Y-m-d) of the current calendar week on the application clock. */
+function foxdesk_db_week_bounds(): array
+{
+    $base = foxdesk_clock_time();
+    $weekday = (int) date('N', $base); // 1 = Monday, matches MySQL WEEKDAY() + 1
+    $monday = strtotime(sprintf('-%d day', $weekday - 1), strtotime(date('Y-m-d 12:00:00', $base)));
+    return [date('Y-m-d', $monday), date('Y-m-d', strtotime('+6 day', $monday))];
+}
+
 function create_pdo_connection($host)
 {
     $dsn = "mysql:host=" . $host . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";

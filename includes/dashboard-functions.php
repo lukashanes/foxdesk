@@ -123,13 +123,17 @@ function get_dashboard_data($user, $tags = [])
     $week_end = date('Y-m-d 23:59:59', strtotime('sunday this week'));
     $month_start = date('Y-m-01 00:00:00');
     $month_end = date('Y-m-t 23:59:59');
+    // "Now" and "today" for columns PHP writes (due_date, created_at,
+    // started_at); MySQL NOW()/CURDATE() may run in UTC.
+    $clock_now = foxdesk_db_datetime();
+    $clock_today = foxdesk_db_date();
 
     // ─── Workload Stats (open tickets + due dates) ──────────
     $workload_sql = "
         SELECT
             COUNT(*) as open_count,
-            SUM(CASE WHEN t.due_date IS NOT NULL AND t.due_date < NOW() THEN 1 ELSE 0 END) as overdue_count,
-            SUM(CASE WHEN t.due_date IS NOT NULL AND DATE(t.due_date) = CURDATE() AND t.due_date >= NOW() THEN 1 ELSE 0 END) as due_today_count,
+            SUM(CASE WHEN t.due_date IS NOT NULL AND t.due_date < ? THEN 1 ELSE 0 END) as overdue_count,
+            SUM(CASE WHEN t.due_date IS NOT NULL AND DATE(t.due_date) = ? AND t.due_date >= ? THEN 1 ELSE 0 END) as due_today_count,
             SUM(CASE WHEN t.due_date >= ? AND t.due_date <= ? THEN 1 ELSE 0 END) as due_week_count,
             SUM(CASE WHEN t.due_date >= ? AND t.due_date <= ? THEN 1 ELSE 0 END) as due_month_count
         FROM tickets t
@@ -138,7 +142,7 @@ function get_dashboard_data($user, $tags = [])
           AND t.status_id NOT IN ($closed_placeholder)
           {$tag_where}
     ";
-    $workload_params = array_merge([$week_start, $week_end, $month_start, $month_end], $scope_params, $closed_ids, $tag_params);
+    $workload_params = array_merge([$clock_now, $clock_today, $clock_now, $week_start, $week_end, $month_start, $month_end], $scope_params, $closed_ids, $tag_params);
     $workload_result = db_fetch_one($workload_sql, $workload_params);
 
     $workload_stats = [
@@ -152,7 +156,7 @@ function get_dashboard_data($user, $tags = [])
     // ─── New Ticket Stats (created recently) ─────────────────
     $new_sql = "
         SELECT
-            SUM(CASE WHEN DATE(t.created_at) = CURDATE() THEN 1 ELSE 0 END) as new_today,
+            SUM(CASE WHEN DATE(t.created_at) = ? THEN 1 ELSE 0 END) as new_today,
             SUM(CASE WHEN t.created_at >= ? AND t.created_at <= ? THEN 1 ELSE 0 END) as new_week,
             SUM(CASE WHEN t.created_at >= ? AND t.created_at <= ? THEN 1 ELSE 0 END) as new_month
         FROM tickets t
@@ -160,7 +164,7 @@ function get_dashboard_data($user, $tags = [])
           AND (t.is_archived IS NULL OR t.is_archived = 0)
           {$tag_where}
     ";
-    $new_params = array_merge([$week_start, $week_end, $month_start, $month_end], $scope_params, $tag_params);
+    $new_params = array_merge([$clock_today, $week_start, $week_end, $month_start, $month_end], $scope_params, $tag_params);
     $new_result = db_fetch_one($new_sql, $new_params);
 
     $new_ticket_stats = [
@@ -246,12 +250,12 @@ function get_dashboard_data($user, $tags = [])
         $dur = function_exists('sql_timer_duration_minutes') ? sql_timer_duration_minutes() : 'duration_minutes';
         $my_time = db_fetch_one("
             SELECT
-                SUM(CASE WHEN DATE(started_at) = CURDATE() THEN ({$dur}) ELSE 0 END) as today,
+                SUM(CASE WHEN DATE(started_at) = ? THEN ({$dur}) ELSE 0 END) as today,
                 SUM(CASE WHEN started_at >= ? AND started_at <= ? THEN ({$dur}) ELSE 0 END) as week,
                 SUM(CASE WHEN started_at >= ? AND started_at <= ? THEN ({$dur}) ELSE 0 END) as month
             FROM ticket_time_entries
             WHERE user_id = ?
-        ", [$week_start, $week_end, $month_start, $month_end, $user['id']]);
+        ", [$clock_today, $week_start, $week_end, $month_start, $month_end, $user['id']]);
 
         $my_time_today = (int) ($my_time['today'] ?? 0);
         $my_time_week = (int) ($my_time['week'] ?? 0);
@@ -261,13 +265,13 @@ function get_dashboard_data($user, $tags = [])
             $dur_tte = function_exists('sql_timer_duration_minutes') ? sql_timer_duration_minutes('tte.') : 'tte.duration_minutes';
             $team_time = db_fetch_one("
                 SELECT
-                    SUM(CASE WHEN DATE(tte.started_at) = CURDATE() THEN ({$dur_tte}) ELSE 0 END) as today,
+                    SUM(CASE WHEN DATE(tte.started_at) = ? THEN ({$dur_tte}) ELSE 0 END) as today,
                     SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_tte}) ELSE 0 END) as week,
                     SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_tte}) ELSE 0 END) as month
                 FROM ticket_time_entries tte
                 JOIN users u ON u.id = tte.user_id
                 WHERE u.role IN ('agent', 'admin')
-            ", [$week_start, $week_end, $month_start, $month_end]);
+            ", [$clock_today, $week_start, $week_end, $month_start, $month_end]);
 
             $team_time_today = (int) ($team_time['today'] ?? 0);
             $team_time_week = (int) ($team_time['week'] ?? 0);
@@ -277,7 +281,7 @@ function get_dashboard_data($user, $tags = [])
             $team_members_time = db_fetch_all("
                 SELECT
                     u.id, u.first_name, u.last_name, u.role, u.avatar,
-                    COALESCE(SUM(CASE WHEN DATE(tte.started_at) = CURDATE() THEN ({$dur_tte}) ELSE 0 END), 0) as today_mins,
+                    COALESCE(SUM(CASE WHEN DATE(tte.started_at) = ? THEN ({$dur_tte}) ELSE 0 END), 0) as today_mins,
                     COALESCE(SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_tte}) ELSE 0 END), 0) as week_mins,
                     COALESCE(SUM(CASE WHEN tte.started_at >= ? AND tte.started_at <= ? THEN ({$dur_tte}) ELSE 0 END), 0) as month_mins
                 FROM users u
@@ -286,7 +290,7 @@ function get_dashboard_data($user, $tags = [])
                   AND (u.deleted_at IS NULL)
                 GROUP BY u.id
                 ORDER BY month_mins DESC
-            ", [$week_start, $week_end, $month_start, $month_end]);
+            ", [$clock_today, $week_start, $week_end, $month_start, $month_end]);
         }
     }
 

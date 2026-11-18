@@ -151,6 +151,7 @@ function get_report_template_by_uuid($uuid) {
     $organization_logo_select = report_organization_column_exists('logo_url') ? 'o.logo_url' : 'NULL';
     $organization_theme_select = report_organization_column_exists('theme_color') ? 'o.theme_color' : 'NULL';
     $where_parts = ['rt.uuid = ?'];
+    $params = [$uuid];
     if (report_template_column_exists('is_draft')) {
         $where_parts[] = 'rt.is_draft = 0';
     }
@@ -158,7 +159,9 @@ function get_report_template_by_uuid($uuid) {
         $where_parts[] = 'rt.is_archived = 0';
     }
     if (report_template_column_exists('expires_at')) {
-        $where_parts[] = '(rt.expires_at IS NULL OR rt.expires_at > NOW())';
+        // expires_at is written with PHP date(); compare on the same clock.
+        $where_parts[] = '(rt.expires_at IS NULL OR rt.expires_at > ?)';
+        $params[] = foxdesk_db_datetime();
     }
 
     return db_fetch_one("
@@ -169,7 +172,7 @@ function get_report_template_by_uuid($uuid) {
         FROM report_templates rt
         LEFT JOIN organizations o ON rt.organization_id = o.id
         WHERE " . implode(' AND ', $where_parts) . "
-    ", [$uuid]);
+    ", $params);
 }
 
 function get_report_template_by_public_token($token) {
