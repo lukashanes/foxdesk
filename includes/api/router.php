@@ -46,6 +46,9 @@ function route_api_request($action) {
             $token_user = authenticate_api_token();
             if ($token_user) {
                 $GLOBALS['is_api_token_auth'] = true;
+            } else {
+                // Explicit API credentials must never fall back to a browser identity.
+                api_error('Unauthorized', 401);
             }
         }
     }
@@ -53,6 +56,10 @@ function route_api_request($action) {
     // Check authentication for non-public endpoints
     if (!in_array($action, $public_actions) && !is_logged_in()) {
         api_error('Unauthorized', 401);
+    }
+
+    if (!in_array($action, $public_actions, true) && auth_requires_2fa_setup()) {
+        api_error('Two-factor authentication setup is required.', 403, ['error_code' => '2fa_setup_required']);
     }
 
     if (!in_array($action, $public_actions, true) && function_exists('ticket_undo_finalize_expired')) {

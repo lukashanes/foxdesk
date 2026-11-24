@@ -11,5 +11,7 @@
     {"semanticId": "microsoft-mail-connections", "file": "2026081703_microsoft_mail_connections.sql", "sha256": "0151f68ae78bc05b0425fafcaa9a1871e9497905a5d5aa02dd3b9e0a09e30478"},
     {"semanticId": "time-entry-clock-times", "file": "2026111201_time_entry_clock_times.php", "sha256": "6845c425a3322c356c0008f89bc9a612ccab21ea2804ea8e342d94f69453f97e"}
   ],
-  "editionOnly": []
+  "editionOnly": [
+    {"semanticId":"self-hosted-auth-credential-version","file":"2026112401_auth_version.php","sha256":"2bdf4e90140abe1e5ee4d07cd475e45f3473afd9704b6690e6d52765ce39156c","reason":"Self-hosted credentials; SaaS mobile and pairing tables are absent."}
+  ]
 }

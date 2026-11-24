@@ -7,6 +7,11 @@ $app_version = defined('APP_VERSION') ? APP_VERSION : '';
 $in_app_notifications_enabled = user_in_app_notifications_enabled($user);
 $in_app_sound_enabled = user_in_app_sound_enabled($user);
 
+if (empty($_SESSION['draft_scope_nonce'])) {
+    $_SESSION['draft_scope_nonce'] = bin2hex(random_bytes(16));
+}
+$draft_scope = (int) ($user['id'] ?? 0) . ':' . $_SESSION['draft_scope_nonce'];
+
 // Throttled update check for admins (every 12 hours)
 $_foxdesk_update_info = false;
 if (is_admin() && file_exists(__DIR__ . '/update-check-functions.php')) {
@@ -30,6 +35,7 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
 <html lang="<?php echo e(get_app_language()); ?>" dir="<?php echo get_app_direction(); ?>">
 
 <head>
+    <meta name="foxdesk-draft-scope" content="<?php echo e($draft_scope); ?>">
     <meta charset="UTF-8">
     <script>
         // Apply theme immediately to prevent flash

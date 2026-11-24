@@ -50,13 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
         } elseif ($new_password !== $confirm_password) {
             $error = t('Passwords do not match.');
         } else {
-            // Update password and clear token
             $hash = password_hash($new_password, PASSWORD_DEFAULT);
-            db_update('users', [
-                'password' => $hash,
-                'reset_token' => null,
-                'reset_token_expires' => null
-            ], 'id = ?', [$user['id']]);
+            if (!password_reset_complete($user, $hash, $token)) {
+                header('Location: index.php?page=reset-password&token=' . rawurlencode($token));
+                exit;
+            }
             log_security_event('password_reset_completed', $user['id'], 'email=' . $user['email']);
 
             header('Location: index.php?page=login&reset=success');

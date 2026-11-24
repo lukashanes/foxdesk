@@ -167,7 +167,7 @@
                                     <div id="agent-cc-list"
                                         class="ticket-composer-cc-list hidden">
                                         <?php foreach ($all_users as $u): ?>
-                                                <?php if ($u['id'] !== $user['id'] && $u['id'] !== $ticket['user_id']): ?>
+                                                <?php if ($u['id'] !== $user['id'] && $u['id'] !== $ticket['user_id'] && !empty($u['is_active']) && can_see_ticket($ticket, $u)): ?>
                                                         <label class="ticket-composer-cc-option">
                                                             <input type="checkbox" name="cc_users[]" value="<?php echo $u['id']; ?>"
                                                                 data-email="<?php echo e($u['email'] ?? ''); ?>" class="agent-cc-checkbox ticket-composer-checkbox">

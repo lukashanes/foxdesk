@@ -1,6 +1,6 @@
 /**
  * FoxDesk Autosave Module
- * Saves form drafts to localStorage, restores on page load.
+ * Saves scoped form drafts to sessionStorage, restores on page load.
  * Supports Quill rich-text editors, inputs, selects, and hidden fields.
  *
  * Usage:
@@ -21,9 +21,28 @@ window.FoxDeskAutosave = (function() {
 
     var SAVE_INTERVAL = 3000;
     var MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+    var scopeMeta = document.querySelector('meta[name="foxdesk-draft-scope"]');
+    var scope = scopeMeta ? scopeMeta.content : '';
+    var prefix = /^[1-9]\d*:[a-f0-9]{32}$/.test(scope) ? 'foxdesk_draft_v2_' + scope + ':' : '';
+
+    function removeOldDrafts(storage, keepPrefix) {
+        for (var i = storage.length - 1; i >= 0; i--) {
+            var key = storage.key(i);
+            if (key && key.indexOf('foxdesk_draft_') === 0 && (!keepPrefix || key.indexOf(keepPrefix) !== 0)) {
+                storage.removeItem(key);
+            }
+        }
+    }
+    // Never import legacy drafts: their owner cannot be established.
+    try { removeOldDrafts(window.localStorage, ''); } catch (e) {}
+    try {
+        window.localStorage.removeItem('foxdesk_work_team_search');
+        window.localStorage.removeItem('foxdesk_work_my_search');
+    } catch (e) {}
+    try { removeOldDrafts(window.sessionStorage, prefix); } catch (e) {}
 
     function AutosaveInstance(config) {
-        this.key = config.key;
+        this.key = prefix ? prefix + config.key : '';
         this.fields = config.fields || [];
         this.quillEditors = config.quillEditors || {};
         this.onRestore = config.onRestore || null;
@@ -119,6 +138,7 @@ window.FoxDeskAutosave = (function() {
     };
 
     AutosaveInstance.prototype.save = function() {
+        if (!this.key || this._compositionDepth > 0) return;
         var data = {timestamp: Date.now(), fields: {}};
         var self = this;
 
@@ -137,17 +157,18 @@ window.FoxDeskAutosave = (function() {
 
         if (hasContent) {
             try {
-                localStorage.setItem(this.key, JSON.stringify(data));
+                sessionStorage.setItem(this.key, JSON.stringify(data));
             } catch(e) {
-                // localStorage full or unavailable
+                // sessionStorage full or unavailable
             }
         }
     };
 
     AutosaveInstance.prototype.restore = function() {
+        if (!this.key) return false;
         var raw;
         try {
-            raw = localStorage.getItem(this.key);
+            raw = sessionStorage.getItem(this.key);
         } catch(e) {
             return false;
         }
@@ -168,7 +189,7 @@ window.FoxDeskAutosave = (function() {
 
         // Check staleness
         var age = Date.now() - data.timestamp;
-        if (age > MAX_AGE_MS) {
+        if (!Number.isFinite(age) || age < 0 || age > MAX_AGE_MS) {
             this.clear();
             return false;
         }
@@ -209,7 +230,7 @@ window.FoxDeskAutosave = (function() {
 
     AutosaveInstance.prototype.clear = function() {
         try {
-            localStorage.removeItem(this.key);
+            sessionStorage.removeItem(this.key);
         } catch(e) {}
     };
 
@@ -282,6 +303,7 @@ window.FoxDeskAutosave = (function() {
     }
 
     return {
+        storageKey: function(key) { return prefix ? prefix + key : ''; },
         create: function(config) {
             return new AutosaveInstance(config);
         }

@@ -149,7 +149,7 @@ if (!is_string($mime) || $mime === '') {
 }
 
 $basename = basename($resolved_path);
-$disposition = str_starts_with($mime, 'image/') ? 'inline' : 'attachment';
+$disposition = attachment_mime_can_render_inline($mime) ? 'inline' : 'attachment';
 
 header('Content-Type: ' . $mime);
 header('Content-Length: ' . filesize($resolved_path));

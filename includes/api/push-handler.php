@@ -17,6 +17,7 @@ function api_push_subscribe(): void
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         api_error('Method not allowed', 405);
     }
+    require_csrf_token(true);
 
     $user = current_user();
     if (!$user) {
@@ -48,6 +49,7 @@ function api_push_unsubscribe(): void
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         api_error('Method not allowed', 405);
     }
+    require_csrf_token(true);
 
     $user = current_user();
     if (!$user) {

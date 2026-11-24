@@ -319,7 +319,11 @@ function require_admin_post() {
  * Get JSON input from request body
  */
 function get_json_input() {
-    $raw = (string) file_get_contents('php://input');
+    try {
+        $raw = security_read_request_body();
+    } catch (LengthException $e) {
+        api_error('Request body exceeds the size limit.', 413);
+    }
     if ($raw === '') {
         return [];
     }

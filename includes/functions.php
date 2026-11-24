@@ -75,6 +75,8 @@ function safe_html_dom(string $html): string
                     continue;
                 }
                 if (!in_array($tag, $allowed, true)) {
+                    // Sanitize descendants before unwrapping an unknown element.
+                    $sanitize($child);
                     while ($child->firstChild) {
                         $node->insertBefore($child->firstChild, $child);
                     }
@@ -141,53 +143,8 @@ function safe_html_url_allowed(string $url, string $context): bool
 
 function safe_html_regex_fallback(string $html): string
 {
-    // Allow only safe HTML tags (img allowed for uploaded images)
-    $allowed_tags = '<p><br><strong><b><em><i><u><s><strike><h1><h2><h3><h4><h5><h6><ul><ol><li><a><img><blockquote><pre><code><span><div><table><thead><tbody><tfoot><tr><td><th><hr>';
-    $clean = strip_tags($html, $allowed_tags);
-
-    // Sanitize <img> tags — only allow src with safe URLs (no base64 data URIs)
-    $clean = preg_replace_callback('/<img\s+([^>]*)>/i', function($matches) {
-        $attrs = $matches[1];
-        if (preg_match('/src\s*=\s*["\']([^"\']+)["\']/i', $attrs, $srcMatch)) {
-            $src = $srcMatch[1];
-            // Allow proxied local images and https URLs; block direct uploads/ paths and data URIs.
-            if (preg_match('/^(https:|image\.php|attachment\.php)/i', $src)) {
-                $alt = '';
-                if (preg_match('/alt\s*=\s*["\']([^"\']*)["\']/i', $attrs, $altMatch)) {
-                    $alt = $altMatch[1];
-                }
-
-                return '<img src="' . e($src) . '" alt="' . e($alt) . '" loading="lazy" class="rich-inline-image">';
-            }
-        }
-        // Strip base64/data URI images and any other invalid src
-        return '';
-    }, $clean);
-
-    // Clean up attributes - only allow href on links (with safe protocols) and class
-    $clean = preg_replace_callback('/<a\s+([^>]*)>/i', function($matches) {
-        $attrs = $matches[1];
-        // Extract href if present
-        if (preg_match('/href\s*=\s*["\']([^"\']+)["\']/i', $attrs, $hrefMatch)) {
-            $href = $hrefMatch[1];
-            // Only allow safe protocols
-            if (preg_match('/^(https?:|mailto:|\/)/i', $href)) {
-                return '<a href="' . e($href) . '" target="_blank" rel="noopener noreferrer">';
-            }
-        }
-        return '<a>';
-    }, $clean);
-
-    // Remove all other attributes except class on certain elements
-    $clean = preg_replace('/<(p|div|span|ul|ol|li|h[1-6]|blockquote|pre|code|table|thead|tbody|tfoot|tr|td|th)\s+[^>]*>/i', '<$1>', $clean);
-
-    // Remove any script/style/event handler content that might have slipped through
-    $clean = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', '', $clean);
-    $clean = preg_replace('/<style\b[^>]*>(.*?)<\/style>/is', '', $clean);
-    $clean = preg_replace('/\s*on\w+\s*=\s*["\'][^"\']*["\']/i', '', $clean);
-    $clean = preg_replace('/\s*javascript\s*:/i', '', $clean);
-
-    return $clean;
+    // Without an HTML parser, fail closed to escaped text.
+    return nl2br(e(strip_tags($html)));
 }
 
 /**

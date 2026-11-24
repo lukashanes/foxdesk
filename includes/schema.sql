@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
+    auth_version INT UNSIGNED NOT NULL DEFAULT 0,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100),
     contact_phone VARCHAR(50),
@@ -604,6 +605,7 @@ CREATE TABLE IF NOT EXISTS email_ingest_state (
 CREATE TABLE IF NOT EXISTS api_tokens (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
+    auth_version INT UNSIGNED NOT NULL DEFAULT 0,
     name VARCHAR(255) NOT NULL,
     token_hash CHAR(64) NOT NULL,
     token_prefix VARCHAR(10) NOT NULL,

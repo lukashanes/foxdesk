@@ -1366,6 +1366,10 @@ function email_ingest_create_ticket_from_email($requester_user_id, $subject, $bo
  */
 function email_ingest_add_inbound_comment($ticket_id, $user_id, $body_text)
 {
+    require_once __DIR__ . '/ticket-conversation-access.php';
+    if (!ticket_conversation_user_can_access((int) $ticket_id, (int) $user_id)) {
+        throw new RuntimeException('Sender is not authorized for this ticket.');
+    }
     $content = trim(email_ingest_convert_to_utf8((string) $body_text));
     if ($content === '') {
         $content = '(No content)';
@@ -1569,6 +1573,28 @@ function email_ingest_guess_mime($type, $subtype)
 /**
  * Store attachment file and attachment metadata rows.
  */
+function email_ingest_attachment_metadata(array $attachment, int $max_size): ?array
+{
+    $data = (string) ($attachment['data'] ?? '');
+    $size = strlen($data);
+    if ($max_size <= 0 || $size > $max_size) {
+        return null;
+    }
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->buffer($data) ?: 'application/octet-stream';
+    $ext = strtolower(pathinfo((string) ($attachment['filename'] ?? ''), PATHINFO_EXTENSION));
+    if ($ext === 'pdf' && (!str_starts_with($data, '%PDF-') || $mime !== 'application/pdf')) {
+        return null;
+    }
+    $image_types = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'];
+    if (isset($image_types[$ext])) {
+        $image = @getimagesizefromstring($data);
+        if ($mime !== $image_types[$ext] || !$image || ($image['mime'] ?? '') !== $mime) {
+            return null;
+        }
+    }
+    return ['mime' => $mime, 'size' => $size];
+}
+
 function email_ingest_store_attachment($ticket_id, $ticket_message_id, $comment_id, $uploaded_by, $attachment, $cfg)
 {
     $filename = trim((string) ($attachment['filename'] ?? ''));
@@ -1576,8 +1602,12 @@ function email_ingest_store_attachment($ticket_id, $ticket_message_id, $comment_
         $filename = 'attachment.bin';
     }
     $filename = email_ingest_sanitize_filename($filename);
-    $mime = trim((string) ($attachment['mime'] ?? 'application/octet-stream'));
-    $size = (int) ($attachment['size'] ?? strlen((string) ($attachment['data'] ?? '')));
+    $metadata = email_ingest_attachment_metadata($attachment, (int) $cfg['max_attachment_size']);
+    if ($metadata === null) {
+        return ['stored' => false, 'error' => "Attachment {$filename} has invalid content or exceeds size limit"];
+    }
+    $mime = $metadata['mime'];
+    $size = $metadata['size'];
     $content_id = $attachment['content_id'] ?? null;
 
     if ($size > (int) $cfg['max_attachment_size']) {
