@@ -105,8 +105,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($new !== $confirm) {
             flash(t('Passwords do not match.'), 'error');
         } else {
-            update_password($user['id'], $new);
-            flash(t('Password updated.'), 'success');
+            if (update_password($user['id'], $new) !== false) {
+                flash(t('Password updated.'), 'success');
+            } else {
+                flash(t('Security check failed. Please try again.'), 'error');
+            }
         }
         redirect('profile');
     }

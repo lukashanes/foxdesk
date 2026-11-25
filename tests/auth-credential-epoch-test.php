@@ -43,9 +43,14 @@ $assert = static function ($ok, $message) { if (!$ok) throw new RuntimeException
 $_SESSION = ['user_id' => 1, 'auth_version' => 2];
 $assert(update_password(1, 'TEST-password') === false, 'Revoked password proof must not undo recovery.');
 $assert($users[1]['auth_version'] === 3 && empty($_SESSION), 'Stale password change must log out without mutation.');
+$assert(get_user(1)['auth_version'] === 3, 'Prime the ordinary user cache before the password changes.');
 $_SESSION = ['user_id' => 1, 'auth_version' => 3];
 $assert(update_password(1, 'TEST-password') === 1, 'Self password change must work.');
 $assert($users[1]['auth_version'] === 4 && $_SESSION['auth_version'] === 4, 'Self password change keeps only this refreshed session.');
+$_SESSION['auth_version'] = 3; // An in-flight profile request still holds the pre-reset proof.
+$stale_token = generate_api_token(1, 'TEST-stale-epoch', null, ['tickets:read']);
+$assert(empty($stale_token['token']) && $tokens === [], 'A revoked session must not mint a usable token at the new epoch.');
+$_SESSION = ['user_id' => 1, 'auth_version' => 4];
 $token = generate_api_token(1, 'TEST-epoch', null, ['tickets:read']);
 $assert($tokens[0]['auth_version'] === 4, 'New API credential must record current epoch.');
 $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $token['token'];

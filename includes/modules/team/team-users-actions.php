@@ -245,8 +245,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $validation = validate_password($new_password);
         if ($validation['valid']) {
-            update_password($id, $new_password);
-            flash(t('Password updated.'), 'success');
+            if (update_password($id, $new_password) !== false) {
+                flash(t('Password updated.'), 'success');
+            } else {
+                flash(t('Security check failed. Please try again.'), 'error');
+            }
         } else {
             flash(implode(' ', $validation['errors']), 'error');
         }

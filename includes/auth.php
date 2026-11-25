@@ -1170,8 +1170,16 @@ function update_token_last_used($token_id)
  */
 function generate_api_token($user_id, $name, $expires_at = null, $scopes = null)
 {
-    $token_user = get_user((int) $user_id);
+    // Credential epochs must come from a fresh row, not get_user()'s request cache.
+    $token_user = db_fetch_one('SELECT * FROM users WHERE id = ?', [(int) $user_id]);
     if (!$token_user) {
+        return ['token' => null, 'id' => null, 'scopes' => []];
+    }
+    if ((int) ($_SESSION['user_id'] ?? 0) === (int) $user_id
+        && !auth_session_version_matches($token_user)) {
+        // A profile request authenticated before a reset must not acquire the
+        // new epoch by issuing a fresh credential after the reset commits.
+        auth_forget_session();
         return ['token' => null, 'id' => null, 'scopes' => []];
     }
 

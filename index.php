@@ -163,20 +163,22 @@ $public_pages = ['login', 'logout', 'forgot-password', 'reset-password', 'ticket
 
 // Check authentication
 if (!in_array($page, $public_pages)) {
+    // current_user() discards an invalid login, including impersonation fields.
+    // Retain only the original proof until it can be revalidated independently.
+    $impersonator_proof = [
+        'user_id' => (int) ($_SESSION['impersonator_id'] ?? 0),
+        'auth_version' => (int) ($_SESSION['impersonator_auth_version'] ?? 0),
+    ];
+    $impersonated_user_id = (int) ($_SESSION['user_id'] ?? 0);
     if (!is_logged_in()) {
-        // Try auto-login from remember-me cookie
-        if (!validate_remember_token()) {
-            header('Location: index.php?page=login');
-            exit;
-        }
-    }
-
-    // Security: Ensure session user actually exists in DB
-    if (!current_user()) {
         // If an impersonated account became inactive/deleted, restore admin session instead of hard logout.
-        if (!empty($_SESSION['impersonator_id'])) {
-            $admin_id = (int) $_SESSION['impersonator_id'];
-            if ($admin_id > 0) {
+        if ($impersonator_proof['user_id'] > 0) {
+            $active_user_sql = 'SELECT id FROM users WHERE id = ? AND is_active = 1';
+            if (users_deleted_at_column_exists()) {
+                $active_user_sql .= ' AND deleted_at IS NULL';
+            }
+            if (!db_fetch_one($active_user_sql, [$impersonated_user_id])) {
+                $admin_id = $impersonator_proof['user_id'];
                 $admin_sql = "SELECT * FROM users WHERE id = ? AND is_active = 1";
                 $deleted_at_supported = function_exists('users_deleted_at_column_exists')
                     ? users_deleted_at_column_exists()
@@ -186,7 +188,7 @@ if (!in_array($page, $public_pages)) {
                 }
                 $admin = db_fetch_one($admin_sql, [$admin_id]);
 
-                if ($admin && auth_impersonator_version_matches($admin)) {
+                if ($admin && $admin['role'] === 'admin' && auth_credential_version_matches($impersonator_proof, $admin)) {
                     if (function_exists('log_security_event')) {
                         log_security_event('impersonation_auto_restored', $admin_id, json_encode([
                             'admin_id' => $admin_id,
@@ -210,9 +212,11 @@ if (!in_array($page, $public_pages)) {
             }
         }
 
-        logout();
-        header('Location: index.php?page=login');
-        exit;
+        // Try auto-login only after attempting the validated administrator recovery.
+        if (!validate_remember_token()) {
+            header('Location: index.php?page=login');
+            exit;
+        }
     }
 }
 

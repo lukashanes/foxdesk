@@ -20,6 +20,8 @@ if (empty($_SESSION['2fa_pending']) && !empty($_COOKIE['foxdesk_remember']) && v
 
 $settings = get_settings();
 $app_name = $settings['app_name'] ?? (defined('APP_NAME') ? APP_NAME : 'FoxDesk');
+$autosave_asset_version = (defined('APP_VERSION') ? (string) APP_VERSION : '1')
+    . '-' . (string) (@filemtime(BASE_PATH . '/assets/js/autosave.js') ?: '0');
 
 $error = '';
 $info_message = '';
@@ -194,7 +196,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
 
 <head>
     <!-- No draft scope: discard previous private drafts after logout. -->
-    <script src="assets/js/autosave.js"></script>
+    <script src="assets/js/autosave.js?v=<?php echo e($autosave_asset_version); ?>"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo e(t('Sign in')); ?> - <?php echo e($app_name); ?></title>

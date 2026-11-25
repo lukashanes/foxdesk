@@ -18,6 +18,14 @@ function load(scope, localStorage, sessionStorage) {
         setInterval(fn) { tick = fn; return 1; }, clearInterval() {} });
     return { draft: window.FoxDeskAutosave.create({ key: 'foxdesk_draft_new_ticket', fields: [{ name: 'title', selector: '#title', type: 'input' }] }), field, form, autosave: window.FoxDeskAutosave, tick: () => tick() };
 }
+test('new ticket and login load a versioned autosave script after upgrades', () => {
+    for (const file of ['includes/components/new-ticket-assets.php', 'pages/login.php']) {
+        const php = fs.readFileSync(require('node:path').join(__dirname, '..', file), 'utf8');
+        const script = php.match(/<script src="assets\/js\/autosave\.js[^\n]+/)[0];
+        assert.match(script, /\?v=<\?php[^\n]+(?:filemtime|asset_version)/,
+            `${file} must invalidate the old cached autosave API and cleanup code`);
+    }
+});
 test('drafts stay in the same account, login and browser tab', () => {
     const local = storage(), session = storage();
     const nonce = 'a'.repeat(32);

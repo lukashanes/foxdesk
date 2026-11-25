@@ -3,7 +3,7 @@ $new_ticket_asset_version = static function (string $path): string {
     return (defined('APP_VERSION') ? (string) APP_VERSION : '1') . '-' . (string) (@filemtime(BASE_PATH . '/' . $path) ?: '0');
 };
 ?>
-<script src="assets/js/autosave.js"></script>
+<script src="assets/js/autosave.js?v=<?php echo e($new_ticket_asset_version('assets/js/autosave.js')); ?>"></script>
 <script src="assets/js/attachment-paste-drop.js?v=<?php echo e($new_ticket_asset_version('assets/js/attachment-paste-drop.js')); ?>"></script>
 <script src="assets/js/upload-preview.js?v=<?php echo e($new_ticket_asset_version('assets/js/upload-preview.js')); ?>"></script>
 <script>

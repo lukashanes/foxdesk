@@ -34,6 +34,9 @@ jobs:
       - name: Shared FoxDesk behavior contract
         run: npm run test:shared-behavior
 
+      - name: Security review regressions
+        run: npm run test:security-review
+
       - name: Database clock contracts
         run: npm run test:db-clock
 
