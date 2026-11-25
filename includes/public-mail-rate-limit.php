@@ -4,7 +4,11 @@ function public_auth_mail_reserve(string $email): bool
 {
     $email = strtolower(trim($email));
     $ip = get_client_ip();
-    if ($email === '' || $ip === '' || !rate_limit_table_exists()) {
+    if ($email === '' || $ip === '') {
+        return false;
+    }
+    if (!rate_limit_table_exists()) {
+        error_log('Public authentication mail unavailable: rate_limits table is missing.');
         return false;
     }
     $recipient = substr(hash('sha256', $email), 0, 32);
@@ -53,6 +57,7 @@ function public_auth_mail_reserve(string $email): bool
         if ($db->inTransaction()) {
             $db->rollBack();
         }
+        error_log('Public authentication mail unavailable: budget storage failed.');
         return false;
     }
 }

@@ -45,6 +45,11 @@ foreach (['Bearer', 'Bearer ', "Bearer\tinvalid"] as $header) {
     $assert(is_api_token_request() && authenticate_api_token() === null, 'Empty or malformed explicit Bearer credentials must not become cookie authentication.');
 }
 unset($_SERVER['HTTP_AUTHORIZATION']);
+foreach (['HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION'] as $source) {
+    $_SERVER[$source] = 'Bearer test-header-token';
+    $assert(is_api_token_request() && bearer_token_from_request() === 'test-header-token', 'Bearer detection and parsing must use the same header sources.');
+    unset($_SERVER[$source]);
+}
 $db->active = true; $before_queries = count($queries);
 $assert(update_password(1, 'TEST-password') === false && $db->active && count($queries) === $before_queries,
     'Nested password changes must leave the caller transaction untouched.');

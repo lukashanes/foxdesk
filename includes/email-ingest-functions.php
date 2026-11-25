@@ -257,33 +257,39 @@ function email_ingest_run($options = [])
             $to_process[] = $uid;
         }
 
-        foreach ($to_process as $uid) {
-            $result['checked']++;
-            try {
-                $message_outcome = email_ingest_process_uid($imap, $uid, $cfg, $dry_run);
-                $result[$message_outcome['status']]++;
-                $result['details'][] = $message_outcome;
-            } catch (Throwable $e) {
-                $result['failed']++;
-                $result['details'][] = [
-                    'uid' => $uid,
-                    'status' => 'failed',
-                    'reason' => 'exception',
-                    'error' => $e->getMessage(),
-                ];
-                email_ingest_log($mailbox_name, $uid, null, 'failed', 'exception', $e->getMessage());
-                if (!$dry_run) {
-                    email_ingest_try_move($imap, $uid, $cfg, $cfg['failed_folder']);
-                }
-            }
-
-            email_ingest_update_state($mailbox_name, $uid);
-        }
+        email_ingest_process_batch($imap, $to_process, $cfg, $dry_run, $result);
     } finally {
         imap_close($imap, CL_EXPUNGE);
     }
 
     return $result;
+}
+
+/** Keep per-message recovery testable without opening an IMAP connection. */
+function email_ingest_process_batch($imap, array $uids, array $cfg, bool $dry_run, array &$result): void
+{
+    foreach ($uids as $uid) {
+        $result['checked']++;
+        try {
+            $message_outcome = email_ingest_process_uid($imap, $uid, $cfg, $dry_run);
+            $result[$message_outcome['status']]++;
+            $result['details'][] = $message_outcome;
+        } catch (Throwable $e) {
+            $result['failed']++;
+            $result['details'][] = [
+                'uid' => $uid,
+                'status' => 'failed',
+                'reason' => 'exception',
+                'error' => $e->getMessage(),
+            ];
+            email_ingest_log($cfg['folder'], $uid, null, 'failed', 'exception', $e->getMessage());
+            if (!$dry_run) {
+                email_ingest_try_move($imap, $uid, $cfg, $cfg['failed_folder']);
+            }
+        }
+
+        email_ingest_update_state($cfg['folder'], $uid);
+    }
 }
 
 /**

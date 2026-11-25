@@ -506,10 +506,21 @@ function get_client_ip()
         }
         foreach ($candidates as $key) {
             if (!empty($_SERVER[$key])) {
-                $ip = trim($_SERVER[$key]);
-                if (strpos($ip, ',') !== false) {
-                    $ip = trim(explode(',', $ip)[0]);
+                if ($key === 'HTTP_X_FORWARDED_FOR') {
+                    $hops = array_map('trim', explode(',', (string) $_SERVER[$key]));
+                    foreach (array_reverse($hops) as $ip) {
+                        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+                            return $remote;
+                        }
+                        // Proxies append their peer. Stop before any prefix
+                        // supplied by that untrusted peer can affect the key.
+                        if (!function_exists('foxdesk_ip_is_trusted_proxy') || !foxdesk_ip_is_trusted_proxy($ip)) {
+                            return $ip;
+                        }
+                    }
+                    return $hops[0];
                 }
+                $ip = trim((string) $_SERVER[$key]);
                 if (filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
             }
         }

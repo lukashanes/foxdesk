@@ -72,7 +72,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_2fa'])) {
                 require_once BASE_PATH . '/includes/totp.php';
                 $submitted_code = trim($_POST['code'] ?? '');
 
-                $user_sql = 'SELECT totp_secret, totp_backup_codes, auth_version FROM users WHERE id = ? AND is_active = 1';
+                $user_sql = 'SELECT totp_secret, totp_backup_codes, '
+                    . (column_exists('users', 'auth_version') ? 'auth_version' : '0 AS auth_version')
+                    . ' FROM users WHERE id = ? AND is_active = 1';
                 if (users_deleted_at_column_exists()) {
                     $user_sql .= ' AND deleted_at IS NULL';
                 }

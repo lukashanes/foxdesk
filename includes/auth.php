@@ -41,26 +41,32 @@ if (!function_exists('foxdesk_request_uses_trusted_proxy')) {
         }
 
         $remote = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
-        if ($remote === '') {
-            return false;
-        }
-
-        if ($remote === '127.0.0.1' || $remote === '::1' || str_starts_with($remote, '10.') || str_starts_with($remote, '192.168.')) {
-            return true;
-        }
-
-        if (preg_match('/^172\.(1[6-9]|2[0-9]|3[0-1])\./', $remote) === 1) {
-            return true;
-        }
-
-        $trusted = trim((string) getenv('FOXDESK_TRUSTED_PROXIES'));
-        if ($trusted === '') {
-            return false;
-        }
-
-        $proxies = array_filter(array_map('trim', explode(',', $trusted)));
-        return in_array($remote, $proxies, true);
+        return foxdesk_ip_is_trusted_proxy($remote);
     }
+}
+
+/** TRUST_PROXY applies only to the direct peer, never to arbitrary XFF hops. */
+function foxdesk_ip_is_trusted_proxy(string $remote): bool
+{
+    if (!filter_var($remote, FILTER_VALIDATE_IP)) {
+        return false;
+    }
+
+    if ($remote === '127.0.0.1' || $remote === '::1' || str_starts_with($remote, '10.') || str_starts_with($remote, '192.168.')) {
+        return true;
+    }
+
+    if (preg_match('/^172\.(1[6-9]|2[0-9]|3[0-1])\./', $remote) === 1) {
+        return true;
+    }
+
+    $trusted = trim((string) getenv('FOXDESK_TRUSTED_PROXIES'));
+    if ($trusted === '') {
+        return false;
+    }
+
+    $proxies = array_filter(array_map('trim', explode(',', $trusted)));
+    return in_array($remote, $proxies, true);
 }
 
 /**
@@ -125,7 +131,6 @@ function current_user($force_refresh = false)
     $session_identity = [$_SESSION['user_id'], $_SESSION['auth_version'] ?? 0,
         $_SESSION['impersonator_id'] ?? 0, $_SESSION['impersonator_auth_version'] ?? 0];
     if ($user === null || $force_refresh || $identity !== $session_identity) {
-        schema_require('session authentication', [], ['users' => ['auth_version']]);
         $identity = $session_identity;
         $sql = "SELECT * FROM users WHERE id = ? AND is_active = 1";
         if (users_deleted_at_column_exists()) {
@@ -153,8 +158,8 @@ function auth_forget_session(): void
 /** Legacy sessions have version zero; the first reset invalidates them too. */
 function auth_session_version_matches(array $user): bool
 {
-    if (!array_key_exists('auth_version', $user)
-        || (int) ($_SESSION['auth_version'] ?? 0) !== (int) $user['auth_version']) {
+    $version = auth_user_version($user);
+    if ($version === null || (int) ($_SESSION['auth_version'] ?? 0) !== $version) {
         return false;
     }
     if (!empty($_SESSION['impersonator_id'])) {
@@ -172,15 +177,25 @@ function auth_session_version_matches(array $user): bool
 
 function auth_impersonator_version_matches(array $admin): bool
 {
+    $version = auth_user_version($admin);
     return ($admin['role'] ?? '') === 'admin' && !empty($admin['is_active']) && empty($admin['deleted_at'])
-        && array_key_exists('auth_version', $admin)
-        && (int) ($_SESSION['impersonator_auth_version'] ?? 0) === (int) $admin['auth_version'];
+        && $version !== null
+        && (int) ($_SESSION['impersonator_auth_version'] ?? 0) === $version;
+}
+
+/** Keep upgrade access on old schemas; incomplete rows on new schemas fail closed. */
+function auth_user_version(array $user): ?int
+{
+    if (array_key_exists('auth_version', $user)) {
+        return (int) $user['auth_version'];
+    }
+    return column_exists('users', 'auth_version') ? null : 0;
 }
 
 function auth_credential_version_matches(array $credential, array $user): bool
 {
-    return array_key_exists('auth_version', $user)
-        && (int) ($credential['auth_version'] ?? 0) === (int) $user['auth_version'];
+    $version = auth_user_version($user);
+    return $version !== null && (int) ($credential['auth_version'] ?? 0) === $version;
 }
 
 /**
@@ -894,10 +909,40 @@ function api_token_idempotency_key(): string
 
 function api_idempotency_request_hash(string $action): string
 {
-    try {
-        $raw = security_read_request_body($action === 'upload' ? get_max_upload_size() + 65536 : 1048576);
-    } catch (LengthException $e) {
-        api_error('Request body exceeds the size limit.', 413);
+    if ($action === 'upload' && str_starts_with(strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? '')), 'multipart/form-data')) {
+        // PHP already parsed multipart input. Bind retries to the actual file,
+        // not the empty php://input stream or a random multipart boundary.
+        $file = $_FILES['file'] ?? [];
+        if (!is_array($file) || is_array($file['name'] ?? null)) {
+            api_error('A single file is required.', 400);
+        }
+        $upload = [
+            'name' => (string) ($file['name'] ?? ''),
+            'type' => (string) ($file['type'] ?? ''),
+            'size' => (int) ($file['size'] ?? 0),
+            'error' => (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE),
+        ];
+        if ($upload['error'] === UPLOAD_ERR_OK) {
+            $path = (string) ($file['tmp_name'] ?? '');
+            $size = $path !== '' ? @filesize($path) : false;
+            if ($size === false) {
+                api_error('Uploaded file is unavailable.', 400);
+            }
+            if ($size > get_max_upload_size()) {
+                api_error('Request body exceeds the size limit.', 413);
+            }
+            $upload['sha256'] = hash_file('sha256', $path);
+            if ($upload['sha256'] === false) {
+                api_error('Uploaded file is unavailable.', 400);
+            }
+        }
+        $raw = json_encode($upload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    } else {
+        try {
+            $raw = security_read_request_body($action === 'upload' ? get_max_upload_size() + 65536 : 1048576);
+        } catch (LengthException $e) {
+            api_error('Request body exceeds the size limit.', 413);
+        }
     }
     $post = !empty($_POST) ? json_encode($_POST, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '';
     return hash('sha256', strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) . "\n" . $action . "\n" . $raw . "\n" . $post);

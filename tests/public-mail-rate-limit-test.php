@@ -13,7 +13,7 @@ class MailBudgetFixture {
 $db = new MailBudgetFixture();
 function get_db() { return $GLOBALS['db']; }
 function get_client_ip() { return $GLOBALS['ip']; }
-function rate_limit_table_exists() { return true; }
+function rate_limit_table_exists() { return empty($GLOBALS['missing_table']); }
 function db_query($sql, $params) {
     if ($GLOBALS['broken']) { throw new RuntimeException('Offline failure'); }
     if (str_starts_with($sql, 'INSERT IGNORE')) {
@@ -54,6 +54,13 @@ putenv('FOXDESK_PUBLIC_MAIL_DAILY_LIMIT');
 $rows = [];
 $broken = true;
 if (public_auth_mail_reserve('person@example.test') || $db->inTransaction()) { throw new RuntimeException('Budget storage failure must fail closed and release the transaction.'); }
+$missing_table = true;
+if (public_auth_mail_reserve('person@example.test')) throw new RuntimeException('Missing budget table must fail closed.');
+foreach (['includes/schema.sql', 'includes/upgrade-functions.php'] as $path) {
+    if (!preg_match('/UNIQUE KEY uniq_rate_ip\s*\(rate_key, ip_address\)/', file_get_contents(dirname(__DIR__) . '/' . $path))) {
+        throw new RuntimeException('Mail budget unique index is missing: ' . $path);
+    }
+}
 foreach (['pages/forgot-password.php'] as $path) {
     $source = file_get_contents(dirname(__DIR__) . '/' . $path);
     $guard = strpos($source, 'public_auth_mail_reserve($email)');
