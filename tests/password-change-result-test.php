@@ -43,4 +43,12 @@ foreach ($actions as [$file, $start_marker, $end_marker, $action]) {
             'A password that was not saved must never reach mail delivery.');
     }
 }
+$pending_login_flash = ['message' => 'TEST-revoked password proof', 'type' => 'error'];
+function get_flash() { $value = $GLOBALS['pending_login_flash']; $GLOBALS['pending_login_flash'] = null; return $value; }
+$login = file_get_contents(BASE_PATH . '/pages/login.php');
+$start = strpos($login, '$login_flash = get_flash();');
+if ($start === false) $start = strpos($login, '$error = \'\';');
+$end = strpos($login, '$show_2fa_form =', $start);
+eval(substr($login, $start, $end - $start));
+$assert($error === 'TEST-revoked password proof' && $pending_login_flash === null, 'Login must display and consume the error after a revoked profile request.');
 echo "Password action results and mail suppression OK (no delivery)\n";

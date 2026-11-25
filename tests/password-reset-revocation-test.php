@@ -43,4 +43,7 @@ $GLOBALS['fail_revoke'] = true;
 try { password_reset_complete(['id' => 17], 'TEST-hash', 'TEST-token'); throw new LogicException('Revocation failure was ignored.'); }
 catch (RuntimeException $e) { $assert($e->getMessage() === 'TEST-write failure', 'Unexpected reset exception.'); }
 $assert($db->commits === 1 && $db->rollbacks === 2, 'Revocation failure must roll back the whole reset.');
+$db->active = true; $queries = [];
+$assert(!password_reset_complete(['id' => 17], 'TEST-hash', 'TEST-token') && $queries === [] && $db->active,
+    'Nested reset must fail closed without writing or rolling back the caller transaction.');
 echo "Atomic password reset and revocation regression OK (database substitute)\n";

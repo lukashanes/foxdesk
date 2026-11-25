@@ -23,7 +23,8 @@ $app_name = $settings['app_name'] ?? (defined('APP_NAME') ? APP_NAME : 'FoxDesk'
 $autosave_asset_version = (defined('APP_VERSION') ? (string) APP_VERSION : '1')
     . '-' . (string) (@filemtime(BASE_PATH . '/assets/js/autosave.js') ?: '0');
 
-$error = '';
+$login_flash = get_flash();
+$error = ($login_flash['type'] ?? '') === 'error' ? (string) $login_flash['message'] : '';
 $info_message = '';
 $show_2fa_form = !empty($_SESSION['2fa_pending']);
 $current_lang = get_app_language();
@@ -71,7 +72,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_2fa'])) {
                 require_once BASE_PATH . '/includes/totp.php';
                 $submitted_code = trim($_POST['code'] ?? '');
 
-                $user_row = db_fetch_one("SELECT totp_secret, totp_backup_codes, auth_version FROM users WHERE id = ? AND is_active = 1 AND deleted_at IS NULL", [$pending['user_id']]);
+                $user_sql = 'SELECT totp_secret, totp_backup_codes, auth_version FROM users WHERE id = ? AND is_active = 1';
+                if (users_deleted_at_column_exists()) {
+                    $user_sql .= ' AND deleted_at IS NULL';
+                }
+                $user_row = db_fetch_one($user_sql, [$pending['user_id']]);
 
                 $valid = false;
                 if ($user_row && auth_credential_version_matches($pending, $user_row) && !empty($user_row['totp_secret'])) {

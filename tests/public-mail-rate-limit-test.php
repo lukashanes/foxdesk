@@ -45,6 +45,13 @@ for ($i = 0; $i < 5; $i++) {
 }
 if (public_auth_mail_reserve('sixth@example.test')) { throw new RuntimeException('IP quota was bypassed.'); }
 $rows = [];
+$ip = '';
+if (public_auth_mail_reserve('person@example.test') || $rows !== []) throw new RuntimeException('Missing IP must fail closed without writes.');
+$ip = '192.0.2.13';
+putenv('FOXDESK_PUBLIC_MAIL_DAILY_LIMIT=0');
+if (!public_auth_mail_reserve('zero@example.test') || public_auth_mail_reserve('zero-next@example.test')) throw new RuntimeException('Configured zero must use the documented minimum of one, not the default 1000.');
+putenv('FOXDESK_PUBLIC_MAIL_DAILY_LIMIT');
+$rows = [];
 $broken = true;
 if (public_auth_mail_reserve('person@example.test') || $db->inTransaction()) { throw new RuntimeException('Budget storage failure must fail closed and release the transaction.'); }
 foreach (['pages/forgot-password.php'] as $path) {

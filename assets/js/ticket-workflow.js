@@ -42,16 +42,24 @@
         var meta = JSON.parse(surface.dataset.workflow);
         var copy = meta.copy;
         var form = document.getElementById('comment-form');
-        var key = 'foxdesk_workflow_draft_v2_' + scope + '_' + meta.ticket_id;
-        var draft = load(localStorage, key);
+        var scopeMeta = document.querySelector('meta[name="foxdesk-draft-scope"]');
+        var draftScope = scopeMeta ? scopeMeta.content : '';
+        var key = /^[1-9]\d*:[a-f0-9]{32}$/.test(draftScope)
+            ? 'foxdesk_draft_v2_' + draftScope + ':workflow_' + meta.ticket_id : '';
+        var draft = key ? load(sessionStorage, key) : null;
+        var age = draft && typeof draft.saved === 'number' ? Date.now() - draft.saved : NaN;
+        if (!Number.isFinite(age) || age < 0 || age > 86400000) {
+            if (key) remove(sessionStorage, key);
+            draft = null;
+        }
         function newNonce() { return window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2); }
         if (draft && draft.nonce === meta.draft_ack) {
             var sentInternal = (draft.values || []).some(function(value){return value.name === 'is_internal' && value.checked;});
             var remaining = sentInternal ? draft.content : draft.internal;
             if (remaining && (remaining.replace(/<[^>]*>/g,'').trim() || /<img\b/i.test(remaining))) {
                 draft = {nonce:newNonce(),values:[{name:'is_internal',value:'on',checked:!sentInternal,type:'checkbox'}],content:sentInternal?remaining:'',internal:sentInternal?'':remaining,files:[],saved:Date.now()};
-                save(localStorage,key,draft);
-            } else { remove(localStorage, key); draft = null; }
+                save(sessionStorage,key,draft);
+            } else { remove(sessionStorage, key); draft = null; }
         }
         var nonce = draft ? draft.nonce : newNonce();
         var live = document.createElement('p'); live.className = 'workflow-feedback'; live.setAttribute('role', 'status'); live.setAttribute('aria-live', 'polite');
@@ -68,12 +76,12 @@
         function fields() { return Array.from(form.querySelectorAll('input[name], select[name], textarea[name]')).filter(function (el) { return el.type !== 'file' && ignore.indexOf(el.name) === -1; }); }
         var composing = false, timer, dirty = false;
         function persist() {
-            if (composing || (!dirty && !draft)) return;
+            if (!key || composing || (!dirty && !draft)) return;
             var values = fields().map(function (el) { return {name:el.name, value:el.value, checked:el.checked, type:el.type}; });
             var content = window.commentEditor ? window.commentEditor.root.innerHTML : '';
             var internal = window.internalEditor ? window.internalEditor.root.innerHTML : '';
             var files = Array.from(form.querySelector('input[type="file"]')?.files || []).map(function (file) { return file.name; });
-            save(localStorage, key, {nonce:nonce, values:values, content:content, internal:internal, files:files, saved:Date.now()});
+            save(sessionStorage, key, {nonce:nonce, values:values, content:content, internal:internal, files:files, saved:Date.now()});
         }
         function schedule() { dirty = true; clearTimeout(timer); timer = setTimeout(persist, 500); }
         form.addEventListener('compositionstart', function () { composing = true; });
@@ -243,7 +251,7 @@
             var timerButton = document.getElementById('btn-timer-action');
             if (timerButton && timerButton.dataset.state === 'stopped') { timerButton.disabled = true; timerButton.title = copy.reopen; document.getElementById('timer-controls').hidden = true; }
         }
-        if (draft && Date.now() - draft.saved < 7 * 86400000) {
+        if (draft) {
             (draft.values || []).forEach(function (saved) {
                 fields().filter(function (el) { return el.name === saved.name && (el.type !== 'checkbox' || el.value === saved.value); }).forEach(function (el) {
                     if (el.type === 'checkbox' || el.type === 'radio') el.checked = saved.checked; else el.value = saved.value;

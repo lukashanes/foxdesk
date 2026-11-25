@@ -49,6 +49,118 @@ test('drafts stay in the same account, login and browser tab', () => {
         assert.equal(session.length, 0);
     }
 });
+
+test('login and migration erase legacy workflow drafts without touching preferences', () => {
+    for (const scope of ['', `10:${'a'.repeat(32)}`]) {
+        const local = storage(), session = storage();
+        local.setItem('foxdesk_workflow_draft_v2_0-10_42', 'Private internal note');
+        session.setItem('foxdesk_workflow_draft_v2_0-10_42', 'Old draft');
+        local.setItem('theme', 'dark');
+        load(scope, local, session);
+        assert.equal(local.getItem('foxdesk_workflow_draft_v2_0-10_42'), null);
+        assert.equal(session.length, 0);
+        assert.equal(local.getItem('theme'), 'dark');
+    }
+});
+
+// Execute the actual workflow storage/event boundary before its UI enhancements.
+function workflow(scope, local, session, meta = {}) {
+    const phpScope = `10:${'a'.repeat(32)}`;
+    const fullSource = fs.readFileSync(require('node:path').join(__dirname, '../assets/js/ticket-workflow.js'), 'utf8');
+    const boundary = fullSource.slice(0, fullSource.indexOf('        function disclosure('))
+        + '\nwindow.fixture = {draft, nonce, persist};\n});\n})();';
+    const handlers = {}, elements = [];
+    const form = {querySelector: () => null, querySelectorAll: () => elements, prepend() {},
+        append(el) { elements.push(el); }, addEventListener(k, fn) { handlers[k] = fn; }};
+    const surface = {dataset: {workflow: JSON.stringify({ticket_id: 42, copy: {}, ...meta})}};
+    const document = {readyState: 'complete', addEventListener() {}, createElement: () => ({setAttribute() {}}),
+        getElementById: id => id === 'comment-form' ? form : {dataset: {scope: phpScope}},
+        querySelector: selector => selector.startsWith('meta[') ? (scope ? {content: scope} : null) : surface};
+    const window = {crypto: {randomUUID: () => 'TEST-new-nonce'}, addEventListener() {},
+        commentEditor: {root: {innerHTML: '<p>Reply</p>'}, on() {}},
+        internalEditor: {root: {innerHTML: '<p>Private internal note</p>'}, on() {}}};
+    vm.runInNewContext(boundary, {window, document, localStorage: local, sessionStorage: session,
+        setTimeout: () => 1, clearTimeout() {}, Date});
+    return {...window.fixture, handlers};
+}
+
+test('workflow replies and internal notes are scoped to this login and tab', () => {
+    const local = storage(), session = storage(), scope = `10:${'a'.repeat(32)}`;
+    const a = workflow(scope, local, session);
+    a.handlers.input(); a.persist();
+    assert.equal(local.length, 0);
+    assert.equal(session.length, 1);
+    assert.equal(workflow(scope, local, session).draft.internal, '<p>Private internal note</p>');
+    assert.equal(workflow(scope, local, storage()).draft, null);
+    for (const other of [`11:${'a'.repeat(32)}`, `10:${'b'.repeat(32)}`, '', 'invalid']) {
+        const before = session.length;
+        const b = workflow(other, local, session);
+        assert.equal(b.draft, null);
+        b.handlers.input(); b.persist();
+        if (!other || other === 'invalid') {
+            assert.equal(local.length, 0);
+            assert.equal(session.length, before, 'Unscoped workflow must not persist private content');
+        }
+    }
+});
+
+test('workflow rejects stale, future and invalid dates before acknowledgement or persistence', () => {
+    const local = storage(), session = storage(), scope = `10:${'a'.repeat(32)}`;
+    const a = workflow(scope, local, session); a.handlers.input(); a.persist();
+    const key = session.key(0), saved = JSON.parse(session.getItem(key));
+    for (const timestamp of [Date.now() - 25 * 3600000, Date.now() + 3600000, 'invalid', null]) {
+        session.setItem(key, JSON.stringify({...saved, saved: timestamp}));
+        assert.equal(workflow(scope, local, session, {draft_ack: saved.nonce}).draft, null);
+        assert.equal(session.getItem(key), null);
+    }
+    a.handlers.compositionstart(); a.persist();
+    assert.equal(session.length, 0);
+    a.handlers.compositionend(); a.persist();
+    assert.equal(session.length, 1);
+    const acknowledged = workflow(scope, local, session, {draft_ack: saved.nonce});
+    assert.equal(acknowledged.draft.content, '');
+    assert.equal(acknowledged.draft.internal, '<p>Private internal note</p>');
+});
+
+function sidebarTimer(scope, session, data) {
+    const full = fs.readFileSync(require('node:path').join(__dirname, '../includes/header.php'), 'utf8');
+    const start = full.indexOf('(function() {', full.indexOf('<!-- Draft timer'));
+    const source = full.slice(start, full.indexOf('</script>', start)).replace(/<\?php[\s\S]*?\?>/g, code =>
+        code.includes('timer_alert_hours') ? '3' : code.includes('timer_alert_enabled') ? 'true' : '"Timer"');
+    const nodes = {}, handlers = {}, toasts = [];
+    function node() { return {children: [], style: {}, appendChild(el) { this.children.push(el); },
+        insertBefore(el) { this.children.unshift(el); }, remove() { delete nodes[this.id];
+            const list = nodes['sidebar-timers-list']; list.children = list.children.filter(el => el !== this); }}; }
+    nodes['sidebar-timers'] = node(); nodes['sidebar-timers-list'] = node();
+    const key = `foxdesk_draft_v2_${scope}:foxdesk_draft_timer`;
+    if (data) session.setItem(key, JSON.stringify(data));
+    const document = {querySelector: s => s.startsWith('meta[') ? {content: scope} : null,
+        getElementById: id => nodes[id] || nodes['sidebar-timers-list'].children.find(el => el.id === id),
+        createElement: node, addEventListener: (name, fn) => { handlers[name] = fn; }};
+    vm.runInNewContext(source, {document, window: {location: {search: '?page=work'}},
+        sessionStorage: session, localStorage: storage(), setInterval() {}, showAppToast: msg => toasts.push(msg)});
+    handlers.DOMContentLoaded();
+    return {row: nodes['sidebar-timers-list'].children[0], toasts, key};
+}
+
+test('sidebar reads the new-ticket timer, alerts once and discards scoped state', () => {
+    const session = storage(), scope = `10:${'a'.repeat(32)}`;
+    const data = {startedAt: Date.now() - 4 * 3600000, timestamp: Date.now(), state: 'running', pausedTotal: 0};
+    const a = sidebarTimer(scope, session, data);
+    assert.ok(a.row, 'Scoped running timer must be visible on another page');
+    assert.equal(a.toasts.length, 1);
+    assert.equal(sidebarTimer(scope, session).toasts.length, 0);
+    a.row.children[1].onclick({stopPropagation() {}});
+    assert.equal(session.length, 0);
+    const paused = sidebarTimer(scope, session, {...data, state: 'paused', pausedAt: Date.now()});
+    assert.ok(paused.row);
+    assert.equal(sidebarTimer(`11:${'b'.repeat(32)}`, session).row, undefined);
+    for (const timestamp of [Date.now() - 25 * 3600000, Date.now() + 100000, 'invalid']) {
+        const invalid = sidebarTimer(scope, session, {...data, timestamp});
+        assert.equal(invalid.row, undefined);
+        assert.equal(session.getItem(invalid.key), null);
+    }
+});
 test('draft expiration, submit clearing and IME protection remain effective', () => {
     const local = storage(), session = storage();
     const { draft } = load(`10:${'a'.repeat(32)}`, local, session);

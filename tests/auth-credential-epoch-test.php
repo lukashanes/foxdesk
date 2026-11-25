@@ -40,6 +40,15 @@ function db_update($table, $data, $where, $params = []) {
 function db_insert($table, $data) { $GLOBALS['tokens'][] = $data + ['id' => 7]; return 7; }
 require BASE_PATH . '/includes/auth.php';
 $assert = static function ($ok, $message) { if (!$ok) throw new RuntimeException($message); };
+foreach (['Bearer', 'Bearer ', "Bearer\tinvalid"] as $header) {
+    $_SERVER['HTTP_AUTHORIZATION'] = $header;
+    $assert(is_api_token_request() && authenticate_api_token() === null, 'Empty or malformed explicit Bearer credentials must not become cookie authentication.');
+}
+unset($_SERVER['HTTP_AUTHORIZATION']);
+$db->active = true; $before_queries = count($queries);
+$assert(update_password(1, 'TEST-password') === false && $db->active && count($queries) === $before_queries,
+    'Nested password changes must leave the caller transaction untouched.');
+$db->active = false;
 $_SESSION = ['user_id' => 1, 'auth_version' => 2];
 $assert(update_password(1, 'TEST-password') === false, 'Revoked password proof must not undo recovery.');
 $assert($users[1]['auth_version'] === 3 && empty($_SESSION), 'Stale password change must log out without mutation.');
@@ -54,10 +63,22 @@ $_SESSION = ['user_id' => 1, 'auth_version' => 4];
 $token = generate_api_token(1, 'TEST-epoch', null, ['tickets:read']);
 $assert($tokens[0]['auth_version'] === 4, 'New API credential must record current epoch.');
 $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $token['token'];
+$_SESSION['user_id'] = 99; // A different browser account accompanies the token.
+$_SESSION['impersonator_id'] = 99;
+$_SESSION['draft_scope_nonce'] = str_repeat('a', 32);
 $assert(authenticate_api_token() !== null, 'Fresh API credential should work.');
+$assert(session_status() !== PHP_SESSION_ACTIVE, 'Bearer identity must not be written to the browser session.');
+$assert(!isset($_SESSION['impersonator_id']) && !isset($_SESSION['draft_scope_nonce']), 'Token identity must not inherit browser impersonation or drafts.');
+$assert($_SESSION['user_id'] === 1, 'Request helpers must use the token owner.');
 $users[1]['auth_version'] = 5;
 $assert(authenticate_api_token() === null, 'API token read before a concurrent reset must be rejected.');
-$_SESSION = ['user_id' => 1, 'auth_version' => 5];
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+$assert($_SESSION['user_id'] === 99 && isset($_SESSION['impersonator_id']), 'Bearer request must preserve the original browser session on disk.');
+$_SESSION['draft_scope_nonce'] = str_repeat('b', 32);
+$_COOKIE['foxdesk_remember'] = str_repeat('a', 64);
+$assert(validate_remember_token(), 'Valid persistent login must keep working.');
+$assert(!isset($_SESSION['draft_scope_nonce']), 'Remember login must create a fresh draft scope.');
+$assert(!isset($_SESSION['impersonator_id']), 'Remember login must discard old impersonation state.');
 $GLOBALS['remember_race'] = true;
 $assert(!set_remember_token(1), 'Concurrent reset must prevent remember token issuance.');
 $assert(str_contains(implode("\n", $queries), 'auth_version = ?'), 'Remember token write must compare epoch atomically.');

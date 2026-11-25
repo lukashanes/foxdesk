@@ -90,7 +90,7 @@ function web_push_resolve_target(string $endpoint, ?callable $resolver = null): 
     }
     $host = strtolower((string) ($url['host'] ?? ''));
     // Push services use DNS names. Reject literal, numeric and ambiguous IP forms.
-    if (strlen($host) > 253 || !preg_match('/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/D', $host)) {
+    if (strlen($host) > 253 || !preg_match('/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9](?:[a-z0-9-]{0,57}[a-z0-9])?)$/D', $host)) {
         return null;
     }
     try {
@@ -111,7 +111,10 @@ function web_push_resolve_target(string $endpoint, ?callable $resolver = null): 
                 return null;
             }
         }
-        return ['host' => $host, 'ip' => (string) reset($addresses)];
+        // Most shared hosts have IPv4 egress only. Keep IPv6-only destinations
+        // supported, but do not let DNS answer order select an unusable AAAA.
+        $ipv4 = array_filter($addresses, static fn($ip) => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false);
+        return ['host' => $host, 'ip' => (string) ($ipv4 ? reset($ipv4) : reset($addresses))];
     } catch (Throwable $e) {
         return null;
     }

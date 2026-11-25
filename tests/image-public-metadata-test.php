@@ -25,4 +25,17 @@ if (!image_proxy_is_public_upload('uploads/logo.png', 'logo.png')) { throw new R
 foreach ($queries as $query) {
     if (str_contains($query, 'FROM comments') || str_contains($query, 'FROM tickets')) { throw new RuntimeException('User-authored content cannot grant public access.'); }
 }
+// Execute the actual guard without serving files or opening a connection.
+$start = strpos($source, 'if (!$is_protected_attachment && !image_proxy_is_public_upload(');
+$end = strpos($source, '$allowed = [', $start);
+$guard = str_replace(['http_response_code(', 'exit;'], ['image_fixture_status(', 'throw new ImageFixtureDenied();'], substr($source, $start, $end - $start));
+class ImageFixtureDenied extends RuntimeException {}
+function image_fixture_status($status) { $GLOBALS['image_status'] = $status; }
+function is_logged_in() { return $GLOBALS['image_role'] !== 'anonymous'; }
+$scenario = 'forged_comment'; $upload_dir = 'uploads'; $requested = 'secret.png'; $is_protected_attachment = false;
+foreach (['anonymous', 'agent', 'admin'] as $image_role) {
+    $image_status = 0;
+    try { eval($guard); } catch (ImageFixtureDenied $e) {}
+    if ($image_status !== 403) throw new RuntimeException('Unowned legacy image must fail closed: ' . $image_role);
+}
 echo "Image public metadata regression OK\n";

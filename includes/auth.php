@@ -158,7 +158,11 @@ function auth_session_version_matches(array $user): bool
         return false;
     }
     if (!empty($_SESSION['impersonator_id'])) {
-        $admin = db_fetch_one('SELECT auth_version FROM users WHERE id = ? AND is_active = 1 AND deleted_at IS NULL', [(int) $_SESSION['impersonator_id']]);
+        $sql = 'SELECT * FROM users WHERE id = ? AND is_active = 1';
+        if (users_deleted_at_column_exists()) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+        $admin = db_fetch_one($sql, [(int) $_SESSION['impersonator_id']]);
         if (!$admin || !auth_impersonator_version_matches($admin)) {
             return false;
         }
@@ -168,7 +172,8 @@ function auth_session_version_matches(array $user): bool
 
 function auth_impersonator_version_matches(array $admin): bool
 {
-    return array_key_exists('auth_version', $admin)
+    return ($admin['role'] ?? '') === 'admin' && !empty($admin['is_active']) && empty($admin['deleted_at'])
+        && array_key_exists('auth_version', $admin)
         && (int) ($_SESSION['impersonator_auth_version'] ?? 0) === (int) $admin['auth_version'];
 }
 
@@ -388,6 +393,7 @@ function validate_remember_token()
 
     // Auto-login: populate session
     session_regenerate_id(true);
+    $_SESSION = [];
     $_SESSION['user_id']    = $user['id'];
     $_SESSION['auth_version'] = (int) ($user['auth_version'] ?? 0);
     $_SESSION['user_email'] = $user['email'];
@@ -567,7 +573,8 @@ function is_impersonating()
  */
 function is_api_token_request()
 {
-    return bearer_token_from_request() !== '';
+    $header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    return preg_match('/^Bearer(?:[ \t]|$)/i', $header) === 1;
 }
 
 function bearer_token_from_request(): string
@@ -1126,7 +1133,13 @@ function authenticate_api_token()
         return null;
     }
 
-    // Populate session so existing helpers work
+    // Preserve the browser login on disk, then use a request-only token identity.
+    // Otherwise a cookie + Bearer request could replace the browser account or
+    // inherit its impersonator proof and draft scope.
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+    $_SESSION = [];
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['auth_version'] = (int) ($user['auth_version'] ?? 0);
     $_SESSION['user_email'] = $user['email'];

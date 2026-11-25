@@ -1045,8 +1045,11 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
         <!-- Draft timer (new-ticket) — sidebar indicator + long-timer notification -->
         <script>
         (function() {
-            var STORAGE_KEY = 'foxdesk_draft_timer';
-            var ALERT_KEY = 'foxdesk_draft_timer_alerted';
+            var scopeMeta = document.querySelector('meta[name="foxdesk-draft-scope"]');
+            var scope = scopeMeta ? scopeMeta.content : '';
+            var prefix = /^[1-9]\d*:[a-f0-9]{32}$/.test(scope) ? 'foxdesk_draft_v2_' + scope + ':' : '';
+            var STORAGE_KEY = prefix ? prefix + 'foxdesk_draft_timer' : '';
+            var ALERT_KEY = prefix ? prefix + 'foxdesk_draft_timer_alerted' : '';
             var alertHours = <?php echo (int) ($settings['timer_alert_hours'] ?? 3); ?>;
             var alertEnabled = <?php echo ($settings['timer_alert_enabled'] ?? '0') === '1' ? 'true' : 'false'; ?>;
             var newTicketUrl = 'index.php?page=new-ticket';
@@ -1057,11 +1060,21 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
             var isNewTicketPage = (window.location.search.indexOf('page=new-ticket') !== -1);
 
             function getDraftTimer() {
+                if (!STORAGE_KEY) return null;
                 try {
-                    var raw = localStorage.getItem(STORAGE_KEY);
+                    var raw = sessionStorage.getItem(STORAGE_KEY);
                     if (!raw) return null;
                     var d = JSON.parse(raw);
-                    if (!d.startedAt || !d.state) return null;
+                    var age = d ? Date.now() - d.timestamp : NaN;
+                    if (!d || !Number.isFinite(age) || age < 0 || age > 86400000
+                        || !Number.isFinite(d.startedAt) || d.startedAt > Date.now()
+                        || !Number.isFinite(d.pausedTotal) || d.pausedTotal < 0
+                        || ['running', 'paused'].indexOf(d.state) === -1
+                        || (d.state === 'paused' && (!Number.isFinite(d.pausedAt) || d.pausedAt > Date.now()))) {
+                        sessionStorage.removeItem(STORAGE_KEY);
+                        sessionStorage.removeItem(ALERT_KEY);
+                        return null;
+                    }
                     return d;
                 } catch(e) { return null; }
             }
@@ -1140,8 +1153,8 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 discardBtn.textContent = '\u00d7';
                 discardBtn.onclick = function(e) {
                     e.stopPropagation();
-                    localStorage.removeItem(STORAGE_KEY);
-                    localStorage.removeItem(ALERT_KEY);
+                    sessionStorage.removeItem(STORAGE_KEY);
+                    sessionStorage.removeItem(ALERT_KEY);
                     row.remove();
                     if (!list.children.length) container.style.display = 'none';
                     updateTimerCount();
@@ -1176,11 +1189,13 @@ if (file_exists(__DIR__ . '/pseudo-cron.php')) {
                 var elapsed = getElapsedSeconds(d);
                 var limitSec = alertHours * 3600;
                 if (elapsed < limitSec) {
-                    localStorage.removeItem(ALERT_KEY);
+                    sessionStorage.removeItem(ALERT_KEY);
                     return;
                 }
-                if (localStorage.getItem(ALERT_KEY)) return;
-                localStorage.setItem(ALERT_KEY, '1');
+                try {
+                    if (sessionStorage.getItem(ALERT_KEY)) return;
+                    sessionStorage.setItem(ALERT_KEY, '1');
+                } catch (e) { return; }
 
                 var msg = strTimerExceeded.replace('{hours}', alertHours);
                 if ('Notification' in window && Notification.permission === 'granted') {

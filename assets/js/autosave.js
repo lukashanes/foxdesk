@@ -28,7 +28,8 @@ window.FoxDeskAutosave = (function() {
     function removeOldDrafts(storage, keepPrefix) {
         for (var i = storage.length - 1; i >= 0; i--) {
             var key = storage.key(i);
-            if (key && key.indexOf('foxdesk_draft_') === 0 && (!keepPrefix || key.indexOf(keepPrefix) !== 0)) {
+            if (key && (key.indexOf('foxdesk_draft_') === 0 || key.indexOf('foxdesk_workflow_draft_') === 0)
+                && (!keepPrefix || key.indexOf(keepPrefix) !== 0)) {
                 storage.removeItem(key);
             }
         }

@@ -4,6 +4,8 @@ require dirname(__DIR__) . '/includes/upload-functions.php';
 if (!function_exists('email_ingest_attachment_metadata')) throw new RuntimeException('Content-based mail attachment validation missing.');
 $assert = static function ($ok, $message) { if (!$ok) throw new RuntimeException($message); };
 $pdf = "%PDF-1.4\nTEST-document\n%%EOF\n";
+$bom_pdf = "\xEF\xBB\xBF" . $pdf;
+$assert(email_ingest_attachment_metadata(['filename' => 'TEST.pdf', 'data' => $bom_pdf], 1024) === null, 'PDF preambles remain outside the strict accepted signature policy.');
 $meta = email_ingest_attachment_metadata(['filename' => 'TEST.pdf', 'mime' => 'text/html', 'size' => 1, 'data' => $pdf], 1024);
 $assert($meta !== null && $meta['size'] === strlen($pdf) && $meta['mime'] === 'application/pdf', 'PDF signature and measured size must override declared metadata.');
 $assert(email_ingest_attachment_metadata(['filename' => 'TEST.pdf', 'mime' => 'application/pdf', 'data' => '<html>TEST</html>'], 1024) === null, 'HTML disguised as PDF must be rejected.');

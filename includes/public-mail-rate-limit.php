@@ -9,7 +9,8 @@ function public_auth_mail_reserve(string $email): bool
     }
     $recipient = substr(hash('sha256', $email), 0, 32);
     $ip_hash = substr(hash('sha256', $ip), 0, 32);
-    $daily_limit = (int) (getenv('FOXDESK_PUBLIC_MAIL_DAILY_LIMIT') ?: 1000);
+    $configured_limit = getenv('FOXDESK_PUBLIC_MAIL_DAILY_LIMIT');
+    $daily_limit = $configured_limit === false || $configured_limit === '' ? 1000 : (int) $configured_limit;
     $budgets = [
         'pubmail.ip:' . $ip_hash => [5, 900],
         'pubmail.to:' . $recipient => [5, 900],

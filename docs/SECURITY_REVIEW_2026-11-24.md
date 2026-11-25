@@ -144,7 +144,8 @@ bloky změn. Není nutné přenášet nové SaaS tabulky ani tenantové filtry.
   Databázové a DNS testy používají náhrady, migrace používá PDO náhradu bez spojení.
 - `npm run build:css` a `npm run test:css-build`: prošly; minifikované CSS nemá
   obsahovou změnu a jeho původní formát konců řádků byl zachován.
-- `npm run test:security-review`: 15 PHP testů a 5 JS scénářů prošlo.
+- Původní údaj „15 PHP testů a 5 JS scénářů“ byl chybný: kontrolovaná
+  revize spouštěla 17 PHP testů a 6 JS scénářů. Aktuální ověření je v dodatku níže.
 - `npm run test:i18n`, `npm run test:email-policy`,
   `npm run test:security-boundary`, `npm run test:core-parity`: prošly.
 - Širší běh 127 samostatných PHP testů: 122 prošlo, 3 dříve existující rozpory
@@ -198,7 +199,8 @@ Microsoft 365, push doručení, migrace na MariaDB ani produkční ověření.
 5. Nový tiket stále před založením ukládá editorové obrázky do explicitně
    veřejného `uploads/public/`. Pro důvěrné pre-uploady je potřeba návrh navázání
    na tiket a oprávnění. Staré obrázky bez veřejných metadat nebo přílohy se po
-   odstranění obsahového bypassu přestanou anonymně zobrazovat; není bezpečné
+   odstranění obsahového bypassu přestanou zobrazovat i přihlášeným agentům
+   a administrátorům; není bezpečné
    automaticky je označit za veřejné podle výskytu v komentáři.
 6. CSP `unsafe-inline` vyžaduje migraci existujících skriptů a skutečné UI QA;
    nebylo plošně odstraněno. Bezpečná sanitizace a SVG download nečekají na tuto práci.
@@ -208,3 +210,57 @@ Microsoft 365, push doručení, migrace na MariaDB ani produkční ověření.
 8. Před vydáním ověřit reálné přihlášení, 2FA, změnu hesla, přílohy a CC na
    desktopu a 390px mobilu; potom SMTP/IMAP/Microsoft 365 a push v testovacím
    prostředí s explicitně povoleným doručováním. Žádné nasazení nebylo provedeno.
+
+## Dodatek: přezkum Antigravity z 25. 11. 2026
+
+Posudek `foxdesk-26.md` patří k této self-hosted větvi
+`codex/bezpecnost-2026-11`: uvádí shodné commity `5585eaa` a `f71fc56`.
+Na začátku byl pracovní strom čistý. Následující změny jsou pouze pracovní
+soubory pro kontrolu správcem; žádný commit, push, merge ani nasazení.
+
+| Nález | Verdikt a důkaz | Soubory |
+| --- | --- | --- |
+| 1. Workflow koncepty v localStorage | Potvrzeno a opraveno. Klíč nyní obsahuje stejný login nonce z meta tagu jako ostatní koncepty, úložiště je sessionStorage, platnost 24 h. Neplatné/budoucí datum se zahodí před zpracováním potvrzení o odeslání. Migrace/přihlášení odstraní i staré workflow klíče. Testuje se obsah odpovědi, interní poznámka, jiný účet/přihlášení/tab, IME i potvrzení jedné ze dvou rozepsaných zpráv. | `assets/js/ticket-workflow.js`, `assets/js/autosave.js`, `tests/autosave-isolation.test.js` |
+| 2. Sidebar časovače | Potvrzeno a opraveno. Sidebar čte a zahazuje stejný scopovaný sessionStorage klíč jako nový tiket, stejně ukládá příznak upozornění a ověřuje datum/stav. Test spouští skutečný inline skript z headeru pro běh, pauzu, upozornění, zahození a expiraci. | `includes/header.php`, `tests/autosave-isolation.test.js` |
+| 3. Bearer fallback | Potvrzeno a opraveno pro všechny akce včetně prázdného explicitního Bearer schématu. Platná tokenová identita existuje pouze v aktuálním požadavku; uložená browserová session zůstává původní a nepřenášejí se do ní ani z ní impersonační údaje. Testy zahrnují cookie + neplatný i platný token u běžných akcí a opětovné načtení původní uložené session. Starý textový kontrakt vyžadující podmínku `app-*` byl nahrazen kontrolou společné autentizace. | `includes/api/router.php`, `includes/auth.php`, `tests/required-2fa-boundary-test.php`, `tests/auth-credential-epoch-test.php`, `tests/agent-api-control-contract-test.php` |
+| 4. Volitelný users.deleted_at | Potvrzeno a opraveno ve všech třech uvedených dotazech. Test spouští skutečné sestavení SQL s přítomným i chybějícím sloupcem; při chybějícím sloupci odmítá jakýkoli odkaz na něj. Nejde o důkaz provedení SQL na MySQL. | `includes/auth.php`, `includes/security-helpers.php`, `pages/login.php`, `tests/auth-legacy-schema-test.php` |
+| 5. Pozdní založení api_tokens | Potvrzeno a opraveno v CREATE TABLE i seznamu dodatečných sloupců. Offline test vykonává skutečný upgrade blok pro novou i existující tabulku a opakované spuštění. Rozšířený integrační test připravuje i tento scénář na dočasné DB; zde se nespouštěl. | `includes/upgrade-functions.php`, `tests/api-token-legacy-upgrade-test.php`, `tests/schema-migration-integration-test.php` |
+| 6. Degradace impersonátora | Potvrzeno a opraveno ve společném helperu používaném při kontrole session i ukončení impersonace. Vedle epochy vyžaduje aktivního, nesmazaného administrátora. Test odmítá degradovaného, deaktivovaného i smazaného administrátora a zachovává legitimní obnovu. | `includes/auth.php`, `tests/auth-legacy-schema-test.php`, `tests/impersonation-recovery-test.php` |
+| 7. Staré inline obrázky | Potvrzeno; upřesněna poznámka výše. Skutečný guard vrací 403 i pro přihlášeného agenta/admina, pokud nelze soubor přiřadit oprávněním. Test guardu pokrývá anonymní i přihlášené identity. Obsahový bypass se nevrací, inventarizace/backfill vyžaduje samostatné schválení. | `image.php` (beze změny), `tests/image-public-metadata-test.php`, tento dokument |
+| 8. Podvržené CF-Connecting-IP | Potvrzeno a opraveno explicitním opt-in `FOXDESK_TRUST_CF_CONNECTING_IP === true`. Zůstává nutná důvěryhodná proxy, která tuto hlavičku přepisuje ověřenou hodnotou. Test načítá skutečný helper z auth.php a ověřuje přímého klienta, lokální proxy, neplatnou hodnotu, výchozí ignorování CF hlavičky i opt-in. | `includes/security-helpers.php`, `config.example.php`, `tests/client-ip-trust-test.php` |
+| 9. Push DNS / proxy / IDN | Potvrzeno omezení. Z ověřených adres se preferuje IPv4; IPv6-only cíle zůstávají podporované. Opraven ASCII punycode TLD. Test spouští send_web_push s nahrávající náhradou cURL a ověřuje skutečné volby pinningu, proxy, protokolu a redirectů i reakci na 410. Outbound proxy zůstává vypnutá: její povolení by vyžadovalo návrh zachovávající ochranu proti SSRF. Automatický fallback mezi všemi adresami se nepřidává. | `includes/web-push.php`, `tests/web-push-target-test.php` |
+| 10a. Vnořené transakce a ztracená flash | Aktivní transakce je záměrně odmítnuta bez zápisů či rollbacku cizí transakce; běžní volající ji nezahajují. Pouhé použití db_begin_owned by dovolilo změnit session ještě před vnějším commitem. Ztracená chybová flash je skutečná chyba: login ji nově převezme do existujícího escapovaného chybového bloku. | `includes/auth.php`, `includes/security-helpers.php`, `pages/login.php`, `tests/password-reset-revocation-test.php`, `tests/password-change-result-test.php` |
+| 10b. Remember-me nonce a souběh | Chybějící nový draft scope potvrzen a opraven resetem přihlašovacích údajů session; odstraní se i starý impersonátor. Test ověřuje platné přihlášení a selhání rotace. Souběžné HTTP požadavky se skutečnou DB se zde neprověřovaly; single-use rotace nebyla oslabena. | `includes/auth.php`, `tests/auth-credential-epoch-test.php` |
+| 10c. Chybějící IP a limit 0 | Chybějící/rozbitá IP záměrně zakazuje rezervaci bez zápisů. Neutrální odpověď neslibuje doručení ani neprozrazuje existenci účtu. Chyba `?:` u hodnoty `0` opravena: zachová se dosavadní ořez limitu do 1–100000, nepoužije se výchozích 1000. Test pokrývá oba případy. | `includes/public-mail-rate-limit.php`, `tests/public-mail-rate-limit-test.php` |
+| 10d. PDF preambule / aktivní přílohy | Přesná signatura na začátku je potvrzená striktní politika, BOM test dokládá odmítnutí. Redundantní kontrola velikosti není funkční chyba. SVG/HTML se mohou přijmout jako příloha, ale nestávají se inline obsahem. Zákaz přímého přístupu na Nginxu je provozní předpoklad, zde neověřený. | `includes/email-ingest-functions.php`, `attachment.php` (beze změny), `tests/email-attachment-content-test.php` |
+| 10e. Reportové preference | Potvrzeno ukládání sloupců a rozsahu dat. Kontrola ukládaného objektu dokládá preference, ne texty konceptů. Změna jejich perzistence by změnila uživatelské chování bez schválené politiky; ponecháno. | `assets/js/report-page.js` (beze změny) |
+| 10f. Dokumentace a pokrytí | Opraven počet testů a rozsah tvrzení. Chybějící regresní scénáře doplněny; skutečná DB a plný prohlížeč zůstávají výslovně neověřené. | `package.json`, testy uvedené výše, tento dokument |
+
+Nové regresní případy před opravami selhaly na uvedených hranicích; po změnách
+procházejí. Použit PHP 8.4 ve WASM a nástroje výhradně v
+`C:/Dev/_codex-kredity/_cache/foxdesk-26-tools`, npm cache ve sdíleném `_cache/npm`.
+Runtime byl načten jen z npm, bez přístupu k cizím API, serverům či aplikační DB.
+PHP session a případná SQLite fixture jsou izolované v paměti WASM.
+
+Aktuální ověření:
+
+- `npm run build:css`, `test:css-build`, `test:security-review` (19 PHP + 10 JS),
+  `test:i18n`, `test:email-policy`, `test:security-boundary`, `test:core-parity`:
+  prošly s lokálním PHP adaptérem a Git Bash jako procesním npm script shell.
+- Plný offline běh: 127 ze 132 PHP testů prošlo. Tři rozpory
+  (`admin-ui`, `module-extraction`, `monolith-exit-inventory`) jsou přítomné
+  i v původním HEAD; dva testy blokuje chybějící WASM `GLOB_BRACE`.
+  Pět samostatných JS kontraktů: čtyři prošly, `compact-ui` selhává stejně
+  jako v HEAD. Nejde o plně zelenou sadu.
+- Syntaxe všech 396 PHP souborů ověřena parserem PHP 8.4.27 (`TOKEN_PARSE`),
+  změněné produkční JS prošly `node --check`, `git diff --check` prošel.
+  `npm run test:agent-api-control` včetně lokálního MCP mock smoke prošel.
+- MariaDB/MySQL migrace, síťové testy, formuláře, reálné doručování a plné E2E
+  nebyly spuštěny v souladu se zadáním. Integrační test je pouze připraven.
+- Chybí lokální config a povolená aplikační DB, proto nebyl dostupný skutečný
+  desktopový ani 390px mobilní náhled. VM test není vizuální ověření.
+
+Lukáš musí rozhodnout o inventarizaci starých obrázků, skutečně důvěryhodné
+proxy konfiguraci před vydáním a případné podpoře outbound push proxy.
+Změkčení PDF signatury, životnost reportových preferencí a politika
+souběhu remember-me vyžadují samostatné rozhodnutí, pokud se mají měnit.

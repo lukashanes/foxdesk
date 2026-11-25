@@ -60,7 +60,8 @@ foreach ([
 }
 
 foreach ([
-    'str_starts_with($action, \'app-\')',
+    'if (is_api_token_request())',
+    '$token_user = authenticate_api_token()',
     'api_token_enforce_action_scope($action)',
     'api_token_rate_limit_check($action)',
     'api_idempotency_replay_if_available($action)',

@@ -451,7 +451,11 @@ function password_reset_complete(array $user, string $password_hash, string $tok
     }
     try {
         $db->beginTransaction();
-        $locked = db_fetch_one('SELECT id FROM users WHERE id = ? AND reset_token = ? AND reset_token_expires > ? AND is_active = 1 AND deleted_at IS NULL FOR UPDATE', [$user_id, hash_reset_token($token), foxdesk_db_datetime()]);
+        $sql = 'SELECT id FROM users WHERE id = ? AND reset_token = ? AND reset_token_expires > ? AND is_active = 1';
+        if (column_exists('users', 'deleted_at')) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+        $locked = db_fetch_one($sql . ' FOR UPDATE', [$user_id, hash_reset_token($token), foxdesk_db_datetime()]);
         if (!$locked) {
             $db->rollBack();
             return false;
@@ -496,7 +500,10 @@ function get_client_ip()
     );
 
     if ($is_trusted_proxy) {
-        $candidates = ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP'];
+        $candidates = ['HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP'];
+        if (defined('FOXDESK_TRUST_CF_CONNECTING_IP') && FOXDESK_TRUST_CF_CONNECTING_IP === true) {
+            array_unshift($candidates, 'HTTP_CF_CONNECTING_IP');
+        }
         foreach ($candidates as $key) {
             if (!empty($_SERVER[$key])) {
                 $ip = trim($_SERVER[$key]);
