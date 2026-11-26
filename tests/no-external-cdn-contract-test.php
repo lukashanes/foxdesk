@@ -25,8 +25,11 @@ foreach (['includes', 'pages', 'assets/js', 'assets/css'] as $dir) {
         }
     }
 }
-foreach (glob($root . '/*.{php,js,css}', GLOB_BRACE) as $file) {
-    $files[] = $file;
+// GLOB_BRACE is unavailable on some PHP builds; keep the same file coverage.
+foreach (['php', 'js', 'css'] as $extension) {
+    foreach (glob($root . '/*.' . $extension) ?: [] as $file) {
+        $files[] = $file;
+    }
 }
 
 $offenders = [];

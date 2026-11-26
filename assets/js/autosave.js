@@ -25,11 +25,28 @@ window.FoxDeskAutosave = (function() {
     var scope = scopeMeta ? scopeMeta.content : '';
     var prefix = /^[1-9]\d*:[a-f0-9]{32}$/.test(scope) ? 'foxdesk_draft_v2_' + scope + ':' : '';
 
+    function expiredDraft(storage, key) {
+        try {
+            var data = JSON.parse(storage.getItem(key));
+            // This marker contains only the timer start, not draft content.
+            if (key.endsWith(':foxdesk_draft_timer_alerted') && Number.isFinite(data)) return false;
+            if (key.endsWith('_undo') && data && Number.isFinite(data.expires)) {
+                var remaining = data.expires - Date.now();
+                return remaining <= 0 || remaining > 10000;
+            }
+            var savedAt = data && (data.timestamp !== undefined ? data.timestamp : data.saved);
+            var age = Date.now() - savedAt;
+            return typeof savedAt !== 'number' || !Number.isFinite(age) || age < 0 || age >= MAX_AGE_MS;
+        } catch (e) {
+            return true;
+        }
+    }
+
     function removeOldDrafts(storage, keepPrefix) {
         for (var i = storage.length - 1; i >= 0; i--) {
             var key = storage.key(i);
             if (key && (key.indexOf('foxdesk_draft_') === 0 || key.indexOf('foxdesk_workflow_draft_') === 0)
-                && (!keepPrefix || key.indexOf(keepPrefix) !== 0)) {
+                && (!keepPrefix || key.indexOf(keepPrefix) !== 0 || expiredDraft(storage, key))) {
                 storage.removeItem(key);
             }
         }
@@ -190,7 +207,7 @@ window.FoxDeskAutosave = (function() {
 
         // Check staleness
         var age = Date.now() - data.timestamp;
-        if (!Number.isFinite(age) || age < 0 || age > MAX_AGE_MS) {
+        if (!Number.isFinite(age) || age < 0 || age >= MAX_AGE_MS) {
             this.clear();
             return false;
         }

@@ -63,6 +63,53 @@ test('login and migration erase legacy workflow drafts without touching preferen
     }
 });
 
+test('opening a form purges expired sibling drafts in the same login', () => {
+    const local = storage(), session = storage(), scope = `10:${'a'.repeat(32)}`;
+    const prefix = `foxdesk_draft_v2_${scope}:`;
+    const now = Date.now();
+    const expired = [
+        ['new-ticket', {timestamp: now - 25 * 3600000, fields: {title: 'Old customer'}}],
+        ['workflow_42', {saved: now - 25 * 3600000, content: 'Old internal note'}],
+        ['search', {timestamp: now - 25 * 3600000, value: 'Old customer search'}],
+        ['broken-date', {timestamp: 'invalid', fields: {title: 'Customer'}}],
+        ['future-date', {saved: now + 3600000, content: 'Customer'}],
+        ['extra-expiry', {timestamp: now - 25 * 3600000, expires: now + 10000, fields: {title: 'Old customer'}}],
+        ['workflow_42_undo', {status: 1, expires: now - 1}],
+    ];
+    for (const [key, value] of expired) session.setItem(prefix + key, JSON.stringify(value));
+    session.setItem(prefix + 'current', JSON.stringify({timestamp: now, fields: {title: 'Current customer'}}));
+    session.setItem(prefix + 'current-workflow', JSON.stringify({saved: now, content: 'Current internal note'}));
+    session.setItem(prefix + 'current_undo', JSON.stringify({status: 1, expires: now + 5000}));
+    session.setItem(prefix + 'foxdesk_draft_timer_alerted', JSON.stringify(now));
+    session.setItem(prefix + 'broken-json', '{');
+    session.setItem('theme', 'dark');
+    load(scope, local, session);
+    for (const [key] of expired) assert.equal(session.getItem(prefix + key), null, key);
+    assert.notEqual(session.getItem(prefix + 'current'), null);
+    assert.notEqual(session.getItem(prefix + 'current-workflow'), null);
+    assert.notEqual(session.getItem(prefix + 'current_undo'), null);
+    assert.notEqual(session.getItem(prefix + 'foxdesk_draft_timer_alerted'), null);
+    assert.equal(session.getItem(prefix + 'broken-json'), null);
+    assert.equal(session.getItem('theme'), 'dark');
+});
+
+test('a draft expires at the 24-hour boundary', () => {
+    const local = storage(), session = storage(), scope = `10:${'a'.repeat(32)}`;
+    const instance = load(scope, local, session);
+    instance.draft.save();
+    const key = session.key(0), data = JSON.parse(session.getItem(key));
+    const now = Date.now();
+    session.setItem(key, JSON.stringify({...data, timestamp: now - 86400000}));
+    const originalNow = Date.now;
+    try {
+        Date.now = () => now;
+        assert.equal(instance.draft.restore(), false);
+        assert.equal(session.getItem(key), null);
+    } finally {
+        Date.now = originalNow;
+    }
+});
+
 // Execute the actual workflow storage/event boundary before its UI enhancements.
 function workflow(scope, local, session, meta = {}) {
     const phpScope = `10:${'a'.repeat(32)}`;

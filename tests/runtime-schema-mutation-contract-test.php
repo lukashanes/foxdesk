@@ -32,7 +32,10 @@ if ($violations) {
     exit(1);
 }
 
-$migrations = glob($root . '/migrations/*.{php,sql}', GLOB_BRACE) ?: [];
+$migrations = array_merge(
+    glob($root . '/migrations/*.php') ?: [],
+    glob($root . '/migrations/*.sql') ?: []
+);
 if (!$migrations) {
     fwrite(STDERR, "No versioned database migrations found.\n");
     exit(1);

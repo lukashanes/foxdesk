@@ -64,7 +64,7 @@ $priority_targets = [
             'includes/components/ticket-detail-modals.php',
             'includes/components/ticket-detail-sidebar.php',
             'includes/components/ticket-detail-surface.php',
-            'assets/css/ticket-detail.css',
+            'theme.css',
             'assets/js/ticket-detail.js',
             'assets/js/ticket-detail-timer.js',
             'assets/js/ticket-detail-records.js',
@@ -221,10 +221,12 @@ foreach ($priority_targets as $page => $targets) {
 foreach ([
     'pages/new-ticket.php' => 700,
     'assets/js/ticket-list.js' => 900,
-    'assets/js/ticket-list-actions.js' => 900,
+    'assets/js/ticket-list-due-date.js' => 900,
+    'assets/js/ticket-list-time.js' => 900,
     'includes/components/ticket-list-board.php' => 700,
     'includes/components/ticket-list-table.php' => 900,
 ] as $hard_gate_path => $hard_gate_lines) {
+    $assert(is_file($root . '/' . $hard_gate_path), "Hard-gated module/component missing: {$hard_gate_path}.");
     $hard_gate_count = count(file($root . '/' . $hard_gate_path) ?: []);
     $assert(
         $hard_gate_count < $hard_gate_lines,
@@ -250,7 +252,7 @@ foreach ([
     'assets/js/ticket-detail-timer.js',
     'assets/js/ticket-detail-records.js',
     'assets/js/ticket-detail-admin.js',
-    'assets/css/ticket-detail.css',
+    'theme.css',
     'includes/modules/reports/report-page-controller.php',
     'includes/modules/reports/report-page-view-model.php',
     'includes/modules/reports/report-page-render.php',
