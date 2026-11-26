@@ -325,11 +325,11 @@ function remember_me_allowed_for_user(array $user): bool
 /** Ensure the installed schema supports remember-me tokens. */
 function ensure_remember_token_column()
 {
-    static $checked = false;
-    if ($checked) return true;
-    $checked = true;
-
-    return schema_is_ready('remember-me authentication', [], ['users' => ['remember_token', 'auth_version']]);
+    static $ready = null;
+    if ($ready === null) {
+        $ready = schema_is_ready('remember-me authentication', [], ['users' => ['remember_token', 'auth_version']]);
+    }
+    return $ready;
 }
 
 /**

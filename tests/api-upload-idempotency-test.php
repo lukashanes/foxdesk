@@ -22,6 +22,8 @@ try {
     $_FILES['file']['name'] = 'image.png';
     if ($renamed === api_idempotency_request_hash('upload')) throw new RuntimeException('File names must be part of the hash.');
     ftruncate($file, 2048);
+    // The fixture changes within one request; filesize() otherwise returns its cached value.
+    clearstatcache(true, $_FILES['file']['tmp_name']);
     try {
         api_idempotency_request_hash('upload');
         throw new LogicException('Oversized file was accepted.');
