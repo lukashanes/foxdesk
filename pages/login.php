@@ -20,8 +20,11 @@ if (empty($_SESSION['2fa_pending']) && !empty($_COOKIE['foxdesk_remember']) && v
 
 $settings = get_settings();
 $app_name = $settings['app_name'] ?? (defined('APP_NAME') ? APP_NAME : 'FoxDesk');
+$autosave_asset_version = (defined('APP_VERSION') ? (string) APP_VERSION : '1')
+    . '-' . (string) (@filemtime(BASE_PATH . '/assets/js/autosave.js') ?: '0');
 
-$error = '';
+$login_flash = get_flash();
+$error = ($login_flash['type'] ?? '') === 'error' ? (string) $login_flash['message'] : '';
 $info_message = '';
 $show_2fa_form = !empty($_SESSION['2fa_pending']);
 $current_lang = get_app_language();
@@ -69,10 +72,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_2fa'])) {
                 require_once BASE_PATH . '/includes/totp.php';
                 $submitted_code = trim($_POST['code'] ?? '');
 
-                $user_row = db_fetch_one("SELECT totp_secret, totp_backup_codes FROM users WHERE id = ?", [$pending['user_id']]);
+                $user_sql = 'SELECT totp_secret, totp_backup_codes, '
+                    . (column_exists('users', 'auth_version') ? 'auth_version' : '0 AS auth_version')
+                    . ' FROM users WHERE id = ? AND is_active = 1';
+                if (users_deleted_at_column_exists()) {
+                    $user_sql .= ' AND deleted_at IS NULL';
+                }
+                $user_row = db_fetch_one($user_sql, [$pending['user_id']]);
 
                 $valid = false;
-                if ($user_row && !empty($user_row['totp_secret'])) {
+                if ($user_row && auth_credential_version_matches($pending, $user_row) && !empty($user_row['totp_secret'])) {
                     $valid = totp_verify($user_row['totp_secret'], $submitted_code)
                           || verify_backup_code($pending['user_id'], $submitted_code);
                 }
@@ -84,6 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_2fa'])) {
                     session_regenerate_id(true);
                     $_SESSION = [];
                     $_SESSION['user_id']    = $pending['user_id'];
+                    $_SESSION['auth_version'] = (int) ($pending['auth_version'] ?? 0);
                     $_SESSION['user_email'] = $pending['user_email'];
                     $_SESSION['user_name']  = $pending['user_name'];
                     $_SESSION['user_role']  = $pending['user_role'];
@@ -133,6 +143,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
                 // Park the session — user is NOT logged in yet
                 $pending = [
                     'user_id'      => $_SESSION['user_id'],
+                    'auth_version' => (int) ($_SESSION['auth_version'] ?? 0),
                     'user_email'   => $_SESSION['user_email'],
                     'user_name'    => $_SESSION['user_name'],
                     'user_role'    => $_SESSION['user_role'],
@@ -155,6 +166,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
                 } else {
                     // 2FA required by role but user hasn't set it up → force setup
                     $_SESSION['user_id']    = $pending['user_id'];
+                    $_SESSION['auth_version'] = (int) ($pending['auth_version'] ?? 0);
                     $_SESSION['user_email'] = $pending['user_email'];
                     $_SESSION['user_name']  = $pending['user_name'];
                     $_SESSION['user_role']  = $pending['user_role'];
@@ -190,6 +202,8 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['verify_2fa'])) {
 <html lang="<?php echo e(get_app_language()); ?>" dir="<?php echo get_app_direction(); ?>">
 
 <head>
+    <!-- No draft scope: discard previous private drafts after logout. -->
+    <script src="assets/js/autosave.js?v=<?php echo e($autosave_asset_version); ?>"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo e(t('Sign in')); ?> - <?php echo e($app_name); ?></title>

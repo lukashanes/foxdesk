@@ -1095,6 +1095,7 @@ function foxdesk_run_database_upgrade(): array
                 CREATE TABLE api_tokens (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     user_id INT NOT NULL,
+                    auth_version INT UNSIGNED NOT NULL DEFAULT 0,
                     name VARCHAR(255) NOT NULL,
                     token_hash CHAR(64) NOT NULL,
                     token_prefix VARCHAR(10) NOT NULL,
@@ -1120,6 +1121,7 @@ function foxdesk_run_database_upgrade(): array
 
     if (db_fetch_one("SHOW TABLES LIKE 'api_tokens'")) {
         foreach ([
+            'auth_version' => "ALTER TABLE api_tokens ADD COLUMN auth_version INT UNSIGNED NOT NULL DEFAULT 0 AFTER user_id",
             'scopes_json' => "ALTER TABLE api_tokens ADD COLUMN scopes_json TEXT NULL AFTER token_prefix",
             'revoked_at' => "ALTER TABLE api_tokens ADD COLUMN revoked_at DATETIME NULL AFTER is_active",
             'last_used_ip' => "ALTER TABLE api_tokens ADD COLUMN last_used_ip VARCHAR(45) NULL AFTER last_used_at",

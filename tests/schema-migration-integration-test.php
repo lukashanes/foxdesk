@@ -54,6 +54,9 @@ try {
     $db->exec("ALTER TABLE users MODIFY language VARCHAR(5) DEFAULT 'en'");
     $db->exec("ALTER TABLE email_templates MODIFY language VARCHAR(5) DEFAULT 'en'");
     $db->exec("ALTER TABLE report_templates MODIFY report_language VARCHAR(5) DEFAULT 'en'");
+    // Exercise epoch additions on an old schema, not just their fresh-install defaults.
+    $db->exec('ALTER TABLE users DROP COLUMN auth_version');
+    $db->exec('ALTER TABLE api_tokens DROP COLUMN auth_version');
     $db->exec("INSERT INTO statuses (id, name, slug, color, sort_order, is_default, is_closed) VALUES
         (10, 'Done', 'done', '#34c759', 5, 0, 1),
         (11, 'Cancelled', 'cancelled', '#ff3b30', 6, 0, 1)");
@@ -82,7 +85,8 @@ try {
     }
 
     $requirements = [
-        'users' => ['remember_token', 'notification_preferences', 'is_ai_agent', 'ai_model'],
+        'users' => ['remember_token', 'notification_preferences', 'is_ai_agent', 'ai_model', 'auth_version'],
+        'api_tokens' => ['auth_version'],
         'recurring_tasks' => ['due_days', 'paused_at', 'resume_date', 'tags'],
         'report_templates' => ['custom_billable_rate', 'expires_at', 'schedule_enabled', 'agent_ids'],
         'email_ingest_logs' => ['sender_email', 'subject', 'ticket_id'],
@@ -99,6 +103,39 @@ try {
             }
         }
     }
+    // The epoch migration can finish before the optional API table is created.
+    // Run the real legacy DDL against this disposable database in both paths.
+    $db->exec('RENAME TABLE api_tokens TO api_tokens_before_legacy');
+    $epoch_migration = require $root . '/migrations/2026112401_auth_version.php';
+    $epoch_migration($db);
+    $legacy_source = file_get_contents($root . '/includes/upgrade-functions.php');
+    $legacy_start = strpos($legacy_source, '    // Create api_tokens table');
+    $legacy_end = strpos($legacy_source, '    $check = db_fetch_one("SHOW TABLES LIKE \'api_token_audit_logs\'")', $legacy_start);
+    $legacy_block = strtr(substr($legacy_source, $legacy_start, $legacy_end - $legacy_start), [
+        'db_fetch_one(' => '$legacy_fetch(', 'db_query(' => '$legacy_query(', 'column_exists(' => '$legacy_column_exists(',
+    ]);
+    $legacy_writes = 0; $messages = [];
+    $legacy_fetch = static fn($sql) => $db->query($sql)->fetch(PDO::FETCH_ASSOC);
+    $legacy_query = static function ($sql) use ($db, &$legacy_writes) { $legacy_writes++; return $db->exec($sql); };
+    $legacy_column_exists = static function ($table, $column) use ($db) {
+        $stmt = $db->prepare("SHOW COLUMNS FROM `{$table}` LIKE ?");
+        $stmt->execute([$column]);
+        return (bool) $stmt->fetchColumn();
+    };
+    eval($legacy_block);
+    $epoch_column = $db->query("SHOW COLUMNS FROM api_tokens LIKE 'auth_version'")->fetch(PDO::FETCH_ASSOC);
+    if (!$epoch_column || $epoch_column['Null'] !== 'NO' || (string) $epoch_column['Default'] !== '0') {
+        throw new RuntimeException('Late API table creation lacks a non-null zero epoch.');
+    }
+    $db->exec('ALTER TABLE api_tokens DROP COLUMN auth_version');
+    eval($legacy_block);
+    if (!$legacy_column_exists('api_tokens', 'auth_version')) throw new RuntimeException('Legacy API column upgrade failed.');
+    $before_repeat = $legacy_writes;
+    eval($legacy_block);
+    if ($legacy_writes !== $before_repeat) throw new RuntimeException('Legacy API upgrade is not idempotent.');
+    $db->exec('DROP TABLE api_tokens');
+    $db->exec('RENAME TABLE api_tokens_before_legacy TO api_tokens');
+
     foreach ([
         ['users', 'language'],
         ['email_templates', 'language'],

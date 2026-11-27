@@ -41,26 +41,32 @@ if (!function_exists('foxdesk_request_uses_trusted_proxy')) {
         }
 
         $remote = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
-        if ($remote === '') {
-            return false;
-        }
-
-        if ($remote === '127.0.0.1' || $remote === '::1' || str_starts_with($remote, '10.') || str_starts_with($remote, '192.168.')) {
-            return true;
-        }
-
-        if (preg_match('/^172\.(1[6-9]|2[0-9]|3[0-1])\./', $remote) === 1) {
-            return true;
-        }
-
-        $trusted = trim((string) getenv('FOXDESK_TRUSTED_PROXIES'));
-        if ($trusted === '') {
-            return false;
-        }
-
-        $proxies = array_filter(array_map('trim', explode(',', $trusted)));
-        return in_array($remote, $proxies, true);
+        return foxdesk_ip_is_trusted_proxy($remote);
     }
+}
+
+/** TRUST_PROXY applies only to the direct peer, never to arbitrary XFF hops. */
+function foxdesk_ip_is_trusted_proxy(string $remote): bool
+{
+    if (!filter_var($remote, FILTER_VALIDATE_IP)) {
+        return false;
+    }
+
+    if ($remote === '127.0.0.1' || $remote === '::1' || str_starts_with($remote, '10.') || str_starts_with($remote, '192.168.')) {
+        return true;
+    }
+
+    if (preg_match('/^172\.(1[6-9]|2[0-9]|3[0-1])\./', $remote) === 1) {
+        return true;
+    }
+
+    $trusted = trim((string) getenv('FOXDESK_TRUSTED_PROXIES'));
+    if ($trusted === '') {
+        return false;
+    }
+
+    $proxies = array_filter(array_map('trim', explode(',', $trusted)));
+    return in_array($remote, $proxies, true);
 }
 
 /**
@@ -68,7 +74,40 @@ if (!function_exists('foxdesk_request_uses_trusted_proxy')) {
  */
 function is_logged_in()
 {
-    return isset($_SESSION['user_id']) && $_SESSION['user_id'] > 0;
+    return (bool) current_user();
+}
+
+/** Re-evaluate the workspace policy at every protected entry point. */
+function auth_requires_2fa_setup(): bool
+{
+    if (!is_logged_in()) {
+        return false;
+    }
+    try {
+        $user = current_user();
+        if (!$user) {
+            return true;
+        }
+        // Service agents authenticate with a revocable API credential. They
+        // cannot enroll an authenticator; browser and human-token users can.
+        if (($user['role'] ?? '') === 'agent' && !empty($user['is_ai_agent'])
+            && !empty($GLOBALS['is_api_token_auth'])) {
+            unset($_SESSION['2fa_setup_required']);
+            return false;
+        }
+        require_once __DIR__ . '/totp.php';
+        ensure_totp_columns();
+        $required = is_2fa_required_for_role((string) ($user['role'] ?? ''));
+        if ($required && empty($user['totp_enabled'])) {
+            $_SESSION['2fa_setup_required'] = true;
+            return true;
+        }
+        unset($_SESSION['2fa_setup_required']);
+        return false;
+    } catch (Throwable $e) {
+        // An unavailable policy or identity must never unlock workspace data.
+        return true;
+    }
 }
 
 /**
@@ -84,21 +123,79 @@ function users_deleted_at_column_exists()
  */
 function current_user($force_refresh = false)
 {
-    if (!is_logged_in()) {
+    if (empty($_SESSION['user_id']) || (int) $_SESSION['user_id'] <= 0) {
         return null;
     }
-
     static $user = null;
-
-    if ($user === null || $force_refresh) {
+    static $identity = null;
+    $session_identity = [$_SESSION['user_id'], $_SESSION['auth_version'] ?? 0,
+        $_SESSION['impersonator_id'] ?? 0, $_SESSION['impersonator_auth_version'] ?? 0];
+    if ($user === null || $force_refresh || $identity !== $session_identity) {
+        $identity = $session_identity;
         $sql = "SELECT * FROM users WHERE id = ? AND is_active = 1";
         if (users_deleted_at_column_exists()) {
             $sql .= " AND deleted_at IS NULL";
         }
         $user = db_fetch_one($sql, [$_SESSION['user_id']]);
+        if (!$user || !auth_session_version_matches($user)) {
+            $user = null;
+            auth_forget_session();
+        }
     }
-
     return $user;
+}
+
+/** Discard only this login proof; never revoke a newer login on another device. */
+function auth_forget_session(): void
+{
+    $_SESSION = [];
+    clear_remember_cookie();
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
+    }
+}
+
+/** Legacy sessions have version zero; the first reset invalidates them too. */
+function auth_session_version_matches(array $user): bool
+{
+    $version = auth_user_version($user);
+    if ($version === null || (int) ($_SESSION['auth_version'] ?? 0) !== $version) {
+        return false;
+    }
+    if (!empty($_SESSION['impersonator_id'])) {
+        $sql = 'SELECT * FROM users WHERE id = ? AND is_active = 1';
+        if (users_deleted_at_column_exists()) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+        $admin = db_fetch_one($sql, [(int) $_SESSION['impersonator_id']]);
+        if (!$admin || !auth_impersonator_version_matches($admin)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function auth_impersonator_version_matches(array $admin): bool
+{
+    $version = auth_user_version($admin);
+    return ($admin['role'] ?? '') === 'admin' && !empty($admin['is_active']) && empty($admin['deleted_at'])
+        && $version !== null
+        && (int) ($_SESSION['impersonator_auth_version'] ?? 0) === $version;
+}
+
+/** Keep upgrade access on old schemas; incomplete rows on new schemas fail closed. */
+function auth_user_version(array $user): ?int
+{
+    if (array_key_exists('auth_version', $user)) {
+        return (int) $user['auth_version'];
+    }
+    return column_exists('users', 'auth_version') ? null : 0;
+}
+
+function auth_credential_version_matches(array $credential, array $user): bool
+{
+    $version = auth_user_version($user);
+    return $version !== null && (int) ($credential['auth_version'] ?? 0) === $version;
 }
 
 /**
@@ -152,7 +249,9 @@ function login($email, $password)
             clear_remember_cookie();
         }
         session_regenerate_id(true);
+        unset($_SESSION['draft_scope_nonce']);
         $_SESSION['user_id'] = $user['id'];
+        $_SESSION['auth_version'] = (int) ($user['auth_version'] ?? 0);
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
         $_SESSION['user_role'] = $user['role'];
@@ -226,35 +325,41 @@ function remember_me_allowed_for_user(array $user): bool
 /** Ensure the installed schema supports remember-me tokens. */
 function ensure_remember_token_column()
 {
-    static $checked = false;
-    if ($checked) return true;
-    $checked = true;
-
-    return schema_is_ready('remember-me authentication', [], ['users' => ['remember_token']]);
+    static $ready = null;
+    if ($ready === null) {
+        $ready = schema_is_ready('remember-me authentication', [], ['users' => ['remember_token', 'auth_version']]);
+    }
+    return $ready;
 }
 
 /**
  * Create a remember-me token for the user and set a 30-day cookie.
  */
-function set_remember_token($user_id)
+function set_remember_token($user_id): bool
 {
-    if (!ensure_remember_token_column()) return;
+    if (!ensure_remember_token_column()) return false;
 
-    $user = db_fetch_one("SELECT * FROM users WHERE id = ? AND is_active = 1", [(int) $user_id]);
-    if (!$user || !remember_me_allowed_for_user($user)) {
-        try {
-            db_update('users', ['remember_token' => null], 'id = ?', [(int) $user_id]);
-        } catch (Throwable $e) {
-            // Non-critical
-        }
+    $sql = "SELECT * FROM users WHERE id = ? AND is_active = 1";
+    $params = [(int) $user_id];
+    $user = db_fetch_one($sql, $params);
+    if (!$user || (int) ($_SESSION['user_id'] ?? 0) !== (int) $user_id
+        || !auth_session_version_matches($user) || !remember_me_allowed_for_user($user)) {
         clear_remember_cookie();
-        return;
+        return false;
     }
 
     $token = bin2hex(random_bytes(32)); // 64 hex chars
     $hash = hash('sha256', $token);
 
-    db_update('users', ['remember_token' => $hash], 'id = ?', [$user_id]);
+    // Reset may run between the read and write: never reissue persistent login
+    // using a password proof from an older authentication version.
+    $updated = db_update('users', ['remember_token' => $hash], 'id = ? AND auth_version = ?', [
+        (int) $user_id, (int) $user['auth_version'],
+    ]);
+    if ((int) $updated !== 1) {
+        clear_remember_cookie();
+        return false;
+    }
 
     $is_https = foxdesk_request_is_https();
     setcookie('foxdesk_remember', $token, [
@@ -264,6 +369,7 @@ function set_remember_token($user_id)
         'secure'   => $is_https,
         'samesite' => 'Lax',
     ]);
+    return true;
 }
 
 /**
@@ -302,7 +408,9 @@ function validate_remember_token()
 
     // Auto-login: populate session
     session_regenerate_id(true);
+    $_SESSION = [];
     $_SESSION['user_id']    = $user['id'];
+    $_SESSION['auth_version'] = (int) ($user['auth_version'] ?? 0);
     $_SESSION['user_email'] = $user['email'];
     $_SESSION['user_name']  = $user['first_name'] . ' ' . $user['last_name'];
     $_SESSION['user_role']  = $user['role'];
@@ -312,7 +420,10 @@ function validate_remember_token()
     unset($_SESSION['lang_override']);
 
     // Rotate token for extra security (token is single-use)
-    set_remember_token($user['id']);
+    if (!set_remember_token($user['id'])) {
+        auth_forget_session();
+        return false;
+    }
 
     return true;
 }
@@ -416,8 +527,49 @@ function create_user($email, $password, $first_name, $last_name = '', $role = 'u
  */
 function update_password($user_id, $new_password)
 {
-    $hash = password_hash($new_password, PASSWORD_DEFAULT);
-    return db_update('users', ['password' => $hash], 'id = ?', [$user_id]);
+    require_once __DIR__ . '/security-helpers.php';
+    schema_require('password change revocation', [], ['users' => ['auth_version', 'remember_token']]);
+    if ((int) $user_id <= 0) {
+        return false;
+    }
+    $db = get_db();
+    if ($db->inTransaction()) {
+        return false;
+    }
+    $params = [(int) $user_id];
+    try {
+        $db->beginTransaction();
+        $user = db_fetch_one('SELECT id, auth_version FROM users WHERE id = ? FOR UPDATE', $params);
+        if (!$user) {
+            $db->rollBack();
+            return false;
+        }
+        $is_self = (int) ($_SESSION['user_id'] ?? 0) === (int) $user_id;
+        $keep_session = $is_self && auth_session_version_matches($user);
+        if ($is_self && !$keep_session) {
+            // A concurrent recovery must not let an old password proof undo it.
+            $db->rollBack();
+            auth_forget_session();
+            return false;
+        }
+        $hash = password_hash($new_password, PASSWORD_DEFAULT);
+        db_query('UPDATE users SET password = ?, auth_version = auth_version + 1, remember_token = NULL, reset_token = NULL, reset_token_expires = NULL WHERE id = ?', array_merge([$hash], $params));
+        auth_revoke_user_credentials((int) $user_id);
+        $db->commit();
+        if ($keep_session) {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_regenerate_id(true);
+            }
+            $_SESSION['auth_version'] = (int) $user['auth_version'] + 1;
+            clear_remember_cookie();
+        }
+        return 1;
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
+    }
 }
 /**
  * Check if currently impersonating
@@ -436,7 +588,8 @@ function is_impersonating()
  */
 function is_api_token_request()
 {
-    return bearer_token_from_request() !== '';
+    $header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    return preg_match('/^Bearer(?:[ \t]|$)/i', $header) === 1;
 }
 
 function bearer_token_from_request(): string
@@ -457,7 +610,7 @@ function api_tokens_table_exists()
     return table_exists('api_tokens');
 }
 
-function api_token_scope_catalog(array $user = null): array
+function api_token_scope_catalog(?array $user = null): array
 {
     $user = $user ?: (current_user() ?: []);
     $is_staff = in_array((string) ($user['role'] ?? ''), ['admin', 'agent'], true);
@@ -756,7 +909,41 @@ function api_token_idempotency_key(): string
 
 function api_idempotency_request_hash(string $action): string
 {
-    $raw = (string) file_get_contents('php://input');
+    if ($action === 'upload' && str_starts_with(strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? '')), 'multipart/form-data')) {
+        // PHP already parsed multipart input. Bind retries to the actual file,
+        // not the empty php://input stream or a random multipart boundary.
+        $file = $_FILES['file'] ?? [];
+        if (!is_array($file) || is_array($file['name'] ?? null)) {
+            api_error('A single file is required.', 400);
+        }
+        $upload = [
+            'name' => (string) ($file['name'] ?? ''),
+            'type' => (string) ($file['type'] ?? ''),
+            'size' => (int) ($file['size'] ?? 0),
+            'error' => (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE),
+        ];
+        if ($upload['error'] === UPLOAD_ERR_OK) {
+            $path = (string) ($file['tmp_name'] ?? '');
+            $size = $path !== '' ? @filesize($path) : false;
+            if ($size === false) {
+                api_error('Uploaded file is unavailable.', 400);
+            }
+            if ($size > get_max_upload_size()) {
+                api_error('Request body exceeds the size limit.', 413);
+            }
+            $upload['sha256'] = hash_file('sha256', $path);
+            if ($upload['sha256'] === false) {
+                api_error('Uploaded file is unavailable.', 400);
+            }
+        }
+        $raw = json_encode($upload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    } else {
+        try {
+            $raw = security_read_request_body($action === 'upload' ? get_max_upload_size() + 65536 : 1048576);
+        } catch (LengthException $e) {
+            api_error('Request body exceeds the size limit.', 413);
+        }
+    }
     $post = !empty($_POST) ? json_encode($_POST, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '';
     return hash('sha256', strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) . "\n" . $action . "\n" . $raw . "\n" . $post);
 }
@@ -987,12 +1174,19 @@ function authenticate_api_token()
     }
     $user = db_fetch_one($sql, [$token_row['user_id']]);
 
-    if (!$user) {
+    if (!$user || !auth_credential_version_matches($token_row, $user)) {
         return null;
     }
 
-    // Populate session so existing helpers work
+    // Preserve the browser login on disk, then use a request-only token identity.
+    // Otherwise a cookie + Bearer request could replace the browser account or
+    // inherit its impersonator proof and draft scope.
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+    $_SESSION = [];
     $_SESSION['user_id'] = $user['id'];
+    $_SESSION['auth_version'] = (int) ($user['auth_version'] ?? 0);
     $_SESSION['user_email'] = $user['email'];
     $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
     $_SESSION['user_role'] = $user['role'];
@@ -1034,8 +1228,16 @@ function update_token_last_used($token_id)
  */
 function generate_api_token($user_id, $name, $expires_at = null, $scopes = null)
 {
-    $token_user = get_user((int) $user_id);
+    // Credential epochs must come from a fresh row, not get_user()'s request cache.
+    $token_user = db_fetch_one('SELECT * FROM users WHERE id = ?', [(int) $user_id]);
     if (!$token_user) {
+        return ['token' => null, 'id' => null, 'scopes' => []];
+    }
+    if ((int) ($_SESSION['user_id'] ?? 0) === (int) $user_id
+        && !auth_session_version_matches($token_user)) {
+        // A profile request authenticated before a reset must not acquire the
+        // new epoch by issuing a fresh credential after the reset commits.
+        auth_forget_session();
         return ['token' => null, 'id' => null, 'scopes' => []];
     }
 
@@ -1047,6 +1249,7 @@ function generate_api_token($user_id, $name, $expires_at = null, $scopes = null)
 
     $data = [
         'user_id' => (int) $user_id,
+        'auth_version' => (int) ($token_user['auth_version'] ?? 0),
         'name' => $name,
         'token_hash' => $token_hash,
         'token_prefix' => $token_prefix,

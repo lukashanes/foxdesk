@@ -24,6 +24,12 @@
             ? 'foxdesk_work_team_search'
             : 'foxdesk_work_my_search';
 
+        var scopeMeta = document.querySelector('meta[name="foxdesk-draft-scope"]');
+        var scope = scopeMeta ? scopeMeta.content : '';
+        var scopedKey = /^[1-9]\d*:[a-f0-9]{32}$/.test(scope) ? 'foxdesk_draft_v2_' + scope + ':' + storageKey : '';
+        try { localStorage.removeItem(storageKey); } catch (_) {}
+        var composing = false;
+
         function itemMatches(item, query) {
             return normalise(item.getAttribute('data-work-search-text') || item.textContent).indexOf(query) !== -1;
         }
@@ -76,15 +82,24 @@
         }
 
         try {
-            input.value = localStorage.getItem(storageKey) || '';
+            var saved = scopedKey ? JSON.parse(sessionStorage.getItem(scopedKey)) : null;
+            var age = saved ? Date.now() - saved.timestamp : NaN;
+            if (saved && Number.isFinite(age) && age >= 0 && age <= 86400000 && typeof saved.value === 'string') {
+                input.value = saved.value;
+            } else if (scopedKey) {
+                sessionStorage.removeItem(scopedKey);
+            }
         } catch (_) {}
 
-        input.addEventListener('compositionend', applySearch);
+        function saveSearch() {
+            if (!scopedKey) return;
+            try { sessionStorage.setItem(scopedKey, JSON.stringify({timestamp: Date.now(), value: input.value || ''})); } catch (_) {}
+        }
+        input.addEventListener('compositionstart', function () { composing = true; });
+        input.addEventListener('compositionend', function () { composing = false; saveSearch(); applySearch(); });
         input.addEventListener('input', function (event) {
-            if (event.isComposing) return;
-            try {
-                localStorage.setItem(storageKey, input.value || '');
-            } catch (_) {}
+            if (event.isComposing || composing) return;
+            saveSearch();
             applySearch();
         });
 

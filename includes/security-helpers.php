@@ -9,6 +9,48 @@
 /**
  * CSRF protection helpers
  */
+/** Read at most the limit plus one byte, including streams without a length. */
+function security_read_limited_stream($stream, int $limit): string
+{
+    $body = stream_get_contents($stream, $limit + 1);
+    if ($body === false) {
+        throw new RuntimeException('Request body could not be read.');
+    }
+    if (strlen($body) > $limit) {
+        throw new LengthException('Request body exceeds the size limit.');
+    }
+    return $body;
+}
+
+function security_read_request_body(int $limit = 1048576): string
+{
+    if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > $limit) {
+        throw new LengthException('Request body exceeds the size limit.');
+    }
+    $stream = fopen('php://input', 'rb');
+    if ($stream === false) {
+        throw new RuntimeException('Request body could not be opened.');
+    }
+    try {
+        return security_read_limited_stream($stream, $limit);
+    } finally {
+        fclose($stream);
+    }
+}
+
+/** Public pages do not accept files; reject large bodies before any side effect. */
+function security_enforce_public_request_limit(): void
+{
+    try {
+        security_read_request_body(65536);
+    } catch (LengthException $e) {
+        http_response_code(413);
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo 'Payload Too Large';
+        exit;
+    }
+}
+
 function foxdesk_parse_ini_size($value): int
 {
     $value = trim((string) $value);
@@ -395,31 +437,91 @@ function hash_reset_token($token)
     return hash('sha256', $token);
 }
 
+/** Consume the reset link and revoke prior credentials in one transaction. */
+function password_reset_complete(array $user, string $password_hash, string $token): bool
+{
+    $user_id = (int) ($user['id'] ?? 0);
+    if ($user_id <= 0 || $token === '') {
+        return false;
+    }
+    schema_require('password reset revocation', [], ['users' => ['auth_version', 'remember_token']]);
+    $db = get_db();
+    if ($db->inTransaction()) {
+        return false;
+    }
+    try {
+        $db->beginTransaction();
+        $sql = 'SELECT id FROM users WHERE id = ? AND reset_token = ? AND reset_token_expires > ? AND is_active = 1';
+        if (column_exists('users', 'deleted_at')) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+        $locked = db_fetch_one($sql . ' FOR UPDATE', [$user_id, hash_reset_token($token), foxdesk_db_datetime()]);
+        if (!$locked) {
+            $db->rollBack();
+            return false;
+        }
+        db_query('UPDATE users SET password = ?, auth_version = auth_version + 1, remember_token = NULL, reset_token = NULL, reset_token_expires = NULL WHERE id = ?', [$password_hash, $user_id]);
+        auth_revoke_user_credentials($user_id);
+        $db->commit();
+        return true;
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
+    }
+}
+
+/** Called only within the transaction that advances the authentication epoch. */
+function auth_revoke_user_credentials(int $user_id): void
+{
+    if (table_exists('api_tokens')) {
+        db_query('UPDATE api_tokens SET is_active = 0, revoked_at = ? WHERE user_id = ?', [foxdesk_db_datetime(), $user_id]);
+    }
+}
+
 /**
  * Determine client IP address for security logging.
  */
 function get_client_ip()
 {
     $remote = trim($_SERVER['REMOTE_ADDR'] ?? '');
+    if (!filter_var($remote, FILTER_VALIDATE_IP)) {
+        return '';
+    }
 
     // Only trust forwarded headers when request comes through a local reverse proxy
-    $is_trusted_proxy = $remote !== '' && (
+    $is_trusted_proxy = function_exists('foxdesk_request_uses_trusted_proxy') ? foxdesk_request_uses_trusted_proxy() : (
         str_starts_with($remote, '127.') ||
         str_starts_with($remote, '10.') ||
-        str_starts_with($remote, '172.') ||
+        preg_match('/^172\.(1[6-9]|2[0-9]|3[0-1])\./', $remote) === 1 ||
         str_starts_with($remote, '192.168.') ||
         $remote === '::1'
     );
 
     if ($is_trusted_proxy) {
-        $candidates = ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP'];
+        $candidates = ['HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP'];
+        if (defined('FOXDESK_TRUST_CF_CONNECTING_IP') && FOXDESK_TRUST_CF_CONNECTING_IP === true) {
+            array_unshift($candidates, 'HTTP_CF_CONNECTING_IP');
+        }
         foreach ($candidates as $key) {
             if (!empty($_SERVER[$key])) {
-                $ip = trim($_SERVER[$key]);
-                if (strpos($ip, ',') !== false) {
-                    $ip = trim(explode(',', $ip)[0]);
+                if ($key === 'HTTP_X_FORWARDED_FOR') {
+                    $hops = array_map('trim', explode(',', (string) $_SERVER[$key]));
+                    foreach (array_reverse($hops) as $ip) {
+                        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+                            return $remote;
+                        }
+                        // Proxies append their peer. Stop before any prefix
+                        // supplied by that untrusted peer can affect the key.
+                        if (!function_exists('foxdesk_ip_is_trusted_proxy') || !foxdesk_ip_is_trusted_proxy($ip)) {
+                            return $ip;
+                        }
+                    }
+                    return $hops[0];
                 }
-                if ($ip !== '') return $ip;
+                $ip = trim((string) $_SERVER[$key]);
+                if (filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
             }
         }
     }
@@ -531,6 +633,12 @@ function rate_limit_clear($key)
 /**
  * Log security events to the database (if available).
  */
+function security_request_log_context(): array
+{
+    $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
+    return ['method' => in_array($method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'], true) ? $method : 'OTHER'];
+}
+
 function log_security_event($event_type, $user_id = null, $context = '')
 {
     if (!security_log_table_exists()) {

@@ -3,6 +3,7 @@ $new_ticket_asset_version = static function (string $path): string {
     return (defined('APP_VERSION') ? (string) APP_VERSION : '1') . '-' . (string) (@filemtime(BASE_PATH . '/' . $path) ?: '0');
 };
 ?>
+<script src="assets/js/autosave.js?v=<?php echo e($new_ticket_asset_version('assets/js/autosave.js')); ?>"></script>
 <script src="assets/js/attachment-paste-drop.js?v=<?php echo e($new_ticket_asset_version('assets/js/attachment-paste-drop.js')); ?>"></script>
 <script src="assets/js/upload-preview.js?v=<?php echo e($new_ticket_asset_version('assets/js/upload-preview.js')); ?>"></script>
 <script>
@@ -118,7 +119,7 @@ $new_ticket_asset_version = static function (string $path): string {
                 submitBtn.disabled = true;
                 this.classList.add('is-submitting');
             }
-            localStorage.removeItem('foxdesk_draft_timer');
+            try { sessionStorage.removeItem(FoxDeskAutosave.storageKey('foxdesk_draft_timer')); } catch (e) {}
         });
     }
 </script>
@@ -126,7 +127,7 @@ $new_ticket_asset_version = static function (string $path): string {
 <?php if (is_agent() && function_exists('ticket_time_table_exists') && ticket_time_table_exists()): ?>
 <script>
 (function() {
-    var STORAGE_KEY = 'foxdesk_draft_timer';
+    var STORAGE_KEY = FoxDeskAutosave.storageKey('foxdesk_draft_timer');
     var wrapper = document.getElementById('new-ticket-timer');
     var btn = document.getElementById('nt-timer-btn');
     var btnIcon = btn ? btn.querySelector('.nt-timer-icon') : null;
@@ -150,33 +151,42 @@ $new_ticket_asset_version = static function (string $path): string {
     var pausedAt = null;
     var state = 'stopped';
 
-    // --- localStorage persistence ---
+    // Draft timer belongs to this tab, account and login; retain it for at most 24 h.
     function saveTimer() {
-        if (state === 'stopped') {
-            localStorage.removeItem(STORAGE_KEY);
-            return;
-        }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            startedAt: timerStart,
-            pausedTotal: pausedTotal,
-            pausedAt: pausedAt,
-            state: state
-        }));
+        if (!STORAGE_KEY) return;
+        try {
+            if (state === 'stopped') {
+                sessionStorage.removeItem(STORAGE_KEY);
+                return;
+            }
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+                timestamp: Date.now(), startedAt: timerStart, pausedTotal: pausedTotal,
+                pausedAt: pausedAt, state: state
+            }));
+        } catch (e) {}
     }
 
     function restoreTimer() {
-        var raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return false;
-        try { var d = JSON.parse(raw); } catch(e) { return false; }
-        if (!d.startedAt || !d.state) return false;
-
+        if (!STORAGE_KEY) return false;
+        var d;
+        try {
+            d = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
+            var age = d ? Date.now() - d.timestamp : NaN;
+            if (!d || !Number.isFinite(age) || age < 0 || age > 86400000
+                || !Number.isFinite(d.startedAt) || d.startedAt > Date.now()
+                || !Number.isFinite(d.pausedTotal) || d.pausedTotal < 0
+                || ['running', 'paused'].indexOf(d.state) === -1
+                || (d.state === 'paused' && (!Number.isFinite(d.pausedAt) || d.pausedAt > Date.now()))) {
+                sessionStorage.removeItem(STORAGE_KEY);
+                return false;
+            }
+        } catch (e) { return false; }
         timerStart = d.startedAt;
-        if (d.state === 'paused' && d.pausedAt) {
-            // Hibernation time counts as paused
+        if (d.state === 'paused') {
             pausedTotal = d.pausedTotal + (Date.now() - d.pausedAt);
             pausedAt = Date.now();
         } else {
-            pausedTotal = d.pausedTotal || 0;
+            pausedTotal = d.pausedTotal;
             pausedAt = null;
         }
         setState(d.state);
@@ -270,7 +280,7 @@ $new_ticket_asset_version = static function (string $path): string {
         setState('stopped');
     });
 
-    // Restore from localStorage, or auto-start if ?auto_timer=1
+    // Restore from sessionStorage, or auto-start if ?auto_timer=1
     if (!restoreTimer() && wrapper.dataset.autoStart === '1') {
         timerStart = Date.now();
         pausedTotal = 0;
@@ -472,7 +482,6 @@ $new_ticket_asset_version = static function (string $path): string {
 </script>
 
 <!-- Autosave for new ticket form -->
-<script src="assets/js/autosave.js"></script>
 <script>
 (function() {
     if (typeof FoxDeskAutosave === 'undefined') return;

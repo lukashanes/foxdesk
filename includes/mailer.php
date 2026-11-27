@@ -494,6 +494,7 @@ function send_status_change_notification($ticket, $old_status, $new_status, $com
  */
 function ticket_comment_notification_recipients($ticket, $commenter, $cc_user_ids = [])
 {
+    require_once __DIR__ . '/ticket-conversation-access.php';
     $recipients = [];
 
     // Ticket owner (creator)
@@ -531,6 +532,12 @@ function ticket_comment_notification_recipients($ticket, $commenter, $cc_user_id
         }
     }
 
+    // Historic participation and CC selection do not grant ticket access.
+    foreach ($recipients as $user_id => $meta) {
+        if (!ticket_conversation_user_can_access((int) ($ticket['id'] ?? 0), (int) $user_id)) {
+            unset($recipients[$user_id]);
+        }
+    }
     return $recipients;
 }
 

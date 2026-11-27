@@ -8,6 +8,11 @@
 /**
  * Get ticket attachments
  */
+function attachment_mime_can_render_inline(string $mime): bool
+{
+    return in_array($mime, ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], true);
+}
+
 function get_ticket_attachments($ticket_id) {
     static $has_ticket_message_attachments = null;
     if ($has_ticket_message_attachments === null) {
@@ -297,8 +302,8 @@ function find_attachment_by_relative_path($relative_path)
         $upload_dir !== ''
         && ($relative_path === $upload_dir || str_starts_with($relative_path, $upload_dir . '/'))
     ) {
-        $filename = basename($relative_path);
-        return db_fetch_one(
+        $filename = substr($relative_path, strlen($upload_dir) + 1);
+        $attachment = db_fetch_one(
             "SELECT a.*, c.is_internal AS comment_is_internal
              FROM attachments a
              LEFT JOIN comments c ON c.id = a.comment_id
@@ -306,6 +311,9 @@ function find_attachment_by_relative_path($relative_path)
              LIMIT 1",
             [$filename]
         );
+        if ($attachment) {
+            return $attachment;
+        }
     }
 
     if (!$has_ticket_message_attachments) {
@@ -337,7 +345,7 @@ function attachment_user_can_access($attachment, $user = null)
         $user = current_user();
     }
 
-    if (!$user) {
+    if (!$user || auth_requires_2fa_setup()) {
         return false;
     }
 

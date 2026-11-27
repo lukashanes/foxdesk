@@ -115,16 +115,28 @@ exit;
 
 function image_proxy_is_public_upload(string $stored_path, string $relative_path): bool
 {
-    if (str_starts_with($relative_path, 'public/')) {
-        return true;
-    }
-
     if (!function_exists('db_fetch_one')) {
         return false;
     }
 
     $stored_path = ltrim(str_replace('\\', '/', explode('?', $stored_path)[0]), '/');
     $like = $stored_path . '?%';
+
+    // Only explicit metadata may grant public access. Attachment metadata wins.
+    try {
+        if (db_fetch_one('SELECT id FROM attachments WHERE filename = ? LIMIT 1', [$relative_path])) {
+            return false;
+        }
+        if (db_fetch_one('SELECT id FROM ticket_message_attachments WHERE storage_path IN (?, ?) LIMIT 1', [$relative_path, $stored_path])) {
+            return false;
+        }
+    } catch (Throwable $e) {
+        return false;
+    }
+
+    if (str_starts_with($relative_path, 'public/')) {
+        return true;
+    }
 
     try {
         if (db_fetch_one("SELECT id FROM users WHERE avatar = ? OR avatar LIKE ? LIMIT 1", [$stored_path, $like])) {
@@ -150,22 +162,5 @@ function image_proxy_is_public_upload(string $stored_path, string $relative_path
     } catch (Throwable $e) {
     }
 
-    $encoded = rawurlencode($relative_path);
-    $legacy_patterns = [
-        '%image.php?f=' . $encoded . '%',
-        '%image.php?f=' . basename($relative_path) . '%',
-    ];
-
-    try {
-        if (db_fetch_one("SELECT id FROM comments WHERE content LIKE ? OR content LIKE ? LIMIT 1", $legacy_patterns)) {
-            return true;
-        }
-    } catch (Throwable $e) {
-    }
-
-    try {
-        return (bool) db_fetch_one("SELECT id FROM tickets WHERE description LIKE ? OR description LIKE ? LIMIT 1", $legacy_patterns);
-    } catch (Throwable $e) {
-        return false;
-    }
+    return false;
 }

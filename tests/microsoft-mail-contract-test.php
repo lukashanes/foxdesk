@@ -49,7 +49,7 @@ $assert(str_contains($module, "refresh_token_ciphertext"), 'Refresh tokens must 
 $assert(!preg_match('/\b(access_token|refresh_token|client_secret)\s+(?:TEXT|VARCHAR|MEDIUMTEXT)/i', $schema), 'Schema must not contain plaintext Microsoft credential columns.');
 $assert(str_contains($schema, 'access_token_ciphertext MEDIUMTEXT'), 'Encrypted access-token column is missing.');
 $assert(str_contains($index, "case 'microsoft-oauth':"), 'Authenticated Microsoft OAuth callback route is missing.');
-$assert(str_contains($index, "['code', 'state']") && str_contains($index, '$log_get'), 'OAuth code and state must be redacted from request logs.');
+$assert(str_contains($index, 'security_request_log_context()') && !str_contains($index, '$log_get'), 'OAuth secrets must not be copied into request logs.');
 $assert(str_contains($settings, "microsoft_mail_begin_authorization"), 'Microsoft settings action is not wired.');
 $assert(str_contains($view, 'data-testid="microsoft-mail-settings"'), 'Microsoft settings UI is missing.');
 $assert(str_contains($view, 'confirm(this.dataset.confirm)'), 'Translated disconnect confirmation must not be embedded in a JavaScript string literal.');

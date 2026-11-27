@@ -42,6 +42,7 @@ platform, billing, tenant, R2, or Cloudflare managed-service controls.
 | `pages/report-public.php` | 658 | already modular | shared customer workflow | Keep public token access isolated. |
 | `pages/admin/activity.php` | 633 | needs module extraction | shared customer workflow | Extract filters and audit table rendering. |
 | `pages/login.php` | 490 | already modular | shared customer workflow | Keep route thin; preserve login hardening tests. |
+| `pages/microsoft-oauth.php` | 32 | already modular | self-hosted maintenance | Authenticated admin callback delegates state validation and token exchange to `includes/microsoft-mail-functions.php`; keep provider credentials out of logs. |
 | `pages/admin/reports-list.php` | 442 | needs module extraction | shared customer workflow | Share report template list rendering with report builder. |
 | `pages/admin/ticket-types.php` | 440 | already modular | shared customer workflow | Keep CRUD helper coverage. |
 | `pages/admin/migration-export.php` | 426 | self-hosted migration/update page | self-hosted maintenance | Keep export package generation out of normal workspace navigation. |
@@ -68,7 +69,7 @@ platform, billing, tenant, R2, or Cloudflare managed-service controls.
 | --- | --- | --- |
 | App/dashboard | `includes/modules/app/app-shell.php`, `includes/modules/app/app-feed.php`, `includes/modules/app/dashboard-compat.php` | App/mobile contract, first-screen feed, dashboard tags, selected-agent activity, and dashboard CSS class helpers. |
 | Work and inbox | `includes/modules/work/work-queues.php`, `includes/modules/inbox/inbox-service.php` | Queue model and triage flow. |
-| Tickets | `includes/modules/tickets/ticket-bulk-actions.php`, `includes/modules/tickets/ticket-detail-actions.php`, `includes/modules/tickets/ticket-detail-context.php`, `includes/modules/tickets/ticket-detail-read-model.php`, `includes/modules/tickets/ticket-share-state.php`, `includes/modules/tickets/ticket-events.php`, `includes/modules/tickets/ticket-list-filters.php`, `includes/modules/tickets/ticket-list-views.php`, `includes/modules/tickets/ticket-row-view-model.php`, `includes/modules/tickets/ticket-status-groups.php`, `includes/components/ticket-detail-content.php`, `assets/css/ticket-detail.css`, `assets/js/ticket-list.js`, `assets/js/ticket-detail-core.js`, `assets/js/ticket-detail-workflow.js`, `assets/js/ticket-detail-records.js`, `assets/js/ticket-detail-admin.js`, `assets/js/ticket-detail.js` | Bulk actions, action state, detail context, visibility/read models, share state, event metadata, list filters/views, row/board view models, status grouping, composed rendering, scoped styling, and split browser behavior. |
+| Tickets | `includes/modules/tickets/ticket-bulk-actions.php`, `includes/modules/tickets/ticket-detail-actions.php`, `includes/modules/tickets/ticket-detail-context.php`, `includes/modules/tickets/ticket-detail-read-model.php`, `includes/modules/tickets/ticket-share-state.php`, `includes/modules/tickets/ticket-events.php`, `includes/modules/tickets/ticket-list-filters.php`, `includes/modules/tickets/ticket-list-views.php`, `includes/modules/tickets/ticket-row-view-model.php`, `includes/modules/tickets/ticket-status-groups.php`, `includes/components/ticket-detail-content.php`, `theme.css`, `assets/js/ticket-list.js`, `assets/js/ticket-list-due-date.js`, `assets/js/ticket-list-time.js`, `assets/js/ticket-detail-timer.js`, `assets/js/ticket-detail-records.js`, `assets/js/ticket-detail-admin.js`, `assets/js/ticket-detail.js` | Bulk actions, action state, detail context, visibility/read models, share state, event metadata, list filters/views, row/board view models, status grouping, composed rendering, shared theme styling, and split browser behavior. |
 | Reports | `includes/modules/reports/reporting-flow.php`, `includes/modules/reports/billing-review.php`, `includes/modules/reports/report-filters.php`, `includes/modules/reports/report-query.php`, `includes/modules/reports/report-totals.php`, `includes/modules/reports/report-adjustments.php`, `includes/modules/reports/report-export.php`, `includes/modules/reports/report-page-controller.php`, `includes/modules/reports/report-page-view-model.php`, `includes/modules/reports/report-page-render.php`, `includes/modules/reports/views/*.php`, `assets/js/report-page.js`, `assets/js/report-billing-review.js` | Report navigation, request orchestration, presentation models, partial rendering, browser behavior, billing review calculations, filters, query/aggregation, POST adjustments, and CSV export. |
 | Settings | `includes/modules/settings/settings-actions.php`, `includes/modules/settings/settings-email.php`, `includes/modules/settings/settings-updates.php`, `includes/modules/settings/settings-security.php`, `includes/modules/settings/settings-workflow.php`, `includes/modules/settings/settings-view-model.php`, `includes/modules/settings/settings-templates.php`, `includes/modules/settings/views/*.php`, `includes/components/admin-settings-tabs.php`, `includes/components/admin-workflow-card.php` | Settings POST routing, action metadata, workflow CRUD routing, tab normalization, allowlisted tab views, email-template display rows, tab navigation, and workflow card rendering. |
 | Workflow CRUD | `includes/admin-crud-helper.php` | Shared status, priority, and ticket-type slugging, sort order, default clearing, tenant-aware record lookup/update/delete, and usage-guarded deletion. Covered by `tests/workflow-crud-contract-test.php`. |
@@ -98,17 +99,11 @@ Target modules/components:
   the rendering boundary for sidebar metadata.
 - `includes/components/ticket-detail-surface.php` already exists and should stay
   the rendering boundary for status/actions.
-- `assets/css/ticket-detail.css`
-- `assets/js/ticket-detail-core.js`
-- `assets/js/ticket-detail-workflow.js`
+- `theme.css` owns ticket detail styling.
+- `assets/js/ticket-detail.js` owns the shared detail behavior; feature modules load before it.
+- `assets/js/ticket-detail-timer.js`
 - `assets/js/ticket-detail-records.js`
 - `assets/js/ticket-detail-admin.js`
-- `assets/css/ticket-detail.css`
-- `assets/js/ticket-detail-core.js`
-- `assets/js/ticket-detail-workflow.js`
-- `assets/js/ticket-detail-records.js`
-- `assets/js/ticket-detail-admin.js`
-- `assets/js/ticket-detail.js` remains the small ordered bootstrap.
 
 Contract tests:
 
@@ -128,7 +123,7 @@ Done when:
 - content composition includes sidebar through `includes/components/ticket-detail-sidebar.php`
 - composer markup stays in `includes/components/ticket-detail-composer.php`
 - modal markup stays in `includes/components/ticket-detail-modals.php`
-- detail browser modules stay below 900 lines and load core before feature modules and bootstrap
+- detail browser modules stay below 900 lines and load feature modules before the shared behavior
 - existing create/detail/comment/attachment flow stays green
 
 ### 2. `pages/admin/reports.php`

@@ -76,11 +76,86 @@ function get_vapid_keys(): array
 
 // ── Push Subscription CRUD ──────────────────────────────────────────────────
 
+/** Resolve a public HTTPS push destination once, then pin it at connection time. */
+function web_push_resolve_target(string $endpoint, ?callable $resolver = null): ?array
+{
+    if (strlen($endpoint) > 4096 || preg_match('/[\x00-\x20\x7f\\\\]/', $endpoint)) {
+        return null;
+    }
+    $url = parse_url($endpoint);
+    if (!$url || strtolower($url['scheme'] ?? '') !== 'https'
+        || isset($url['user']) || isset($url['pass']) || isset($url['fragment'])
+        || (isset($url['port']) && $url['port'] !== 443)) {
+        return null;
+    }
+    $host = strtolower((string) ($url['host'] ?? ''));
+    // Push services use DNS names. Reject literal, numeric and ambiguous IP forms.
+    if (strlen($host) > 253 || !preg_match('/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9](?:[a-z0-9-]{0,57}[a-z0-9])?)$/D', $host)) {
+        return null;
+    }
+    try {
+        $addresses = $resolver ? $resolver($host) : null;
+        if ($addresses === null && $resolver === null) {
+            $records = dns_get_record($host, DNS_A | DNS_AAAA);
+            $addresses = [];
+            foreach ($records ?: [] as $record) {
+                if (isset($record['ip'])) $addresses[] = $record['ip'];
+                if (isset($record['ipv6'])) $addresses[] = $record['ipv6'];
+            }
+        }
+        if (!$addresses || !is_array($addresses)) {
+            return null;
+        }
+        foreach ($addresses as $ip) {
+            if (!web_push_ip_is_public((string) $ip)) {
+                return null;
+            }
+        }
+        // Most shared hosts have IPv4 egress only. Keep IPv6-only destinations
+        // supported, but do not let DNS answer order select an unusable AAAA.
+        $ipv4 = array_filter($addresses, static fn($ip) => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false);
+        return ['host' => $host, 'ip' => (string) ($ipv4 ? reset($ipv4) : reset($addresses))];
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function web_push_ip_is_public(string $ip): bool
+{
+    if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+        return false;
+    }
+    $packed = inet_pton($ip);
+    $denied = ['192.0.0.0/24', '192.0.2.0/24', '192.88.99.0/24', '198.18.0.0/15',
+        '198.51.100.0/24', '203.0.113.0/24', '2001::/23', '2001:db8::/32', '2002::/16', '3fff::/20'];
+    foreach ($denied as $cidr) {
+        [$network, $bits] = explode('/', $cidr);
+        $network = inet_pton($network);
+        if (strlen($network) !== strlen($packed)) continue;
+        $bytes = intdiv((int) $bits, 8);
+        $remainder = (int) $bits % 8;
+        if (substr($packed, 0, $bytes) === substr($network, 0, $bytes)
+            && ($remainder === 0 || (ord($packed[$bytes]) & (0xff << (8 - $remainder))) === (ord($network[$bytes]) & (0xff << (8 - $remainder))))) {
+            return false;
+        }
+    }
+    if (strlen($packed) === 4) {
+        $bytes = array_values(unpack('C4', $packed));
+        return $bytes[0] > 0 && $bytes[0] < 224
+            && !($bytes[0] === 100 && $bytes[1] >= 64 && $bytes[1] <= 127);
+    }
+    // Only global unicast IPv6; reject mapped IPv4 and transition mechanisms.
+    return (ord($packed[0]) & 0xe0) === 0x20;
+}
+
 /**
  * Save a push subscription for a user.
  */
 function save_push_subscription(int $user_id, string $endpoint, string $p256dh = '', string $auth = ''): bool
 {
+    if ($user_id <= 0 || web_push_resolve_target($endpoint) === null) {
+        return false;
+    }
     ensure_push_subscriptions_table();
 
     // Remove existing sub for same endpoint (re-subscribe)
@@ -135,6 +210,10 @@ function user_has_push_subscription(int $user_id): bool
  */
 function send_web_push(string $endpoint, int $ttl = 86400): bool
 {
+    $target = web_push_resolve_target($endpoint);
+    if ($target === null) {
+        return false;
+    }
     $vapid = get_vapid_keys();
 
     // Build VAPID JWT
@@ -156,7 +235,12 @@ function send_web_push(string $endpoint, int $ttl = 86400): bool
             'Content-Length: 0',
             'Urgency: normal',
         ],
-        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_PROTOCOLS      => CURLPROTO_HTTPS,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_PROXY          => '',
+        CURLOPT_RESOLVE        => [$target['host'] . ':443:' . (str_contains($target['ip'], ':') ? '[' . $target['ip'] . ']' : $target['ip'])],
+        // The response body is unused. Discard it without retaining it in memory.
+        CURLOPT_WRITEFUNCTION  => static fn($ch, string $data): int => strlen($data),
         CURLOPT_TIMEOUT        => 10,
     ]);
 

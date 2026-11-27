@@ -41,7 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = null;
             $user = db_fetch_one("SELECT id, first_name, email FROM users WHERE email = ? AND is_active = 1", [$email]);
 
-            if ($user) {
+            require_once BASE_PATH . '/includes/public-mail-rate-limit.php';
+            if ($user && public_auth_mail_reserve($email)) {
                 // Generate reset token
                 $token = generate_reset_token();
                 $token_hash = hash_reset_token($token);

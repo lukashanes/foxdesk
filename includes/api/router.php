@@ -35,24 +35,27 @@ function route_api_request($action) {
     $public_actions = [];
 
     // --- Bearer token authentication (for agent/external API access) ---
-    // Token auth always takes priority for agent-* endpoints, even if a browser session exists.
+    // Explicit token auth always takes priority, even if a browser session exists.
     // This ensures API calls are attributed to the token owner (e.g. AI agent), not the logged-in admin.
     $GLOBALS['is_api_token_auth'] = false;
 
     if (is_api_token_request()) {
-        $is_agent_endpoint = str_starts_with($action, 'agent-');
-        $is_app_endpoint = str_starts_with($action, 'app-');
-        if (!is_logged_in() || $is_agent_endpoint || $is_app_endpoint || $action === 'upload') {
-            $token_user = authenticate_api_token();
-            if ($token_user) {
-                $GLOBALS['is_api_token_auth'] = true;
-            }
+        $token_user = authenticate_api_token();
+        if ($token_user) {
+            $GLOBALS['is_api_token_auth'] = true;
+        } else {
+            // Explicit API credentials must never fall back to a browser identity.
+            api_error('Unauthorized', 401);
         }
     }
 
     // Check authentication for non-public endpoints
     if (!in_array($action, $public_actions) && !is_logged_in()) {
         api_error('Unauthorized', 401);
+    }
+
+    if (!in_array($action, $public_actions, true) && auth_requires_2fa_setup()) {
+        api_error('Two-factor authentication setup is required.', 403, ['error_code' => '2fa_setup_required']);
     }
 
     if (!in_array($action, $public_actions, true) && function_exists('ticket_undo_finalize_expired')) {

@@ -86,8 +86,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $validation = validate_password($new_password);
         if ($validation['valid']) {
-            update_password($id, $new_password);
-            flash(t('Password updated.'), 'success');
+            if (update_password($id, $new_password) !== false) {
+                flash(t('Password updated.'), 'success');
+            } else {
+                flash(t('Security check failed. Please try again.'), 'error');
+            }
         } else {
             flash(implode(' ', $validation['errors']), 'error');
         }
@@ -101,7 +104,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($client) {
             $new_password = generate_password(10);
-            update_password($id, $new_password);
+            if (update_password($id, $new_password) === false) {
+                flash(t('Security check failed. Please try again.'), 'error');
+                redirect('admin', ['section' => 'clients']);
+            }
 
             // Try to send email
             require_once BASE_PATH . '/includes/mailer.php';

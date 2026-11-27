@@ -46,8 +46,9 @@ foreach ([
     assert_admin_ui(str_contains($header, $needle), 'Header search markup missing stable contract: ' . $needle);
 }
 
-assert_admin_ui(str_contains($header, "title=\"<?php echo e(t('Dashboard')); ?>\""), 'Primary home navigation must be labeled Dashboard.');
-assert_admin_ui(!str_contains($header, "title=\"<?php echo e(t('Work')); ?>\""), 'Primary home navigation must not use the Work label.');
+assert_admin_ui(str_contains($header, "title=\"<?php echo e(t('Work')); ?>\""), 'Primary home navigation must be labeled Work.');
+assert_admin_ui(!str_contains($header, "title=\"<?php echo e(t('Dashboard')); ?>\""), 'The analytics Dashboard must not replace primary Work navigation.');
+assert_admin_ui(str_contains($header, "href=\"<?php echo url('work'); ?>\""), 'Primary Work navigation must open the Work route.');
 assert_admin_ui(str_contains($header, "url('admin', ['section' => 'organizations'])"), 'Clients must be a primary sidebar destination that opens company records.');
 assert_admin_ui(
     strpos($header, "url('admin', ['section' => 'settings'])") > strpos($header, '<!-- Active timers'),
@@ -122,19 +123,25 @@ assert_admin_ui(!str_contains($page_header, "include BASE_PATH . '/includes/comp
 assert_admin_ui(str_contains($page_header, "\$is_admin_child_page"), 'Admin child pages must use the compact Settings breadcrumb contract.');
 assert_admin_ui(str_contains($page_header, "url('admin', ['section' => 'settings'])"), 'Admin child breadcrumbs must link back to Settings.');
 
-foreach ([
-    'data-settings-management',
-    'render_admin_settings_management_links',
-    "url('admin', ['section' => 'users'])",
-    "url('admin', ['section' => 'clients'])",
-    "url('admin', ['section' => 'organizations'])",
-    "url('admin', ['section' => 'statuses'])",
-    "url('admin', ['section' => 'recurring-tasks'])",
-    "url('admin', ['section' => 'reports'])",
-    "url('admin', ['section' => 'reports-list'])",
-    "url('admin', ['section' => 'activity'])",
-] as $needle) {
-    assert_admin_ui(str_contains($admin_settings . "\n" . $admin_nav . "\n" . $admin_settings_tabs, $needle), 'Settings must expose moved admin area: ' . $needle);
+// Check the actual generated destinations, including links built from metadata.
+function t($text) { return $text; }
+function e($text) { return htmlspecialchars((string) $text, ENT_QUOTES, 'UTF-8'); }
+function url($page, $params = []) { return 'index.php?' . http_build_query(['page' => $page] + $params); }
+function get_icon(...$args) { return '<svg></svg>'; }
+require_once $root . '/includes/components/admin-settings-tabs.php';
+ob_start();
+render_admin_settings_tabs('general');
+$rendered_settings_tabs = ob_get_clean();
+assert_admin_ui(str_contains($admin_settings, 'render_admin_settings_tabs($tab)'), 'Settings must render the shared section navigation.');
+foreach (['users', 'clients', 'organizations', 'statuses', 'recurring-tasks', 'reports'] as $section) {
+    assert_admin_ui(str_contains($rendered_settings_tabs, e(url('admin', ['section' => $section]))), 'Settings must expose moved admin area: ' . $section);
+}
+assert_admin_ui(str_contains($rendered_settings_tabs, e(url('admin', ['section' => 'settings', 'tab' => 'logs']))), 'Settings must expose operational history through the Logs tab.');
+ob_start();
+require $root . '/includes/components/admin-nav.php';
+$rendered_admin_nav = ob_get_clean();
+foreach (['reports-list', 'activity'] as $section) {
+    assert_admin_ui(str_contains(html_entity_decode($rendered_admin_nav, ENT_QUOTES, 'UTF-8'), url('admin', ['section' => $section])), 'Compatibility navigation must retain admin area: ' . $section);
 }
 
 foreach ([

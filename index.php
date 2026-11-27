@@ -139,6 +139,10 @@ function foxdesk_authenticated_home_page(): string
 $page = isset($_GET['page']) ? $_GET['page'] : foxdesk_authenticated_home_page();
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
+if (in_array($page, ['login', 'logout', 'forgot-password', 'reset-password', 'ticket-share', 'report-share', 'report-public', 'cron', 'health'], true)) {
+    security_enforce_public_request_limit();
+}
+
 if (function_exists('migration_cloud_should_redirect_after_cutover') && migration_cloud_should_redirect_after_cutover($page)) {
     migration_cloud_cutover_response();
 }
@@ -159,20 +163,22 @@ $public_pages = ['login', 'logout', 'forgot-password', 'reset-password', 'ticket
 
 // Check authentication
 if (!in_array($page, $public_pages)) {
+    // current_user() discards an invalid login, including impersonation fields.
+    // Retain only the original proof until it can be revalidated independently.
+    $impersonator_proof = [
+        'user_id' => (int) ($_SESSION['impersonator_id'] ?? 0),
+        'auth_version' => (int) ($_SESSION['impersonator_auth_version'] ?? 0),
+    ];
+    $impersonated_user_id = (int) ($_SESSION['user_id'] ?? 0);
     if (!is_logged_in()) {
-        // Try auto-login from remember-me cookie
-        if (!validate_remember_token()) {
-            header('Location: index.php?page=login');
-            exit;
-        }
-    }
-
-    // Security: Ensure session user actually exists in DB
-    if (!current_user()) {
         // If an impersonated account became inactive/deleted, restore admin session instead of hard logout.
-        if (!empty($_SESSION['impersonator_id'])) {
-            $admin_id = (int) $_SESSION['impersonator_id'];
-            if ($admin_id > 0) {
+        if ($impersonator_proof['user_id'] > 0) {
+            $active_user_sql = 'SELECT id FROM users WHERE id = ? AND is_active = 1';
+            if (users_deleted_at_column_exists()) {
+                $active_user_sql .= ' AND deleted_at IS NULL';
+            }
+            if (!db_fetch_one($active_user_sql, [$impersonated_user_id])) {
+                $admin_id = $impersonator_proof['user_id'];
                 $admin_sql = "SELECT * FROM users WHERE id = ? AND is_active = 1";
                 $deleted_at_supported = function_exists('users_deleted_at_column_exists')
                     ? users_deleted_at_column_exists()
@@ -182,7 +188,7 @@ if (!in_array($page, $public_pages)) {
                 }
                 $admin = db_fetch_one($admin_sql, [$admin_id]);
 
-                if ($admin) {
+                if ($admin && $admin['role'] === 'admin' && auth_credential_version_matches($impersonator_proof, $admin)) {
                     if (function_exists('log_security_event')) {
                         log_security_event('impersonation_auto_restored', $admin_id, json_encode([
                             'admin_id' => $admin_id,
@@ -193,6 +199,7 @@ if (!in_array($page, $public_pages)) {
                     session_regenerate_id(true);
                     $_SESSION = [];
                     $_SESSION['user_id'] = $admin['id'];
+                    $_SESSION['auth_version'] = (int) $admin['auth_version'];
                     $_SESSION['user_email'] = $admin['email'];
                     $_SESSION['user_name'] = $admin['first_name'] . ' ' . $admin['last_name'];
                     $_SESSION['user_role'] = $admin['role'];
@@ -205,39 +212,19 @@ if (!in_array($page, $public_pages)) {
             }
         }
 
-        logout();
-        header('Location: index.php?page=login');
-        exit;
+        // Try auto-login only after attempting the validated administrator recovery.
+        if (!validate_remember_token()) {
+            header('Location: index.php?page=login');
+            exit;
+        }
     }
 }
 
-// Live 2FA enforcement: check on every page load whether user's role requires 2FA
-// Handles both: (a) flag already set from login, (b) admin enabling requirement while user is logged in
-// Also clears the flag if admin removes the requirement or user completes setup
-if (!empty($_SESSION['user_id']) && $page !== 'login' && $page !== 'logout' && $page !== 'api' && $page !== 'cron' && $page !== 'health') {
-    require_once BASE_PATH . '/includes/totp.php';
-    ensure_totp_columns();
-    $role = $_SESSION['user_role'] ?? '';
-    $role_requires = ($role !== '' && is_2fa_required_for_role($role));
-
-    if ($role_requires) {
-        $u = db_fetch_one("SELECT totp_enabled FROM users WHERE id = ?", [$_SESSION['user_id']]);
-        if ($u && empty($u['totp_enabled'])) {
-            // 2FA required but not set up — lock user to profile page
-            $_SESSION['2fa_setup_required'] = true;
-            if ($page !== 'profile') {
-                header('Location: index.php?page=profile&setup2fa=1');
-                exit;
-            }
-        } else {
-            // User has completed 2FA setup — clear the flag
-            unset($_SESSION['2fa_setup_required']);
-        }
-    } else {
-        // Requirement was removed by admin — clear the flag
-        if (!empty($_SESSION['2fa_setup_required'])) {
-            unset($_SESSION['2fa_setup_required']);
-        }
+// One policy for browser pages, API and protected attachment downloads.
+if (!empty($_SESSION['user_id']) && !in_array($page, ['login', 'logout', 'api', 'cron', 'health'], true)) {
+    if (auth_requires_2fa_setup() && $page !== 'profile') {
+        header('Location: index.php?page=profile&setup2fa=1');
+        exit;
     }
 }
 
@@ -287,26 +274,8 @@ if (is_logged_in() && function_exists('page_views_table_exists')) {
 }
 
 // Log request to debug_log if available
-if (function_exists('debug_log')) {
-    $log_post = $_POST;
-    $log_get = $_GET;
-    // Sanitize sensitive fields
-    foreach (['password', 'smtp_pass', 'microsoft_client_secret', 'current_password', 'confirm_password', 'password_confirmation'] as $field) {
-        if (isset($log_post[$field]))
-            $log_post[$field] = '***';
-    }
-    foreach (['code', 'state'] as $field) {
-        if (isset($log_get[$field]))
-            $log_get[$field] = '***';
-    }
-
-    debug_log("Request: $page" . ($action ? " action=$action" : ""), [
-        'method' => $_SERVER['REQUEST_METHOD'],
-        'page' => $page,
-        'action' => $action,
-        'get' => $log_get,
-        'post' => $log_post
-    ], 'info', 'request');
+if (is_logged_in() && function_exists('debug_log')) {
+    debug_log('Request', security_request_log_context(), 'info', 'request');
 }
 
 // Route to appropriate page
@@ -459,7 +428,7 @@ switch ($page) {
                 // Fetch admin user data to re-populate session correctly
                 $admin = db_fetch_one("SELECT * FROM users WHERE id = ?", [$admin_id]);
 
-                if ($admin) {
+                if ($admin && auth_impersonator_version_matches($admin)) {
                     // Log impersonation end for security audit
                     log_security_event('impersonation_ended', $admin_id, json_encode([
                         'admin_id' => $admin_id,
@@ -470,6 +439,7 @@ switch ($page) {
                     session_regenerate_id(true);
                     $_SESSION = [];
                     $_SESSION['user_id'] = $admin['id'];
+                    $_SESSION['auth_version'] = (int) $admin['auth_version'];
                     $_SESSION['user_email'] = $admin['email'];
                     $_SESSION['user_name'] = $admin['first_name'] . ' ' . $admin['last_name'];
                     $_SESSION['user_role'] = $admin['role'];
@@ -527,6 +497,7 @@ switch ($page) {
                 $original_admin_id = $_SESSION['impersonator_id'] ?? $_SESSION['user_id'];
                 if (!isset($_SESSION['impersonator_id'])) {
                     $_SESSION['impersonator_id'] = $_SESSION['user_id'];
+                    $_SESSION['impersonator_auth_version'] = (int) ($_SESSION['auth_version'] ?? 0);
                 }
 
                 // Log impersonation start for security audit
@@ -541,6 +512,7 @@ switch ($page) {
                 // Set session to target user
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = $target_user['id'];
+                $_SESSION['auth_version'] = (int) ($target_user['auth_version'] ?? 0);
                 $_SESSION['user_email'] = $target_user['email'];
                 $_SESSION['user_name'] = $target_user['first_name'] . ' ' . $target_user['last_name'];
                 $_SESSION['user_role'] = $target_user['role'];

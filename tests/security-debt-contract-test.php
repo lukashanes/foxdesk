@@ -32,7 +32,7 @@ $assert(str_contains($uploads, 'function upload_absolute_path'), 'upload path re
 $assert(str_contains($image, "str_contains(\$requested, '..')"), 'image proxy must reject traversal.');
 $assert(str_contains($image, 'image_proxy_is_public_upload'), 'image proxy must explicitly authorize non-attachment public images.');
 $assert(str_contains($image, "str_starts_with(\$relative_path, 'public/')"), 'image proxy must allow uploads/public assets.');
-$assert(str_contains($image, 'comments WHERE content LIKE'), 'image proxy must preserve referenced legacy editor images.');
+$assert(!str_contains($image, 'comments WHERE content LIKE'), 'User-authored content must not grant public image access.');
 $assert(str_contains($image, 'attachment_user_can_access'), 'image proxy must keep attachment authorization.');
 
 $assert(str_contains($security, 'function rate_limit_key'), 'per-subject rate limit helper is missing.');
