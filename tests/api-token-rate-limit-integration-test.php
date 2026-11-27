@@ -93,14 +93,21 @@ $assert($old_count >= 120, 'Precondition check: the old query would still count 
 // 6) Headers over HTTP: X-RateLimit-Limit/Remaining on success, Retry-After on 429.
 $port = 18765;
 $env = array_merge(getenv(), ['FOXDESK_API_TOKEN_RATE_LIMIT_PER_MINUTE' => '3']);
+$null_device = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
 $server = proc_open(
     [PHP_BINARY, '-S', '127.0.0.1:' . $port, __DIR__ . '/api-token-rate-limit-fixture.php'],
-    [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
+    [1 => ['file', $null_device, 'w'], 2 => ['file', $null_device, 'w']],
     $pipes,
     __DIR__,
     $env
 );
 $assert(is_resource($server), 'Could not start the PHP test server.');
+register_shutdown_function(static function () use ($server): void {
+    if (is_resource($server)) {
+        proc_terminate($server);
+        proc_close($server);
+    }
+});
 $http = static function () use ($port): array {
     $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 5]]);
     $body = @file_get_contents('http://127.0.0.1:' . $port . '/?token=901', false, $context);
@@ -132,6 +139,7 @@ for ($i = 0; $i < 3; $i++) {
 $assert($remaining_seen === ['2', '1', '0'], 'X-RateLimit-Remaining must count down: ' . json_encode($remaining_seen));
 [$headers, $body] = $http();
 proc_terminate($server);
+proc_close($server);
 $assert(($headers['status'] ?? 0) === 429, 'HTTP call over the limit must get 429.');
 $retry_after = (int) ($headers['retry-after'] ?? 0);
 $assert($retry_after >= 1 && $retry_after <= 60, 'Retry-After header must be 1-60 seconds, got ' . ($headers['retry-after'] ?? 'none'));

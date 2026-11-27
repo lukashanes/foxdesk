@@ -46,8 +46,12 @@ foreach ([
     assert_admin_ui(str_contains($header, $needle), 'Header search markup missing stable contract: ' . $needle);
 }
 
-assert_admin_ui(str_contains($header, "title=\"<?php echo e(t('Dashboard')); ?>\""), 'Primary home navigation must be labeled Dashboard.');
-assert_admin_ui(!str_contains($header, "title=\"<?php echo e(t('Work')); ?>\""), 'Primary home navigation must not use the Work label.');
+$main_navigation = explode('</nav>', explode('<!-- Main Navigation -->', $header, 2)[1] ?? '', 2)[0];
+assert_admin_ui(
+    str_contains($main_navigation, "href=\"<?php echo url('work'); ?>\"")
+        && str_contains($main_navigation, "title=\"<?php echo e(t('Work')); ?>\""),
+    'Primary home navigation must open Work with the Work label.'
+);
 assert_admin_ui(str_contains($header, "url('admin', ['section' => 'organizations'])"), 'Clients must be a primary sidebar destination that opens company records.');
 assert_admin_ui(
     strpos($header, "url('admin', ['section' => 'settings'])") > strpos($header, '<!-- Active timers'),
@@ -73,9 +77,6 @@ foreach ([
     '.ticket-search-wrap .search-icon',
     'inset-inline-start: 0.65rem',
     '.ticket-search-input',
-    'padding-block: 0.35rem',
-    'padding-inline-start: 1.85rem',
-    'padding-inline-end: 0.5rem',
     'width: 100%',
     '.ticket-search-wrap { width: 12rem; }',
 ] as $needle) {
@@ -86,6 +87,12 @@ preg_match('/\\.ticket-search-input\\s*\\{(?P<block>.*?)\\}/s', $ui_css, $ticket
 preg_match('/\\.ticket-search-input::placeholder\\s*\\{(?P<block>.*?)\\}/s', $ui_css, $ticket_placeholder_match);
 preg_match('/\\.ticket-search-input:focus\\s*\\{(?P<block>.*?)\\}/s', $ui_css, $ticket_focus_match);
 assert_admin_ui(!str_contains($ticket_input_match['block'] ?? '', 'width: 2rem;'), 'Ticket search must not collapse to an icon-only field.');
+$ticket_input_rules = $ticket_input_match['block'] ?? '';
+assert_admin_ui(
+    str_contains($ticket_input_rules, 'padding: 0.35rem 0.5rem 0.35rem 1.85rem;')
+        || str_contains($ticket_input_rules, 'padding-inline-start: 1.85rem;'),
+    'Ticket search must reserve space next to its icon.'
+);
 assert_admin_ui(!str_contains($ticket_placeholder_match['block'] ?? '', 'color: transparent;'), 'Ticket search placeholder must stay readable.');
 assert_admin_ui(!str_contains($ticket_focus_match['block'] ?? '', 'width:'), 'Ticket search width must not jump on focus.');
 
@@ -122,19 +129,18 @@ assert_admin_ui(!str_contains($page_header, "include BASE_PATH . '/includes/comp
 assert_admin_ui(str_contains($page_header, "\$is_admin_child_page"), 'Admin child pages must use the compact Settings breadcrumb contract.');
 assert_admin_ui(str_contains($page_header, "url('admin', ['section' => 'settings'])"), 'Admin child breadcrumbs must link back to Settings.');
 
+assert_admin_ui(str_contains($admin_settings, 'render_admin_settings_tabs($tab)'), 'Settings must render the shared section navigation.');
 foreach ([
-    'data-settings-management',
-    'render_admin_settings_management_links',
+    'settings-section-nav',
     "url('admin', ['section' => 'users'])",
     "url('admin', ['section' => 'clients'])",
     "url('admin', ['section' => 'organizations'])",
     "url('admin', ['section' => 'statuses'])",
     "url('admin', ['section' => 'recurring-tasks'])",
-    "url('admin', ['section' => 'reports'])",
-    "url('admin', ['section' => 'reports-list'])",
-    "url('admin', ['section' => 'activity'])",
+    "url('admin', ['section' => 'reports', 'tab' => 'time'])",
+    "'logs' => ['label' => t('Activity')",
 ] as $needle) {
-    assert_admin_ui(str_contains($admin_settings . "\n" . $admin_nav . "\n" . $admin_settings_tabs, $needle), 'Settings must expose moved admin area: ' . $needle);
+    assert_admin_ui(str_contains($admin_settings_tabs, $needle), 'Settings navigation must expose admin area: ' . $needle);
 }
 
 foreach ([

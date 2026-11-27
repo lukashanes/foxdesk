@@ -55,7 +55,14 @@ npm run test:css-build
 npm run test:core-parity
 npm run test:shared-behavior
 npm run test:security-boundary
+npm run test:critical-paths
 ```
+
+The critical-path suite uses PHP CLI with PDO SQLite and temporary in-memory
+fixtures. For `npm run test:schema-migration`, set `FOXDESK_SCHEMA_INTEGRATION=1`
+and point the `FOXDESK_SCHEMA_DB_HOST`, `FOXDESK_SCHEMA_DB_PORT`,
+`FOXDESK_SCHEMA_DB_USER` and `FOXDESK_SCHEMA_DB_PASS` environment variables at
+a disposable MariaDB instance. The test creates and drops its own database.
 
 Run `npm run test:i18n` for localization work. Run the relevant module contract
 tests for PHP behavior. A UI pull request should include light, dark, desktop,
