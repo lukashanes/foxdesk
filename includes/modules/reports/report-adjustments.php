@@ -56,12 +56,6 @@ function report_update_entry_rate(int $entry_id, float $rate): void
     ], 'id = ?', [$entry_id]);
 }
 
-function report_entry_rounded_actual_minutes(array $entry, int $rounding): int
-{
-    $actual_minutes = report_entry_enrich($entry, $rounding)['actual_minutes'];
-    return function_exists('round_minutes_nearest') ? round_minutes_nearest($actual_minutes, $rounding) : $actual_minutes;
-}
-
 function report_rate_for_adjustment(array $entry, string $action, float $value, int $rounding, ?int $shared_billable_minutes = null): ?float
 {
     if ($action === 'set_rate') {
@@ -87,7 +81,7 @@ function report_rate_for_adjustment(array $entry, string $action, float $value, 
     if ($action === 'target_total') {
         $minutes = $shared_billable_minutes;
         if ($minutes === null) {
-            $minutes = report_entry_rounded_actual_minutes($entry, $rounding);
+            $minutes = billing_review_entry_actual_minutes($entry);
         }
         return function_exists('billing_review_rate_from_target_amount')
             ? billing_review_rate_from_target_amount($value, $minutes)
@@ -139,10 +133,7 @@ function report_handle_bulk_billable_update(array $post, int $rounding): void
             flash(t('Enter a valid target total.'), 'error');
             report_redirect_current();
         }
-        $shared_minutes = 0;
-        foreach ($entries as $entry) {
-            $shared_minutes += report_entry_rounded_actual_minutes($entry, $rounding);
-        }
+        $shared_minutes = array_sum(array_map('billing_review_entry_actual_minutes', $entries));
         if ($shared_minutes <= 0) {
             flash(t('Selected items have no billable time.'), 'error');
             report_redirect_current();

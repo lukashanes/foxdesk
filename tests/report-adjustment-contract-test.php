@@ -15,10 +15,7 @@ if (!function_exists('t')) {
 if (!function_exists('round_minutes_nearest')) {
     function round_minutes_nearest($minutes, $rounding) { return (int) ceil($minutes / max(1, $rounding)) * max(1, $rounding); }
 }
-if (!function_exists('calculate_timer_elapsed')) {
-    function calculate_timer_elapsed($entry) { return (int) ($entry['elapsed_seconds'] ?? 0); }
-}
-
+require_once $root . '/includes/ticket-time-functions.php';
 require_once $root . '/includes/modules/reports/report-totals.php';
 require_once $root . '/includes/modules/reports/billing-review.php';
 require_once $root . '/includes/modules/reports/report-adjustments.php';
@@ -36,7 +33,6 @@ foreach ([
     'function report_handle_bulk_billable_update',
     'function report_handle_single_billable_adjustment',
     'function report_rate_for_adjustment',
-    'function report_entry_rounded_actual_minutes',
     'bulk_update_billable_entries',
     'adjust_billable_entry',
     'save_agent_client_rate',
@@ -62,7 +58,45 @@ $entry = [
     'billable_rate' => 0,
 ];
 $rate = report_rate_for_adjustment($entry, 'target_total', 3000.0, 15);
-$assert($rate !== null && abs($rate - 2000.0) < 0.001, 'Target total must use actual rounded minutes even before an item is billable.');
+$assert($rate !== null && abs($rate - 2000.0) < 0.001, 'Target total must be available even before an item is billable.');
 $assert(report_rate_for_adjustment($entry, 'discount_percent', 110.0, 15) === null, 'Invalid discount percent must be rejected.');
+
+$partial = ['duration_minutes' => 17, 'is_billable' => 0];
+$rate = report_rate_for_adjustment($partial, 'target_total', 170.0, 15);
+$after = report_entry_enrich(array_merge($partial, ['billable_rate' => round($rate, 2), 'is_billable' => 1]), 15);
+$assert(abs($after['billable_amount'] - 170.0) < 0.001, 'A target amount must match the report total for time between rounding steps.');
+$assert(report_rate_for_adjustment(['duration_minutes' => 0], 'target_total', 120.0, 15) === null, 'A positive target cannot be assigned without any minutes.');
+
+final class ReportAdjustmentFlash extends RuntimeException
+{
+}
+
+function flash($message, $type): void
+{
+    throw new ReportAdjustmentFlash($type);
+}
+
+$fixture_entries = [
+    ['id' => 1, 'duration_minutes' => 17, 'is_billable' => 1],
+    ['id' => 2, 'duration_minutes' => 11, 'is_billable' => 1],
+];
+$saved_rates = [];
+function db_fetch_all($sql, $ids): array
+{
+    return array_values(array_filter($GLOBALS['fixture_entries'], static fn($entry) => in_array($entry['id'], $ids, true)));
+}
+function db_update($table, $values, $where, $ids): void
+{
+    $GLOBALS['saved_rates'][$ids[0]] = $values['billable_rate'];
+}
+
+$flash_type = null;
+try {
+    report_handle_bulk_billable_update(['entry_ids' => [1, 2], 'bulk_action' => 'target_total', 'bulk_target_total' => '280'], 15);
+} catch (ReportAdjustmentFlash $e) {
+    $flash_type = $e->getMessage();
+}
+$assert($flash_type === 'success' && $saved_rates === [1 => 600.0, 2 => 600.0],
+    'Bulk adjustment must divide the target by summed actual minutes and save that rate on both items.');
 
 echo "Report adjustment contract OK\n";

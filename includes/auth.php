@@ -853,7 +853,7 @@ function api_idempotency_store_success(array $response): void
     }
     try {
         db_update('api_idempotency_keys', [
-            'response_json' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'response_json' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             'status_code' => http_response_code() ?: 200,
             'expires_at' => date('Y-m-d H:i:s', time() + 2592000),
         ], 'id = ? AND request_hash = ?', [(int) $state['reservation_id'], (string) $state['request_hash']]);
