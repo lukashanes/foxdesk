@@ -819,11 +819,18 @@ function migration_cloud_sync_state(): array
     $default = migration_cloud_empty_sync_state();
     $state = array_replace_recursive($default, $state);
 
+    // The offset belongs to a position in the saved queue. New or missing
+    // tables in the current schema must not move that position.
+    foreach (['tables' => migration_cloud_chunk_tables(), 'post_attachment_tables' => migration_cloud_post_attachment_tables()] as $key => $allowed) {
+        $saved_tables = $decoded[$key] ?? null;
+        $state[$key] = is_array($saved_tables)
+            ? array_values(array_map(static fn($table) => in_array($table, $allowed, true) ? $table : null, $saved_tables))
+            : $default[$key];
+    }
+
     $state['stage'] = in_array((string) ($state['stage'] ?? ''), ['idle', 'plan', 'tables', 'attachments', 'post_attachment_tables', 'complete'], true)
         ? (string) $state['stage']
         : 'idle';
-    $state['tables'] = migration_cloud_sync_tables_for_web((array) ($state['tables'] ?? []));
-    $state['post_attachment_tables'] = migration_cloud_sync_tables_for_web((array) ($state['post_attachment_tables'] ?? []));
     $state['current_table_index'] = max(0, (int) ($state['current_table_index'] ?? 0));
     $state['offset'] = max(0, (int) ($state['offset'] ?? 0));
     $state['attachment_offset'] = max(0, (int) ($state['attachment_offset'] ?? 0));
@@ -914,7 +921,7 @@ function migration_cloud_sync_one_table_batch(array &$state, string $cloud_url, 
     $index = max(0, (int) ($state['current_table_index'] ?? 0));
     $limit = max(1, min(1000, (int) ($state['limits']['rows'] ?? 250)));
 
-    while ($index < count($tables) && !table_exists($tables[$index])) {
+    while ($index < count($tables) && ($tables[$index] === null || !table_exists($tables[$index]))) {
         $index++;
         $state['current_table_index'] = $index;
         $state['offset'] = 0;

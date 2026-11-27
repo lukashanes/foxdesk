@@ -25,6 +25,13 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm ci
 
+      - name: API, client scope, migration and billing runtime regressions
+        run: |
+          php tests/api-idempotency-runtime-test.php
+          php tests/client-overview-scope-test.php
+          php tests/cloud-migration-checkpoint-test.php
+          php tests/report-adjustment-contract-test.php
+
       - name: Documentation contracts
         run: npm run test:docs
 

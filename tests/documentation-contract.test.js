@@ -63,4 +63,15 @@ assert(
 );
 assert(!documents['MANUAL.md'].includes('Admin >'), 'The manual contains a stale Admin > navigation path.');
 
+const router = read('includes/api/router.php');
+const api = read('docs/API.md');
+const registeredActions = [...router.matchAll(/^\s+'([\w-]+)'\s*=>\s*'api_\w+'/gm)].map(([, action]) => action);
+const documentedActions = [...api.matchAll(/^\| ([^|]+) \| (?:GET|POST)\*? \|/gm)]
+  .flatMap(([, cell]) => [...cell.matchAll(/`([\w-]+)`/g)].map(([, action]) => action));
+assert(registeredActions.length > 0, 'No actions found in the API router.');
+assert(
+  JSON.stringify(documentedActions.sort()) === JSON.stringify(registeredActions.sort()),
+  'docs/API.md must list every registered API action once.',
+);
+
 console.log('Documentation contract OK');
