@@ -16,14 +16,10 @@ function api_error($message, $status = 400): void
     throw new AppLogTimeValidationException((string) $message, (int) $status);
 }
 
-function foxdesk_normalize_backdated_datetime_input($value)
-{
-    $timestamp = strtotime(trim((string) $value));
-    return $timestamp === false ? false : date('Y-m-d H:i:s', $timestamp);
-}
-
-require_once dirname(__DIR__) . '/includes/ticket-time-functions.php';
-require_once dirname(__DIR__) . '/includes/api/app-handler.php';
+define('BASE_PATH', dirname(__DIR__));
+require_once BASE_PATH . '/includes/functions.php';
+require_once BASE_PATH . '/includes/api/app-handler.php';
+date_default_timezone_set('UTC');
 
 $assert = static function (bool $condition, string $message): void {
     if (!$condition) {
@@ -63,10 +59,25 @@ $derived = api_app_resolve_log_time_input([
 ]);
 $assert($derived['time_precision'] === 'derived' && $derived['started_at'] === '2026-05-25 21:18:00', 'Derived precision may carry known times.');
 
+foreach ([1, 1440] as $duration) {
+    $resolved = api_app_resolve_log_time_input([
+        'duration_minutes' => $duration,
+        'worked_on' => '2024-02-29',
+    ]);
+    $assert($resolved['worked_on'] === '2024-02-29'
+        && strtotime($resolved['ended_at']) - strtotime($resolved['started_at']) === $duration * 60,
+        'Leap day and inclusive duration boundary must be accepted: ' . $duration);
+}
+
 foreach ([
     ['duration_minutes' => 1441],
     ['duration_minutes' => 20, 'started_at' => '2026-05-25 22:06:00', 'ended_at' => '2026-05-25 21:18:00'],
     ['duration_minutes' => 30, 'started_at' => '2026-05-25 21:18:00', 'ended_at' => '2026-05-25 22:06:00'],
+    ['duration_minutes' => 0],
+    ['duration_minutes' => 20, 'worked_on' => '2025-02-29'],
+    ['duration_minutes' => 20, 'started_at' => '2025-02-29 12:00'],
+    ['duration_minutes' => 20, 'time_precision' => 'exact', 'worked_on' => '2024-02-29'],
+    ['duration_minutes' => 20, 'time_precision' => 'unsupported', 'worked_on' => '2024-02-29'],
 ] as $invalid) {
     try {
         api_app_resolve_log_time_input($invalid);

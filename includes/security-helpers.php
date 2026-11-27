@@ -90,7 +90,7 @@ function csrf_is_valid($token = null)
     if ($token === null) {
         $token = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
     }
-    if ($session_token === '' || $token === '') {
+    if ($session_token === '' || !is_string($token) || $token === '') {
         return false;
     }
     return hash_equals($session_token, $token);
