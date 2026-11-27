@@ -39,3 +39,6 @@ jobs:
 
       - name: Validate self-hosted parity metadata
         run: npm run test:core-parity
+
+      - name: Backup restore and CSV export
+        run: npm run test:operations

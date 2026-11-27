@@ -49,24 +49,25 @@ It runs on ordinary PHP hosting, a VPS, or Docker. There is no per-agent fee, no
 
 ### With Docker Compose and the prebuilt image
 
-Every release is published as an image for amd64 and arm64: `ghcr.io/lukashanes/foxdesk:<version>`. Nothing is built on your machine.
+Use a pinned FoxDesk image for amd64 or arm64, `ghcr.io/lukashanes/foxdesk:<version>`. Copy the Compose template and set `DB_PASSWORD`, `DB_ROOT_PASSWORD`, and `FOXDESK_IMAGE` in your local `.env` before pulling the image.
 
 ```bash
 git clone https://github.com/lukashanes/foxdesk.git
 cd foxdesk
-cp .env.example .env          # set DB_PASSWORD and DB_ROOT_PASSWORD
-echo "FOXDESK_IMAGE=ghcr.io/lukashanes/foxdesk:0.3.153" >> .env
+cp .env.example .env
+# Edit .env before continuing.
 docker compose pull app cron
 docker compose up -d --no-build
+docker compose ps
 ```
 
 Open `http://localhost:8080/install.php` and use `db` as the database host with the credentials from `.env`. Use the newest version from [Releases](https://github.com/lukashanes/foxdesk/releases) and pin it instead of `latest`, so a restart never changes the release unexpectedly.
 
-The stack includes PHP 8.2 with Apache, MariaDB 11, a scheduler container for background tasks, and persistent volumes for configuration, uploads, and backups. Backups, upgrades, and HTTPS proxy examples are in the [Docker guide](docs/DOCKER.md).
+The stack includes PHP 8.2 with Apache, MariaDB 11, a scheduler container for background tasks, and persistent volumes for the application, database, configuration, uploads, storage, and backups. See the [operations guide in Czech](docs/PROVOZ.md) and the [Docker guide](docs/DOCKER.md).
 
 ### With Docker Compose, built from source
 
-Skip the `FOXDESK_IMAGE`, `pull` and `--no-build` lines above and build the image locally instead:
+Set the database variables in `.env` and leave `FOXDESK_IMAGE` unset to use the local image name. Build from the repository files with:
 
 ```bash
 docker compose up -d --build
@@ -76,7 +77,7 @@ docker compose up -d --build
 
 1. [Download the latest release](https://github.com/lukashanes/foxdesk/releases/latest) and extract it on the server.
 2. Create an empty MySQL or MariaDB database.
-3. Open `https://your-domain.example/install.php`, enter the database credentials, and complete the installer. It creates the tables and writes `config.php`.
+3. Open `https://your-domain.example/install.php` and complete the database and administrator steps. The installer creates the schema, applies migrations, and generates `config.php`.
 4. Delete `install.php`, sign in, and create the first client organization.
 
 | Requirement | Minimum |
@@ -171,7 +172,7 @@ FoxDesk 0.3.153 (November 18, 2026) fixes time windows when PHP and the database
 
 The [latest release page](https://github.com/lukashanes/foxdesk/releases/latest) always shows the current version, its changelog, and its download assets. Earlier versions are listed under [GitHub Releases](https://github.com/lukashanes/foxdesk/releases).
 
-Use the in-app updater or download the release assets. Every release includes upgrade notes, rollback guidance, a manifest, and SHA-256 evidence. Docker installations use the same in-app updater; see [Updating FoxDesk](docs/DOCKER.md#updating-foxdesk) in the Docker guide.
+Use **Settings > System > Updates** to install an available release or upload its update ZIP. With Docker you can also pull a newer pinned image or rebuild from newer source. Take a full backup of the database, configuration, uploads, and storage before changing versions. The restore action under **Backups** restores application files. For database recovery and troubleshooting, see the [operations guide](docs/PROVOZ.md).
 
 ## Development
 
@@ -188,14 +189,21 @@ bin/                   Maintenance, localization, build, and audit tools
 tests/                 PHP contracts and Playwright workflows
 ```
 
-Install JavaScript test dependencies with `npm ci`. The most important repository checks are:
+Use Node.js 20 and PHP CLI 8.2 to match CI. The PHP scripts need a POSIX shell and the operations tests use PHP's `zip` extension. To build the stylesheet and run the main local checks:
 
 ```bash
+npm ci
+npm run build:css
+npm run lint:php
+npm run test:docs
 npm run test:i18n
 npm run test:shared-behavior
 npm run test:core-parity
 npm run test:security-boundary
+npm run test:operations
 ```
+
+See [local checks and their prerequisites](docs/PROVOZ.md#build-a-lokální-testy) for standalone tests, MariaDB integration checks, and Playwright.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Questions and installation help belong in [GitHub Discussions](https://github.com/lukashanes/foxdesk/discussions). Reproducible bugs belong in [GitHub Issues](https://github.com/lukashanes/foxdesk/issues).
 
